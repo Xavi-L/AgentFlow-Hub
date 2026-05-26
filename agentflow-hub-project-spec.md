@@ -67,6 +67,8 @@
 - RAG 召回记录。
 - Agent trace 展示。
 - 轻量评测集。
+- Agent Episode Package。
+- 工具策略检查与运行治理。
 
 ---
 
@@ -113,9 +115,9 @@ V1.0 之前必须跑通这条闭环：
 | 版本 | 定位 | 目标 |
 | --- | --- | --- |
 | V0.1 | 最小闭环 Demo | 跑通一次完整 Agent 任务 |
-| V1.0 | 简历可用版本 | 功能完整、工程化明确、能面试讲 |
-| V1.5 | 加分增强版本 | 增强稳定性、评测、可观测性 |
-| V2.0 | 远期扩展版本 | 工作流、多 Agent、MCP 深度集成 |
+| V1.0 | 简历可用版本 | 功能完整、工程化明确，补充轻量 Agent Runtime Harness |
+| V1.5 | 加分增强版本 | 增强稳定性、评测、可观测性和 Evaluation Harness |
+| V2.0 | 远期扩展版本 | 工作流、多 Agent、受控 MCP 深度集成 |
 
 主攻目标：
 
@@ -427,10 +429,12 @@ Trace 页面至少展示：
 - 每一步思考/动作。
 - 工具调用入参。
 - 工具调用出参。
+- 策略检查结果。
 - 每次 LLM 耗时。
 - token 消耗。
 - 最终答案。
 - 失败原因。
+- Episode Package 导出入口。
 
 暂不做：
 
@@ -496,6 +500,7 @@ V1.0 必须页面：
 
 - Hybrid Search。
 - Rerank。
+- Evaluation Harness。
 - Prompt 版本对比。
 - Agent 执行失败分类统计。
 - 用户级 token 成本统计。
@@ -517,7 +522,7 @@ V1.5 目标：
 
 仅作为规划，不作为当前主攻：
 
-- MCP Server 接入。
+- 受控 MCP Server 接入。
 - 多 Agent 协作。
 - 可视化工作流编排。
 - 企业组织空间。
@@ -538,11 +543,14 @@ V1.5 目标：
 - 企业知识库 RAG。
 - 可配置 Agent。
 - 工具注册与调用。
+- Agent Runtime Harness 轻量能力。
 - 异步任务执行。
 - SSE 流式响应。
 - Agent 执行状态机。
 - LLM 调用 trace。
 - RAG 召回记录。
+- Agent Episode Package。
+- 工具策略检查。
 - 轻量评测系统。
 - Docker 化部署。
 
@@ -552,6 +560,7 @@ V1.5 目标：
 - 模型训练平台。
 - 复杂多 Agent 框架。
 - 完整 MCP 生态。
+- 任意 MCP Server 自动发现。
 - Kubernetes 生产级部署。
 - 华丽前端。
 - 插件市场。
@@ -593,6 +602,7 @@ V1.5 目标：
 - Web 前端：Vue 3 管理后台。
 - 后端 API：Spring Boot 模块化单体。
 - Agent 执行引擎：负责任务状态机、RAG、工具调用和最终生成。
+- Agent Runtime Harness：负责 episode package、策略检查、评测复盘支撑。
 - RAG 服务：负责文档切分、embedding、向量检索和引用溯源。
 - 工具运行时：负责工具注册、参数校验、权限、执行和日志。
 - 异步任务系统：负责文档解析、向量化、Agent 执行等耗时任务。
@@ -616,7 +626,11 @@ flowchart LR
     AgentEngine --> RagService["RAG 服务"]
     AgentEngine --> ToolRuntime["工具运行时"]
     AgentEngine --> LlmGateway["LLM Gateway"]
+    AgentEngine --> Harness["Agent Runtime Harness"]
     AgentEngine --> Trace
+    Harness --> Trace
+    Harness --> Evaluation["评测模块"]
+    ToolRuntime --> PolicyGuard["PolicyGuard"]
 
     KB --> DocPipeline["文档解析与向量化流程"]
     DocPipeline --> MinIO["MinIO 文件存储"]
@@ -654,6 +668,7 @@ com.agentflow
   knowledge       知识库、文档、chunk 元数据
   rag             embedding、检索、rerank、RAG prompt
   agent           Agent 配置、Agent 执行引擎、状态机
+  harness         Episode Package、PolicyGuard、评测复盘支撑
   tool            工具注册、工具 schema、工具运行时
   task            异步任务、任务状态、SSE 推送
   trace           LLM 调用记录、Agent step、工具调用记录、RAG 召回记录
@@ -668,6 +683,7 @@ com.agentflow
 - `repository/mapper` 只负责数据访问。
 - `infra` 封装外部依赖，业务层不直接调用第三方 SDK。
 - `agent` 可以依赖 `rag`、`tool`、`trace`，但反向依赖要避免。
+- `harness` 可以依赖 `agent`、`tool`、`trace`、`evaluation`，但不接管主执行流程。
 - `trace` 应尽量作为基础记录能力，被其他模块调用。
 
 ---
@@ -1019,6 +1035,7 @@ LlmGateway
 - 工具系统设计：[agentflow-hub-tool-system-design.md](./agentflow-hub-tool-system-design.md)
 - 前端页面与交互设计：[agentflow-hub-frontend-design.md](./agentflow-hub-frontend-design.md)
 - 开发实施顺序与里程碑边界：[agentflow-hub-implementation-roadmap.md](./agentflow-hub-implementation-roadmap.md)
+- Agent Runtime Harness 设计：[agentflow-hub-agent-harness-design.md](./agentflow-hub-agent-harness-design.md)
 
 ---
 
@@ -1035,6 +1052,7 @@ LlmGateway
 - Agent 执行引擎。
 - RAG 知识库流程。
 - 工具系统。
+- Agent Runtime Harness。
 - 前端页面和交互。
 - 开发实施顺序和里程碑。
 

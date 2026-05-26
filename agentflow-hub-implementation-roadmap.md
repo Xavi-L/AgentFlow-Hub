@@ -105,8 +105,8 @@ V1.0 再补：
 | M4 | Agent 最小执行闭环 | V0.1 核心 | 前置 RAG、工具调用、最终回答、基础 Trace |
 | M5 | SSE 对话演示 | 可演示 | 对话页实时展示 Agent 执行过程 |
 | M6 | V0.1 收口 | 最小闭环稳定 | 可跑完整支付失败诊断 demo |
-| M7 | V1.0 工程化补齐 | 简历可用 | 权限、异步、工具注册、Trace、评测、前端完整化 |
-| M8 | V1.5 加分增强 | 加分项 | rerank、Hybrid Search、限流、压测、成本统计 |
+| M7 | V1.0 工程化补齐 | 简历可用 | 权限、异步、工具注册、Trace、轻量 Harness、评测、前端完整化 |
+| M8 | V1.5 加分增强 | 加分项 | Evaluation Harness、rerank、Hybrid Search、限流、压测、成本统计 |
 
 ---
 
@@ -615,13 +615,27 @@ V0.1 可以：
 补齐：
 
 - 完整 Trace 聚合 API。
+- Agent Episode Package 聚合 API。
 - Trace 页面 tabs。
 - Prompt 和 response 折叠展示。
 - RAG contentSnapshot 展示。
 - Tool arguments/result 展示。
+- Policy check 展示。
 - Event 回放。
 
-### 10.8 评测
+### 10.8 轻量 Agent Runtime Harness
+
+补齐：
+
+- Episode Package 轻量版。
+- `GET /api/v1/tasks/{taskId}/episode` 聚合接口。
+- `GET /api/v1/tasks/{taskId}/episode/export` 导出接口。
+- ToolRuntime 执行前的 PolicyGuard。
+- policy check 记录。
+- `ALLOW` / `WARN` / `BLOCK` / `REVIEW` 四类策略决策。
+- Trace 页面展示 episode summary 和 policy checks。
+
+### 10.9 评测
 
 补齐轻量版：
 
@@ -633,7 +647,7 @@ V0.1 可以：
 - RAG 命中文档判断。
 - Agent 是否调用预期工具。
 
-### 10.9 前端
+### 10.10 前端
 
 补齐：
 
@@ -645,7 +659,7 @@ V0.1 可以：
 - Evaluation 页面。
 - 更完整空状态和错误状态。
 
-### 10.10 V1.0 验收标准
+### 10.11 V1.0 验收标准
 
 V1.0 必须做到：
 
@@ -657,8 +671,10 @@ V1.0 必须做到：
 6. Agent 可以完成支付失败诊断示例。
 7. Trace 页面可以完整回放任务链路。
 8. 工具调用、RAG 召回、LLM 调用都有日志。
-9. 用户可以创建评测集并运行轻量评测。
-10. Docker Compose 可以启动核心依赖。
+9. 任务可以导出 Agent Episode Package。
+10. 工具执行前经过 PolicyGuard 轻量策略检查。
+11. 用户可以创建评测集并运行轻量评测。
+12. Docker Compose 可以启动核心依赖。
 
 ---
 
@@ -670,6 +686,8 @@ V1.0 必须做到：
 
 ### 11.2 推荐增强
 
+- Evaluation Harness。
+- Prompt / RAG 参数对比评测。
 - Rerank。
 - Hybrid Search。
 - Redis 用户级限流。
@@ -686,7 +704,7 @@ V1.0 必须做到：
 
 - Kubernetes。
 - 多 Agent。
-- MCP 完整接入。
+- MCP 完整接入，V2.0 可做受控 MCP Adapter。
 - 拖拽工作流。
 - 插件市场。
 - 复杂 BI 仪表盘。
@@ -725,8 +743,10 @@ V1.0 必须做到：
 26. 引入 RabbitMQ。
 27. 补 Agent 绑定、Prompt 版本、conversation。
 28. 补工具管理页。
-29. 补评测模块。
-30. 收口 V1.0。
+29. 补 Agent Episode Package 聚合 API。
+30. 补 PolicyGuard 轻量策略检查。
+31. 补评测模块。
+32. 收口 V1.0。
 
 ---
 
@@ -756,6 +776,7 @@ V1.0 必须做到：
 - 基础 Trace 记录。
 - ToolRuntime 调用链路。
 - SSE 事件模型。
+- PolicyGuard 策略检查链路。
 
 原因：
 
@@ -985,6 +1006,7 @@ V1.0 可以认为完成，当满足：
 - Agent 可以绑定多个知识库和多个工具。
 - Agent 对话页支持 SSE。
 - Trace 页面完整可用。
+- Trace 页面可以查看 episode summary 和 policy checks。
 - 工具系统支持启停、测试和日志。
 - 评测模块可以创建 case 并运行。
 - README 能让别人按步骤跑通 demo。
@@ -998,6 +1020,7 @@ V1.0 前不做：
 - Kubernetes。
 - 多 Agent 协作。
 - MCP 完整接入。
+- 任意 MCP Server 自动发现。
 - HTTP 工具开放平台。
 - 拖拽工作流。
 - 插件市场。

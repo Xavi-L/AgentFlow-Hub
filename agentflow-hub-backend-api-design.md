@@ -116,6 +116,13 @@ com.agentflow
     model
     dto
 
+  harness
+    service
+    policy
+    episode
+    model
+    dto
+
   evaluation
     controller
     service
@@ -150,6 +157,7 @@ com.agentflow
 - `tool`：工具注册中心和工具运行时。
 - `task`：异步任务、状态、SSE 事件。
 - `trace`：Agent trace、LLM 调用、RAG hit、工具调用日志。
+- `harness`：Episode Package、PolicyGuard、评测复盘支撑。
 - `evaluation`：轻量评测。
 - `demo`：模拟订单、支付日志、工单数据源。
 - `infra`：LLM、向量库、MinIO、RabbitMQ、Redis 等外部适配。
@@ -270,7 +278,23 @@ com.agentflow
 - 修改业务状态。
 - 执行 Agent。
 
-### 3.8 evaluation
+### 3.8 harness
+
+职责：
+
+- Agent Episode Package 聚合。
+- episode 导出。
+- PolicyGuard 策略检查。
+- policy check 记录。
+- 为 Evaluation Harness 提供运行证据。
+
+不负责：
+
+- 替代 AgentEngine 执行任务。
+- 直接执行工具。
+- 修改知识库或业务数据。
+
+### 3.9 evaluation
 
 职责：
 
@@ -614,7 +638,33 @@ public interface ToolRuntime {
 }
 ```
 
-### 7.7 TaskEventPublisher
+### 7.7 AgentRuntimeHarness
+
+用途：
+
+> 聚合 Agent Episode Package，并为评测和 Trace 回放提供统一运行证据。
+
+```java
+public interface AgentRuntimeHarness {
+    AgentEpisode buildEpisode(Long taskId, Long userId);
+
+    AgentEpisode exportEpisode(Long taskId, Long userId);
+}
+```
+
+### 7.8 PolicyGuard
+
+用途：
+
+> 在 ToolRuntime 执行工具前进行策略检查。
+
+```java
+public interface PolicyGuard {
+    PolicyDecision check(PolicyCheckCommand command);
+}
+```
+
+### 7.9 TaskEventPublisher
 
 用途：
 
@@ -1047,6 +1097,9 @@ Trace 是项目演示核心。
 | GET | `/api/v1/tasks/{taskId}/llm-calls` | 查询 LLM 调用记录 |
 | GET | `/api/v1/tasks/{taskId}/rag-retrievals` | 查询 RAG 检索记录 |
 | GET | `/api/v1/tasks/{taskId}/tool-calls` | 查询工具调用记录 |
+| GET | `/api/v1/tasks/{taskId}/policy-checks` | 查询策略检查记录 |
+| GET | `/api/v1/tasks/{taskId}/episode` | 查询 Agent Episode Package |
+| GET | `/api/v1/tasks/{taskId}/episode/export` | 导出 Agent Episode Package |
 
 推荐前端主要调用：
 
@@ -1064,6 +1117,8 @@ GET /api/v1/tasks/{taskId}/trace
   "ragRetrievals": [],
   "llmCalls": [],
   "toolCalls": [],
+  "policyChecks": [],
+  "episodeSummary": {},
   "events": [],
   "finalAnswer": "..."
 }
@@ -1104,6 +1159,16 @@ V1.0 轻量实现。
 | GET | `/api/v1/eval-runs/{runId}/results` | 查询评测结果 |
 | PATCH | `/api/v1/eval-results/{resultId}/judge` | 人工标记结果 |
 
+### 15.4 Evaluation Harness 增强接口
+
+V1.5 可补充：
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/api/v1/eval-datasets/{datasetId}/runs/compare` | 启动 Prompt / RAG 参数对比评测 |
+| GET | `/api/v1/eval-runs/{runId}/episodes` | 查询评测运行关联的 episode 列表 |
+| GET | `/api/v1/eval-runs/{runId}/metrics` | 查询评测聚合指标 |
+
 ---
 
 ## 16. Demo Business API
@@ -1131,7 +1196,7 @@ V1.0 权限规则：
 - 未登录只能访问 `/auth/register`、`/auth/login`。
 - 普通用户只能访问自己的知识库、Agent、任务、评测集。
 - 管理员可以管理全局工具和 demo seed。
-- 工具调用权限由 Agent 绑定关系和 tool permission level 共同决定。
+- 工具调用权限由 Agent 绑定关系、tool permission level 和 PolicyGuard 共同决定。
 
 资源归属校验：
 
@@ -1139,6 +1204,7 @@ V1.0 权限规则：
 knowledge_base.user_id == current_user.id
 agent_app.user_id == current_user.id
 agent_task.user_id == current_user.id
+agent_episode.user_id == current_user.id
 eval_dataset.user_id == current_user.id
 ```
 
@@ -1184,9 +1250,10 @@ V1.0 API 应支持：
 4. 用户可以创建 Agent，绑定知识库和工具。
 5. 用户可以发起 Agent 任务，并通过 SSE 看到执行过程。
 6. 用户可以查看任务历史和完整 trace。
-7. 用户可以查看工具定义，并测试工具调用。
-8. 用户可以创建轻量评测集并运行评测。
-9. 管理员可以初始化 demo 数据。
+7. 用户可以查看或导出任务的 Agent Episode Package。
+8. 用户可以查看工具定义，并测试工具调用。
+9. 用户可以创建轻量评测集并运行评测。
+10. 管理员可以初始化 demo 数据。
 
 ---
 
@@ -1204,7 +1271,7 @@ V1.0 API 应支持：
    - 创建任务后返回 taskId。
    - 后端异步执行。
    - 前端通过 SSE 订阅任务事件。
-   - Trace API 可查看完整执行链路。
+   - Trace API 可查看完整执行链路，Episode API 可导出运行证据包。
 
 4. **外部依赖可替换**
    - LLM、向量库、文件存储都通过 Gateway 抽象，便于替换模型供应商或 Qdrant/pgvector。
@@ -1226,4 +1293,3 @@ V1.0 暂不设计：
 - 拖拽式工作流编排 API。
 - Kubernetes 运维 API。
 - 复杂管理员审计后台。
-

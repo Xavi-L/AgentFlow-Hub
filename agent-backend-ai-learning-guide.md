@@ -13,7 +13,7 @@
 这个项目应同时体现三类能力：
 
 - Java 后端工程能力：接口、数据库、缓存、异步任务、高并发、可观测性。
-- AI 应用工程能力：RAG、Tool Calling、Agent 状态机、流式输出、评测。
+- AI 应用工程能力：RAG、Tool Calling、Agent 状态机、流式输出、Agent Runtime Harness、评测。
 - 项目表达能力：能讲清楚业务场景、架构设计、性能问题、失败处理、线上可维护性。
 
 ---
@@ -27,7 +27,7 @@
 | 第三层 | 高并发与工程化 | 对齐大厂开发岗位要求 | 限流、异步任务、消息队列、重试、幂等、SSE |
 | 第四层 | RAG 知识库 | AI 应用最常见核心能力 | 文档解析、切分、向量检索、重排、引用溯源 |
 | 第五层 | Agent 与工具调用 | 形成差异化亮点 | Planner、工具注册、权限、执行轨迹、状态机 |
-| 第六层 | LLMOps 与评测 | 体现工程化和线上意识 | token 成本、延迟、trace、反馈、评测集 |
+| 第六层 | LLMOps、Harness 与评测 | 体现工程化和线上意识 | token 成本、延迟、trace、episode、策略检查、评测集 |
 
 ---
 
@@ -436,7 +436,9 @@ Redis 可以用于：
   - RAG 召回记录。
   - LLM 调用记录。
   - 工具调用记录。
+  - PolicyGuard 策略检查记录。
   - Agent step 记录。
+  - Agent Episode Package。
   - 最终答案记录。
 
 - 评测
@@ -463,6 +465,8 @@ Redis 可以用于：
 - 查看每一步 LLM 调用的 prompt、响应、token、耗时。
 - 查看每次 RAG 召回的 chunk、分数、来源。
 - 查看每次工具调用的入参、出参、耗时、错误。
+- 查看工具调用前的策略检查结果。
+- 导出一次 Agent 运行的 Episode Package。
 - 对回答进行点赞、点踩、反馈。
 - 维护一组评测问题。
 - 一键运行评测集。
@@ -633,6 +637,7 @@ Kubernetes 可以了解，但不建议作为初期重点。
 | 向量检索 | Embedding、pgvector/Qdrant/Milvus | RAG 检索核心 |
 | 召回优化 | Hybrid Search、Rerank、Query Rewrite | 提升 RAG 质量 |
 | Agent 执行引擎 | 状态机、Tool Calling、Planner | Agent 工程化能力 |
+| Agent Runtime Harness | Episode Package、PolicyGuard、回归评测 | 可回放、可治理、可评测的 Agent 运行底座 |
 | 工具平台 | JSON Schema、权限、超时、重试 | 可扩展工具调用体系 |
 | 流式响应 | SSE、异步任务、任务状态 | 更好的用户体验 |
 | 调用观测 | traceId、日志、token、latency | LLMOps 意识 |
@@ -752,4 +757,3 @@ Kubernetes 可以了解，但不建议作为初期重点。
 最终目标不是“我学过这些技术”，而是：
 
 > 我用这些技术解决了一个真实 AI 应用系统中的工程问题。
-

@@ -910,6 +910,8 @@ V1.0 中普通用户可查看工具，管理员可启停工具。
 - RAG 召回。
 - LLM 调用。
 - 工具调用。
+- Policy checks。
+- Episode summary。
 - SSE 事件。
 - 最终回答。
 - 错误信息。
@@ -924,6 +926,7 @@ V1.0 中普通用户可查看工具，管理员可启停工具。
 - duration。
 - totalTokens。
 - totalCost。
+- episodeId。
 - startedAt。
 
 主体布局：
@@ -941,6 +944,8 @@ Steps
 RAG
 LLM Calls
 Tool Calls
+Policy Checks
+Episode
 Events
 Final Answer
 ```
@@ -959,6 +964,7 @@ Final Answer
 - errorCode。
 - errorMessage。
 - agentSnapshot。
+- episodeSummary。
 
 ### 18.4 Steps tab
 
@@ -1023,7 +1029,38 @@ prompt 和 response 默认折叠，避免页面过长。
 - result。
 - error。
 
-### 18.8 Events tab
+### 18.8 Policy Checks tab
+
+展示：
+
+- toolCode。
+- decision。
+- policyCodes。
+- reason。
+- createdAt。
+
+决策状态：
+
+```text
+ALLOW
+WARN
+BLOCK
+REVIEW
+```
+
+### 18.9 Episode tab
+
+展示：
+
+- episodeId。
+- task summary。
+- budget usage。
+- metrics。
+- export button。
+
+V1.0 只需要展示摘要和导出入口，不做复杂可视化。
+
+### 18.10 Events tab
 
 展示 SSE 事件回放：
 
@@ -1084,11 +1121,22 @@ prompt 和 response 默认折叠，避免页面过长。
 - toolCallMatch。
 - totalTokens。
 - duration。
+- episodeCount。
 
 V1.0 允许人工标记：
 
 - passed。
 - judgeComment。
+
+### 19.5 Evaluation Harness 增强
+
+V1.5 可加入：
+
+- Prompt 版本对比。
+- RAG 参数对比。
+- 模型配置对比。
+- 评测结果指标对比。
+- 点击 eval result 跳转对应 episode。
 
 ---
 
@@ -1357,7 +1405,9 @@ V1.0 前端应支持：
 11. 查看工具列表和工具详情。
 12. 查看任务历史。
 13. 查看完整 Trace。
-14. 创建轻量评测集并运行评测。
+14. 查看 episode summary 和 policy checks。
+15. 导出 Agent Episode Package。
+16. 创建轻量评测集并运行评测。
 
 ---
 
@@ -1366,9 +1416,10 @@ V1.0 前端应支持：
 推荐增强：
 
 - Trace 页面可视化时间轴。
+- Episode Package 导出体验增强。
 - RAG 命中 chunk 高亮。
 - Prompt 版本 diff。
-- 评测结果对比。
+- Evaluation Harness 结果对比。
 - 工具调用统计图。
 - token 成本趋势。
 - SSE 断线补偿。
@@ -1412,4 +1463,3 @@ V1.0 暂不做：
 - 前端低代码表单系统。
 
 这些内容会增加复杂度，但对当前找实习的项目价值不高。
-

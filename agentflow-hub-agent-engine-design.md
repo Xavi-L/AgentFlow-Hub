@@ -4,7 +4,7 @@
 
 核心结论：
 
-> AgentFlow Hub 不使用完全黑盒的 Agent 框架来托管执行流程，而是自研一个轻量、可控、可观测的 Agent 执行状态机。模型负责理解、规划和生成，后端负责状态、权限、预算、工具执行、日志、重试和失败处理。
+> AgentFlow Hub 不使用完全黑盒的 Agent 框架来托管执行流程，而是自研一个轻量、可控、可观测的 Agent 执行状态机。模型负责理解、规划和生成，后端负责状态、权限、预算、工具执行、策略检查、日志、重试和失败处理。V1.0 在 AgentEngine 之上补充轻量 Agent Runtime Harness，用于生成运行证据包和治理工具调用。
 
 ---
 
@@ -18,8 +18,10 @@ Agent 执行引擎要解决的问题：
 - 每一步都能保存、展示、回放。
 - 限制最大步数、工具调用次数、token 成本和执行时间。
 - 工具调用必须经过后端校验、权限和超时控制。
+- 工具调用必须经过 PolicyGuard 策略检查。
 - 支持 SSE 流式展示执行过程和最终答案。
 - 出错时能定位失败发生在哪一步。
+- 每次任务可以聚合为 Agent Episode Package，支持回放、导出和评测复盘。
 
 最终希望面试时能讲清楚：
 
@@ -44,6 +46,7 @@ AgentEngine 负责：
 - 判断是否继续执行。
 - 生成最终回答。
 - 记录 step、trace 和事件。
+- 调用 Harness 钩子生成 episode summary 和策略检查记录。
 - 处理取消、超时和失败。
 
 ### 2.2 AgentEngine 不负责什么
@@ -82,6 +85,9 @@ flowchart LR
     AgentEngine --> EventPublisher["TaskEventPublisher"]
     AgentEngine --> BudgetGuard["BudgetGuard"]
     AgentEngine --> CancellationService["CancellationService"]
+    AgentEngine --> Harness["AgentRuntimeHarness"]
+    Harness --> Episode["EpisodePackageService"]
+    ToolRuntime --> PolicyGuard["PolicyGuard"]
 ```
 
 对象职责：
@@ -98,6 +104,9 @@ flowchart LR
 | `TaskEventPublisher` | 保存并推送 SSE 事件 |
 | `BudgetGuard` | 检查步数、工具次数、token、耗时 |
 | `CancellationService` | 判断任务是否被用户取消 |
+| `AgentRuntimeHarness` | 聚合 episode、暴露 harness 钩子、支撑评测复盘 |
+| `EpisodePackageService` | 从 task、step、RAG、LLM、tool、event 聚合可导出的运行证据包 |
+| `PolicyGuard` | 在工具执行前做策略检查，输出 `ALLOW` / `WARN` / `BLOCK` / `REVIEW` |
 
 ---
 
@@ -315,7 +324,8 @@ flowchart TD
     D --> E["进入思考/工具调用循环"]
     E --> F{"模型返回动作"}
     F -->|工具调用| G["校验工具参数与权限"]
-    G --> H["执行工具"]
+    G --> PG["PolicyGuard 策略检查"]
+    PG --> H["执行工具或拒绝/等待确认"]
     H --> I["写入 observation"]
     I --> J{"是否超过预算或取消"}
     J -->|否| E
@@ -567,7 +577,7 @@ V1.0 不引入复杂动作类型。
 3. 后端确认 Agent 是否绑定该工具。
 4. 后端校验工具是否启用。
 5. 后端按 JSON Schema 校验 arguments。
-6. 后端检查工具权限和是否需要人工确认。
+6. PolicyGuard 检查工具权限、预算、重复调用和是否需要人工确认。
 7. ToolRuntime 执行工具。
 8. 保存 `tool_call_log`。
 9. 将工具结果写入 observations。
@@ -679,8 +689,11 @@ AgentEngine 通过 `TaskEventPublisher` 发布事件。
 | `LLM_FINISHED` | 模型调用完成 |
 | `TOOL_STARTED` | 工具调用开始 |
 | `TOOL_FINISHED` | 工具调用结束 |
+| `POLICY_CHECKED` | 工具策略检查完成 |
+| `CONFIRMATION_REQUIRED` | 工具调用需要人工确认 |
 | `TOKEN_DELTA` | 最终答案流式 token |
 | `STEP_FINISHED` | step 完成 |
+| `EPISODE_READY` | episode package 已聚合完成 |
 | `TASK_COMPLETED` | 任务完成 |
 | `TASK_FAILED` | 任务失败 |
 | `TASK_CANCELLED` | 任务取消 |
@@ -718,6 +731,14 @@ AgentEngine 通过 `TaskEventPublisher` 发布事件。
 
 - `tool_call_log`
 
+涉及策略检查时记录：
+
+- `policy_check_log`
+
+任务完成后可聚合：
+
+- `agent_episode`
+
 ### 14.2 Trace 与 Step 的关系
 
 推荐关系：
@@ -736,6 +757,8 @@ AgentEngine 通过 `TaskEventPublisher` 发布事件。
 - RAG 命中 chunk 快照。
 - 工具名称和参数快照。
 - 工具返回结果快照。
+- 策略检查结果快照。
+- 预算和成本快照。
 
 原因：
 
@@ -899,6 +922,9 @@ AgentPromptBuilder
 AgentStateMachine
 BudgetGuard
 AgentExecutionException
+AgentRuntimeHarness
+EpisodePackageService
+PolicyGuard
 ```
 
 ### 18.2 agent.state
@@ -973,6 +999,8 @@ V1.0 Agent 执行引擎应支持：
 8. 所有 step、LLM、RAG、tool 调用都可在 Trace 页面回放。
 9. 工具失败、LLM 失败、RAG 失败都有明确错误码。
 10. 历史任务结果不会因为 Agent 配置或知识库修改而失去可解释性。
+11. 工具执行前经过 PolicyGuard，策略结果进入 Trace。
+12. 每次任务可以聚合为 Agent Episode Package，用于导出、回放和评测复盘。
 
 ---
 
@@ -1012,6 +1040,7 @@ V1.0 暂不做：
 - 复杂可视化工作流。
 - 完整人工审批流。
 - Agent 沙箱代码执行。
+- 完整 Evaluation Harness。
+- 受控 MCP Adapter。
 
 这些内容作为 V2.0 扩展，不进入当前核心执行引擎。
-

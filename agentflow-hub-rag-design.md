@@ -775,6 +775,8 @@ RAG 指标：
 | Average Score | 命中 chunk 平均相似度 |
 | Citation Accuracy | 最终回答引用是否来自预期文档 |
 
+这些指标后续由 Evaluation Harness 聚合，并可回溯到对应 Agent Episode Package。
+
 V1.0 可以先实现：
 
 - Hit@K。
@@ -789,6 +791,7 @@ Agent 评测还要看：
 - 是否命中预期文档。
 - 是否调用了预期工具。
 - 最终答案是否引用证据。
+- 关联 episode 后能否回放完整 RAG、LLM、工具和策略检查过程。
 
 ---
 
@@ -934,7 +937,7 @@ V1.0 RAG 应支持：
 - Hybrid Search。
 - Query Rewrite。
 - 主动 `knowledge_search` 工具。
-- RAG 参数对比评测。
+- 接入 Evaluation Harness 做 RAG 参数对比评测。
 - chunk overlap 可视化调试。
 - 文档解析失败自动重试。
 - PDF 页码引用。
@@ -981,4 +984,3 @@ V1.0 暂不做：
 - 大规模分布式索引。
 
 这些内容可作为 V2.0 扩展，不进入当前核心闭环。
-

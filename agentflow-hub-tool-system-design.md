@@ -4,7 +4,7 @@
 
 核心结论：
 
-> 工具系统采用“工具注册中心 + ToolRuntime + 内置工具适配器”的设计。模型只能提出工具调用意图，不能直接执行外部动作；真正的工具查找、绑定校验、参数校验、权限判断、超时控制、重试和日志记录都由后端完成。
+> 工具系统采用“工具注册中心 + ToolRuntime + PolicyGuard + 内置工具适配器”的设计。模型只能提出工具调用意图，不能直接执行外部动作；真正的工具查找、绑定校验、参数校验、策略检查、权限判断、超时控制、重试和日志记录都由后端完成。
 
 ---
 
@@ -17,6 +17,7 @@
 - 将工具描述转换为模型可理解的 tool schema。
 - 校验模型生成的工具参数。
 - 控制工具调用权限。
+- 在执行前进行策略检查。
 - 控制工具超时和重试。
 - 记录每次工具调用 trace。
 - 将工具结果写回 Agent execution context。
@@ -37,6 +38,7 @@
 - Agent 可用工具查询。
 - 工具参数 JSON Schema 校验。
 - 工具权限判断。
+- 工具策略检查。
 - 工具执行调度。
 - 工具超时控制。
 - 工具失败重试。
@@ -69,7 +71,8 @@ flowchart LR
     AgentEngine["AgentEngine"] --> ToolRuntime["ToolRuntime"]
     ToolRuntime --> ToolRegistry["ToolRegistry / ToolDefinitionService"]
     ToolRuntime --> Validator["ToolArgumentValidator"]
-    ToolRuntime --> Permission["ToolPermissionChecker"]
+    ToolRuntime --> PolicyGuard["PolicyGuard"]
+    PolicyGuard --> Permission["ToolPermissionChecker"]
     ToolRuntime --> ExecutorRouter["ToolExecutorRouter"]
     ToolRuntime --> Trace["TraceService / tool_call_log"]
 
@@ -89,6 +92,7 @@ flowchart LR
 | `ToolDefinitionService` | 管理工具定义，查询 Agent 可用工具 |
 | `ToolRuntime` | 工具执行统一入口 |
 | `ToolArgumentValidator` | 基于 JSON Schema 校验工具参数 |
+| `PolicyGuard` | 工具执行前的策略检查，输出 `ALLOW` / `WARN` / `BLOCK` / `REVIEW` |
 | `ToolPermissionChecker` | 校验用户、Agent、工具权限 |
 | `ToolExecutorRouter` | 根据工具类型路由到具体 executor |
 | `BuiltinToolExecutor` | 执行系统内置工具 |
@@ -148,6 +152,7 @@ V2.0 规划。
 - `tool_definition`
 - `agent_tool_binding`
 - `tool_call_log`
+- `policy_check_log`
 
 ### 5.1 tool_definition 关键字段
 
@@ -338,7 +343,7 @@ sequenceDiagram
     participant TR as ToolRuntime
     participant TD as ToolDefinitionService
     participant V as Validator
-    participant P as PermissionChecker
+    participant P as PolicyGuard
     participant EX as ToolExecutor
     participant LOG as TraceService
 
@@ -348,7 +353,8 @@ sequenceDiagram
     TR->>TD: load tool definition
     TR->>TD: check agent binding
     TR->>V: validate arguments by JSON Schema
-    TR->>P: check permission and confirmation
+    TR->>P: check policy, permission and confirmation
+    TR->>LOG: create policy_check_log
     TR->>LOG: create tool_call_log RUNNING
     TR->>EX: execute tool with timeout
     EX-->>TR: result
@@ -366,14 +372,16 @@ ToolRuntime 必须校验：
 3. Agent 是否绑定该工具。
 4. 当前用户是否拥有 Agent。
 5. 工具参数是否符合 JSON Schema。
-6. 工具是否需要人工确认。
-7. 工具调用次数是否超出 Agent 预算。
+6. PolicyGuard 是否允许执行。
+7. 工具是否需要人工确认。
+8. 工具调用次数是否超出 Agent 预算。
 
 ### 8.3 执行后处理
 
 ToolRuntime 必须：
 
 - 标准化工具结果。
+- 记录 `policy_check_log`。
 - 记录 `tool_call_log`。
 - 返回给 AgentEngine。
 - 发布工具执行事件。
@@ -537,6 +545,30 @@ V1.0 预留，不强制完整实现。
 - 发送消息。
 - 修改业务状态。
 - 调用外部 HTTP 高权限接口。
+
+### 12.5 PolicyGuard 策略检查
+
+PolicyGuard 是 ToolRuntime 执行前的统一策略检查层。
+
+决策类型：
+
+```text
+ALLOW
+WARN
+BLOCK
+REVIEW
+```
+
+V1.0 轻量规则：
+
+- Agent 未绑定工具：`BLOCK`。
+- 工具未启用：`BLOCK`。
+- JSON Schema 参数不通过：`BLOCK`。
+- 工具权限等级为 `HIGH` 且未允许：`REVIEW` 或 `BLOCK`。
+- 同一任务中重复调用相同工具和相同参数：第二次 `WARN`，第三次 `BLOCK`。
+- 超出最大工具调用次数：`BLOCK`。
+
+策略检查结果写入 `policy_check_log`，并通过 Trace 页面展示。
 
 ---
 
@@ -1116,17 +1148,17 @@ V1.5 可实现 HTTP 工具。
 
 ---
 
-## 27. MCP 工具预留
+## 27. 受控 MCP 工具预留
 
-V2.0 可以接入 MCP。
+V2.0 可以接入 MCP，但只做受控适配。
 
 思路：
 
-- 注册 MCP Server。
-- 拉取 server tools。
+- 管理员注册 allowlist MCP Server。
+- 拉取 server tools 和 schema。
 - 映射为 `tool_definition`。
 - ToolRuntime 调用 McpToolExecutor。
-- 仍然沿用权限、日志、超时和 Agent 绑定关系。
+- 仍然沿用 Agent 绑定、PolicyGuard、权限、日志、超时和 Trace。
 
 V1.0 不做 MCP 的完整生态，只在文档和表设计中预留 `MCP` 类型。
 
@@ -1170,8 +1202,9 @@ V1.0 工具系统应支持：
 7. 工具有超时控制。
 8. 工具有基础重试。
 9. 每次工具调用都有 `tool_call_log`。
-10. Trace 页面可以展示工具入参、出参、耗时和失败原因。
-11. 支持订单查询、支付日志查询、工单查询、知识库检索、报告生成 5 个内置工具。
+10. 每次工具执行前都有 PolicyGuard 轻量策略检查。
+11. Trace 页面可以展示工具入参、出参、策略结果、耗时和失败原因。
+12. 支持订单查询、支付日志查询、工单查询、知识库检索、报告生成 5 个内置工具。
 
 ---
 
@@ -1181,6 +1214,7 @@ V1.0 工具系统应支持：
 
 - HTTP 工具。
 - 工具调用人工确认。
+- PolicyGuard 规则配置。
 - 重复工具调用检测。
 - 工具调用统计。
 - 工具失败率统计。
@@ -1196,7 +1230,7 @@ V1.0 工具系统应支持：
 工具系统可以这样讲：
 
 1. **工具调用受控**
-   - 模型只能提出工具调用，后端负责查找、校验、权限和执行。
+   - 模型只能提出工具调用，后端负责查找、校验、策略检查、权限和执行。
 
 2. **schema 驱动**
    - 工具参数用 JSON Schema 定义，模型生成的 arguments 必须校验通过。
@@ -1205,13 +1239,13 @@ V1.0 工具系统应支持：
    - 不是所有 Agent 都能调用所有工具，工具必须显式绑定到 Agent。
 
 4. **可观测**
-   - 每次工具调用都有 tool_call_log，Trace 页面可以看到入参、出参、状态、耗时和错误。
+   - 每次工具调用都有 tool_call_log 和 policy_check_log，Trace 页面可以看到策略结果、入参、出参、状态、耗时和错误。
 
 5. **稳定性**
    - 工具具备超时、重试、失败分类和最大调用次数限制。
 
 6. **可扩展**
-   - V1.0 先做 BUILTIN，后续可以扩展 HTTP 和 MCP，但仍复用同一套权限和日志体系。
+   - V1.0 先做 BUILTIN，后续可以扩展 HTTP 和受控 MCP，但仍复用同一套绑定、PolicyGuard、权限和日志体系。
 
 ---
 
@@ -1223,10 +1257,10 @@ V1.0 暂不做：
 - 工具插件市场。
 - 完整 HTTP 工具安全沙箱。
 - 完整 MCP Server 自动发现。
+- 任意 MCP Server 自动接入。
 - 工具调用审批流。
 - 工具结果复杂脱敏规则。
 - 写操作业务工具。
 - 真实生产数据库 SQL 执行工具。
 
 这些内容容易引入安全和复杂度问题，不进入当前核心闭环。
-

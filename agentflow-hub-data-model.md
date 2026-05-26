@@ -107,8 +107,8 @@ JSONB
 | KnowledgeBase | 知识库、文档、chunk | `knowledge_base`、`knowledge_document`、`knowledge_chunk` |
 | AgentApp | Agent 配置、Prompt 版本、绑定关系 | `agent_app`、`agent_prompt_version`、`agent_knowledge_binding`、`agent_tool_binding` |
 | Tool | 工具定义与运行时配置 | `tool_definition` |
-| AgentTask | Agent 一次执行任务及完整 trace | `agent_conversation`、`agent_message`、`agent_task`、`agent_step`、`agent_task_event` |
-| Observability | LLM、RAG、工具调用记录 | `llm_call_log`、`rag_retrieval_log`、`rag_retrieval_hit`、`tool_call_log` |
+| AgentTask | Agent 一次执行任务及完整 trace | `agent_conversation`、`agent_message`、`agent_task`、`agent_step`、`agent_task_event`、`agent_episode` |
+| Observability | LLM、RAG、工具调用和策略检查记录 | `llm_call_log`、`rag_retrieval_log`、`rag_retrieval_hit`、`tool_call_log`、`policy_check_log` |
 | Evaluation | 轻量评测 | `eval_dataset`、`eval_case`、`eval_run`、`eval_result` |
 | DemoBusiness | 模拟业务数据源 | `mock_order`、`mock_payment_log`、`mock_ticket` |
 
@@ -140,6 +140,8 @@ erDiagram
     agent_task ||--o{ rag_retrieval_log : records
     rag_retrieval_log ||--o{ rag_retrieval_hit : has
     agent_task ||--o{ tool_call_log : records
+    agent_task ||--o{ policy_check_log : records
+    agent_task ||--o| agent_episode : packages
 
     eval_dataset ||--o{ eval_case : contains
     eval_dataset ||--o{ eval_run : runs
@@ -632,9 +634,13 @@ TASK_STARTED
 RAG_STARTED
 RAG_FINISHED
 LLM_STARTED
+LLM_FINISHED
+POLICY_CHECKED
 TOOL_STARTED
 TOOL_FINISHED
+CONFIRMATION_REQUIRED
 TOKEN_DELTA
+EPISODE_READY
 TASK_COMPLETED
 TASK_FAILED
 ```
@@ -643,6 +649,34 @@ TASK_FAILED
 
 ```text
 uk_event_task_seq(task_id, sequence_no)
+```
+
+### 7.6 agent_episode
+
+用途：
+
+> 保存一次 Agent 任务聚合后的运行证据包摘要和导出快照。
+
+V1.0 可以按需生成，也可以在任务完成后异步生成。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| id | BIGINT | 主键 |
+| task_id | BIGINT | 任务 ID，唯一 |
+| user_id | BIGINT | 用户 ID |
+| agent_id | BIGINT | Agent ID |
+| episode_key | VARCHAR(128) | 对外展示的 episode 编号，例如 `ep_30001` |
+| summary | JSONB | 运行摘要，包含状态、耗时、token、工具次数、召回数量 |
+| package_snapshot | JSONB | 可导出的完整 episode package |
+| metrics | JSONB | 任务成功、成本、延迟等指标 |
+| created_at | TIMESTAMPTZ | 创建时间 |
+| updated_at | TIMESTAMPTZ | 更新时间 |
+
+关键约束：
+
+```text
+uk_episode_task(task_id)
+idx_episode_user_created(user_id, created_at DESC)
 ```
 
 ---
@@ -782,6 +816,33 @@ idx_tool_call_step(step_id)
 idx_tool_call_tool(tool_id, created_at DESC)
 ```
 
+### 8.5 policy_check_log
+
+用途：
+
+> 保存工具执行前 PolicyGuard 的策略检查结果。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| id | BIGINT | 主键 |
+| task_id | BIGINT | 任务 ID |
+| step_id | BIGINT | step ID，可为空 |
+| tool_call_id | BIGINT | 工具调用 ID，可为空 |
+| tool_code | VARCHAR(128) | 工具编码快照 |
+| decision | VARCHAR(32) | `ALLOW` / `WARN` / `BLOCK` / `REVIEW` |
+| policy_codes | JSONB | 命中的策略编码列表 |
+| reason | TEXT | 策略判断说明 |
+| input_snapshot | JSONB | 策略检查输入快照 |
+| created_at | TIMESTAMPTZ | 创建时间 |
+
+关键索引：
+
+```text
+idx_policy_task(task_id)
+idx_policy_step(step_id)
+idx_policy_decision(decision)
+```
+
 ---
 
 ## 9. 评测模型
@@ -856,6 +917,7 @@ idx_tool_call_tool(tool_id, created_at DESC)
 | run_id | BIGINT | eval run ID |
 | case_id | BIGINT | eval case ID |
 | task_id | BIGINT | 对应 Agent 任务，可为空 |
+| episode_id | BIGINT | 对应 Agent Episode，可为空 |
 | answer | TEXT | 实际答案 |
 | hit_document_ids | JSONB | 实际命中文档 |
 | called_tool_codes | JSONB | 实际调用工具 |
@@ -1075,6 +1137,15 @@ TIMEOUT
 REJECTED
 ```
 
+### 12.7 PolicyGuard 决策状态
+
+```text
+ALLOW
+WARN
+BLOCK
+REVIEW
+```
+
 ---
 
 ## 13. V0.1 与 V1.0 表设计边界
@@ -1095,6 +1166,7 @@ V0.1 只需要这些表即可跑通闭环：
 - `rag_retrieval_log`
 - `rag_retrieval_hit`
 - `tool_call_log`
+- `policy_check_log`，可先轻量记录策略结果
 - `mock_order`
 - `mock_payment_log`
 
@@ -1106,6 +1178,7 @@ V0.1 只需要这些表即可跑通闭环：
 - `agent_knowledge_binding`
 - `agent_tool_binding`
 - `agent_task_event`
+- `agent_episode`，V1.0 作为完整导出快照表
 - 评测相关表
 - `mock_ticket`
 
@@ -1120,6 +1193,8 @@ V1.0 应补齐：
 - Agent 与工具绑定。
 - 会话和消息历史。
 - SSE 事件回放。
+- Agent Episode Package。
+- PolicyGuard 策略检查记录。
 - 评测集、评测 case、评测运行、评测结果。
 - 工单模拟数据。
 
@@ -1141,16 +1216,21 @@ V1.0 应补齐：
    - 每次召回命中的 chunk 都有 `rag_retrieval_hit`。
    - 保存 content snapshot，避免后续知识库变更导致历史 trace 不可复现。
 
-4. **工具平台可扩展**
+4. **运行证据包可导出**
+   - `agent_episode` 将一次任务的配置、step、RAG、LLM、tool、policy 和最终答案聚合成 episode package。
+   - 评测结果可以关联 episode，方便回到完整执行证据。
+
+5. **工具平台可扩展且可治理**
    - 工具定义独立成表。
    - input schema、timeout、retry、permission、confirmation 都是配置化。
+   - `policy_check_log` 记录工具执行前的策略决策。
 
-5. **数据和向量解耦**
+6. **数据和向量解耦**
    - PostgreSQL 保存权威业务数据和 chunk 文本。
    - Qdrant 保存向量和检索 payload。
    - 通过 `knowledge_chunk.vector_id` 关联。
 
-6. **为评测预留结构**
+7. **为评测预留结构**
    - 评测集、case、run、result 分层，后续可以支持 Prompt 对比和 RAG 参数对比。
 
 ---
@@ -1170,4 +1250,3 @@ V1.0 暂不设计：
 - 大规模数据归档分区。
 
 这些内容可以作为 V2.0 扩展方向，不进入当前核心表设计。
-
