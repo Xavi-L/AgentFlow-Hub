@@ -1,0 +1,47 @@
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:agentflow_hub}
+    username: ${POSTGRES_USER:agentflow}
+    password: ${POSTGRES_PASSWORD:agentflow}
+    hikari:
+      pool-name: AgentFlowHikariPool
+      minimum-idle: 1
+      maximum-pool-size: 10
+      connection-timeout: 30000
+      initialization-fail-timeout: 0
+  flyway:
+    enabled: false
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      database: ${REDIS_DATABASE:0}
+      timeout: 3000ms
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.agentflow
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    banner: false
+    db-config:
+      id-type: assign_id
+      logic-delete-field: deleted
+      logic-delete-value: true
+      logic-not-delete-value: false
+
+agentflow:
+  qdrant:
+    host: ${QDRANT_HOST:localhost}
+    port: ${QDRANT_PORT:6334}
+    collection: ${QDRANT_COLLECTION:agentflow_chunks}
+  llm:
+    base-url: ${OPENAI_BASE_URL:http://127.0.0.1:1234/v1}
+    api-key: ${OPENAI_API_KEY:}
+    chat-model: ${OPENAI_CHAT_MODEL:qwen2.5-7b-instruct}
+    embedding-model: ${OPENAI_EMBEDDING_MODEL:text-embedding-v3}

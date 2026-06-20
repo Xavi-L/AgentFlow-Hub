@@ -31,7 +31,7 @@
 
 ```text
 com.agentflow
-  AgentFlowApplication.java
+  backend.src.main.java.com.agentflow.AgentFlowApplication.java
 
   common
     api
