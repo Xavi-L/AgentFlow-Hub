@@ -1,1 +1,11 @@
 /Users/xavier/AgentFlow-Hub/backend/src/main/java/com/agentflow/AgentFlowApplication.java
+/Users/xavier/AgentFlow-Hub/backend/src/main/java/com/agentflow/common/api/ApiResponse.java
+/Users/xavier/AgentFlow-Hub/backend/src/main/java/com/agentflow/common/api/PageRequest.java
+/Users/xavier/AgentFlow-Hub/backend/src/main/java/com/agentflow/common/api/PageResult.java
+/Users/xavier/AgentFlow-Hub/backend/src/main/java/com/agentflow/common/error/BusinessException.java
+/Users/xavier/AgentFlow-Hub/backend/src/main/java/com/agentflow/common/error/ErrorCode.java
+/Users/xavier/AgentFlow-Hub/backend/src/main/java/com/agentflow/common/error/GlobalExceptionHandler.java
+/Users/xavier/AgentFlow-Hub/backend/src/main/java/com/agentflow/common/web/HealthController.java
+/Users/xavier/AgentFlow-Hub/backend/src/main/java/com/agentflow/common/web/TraceIdFilter.java
+/Users/xavier/AgentFlow-Hub/backend/src/main/java/com/agentflow/common/web/TraceIdHolder.java
+/Users/xavier/AgentFlow-Hub/backend/src/main/java/com/agentflow/demo/controller/HelloController.java
