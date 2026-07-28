@@ -11,9 +11,15 @@ spring:
       connection-timeout: 30000
       initialization-fail-timeout: 0
   flyway:
-    enabled: false
+    # Flyway is the single source of truth for schema changes.
+    # Do not create application tables manually in pgAdmin.
+    enabled: true
     locations: classpath:db/migration
-    baseline-on-migrate: true
+    # This project starts from a dedicated empty database. Failing on an
+    # unexpected existing schema is safer than silently skipping V1.
+    baseline-on-migrate: false
+    validate-migration-naming: true
+    clean-disabled: true
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -31,9 +37,6 @@ mybatis-plus:
     banner: false
     db-config:
       id-type: assign_id
-      logic-delete-field: deleted
-      logic-delete-value: true
-      logic-not-delete-value: false
 
 agentflow:
   qdrant:
