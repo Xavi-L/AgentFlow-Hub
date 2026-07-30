@@ -37,3 +37,10 @@ logging:
 agentflow:
   api:
     prefix: /api/v1
+  security:
+    jwt:
+      # Empty by default on purpose. Supply the real value through IDEA's Run
+      # Configuration or an environment variable; never commit a signing secret.
+      issuer: agentflow-hub
+      secret-base64: ${JWT_SECRET_BASE64:}
+      access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:PT2H}

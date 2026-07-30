@@ -1,0 +1,32 @@
+###
+# 中文：在 IDEA 中打开本文件，替换 username/password 后，点击请求行左侧的绿色运行图标。
+# 每次成功注册后都要换一个 username；数据库唯一约束会拒绝重复用户名。
+# English: Open this file in IDEA, replace username/password, then click the green
+# run icon beside the request. Change username after each successful registration.
+
+@baseUrl = http://localhost:8080
+@username = change-me-before-running
+@password = change-me-before-running
+
+### Register a user: expected HTTP 201 and code OK
+POST {{baseUrl}}/api/v1/auth/register
+Content-Type: application/json
+X-Trace-Id: af-manual-register-001
+
+{
+  "username": "{{username}}",
+  "password": "{{password}}",
+  "email": "change-me-before-running@example.com",
+  "displayName": "Change me before running"
+}
+
+### Re-run only after the first request succeeds: expected HTTP 409 duplicate username
+POST {{baseUrl}}/api/v1/auth/register
+Content-Type: application/json
+X-Trace-Id: af-manual-register-duplicate-001
+
+{
+  "username": "{{username}}",
+  "password": "{{password}}",
+  "displayName": "Xavier"
+}

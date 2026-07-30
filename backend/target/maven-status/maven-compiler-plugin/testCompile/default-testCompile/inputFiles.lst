@@ -5,3 +5,10 @@
 /Users/xavier/AgentFlow-Hub/backend/src/test/java/com/agentflow/common/error/GlobalExceptionHandlerTest.java
 /Users/xavier/AgentFlow-Hub/backend/src/test/java/com/agentflow/common/web/HealthControllerTest.java
 /Users/xavier/AgentFlow-Hub/backend/src/test/java/com/agentflow/common/web/TraceIdFilterTest.java
+/Users/xavier/AgentFlow-Hub/backend/src/test/java/com/agentflow/user/controller/AuthControllerTest.java
+/Users/xavier/AgentFlow-Hub/backend/src/test/java/com/agentflow/user/controller/UserControllerTest.java
+/Users/xavier/AgentFlow-Hub/backend/src/test/java/com/agentflow/user/security/JwtAuthenticationFilterTest.java
+/Users/xavier/AgentFlow-Hub/backend/src/test/java/com/agentflow/user/security/JwtServiceTest.java
+/Users/xavier/AgentFlow-Hub/backend/src/test/java/com/agentflow/user/service/CurrentUserServiceTest.java
+/Users/xavier/AgentFlow-Hub/backend/src/test/java/com/agentflow/user/service/UserLoginServiceTest.java
+/Users/xavier/AgentFlow-Hub/backend/src/test/java/com/agentflow/user/service/UserRegistrationServiceTest.java

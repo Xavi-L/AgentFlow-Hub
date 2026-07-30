@@ -1,0 +1,38 @@
+###
+# 中文：这个文件不保存真实密码或 JWT 密钥。只在本地临时替换下面两个占位符，
+# 运行后不要把真实值提交到 Git。
+# English: This file contains no real password or JWT signing secret. Replace the two
+# placeholders locally only, then do not commit real values to Git.
+
+@baseUrl = http://localhost:8080
+@username = change-me-before-running
+@password = change-me-before-running
+
+### Login: expected HTTP 200 and code OK.
+# IDEA HTTP Client stores the response token only in its local client session.
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+X-Trace-Id: af-manual-login-001
+
+{
+  "username": "{{username}}",
+  "password": "{{password}}"
+}
+
+> {%
+  client.global.set("agentflowAccessToken", response.body.data.accessToken);
+%}
+
+### Current user with no token: expected HTTP 401 and AUTH_UNAUTHENTICATED.
+GET {{baseUrl}}/api/v1/users/me
+X-Trace-Id: af-manual-me-no-token-001
+
+### Current user with the token saved by the Login request: expected HTTP 200 and code OK.
+GET {{baseUrl}}/api/v1/users/me
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-me-with-token-001
+
+### Current user with an invalid token: expected HTTP 401 and AUTH_TOKEN_INVALID.
+GET {{baseUrl}}/api/v1/users/me
+Authorization: Bearer not-a-real-token
+X-Trace-Id: af-manual-me-invalid-token-001

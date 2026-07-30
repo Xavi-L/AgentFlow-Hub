@@ -1,7 +1,12 @@
+com/agentflow/user/controller/UserControllerTest.class
+com/agentflow/common/error/BusinessExceptionTest.class
+com/agentflow/user/security/JwtServiceTest.class
+com/agentflow/common/web/HealthControllerTest.class
+com/agentflow/user/security/JwtAuthenticationFilterTest.class
 com/agentflow/common/web/TraceIdFilterTest.class
 com/agentflow/common/error/GlobalExceptionHandlerTest.class
-com/agentflow/common/error/BusinessExceptionTest.class
+com/agentflow/user/service/CurrentUserServiceTest.class
+com/agentflow/user/service/UserLoginServiceTest.class
 com/agentflow/common/api/ApiResponseTest.class
-com/agentflow/common/web/HealthControllerTest.class
 com/agentflow/common/api/PageResultTest.class
 com/agentflow/common/api/PageRequestTest.class

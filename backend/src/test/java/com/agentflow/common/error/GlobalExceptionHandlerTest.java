@@ -6,6 +6,7 @@ import com.agentflow.common.api.ApiResponse;
 import com.agentflow.common.web.TraceIdHolder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.ResponseEntity;
 
 class GlobalExceptionHandlerTest {
@@ -41,5 +42,18 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getCode()).isEqualTo("SYS_INTERNAL_ERROR");
         assertThat(response.getBody().getMessage()).isEqualTo("Internal server error");
+    }
+
+    @Test
+    void shouldMapDatabaseUniqueConstraintRacesToConflict() {
+        ResponseEntity<ApiResponse<Void>> response = handler.handleDuplicateKey(
+                new DuplicateKeyException("unique constraint violated")
+        );
+
+        assertThat(response.getStatusCode().value()).isEqualTo(409);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getCode()).isEqualTo("USER_ACCOUNT_ALREADY_EXISTS");
+        assertThat(response.getBody().getMessage())
+                .isEqualTo("Username or email is already in use");
     }
 }

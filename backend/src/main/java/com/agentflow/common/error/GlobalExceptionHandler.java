@@ -5,7 +5,9 @@ import com.agentflow.common.web.TraceIdHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.validation.FieldError;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -49,6 +51,36 @@ public class GlobalExceptionHandler {
                 .map(GlobalExceptionHandler::formatFieldError)
                 .orElse(ErrorCode.COMMON_PARAM_INVALID.getMessage());
         return buildResponse(ErrorCode.COMMON_PARAM_INVALID, message);
+    }
+
+    /**
+     * 中文：请求体无法反序列化时，例如 JSON 格式损坏或字段类型错误，不能把它伪装成 500。
+     * English: Malformed JSON or incompatible field types are client request errors,
+     * not server failures.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnreadableRequestBody(
+            HttpMessageNotReadableException ex
+    ) {
+        return buildResponse(
+                ErrorCode.COMMON_REQUEST_BODY_INVALID,
+                ErrorCode.COMMON_REQUEST_BODY_INVALID.getMessage()
+        );
+    }
+
+    /**
+     * 中文：Service 的预检查提升错误信息可读性，但并发请求仍可能同时通过预检查。
+     * 数据库唯一约束是最终防线；发生竞争时统一转换为 409，而不是泄露底层 SQL 异常。
+     * English: Service pre-checks improve error messages, but concurrent requests can
+     * still race. The database unique constraint is the final guard and becomes 409.
+     */
+    @ExceptionHandler(DuplicateKeyException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDuplicateKey(DuplicateKeyException ex) {
+        log.warn("Duplicate database key: traceId={}", TraceIdHolder.getTraceId());
+        return buildResponse(
+                ErrorCode.USER_ACCOUNT_ALREADY_EXISTS,
+                ErrorCode.USER_ACCOUNT_ALREADY_EXISTS.getMessage()
+        );
     }
 
     /**
