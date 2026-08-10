@@ -90,6 +90,19 @@
             <version>${mybatis-plus.version}</version>
         </dependency>
 
+        <!--
+            中文：3.5.9 之后分页 SQL 解析器不再随核心 starter 一起提供。知识库列表使用
+            selectPage，因此显式引入与 MyBatis-Plus 同版本的模块。
+            English: Since 3.5.9 the pagination SQL parser is no longer bundled with
+            the core starter. The knowledge-base list uses selectPage, so bring in the
+            matching MyBatis-Plus module explicitly.
+        -->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-jsqlparser</artifactId>
+            <version>${mybatis-plus.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>

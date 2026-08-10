@@ -1,0 +1,69 @@
+# Knowledge-base metadata manual checks for IntelliJ IDEA HTTP Client.
+#
+# First run "Login" from user-auth.http. That file stores the short-lived token in
+# IDEA's local HTTP-client session as agentflowAccessToken; do not paste a real token
+# into this file or commit it.
+
+@baseUrl = http://localhost:8080
+
+### Create a knowledge base: expected HTTP 201 and code OK.
+POST {{baseUrl}}/api/v1/knowledge-bases
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-kb-create-001
+
+{
+  "name": "支付业务知识库",
+  "description": "支付失败、错误码、退款规则相关文档",
+  "embeddingProvider": "openai-compatible",
+  "embeddingModel": "text-embedding-v3",
+  "chunkSize": 800,
+  "chunkOverlap": 120
+}
+
+> {%
+  client.test("knowledge base is created", function () {
+    client.assert(response.status === 201, "Expected HTTP 201");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.status === "ACTIVE", "Expected ACTIVE status");
+  });
+%}
+
+### Create with only the required name: expected defaults in HTTP 201 response.
+POST {{baseUrl}}/api/v1/knowledge-bases
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-kb-defaults-001
+
+{
+  "name": "仅使用默认切分参数的知识库"
+}
+
+### List only the current user's knowledge bases: expected HTTP 200 and paged data.
+GET {{baseUrl}}/api/v1/knowledge-bases?page=1&pageSize=20
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-kb-list-001
+
+> {%
+  client.test("knowledge bases are paged", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(Array.isArray(response.body.data.items), "Expected items array");
+  });
+%}
+
+### Invalid cross-field settings: expected HTTP 400 / COMMON_PARAM_INVALID.
+POST {{baseUrl}}/api/v1/knowledge-bases
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-kb-invalid-chunk-001
+
+{
+  "name": "无效切分参数示例",
+  "chunkSize": 100,
+  "chunkOverlap": 100
+}
+
+### No token: expected HTTP 401 / AUTH_UNAUTHENTICATED.
+GET {{baseUrl}}/api/v1/knowledge-bases?page=1&pageSize=20
+X-Trace-Id: af-manual-kb-no-token-001
