@@ -8,6 +8,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 class GlobalExceptionHandlerTest {
     private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
@@ -55,5 +56,19 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().getCode()).isEqualTo("USER_ACCOUNT_ALREADY_EXISTS");
         assertThat(response.getBody().getMessage())
                 .isEqualTo("Username or email is already in use");
+    }
+
+    @Test
+    void shouldMapMultipartSizeFailuresTo413InsteadOfAnInternalError() {
+        ResponseEntity<ApiResponse<Void>> response = handler.handleMaxUploadSizeExceeded(
+                new MaxUploadSizeExceededException(20L * 1024 * 1024)
+        );
+
+        assertThat(response.getStatusCode().value()).isEqualTo(413);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getCode())
+                .isEqualTo("KNOWLEDGE_DOCUMENT_FILE_TOO_LARGE");
+        assertThat(response.getBody().getMessage())
+                .isEqualTo("Document file exceeds the maximum allowed size");
     }
 }

@@ -37,6 +37,11 @@ logging:
 agentflow:
   api:
     prefix: /api/v1
+  document:
+    storage:
+      # Keep runtime uploads outside this Git workspace. Override with
+      # AGENTFLOW_DOCUMENT_STORAGE_ROOT in another local or deployed environment.
+      root: ${AGENTFLOW_DOCUMENT_STORAGE_ROOT:${user.home}/.agentflow-hub/documents}
   security:
     jwt:
       # Empty by default on purpose. Supply the real value through IDEA's Run

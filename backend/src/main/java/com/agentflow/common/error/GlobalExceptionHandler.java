@@ -2,15 +2,20 @@ package com.agentflow.common.error;
 
 import com.agentflow.common.api.ApiResponse;
 import com.agentflow.common.web.TraceIdHolder;
+import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.validation.FieldError;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 /**
  * 中文：把 Controller 调用链中的异常统一翻译为稳定的 HTTP + JSON 契约。
@@ -69,6 +74,61 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 中文：Servlet 在进入 Controller 前就可能拒绝超过 multipart 限制的请求，因此这里必须显式
+     * 转成稳定的 413，而不是让它落入通用 500。
+     * English: Servlet processing can reject an oversized multipart request before it
+     * reaches a controller, so translate it explicitly to a stable 413 rather than a
+     * generic 500.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(
+            MaxUploadSizeExceededException ex
+    ) {
+        return buildResponse(
+                ErrorCode.KNOWLEDGE_DOCUMENT_FILE_TOO_LARGE,
+                ErrorCode.KNOWLEDGE_DOCUMENT_FILE_TOO_LARGE.getMessage()
+        );
+    }
+
+    /**
+     * 中文：缺失 multipart part 或损坏 multipart body 都是客户端请求问题。缺失 part 被细分为
+     * “需要文件”，损坏 body 维持通用请求体错误。
+     * English: A missing multipart part and a malformed multipart body are client
+     * request errors. The former becomes a precise required-file error while the latter
+     * remains a generic invalid-request-body error.
+     */
+    @ExceptionHandler({MissingServletRequestPartException.class, MultipartException.class})
+    public ResponseEntity<ApiResponse<Void>> handleMultipartException(Exception ex) {
+        if (ex instanceof MissingServletRequestPartException) {
+            return buildResponse(
+                    ErrorCode.KNOWLEDGE_DOCUMENT_FILE_REQUIRED,
+                    ErrorCode.KNOWLEDGE_DOCUMENT_FILE_REQUIRED.getMessage()
+            );
+        }
+        if (containsMaxUploadSizeExceeded(ex)) {
+            return buildResponse(
+                    ErrorCode.KNOWLEDGE_DOCUMENT_FILE_TOO_LARGE,
+                    ErrorCode.KNOWLEDGE_DOCUMENT_FILE_TOO_LARGE.getMessage()
+            );
+        }
+        return buildResponse(
+                ErrorCode.COMMON_REQUEST_BODY_INVALID,
+                ErrorCode.COMMON_REQUEST_BODY_INVALID.getMessage()
+        );
+    }
+
+    /**
+     * 中文：例如把 /knowledge-bases/not-a-number/documents 绑定到 Long 失败时，必须返回 400，
+     * 而不是由兜底处理器误报为服务器错误。
+     * English: When a path such as /knowledge-bases/not-a-number/documents cannot bind
+     * to Long, return 400 rather than letting the fallback misreport a server error.
+     */
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, ConstraintViolationException.class})
+    public ResponseEntity<ApiResponse<Void>> handleParameterBindingException(Exception ex) {
+        return buildResponse(ErrorCode.COMMON_PARAM_INVALID, ErrorCode.COMMON_PARAM_INVALID.getMessage());
+    }
+
+    /**
      * 中文：Service 的预检查提升错误信息可读性，但并发请求仍可能同时通过预检查。
      * 数据库唯一约束是最终防线；发生竞争时统一转换为 409，而不是泄露底层 SQL 异常。
      * English: Service pre-checks improve error messages, but concurrent requests can
@@ -104,5 +164,16 @@ public class GlobalExceptionHandler {
         String detail = fieldError.getDefaultMessage();
         return fieldError.getField() + ": "
                 + (detail == null ? ErrorCode.COMMON_PARAM_INVALID.getMessage() : detail);
+    }
+
+    private static boolean containsMaxUploadSizeExceeded(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof MaxUploadSizeExceededException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }

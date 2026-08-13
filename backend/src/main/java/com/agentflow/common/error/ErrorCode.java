@@ -21,6 +21,20 @@ public enum ErrorCode {
     USER_USERNAME_ALREADY_EXISTS("USER_USERNAME_ALREADY_EXISTS", "Username is already in use", 409),
     USER_EMAIL_ALREADY_EXISTS("USER_EMAIL_ALREADY_EXISTS", "Email is already in use", 409),
     USER_ACCOUNT_ALREADY_EXISTS("USER_ACCOUNT_ALREADY_EXISTS", "Username or email is already in use", 409),
+    KNOWLEDGE_BASE_NOT_ACTIVE("KNOWLEDGE_BASE_NOT_ACTIVE", "Knowledge base is not active", 409),
+    KNOWLEDGE_DOCUMENT_FILE_REQUIRED("KNOWLEDGE_DOCUMENT_FILE_REQUIRED", "A document file is required", 400),
+    KNOWLEDGE_DOCUMENT_FILE_EMPTY("KNOWLEDGE_DOCUMENT_FILE_EMPTY", "Document file must not be empty", 400),
+    KNOWLEDGE_DOCUMENT_FILE_NAME_INVALID("KNOWLEDGE_DOCUMENT_FILE_NAME_INVALID", "Document file name is invalid", 400),
+    KNOWLEDGE_DOCUMENT_FILE_TYPE_UNSUPPORTED(
+            "KNOWLEDGE_DOCUMENT_FILE_TYPE_UNSUPPORTED",
+            "Only .txt and .md documents are supported",
+            400
+    ),
+    KNOWLEDGE_DOCUMENT_FILE_TOO_LARGE(
+            "KNOWLEDGE_DOCUMENT_FILE_TOO_LARGE",
+            "Document file exceeds the maximum allowed size",
+            413
+    ),
     SYS_INTERNAL_ERROR("SYS_INTERNAL_ERROR", "Internal server error", 500);
 
     private final String code;

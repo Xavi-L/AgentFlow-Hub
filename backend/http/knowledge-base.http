@@ -27,6 +27,9 @@ X-Trace-Id: af-manual-kb-create-001
     client.assert(response.body.code === "OK", "Expected code OK");
     client.assert(response.body.data.status === "ACTIVE", "Expected ACTIVE status");
   });
+  // Keep only the ID in IDEA's local HTTP-client session. It is used by the
+  // knowledge-document.http checks and is never written to this tracked file.
+  client.global.set("agentflowKnowledgeBaseId", response.body.data.id);
 %}
 
 ### Create with only the required name: expected defaults in HTTP 201 response.

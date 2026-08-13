@@ -1,0 +1,61 @@
+# Knowledge-document ingestion checks for IntelliJ IDEA HTTP Client.
+#
+# 1. Run "Login" in user-auth.http to create the local agentflowAccessToken variable.
+# 2. Run "Create a knowledge base" in knowledge-base.http. Its successful response now
+#    stores agentflowKnowledgeBaseId in the same local HTTP-client session.
+# 3. Run the upload/list requests below. Do not paste a real token or absolute file path
+#    into this tracked file.
+
+@baseUrl = http://localhost:8080
+
+### Upload the tracked Markdown fixture: expected HTTP 201, code OK, and PENDING.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/documents
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: multipart/form-data; boundary=AgentFlowDocumentBoundary
+X-Trace-Id: af-manual-document-upload-001
+
+--AgentFlowDocumentBoundary
+Content-Disposition: form-data; name="file"; filename="refund-rules.md"
+Content-Type: text/markdown
+
+< ./fixtures/refund-rules.md
+--AgentFlowDocumentBoundary--
+
+> {%
+  client.test("document is accepted as pending", function () {
+    client.assert(response.status === 201, "Expected HTTP 201");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.fileType === "MD", "Expected MD file type");
+    client.assert(response.body.data.parseStatus === "PENDING", "Expected PENDING status");
+  });
+%}
+
+### List the current user's documents in the selected knowledge base: expected HTTP 200.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/documents?page=1&pageSize=20
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-document-list-001
+
+> {%
+  client.test("documents are paged", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(Array.isArray(response.body.data.items), "Expected items array");
+  });
+%}
+
+### Unsupported filename suffix: expected HTTP 400 / KNOWLEDGE_DOCUMENT_FILE_TYPE_UNSUPPORTED.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/documents
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: multipart/form-data; boundary=AgentFlowUnsupportedDocumentBoundary
+X-Trace-Id: af-manual-document-unsupported-001
+
+--AgentFlowUnsupportedDocumentBoundary
+Content-Disposition: form-data; name="file"; filename="refund-rules.pdf"
+Content-Type: application/pdf
+
+< ./fixtures/refund-rules.md
+--AgentFlowUnsupportedDocumentBoundary--
+
+### No token: expected HTTP 401 / AUTH_UNAUTHENTICATED.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/documents?page=1&pageSize=20
+X-Trace-Id: af-manual-document-no-token-001
