@@ -65,12 +65,21 @@ public class LocalDocumentStorage implements DocumentStorage {
     }
 
     @Override
+    public InputStream open(StoredDocument storedDocument) throws IOException {
+        return Files.newInputStream(resolveStoredDocument(storedDocument));
+    }
+
+    @Override
     public void delete(StoredDocument storedDocument) throws IOException {
+        Files.deleteIfExists(resolveStoredDocument(storedDocument));
+    }
+
+    private Path resolveStoredDocument(StoredDocument storedDocument) {
         Objects.requireNonNull(storedDocument, "storedDocument must not be null");
         if (!STORAGE_BUCKET.equals(storedDocument.storageBucket())) {
             throw new IllegalArgumentException("Stored document belongs to a different storage bucket");
         }
-        Files.deleteIfExists(resolveObjectKey(storedDocument.storageObjectKey()));
+        return resolveObjectKey(storedDocument.storageObjectKey());
     }
 
     private void moveToFinalLocation(Path temporary, Path target) throws IOException {

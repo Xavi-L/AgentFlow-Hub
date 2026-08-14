@@ -20,5 +20,15 @@ public interface DocumentStorage {
             InputStream content
     ) throws IOException;
 
+    /**
+     * 中文：根据受控的存储定位信息打开原始文档。调用方只能传数据库中保存的 bucket/object key，
+     * 不会接触或拼接物理绝对路径。
+     *
+     * <p>English: Opens a source document from its controlled storage locator. Callers
+     * pass only the persisted bucket/object key and never construct physical absolute
+     * paths themselves.
+     */
+    InputStream open(StoredDocument storedDocument) throws IOException;
+
     void delete(StoredDocument storedDocument) throws IOException;
 }

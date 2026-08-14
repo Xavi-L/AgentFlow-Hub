@@ -3,8 +3,8 @@
 # 1. Run "Login" in user-auth.http to create the local agentflowAccessToken variable.
 # 2. Run "Create a knowledge base" in knowledge-base.http. Its successful response now
 #    stores agentflowKnowledgeBaseId in the same local HTTP-client session.
-# 3. Run the upload/list requests below. Do not paste a real token or absolute file path
-#    into this tracked file.
+# 3. Run the upload/process/list requests below. Do not paste a real token or absolute
+#    file path into this tracked file.
 
 @baseUrl = http://localhost:8080
 
@@ -28,18 +28,51 @@ Content-Type: text/markdown
     client.assert(response.body.data.fileType === "MD", "Expected MD file type");
     client.assert(response.body.data.parseStatus === "PENDING", "Expected PENDING status");
   });
+  // The ID is kept only in IDEA's local HTTP-client session for V4 chunk verification.
+  client.global.set("agentflowDocumentId", response.body.data.id);
 %}
 
-### List the current user's documents in the selected knowledge base: expected HTTP 200.
+### Process every currently PENDING document in this knowledge base: expected HTTP 200.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/documents/process-pending
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-document-process-001
+
+> {%
+  client.test("pending documents are processed", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.claimed >= response.body.data.completed,
+      "Completed count must not exceed claimed count");
+    client.assert(response.body.data.claimed === response.body.data.completed + response.body.data.failed,
+      "Each claimed document must complete or fail");
+  });
+%}
+
+### List the current user's documents after V4 processing: expected HTTP 200.
 GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/documents?page=1&pageSize=20
 Authorization: Bearer {{agentflowAccessToken}}
-X-Trace-Id: af-manual-document-list-001
+X-Trace-Id: af-manual-document-list-after-process-001
 
 > {%
   client.test("documents are paged", function () {
     client.assert(response.status === 200, "Expected HTTP 200");
     client.assert(response.body.code === "OK", "Expected code OK");
     client.assert(Array.isArray(response.body.data.items), "Expected items array");
+  });
+%}
+
+### Inspect the uploaded document's persisted chunks: expected HTTP 200 and ordered chunks.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/documents/{{agentflowDocumentId}}/chunks?page=1&pageSize=20
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-document-chunks-001
+
+> {%
+  client.test("chunks are visible for the current owner", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(Array.isArray(response.body.data.items), "Expected chunk items array");
+    client.assert(response.body.data.items.length >= 1, "Expected at least one chunk");
+    client.assert(response.body.data.items[0].chunkIndex === 0, "Expected zero-based chunk index");
   });
 %}
 

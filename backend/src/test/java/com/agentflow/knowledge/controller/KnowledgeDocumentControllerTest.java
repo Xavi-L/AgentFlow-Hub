@@ -13,7 +13,10 @@ import com.agentflow.common.error.BusinessException;
 import com.agentflow.common.error.ErrorCode;
 import com.agentflow.common.error.GlobalExceptionHandler;
 import com.agentflow.common.web.TraceIdFilter;
+import com.agentflow.knowledge.dto.DocumentProcessingResponse;
+import com.agentflow.knowledge.dto.KnowledgeChunkResponse;
 import com.agentflow.knowledge.dto.KnowledgeDocumentResponse;
+import com.agentflow.knowledge.service.DocumentProcessingService;
 import com.agentflow.knowledge.service.KnowledgeDocumentService;
 import com.agentflow.user.security.AuthenticatedUser;
 import java.nio.charset.StandardCharsets;
@@ -32,12 +35,13 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 /**
- * 中文：Controller 轻量测试验证上传/列表的统一 HTTP 外壳和当前 principal 的透传。文件格式、
- * owner 查询和落盘补偿都属于 Service 的独立测试。
+ * 中文：Controller 轻量测试验证上传、列表、V4 处理/查看的统一 HTTP 外壳和当前 principal 的透传。
+ * 文件格式、owner 查询、落盘补偿和 chunk 事务都属于 Service 的独立测试。
  *
  * <p>English: Lightweight controller tests verify the common HTTP envelope and
- * hand-off of the current principal. File validation, owner lookup, and storage
- * compensation have dedicated service tests.
+ * hand-off of the current principal for upload, list, V4 processing, and chunk reads.
+ * File validation, owner lookup, storage compensation, and chunk transactions have
+ * dedicated service tests.
  */
 class KnowledgeDocumentControllerTest {
 
@@ -113,7 +117,7 @@ class KnowledgeDocumentControllerTest {
     @Test
     void shouldReturnTheUnified201ResponseForAnUpload() {
         KnowledgeDocumentService service = Mockito.mock(KnowledgeDocumentService.class);
-        KnowledgeDocumentController controller = new KnowledgeDocumentController(service);
+        KnowledgeDocumentController controller = controller(service);
         AuthenticatedUser currentUser = currentUser();
         MockMultipartFile file = new MockMultipartFile(
                 "file", "refund-rules.md", "text/markdown",
@@ -140,7 +144,7 @@ class KnowledgeDocumentControllerTest {
     @Test
     void shouldReturnAUnifiedPageForTheCurrentUsersKnowledgeBase() {
         KnowledgeDocumentService service = Mockito.mock(KnowledgeDocumentService.class);
-        KnowledgeDocumentController controller = new KnowledgeDocumentController(service);
+        KnowledgeDocumentController controller = controller(service);
         AuthenticatedUser currentUser = currentUser();
         PageRequest pageRequest = new PageRequest(2, 5);
         PageResult<KnowledgeDocumentResponse> page = PageResult.of(
@@ -162,6 +166,75 @@ class KnowledgeDocumentControllerTest {
         assertThat(response.getData().getItems()).extracting(KnowledgeDocumentResponse::fileName)
                 .containsExactly("refund-rules.md");
         verify(service).listOwnedByKnowledgeBase(currentUser, 201L, pageRequest);
+    }
+
+    @Test
+    void shouldBindTheExplicitPendingProcessingRoute() throws Exception {
+        KnowledgeDocumentService documentService = Mockito.mock(KnowledgeDocumentService.class);
+        DocumentProcessingService processingService = Mockito.mock(DocumentProcessingService.class);
+        AuthenticatedUser currentUser = currentUser();
+        when(processingService.processPending(currentUser, 201L)).thenReturn(
+                new DocumentProcessingResponse(2, 2, 1, 1, 0)
+        );
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(currentUser, "test", List.of())
+        );
+
+        mockMvc(documentService, processingService).perform(MockMvcRequestBuilders.post(
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}/documents/process-pending", 201L
+                ).header("X-Trace-Id", "af-test-document-process"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("OK"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.completed"
+                ).value(1))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.failed"
+                ).value(1));
+
+        verify(processingService).processPending(currentUser, 201L);
+    }
+
+    @Test
+    void shouldBindTheOwnerScopedChunkListRoute() throws Exception {
+        KnowledgeDocumentService documentService = Mockito.mock(KnowledgeDocumentService.class);
+        DocumentProcessingService processingService = Mockito.mock(DocumentProcessingService.class);
+        AuthenticatedUser currentUser = currentUser();
+        PageResult<KnowledgeChunkResponse> chunks = PageResult.of(
+                List.of(chunkResponse("401", "301", 0, "Refund rules")),
+                1,
+                20,
+                1
+        );
+        when(processingService.listOwnedDocumentChunks(
+                eq(currentUser),
+                eq(201L),
+                eq(301L),
+                org.mockito.ArgumentMatchers.any(PageRequest.class)
+        )).thenReturn(chunks);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(currentUser, "test", List.of())
+        );
+
+        mockMvc(documentService, processingService).perform(MockMvcRequestBuilders.get(
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}/documents/{documentId}/chunks", 201L, 301L
+                ).param("page", "1").param("pageSize", "20")
+                .header("X-Trace-Id", "af-test-document-chunks"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.items[0].chunkIndex"
+                ).value(0))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.items[0].content"
+                ).value("Refund rules"));
+
+        verify(processingService).listOwnedDocumentChunks(
+                eq(currentUser),
+                eq(201L),
+                eq(301L),
+                org.mockito.ArgumentMatchers.any(PageRequest.class)
+        );
     }
 
     private static AuthenticatedUser currentUser() {
@@ -187,9 +260,40 @@ class KnowledgeDocumentControllerTest {
         );
     }
 
+    private static KnowledgeChunkResponse chunkResponse(
+            String id,
+            String documentId,
+            int chunkIndex,
+            String content
+    ) {
+        OffsetDateTime now = OffsetDateTime.parse("2026-08-14T12:00:00+08:00");
+        return new KnowledgeChunkResponse(
+                id,
+                documentId,
+                chunkIndex,
+                content,
+                "Refund",
+                content.codePointCount(0, content.length()),
+                2,
+                now,
+                now
+        );
+    }
+
+    private static KnowledgeDocumentController controller(KnowledgeDocumentService service) {
+        return new KnowledgeDocumentController(service, Mockito.mock(DocumentProcessingService.class));
+    }
+
     private static MockMvc mockMvc(KnowledgeDocumentService service) {
+        return mockMvc(service, Mockito.mock(DocumentProcessingService.class));
+    }
+
+    private static MockMvc mockMvc(
+            KnowledgeDocumentService documentService,
+            DocumentProcessingService processingService
+    ) {
         return MockMvcBuilders
-                .standaloneSetup(new KnowledgeDocumentController(service))
+                .standaloneSetup(new KnowledgeDocumentController(documentService, processingService))
                 .addPlaceholderValue("agentflow.api.prefix", "/api/v1")
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())

@@ -3,7 +3,10 @@ package com.agentflow.knowledge.controller;
 import com.agentflow.common.api.ApiResponse;
 import com.agentflow.common.api.PageRequest;
 import com.agentflow.common.api.PageResult;
+import com.agentflow.knowledge.dto.DocumentProcessingResponse;
+import com.agentflow.knowledge.dto.KnowledgeChunkResponse;
 import com.agentflow.knowledge.dto.KnowledgeDocumentResponse;
+import com.agentflow.knowledge.service.DocumentProcessingService;
 import com.agentflow.knowledge.service.KnowledgeDocumentService;
 import com.agentflow.user.security.AuthenticatedUser;
 import org.springframework.http.HttpStatus;
@@ -31,9 +34,14 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("${agentflow.api.prefix}/knowledge-bases/{knowledgeBaseId}/documents")
 public class KnowledgeDocumentController {
     private final KnowledgeDocumentService knowledgeDocumentService;
+    private final DocumentProcessingService documentProcessingService;
 
-    public KnowledgeDocumentController(KnowledgeDocumentService knowledgeDocumentService) {
+    public KnowledgeDocumentController(
+            KnowledgeDocumentService knowledgeDocumentService,
+            DocumentProcessingService documentProcessingService
+    ) {
         this.knowledgeDocumentService = knowledgeDocumentService;
+        this.documentProcessingService = documentProcessingService;
     }
 
     /**
@@ -71,5 +79,44 @@ public class KnowledgeDocumentController {
         return ApiResponse.success(
                 knowledgeDocumentService.listOwnedByKnowledgeBase(currentUser, knowledgeBaseId, pageRequest)
         );
+    }
+
+    /**
+     * 中文：同步处理该知识库中当前的 PENDING 文档。这个显式入口便于观察 V4 的状态机；它不创建
+     * 队列任务，也不接 embedding 或 Qdrant。
+     *
+     * <p>English: Synchronously processes the knowledge base's current PENDING
+     * documents. This explicit route makes V4's state machine observable; it creates
+     * no queue task and connects neither embeddings nor Qdrant.
+     */
+    @PostMapping("/process-pending")
+    public ApiResponse<DocumentProcessingResponse> processPending(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @PathVariable("knowledgeBaseId") Long knowledgeBaseId
+    ) {
+        return ApiResponse.success(
+                "Pending documents processed",
+                documentProcessingService.processPending(currentUser, knowledgeBaseId)
+        );
+    }
+
+    /**
+     * 中文：按稳定的 chunkIndex 升序分页查看当前 owner 的文本块，用于直接验收解析与 overlap 结果。
+     * English: Pages through the current owner's chunks in stable chunkIndex order for
+     * direct verification of parsing and overlap results.
+     */
+    @GetMapping("/{documentId}/chunks")
+    public ApiResponse<PageResult<KnowledgeChunkResponse>> listChunks(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @PathVariable("knowledgeBaseId") Long knowledgeBaseId,
+            @PathVariable("documentId") Long documentId,
+            @ModelAttribute PageRequest pageRequest
+    ) {
+        return ApiResponse.success(documentProcessingService.listOwnedDocumentChunks(
+                currentUser,
+                knowledgeBaseId,
+                documentId,
+                pageRequest
+        ));
     }
 }

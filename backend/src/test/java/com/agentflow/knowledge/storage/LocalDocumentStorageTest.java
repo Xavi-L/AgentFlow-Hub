@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.agentflow.knowledge.model.DocumentFileType;
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,6 +41,11 @@ class LocalDocumentStorageTest {
         assertThat(storedPath).startsWith(temporaryDirectory);
         assertThat(Files.readString(storedPath)).isEqualTo("# Refund rules\n");
 
+        try (InputStream reopened = storage.open(stored)) {
+            assertThat(new String(reopened.readAllBytes(), StandardCharsets.UTF_8))
+                    .isEqualTo("# Refund rules\n");
+        }
+
         storage.delete(stored);
 
         assertThat(Files.exists(storedPath)).isFalse();
@@ -52,5 +58,9 @@ class LocalDocumentStorageTest {
         assertThatThrownBy(() -> storage.delete(new StoredDocument("local", "../outside.md")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("relative to the storage root");
+
+        assertThatThrownBy(() -> storage.open(new StoredDocument("another-bucket", "inside.md")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("different storage bucket");
     }
 }
