@@ -250,7 +250,7 @@ V0.1 可以只预置一个 demo 用户。
 - 支持 `.md`。
 - 文档内容读取。
 - 文本清洗。
-- chunk 切分。
+- 提取标题、段落、列表、代码块、表格等原子单元，并执行结构感知语义分块。
 - token 估算。
 - 调用 embedding。
 - 写入 Qdrant。
@@ -856,8 +856,9 @@ V1.0 必须做到：
 控制方式：
 
 - 准备高质量演示文档。
+- 用包含标题松散、跨页段落、错误码和列表的样本文档评估语义边界。
 - 先做 retrieve-test 页面。
-- 调整 chunkSize、topK、threshold。
+- 记录 `chunkStrategyVersion`、边界阈值、chunkSize、topK 和 threshold，比较语义分块与确定性基线的结果。
 - V1.5 再加 rerank 和 Hybrid Search。
 
 ### 15.4 风险：异步和 SSE 调试复杂

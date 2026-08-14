@@ -6,6 +6,12 @@
 
 > RAG 模块不是简单的“上传文档后向量检索”，而是一条可追踪、可调试、可评测的知识处理链路。PostgreSQL 保存权威文本和元数据，Qdrant 保存向量和检索 payload，Agent 执行时通过 RagService 获取带引用的上下文。
 
+正式分块结论：
+
+> 正式版本采用“结构感知语义分块”，而不是单纯按标题切分，也不是完全不受约束的纯语义切分。标题、段落、页码、代码块和表格提供可追踪的结构约束；相邻原子单元的语义相似度决定是否继续合并；estimated-token 上限负责保护上下文预算和运行时资源。
+
+本文的正式策略版本为 `semantic-v1`。该版本将结构解析、语义边界检测、token 约束、版本化和可追踪 metadata 作为统一的分块契约。
+
 ---
 
 ## 1. 设计目标
@@ -85,11 +91,12 @@ flowchart TD
         B --> C["创建 document 记录"]
         C --> D["解析文本"]
         D --> E["文本清洗"]
-        E --> F["按结构切分 chunk"]
-        F --> G["保存 chunk 到 PostgreSQL"]
-        G --> H["批量生成 embedding"]
-        H --> I["写入 Qdrant"]
-        I --> J["更新文档状态 COMPLETED"]
+        E --> F["提取原子单元"]
+        F --> G["语义边界检测与分组"]
+        G --> H["保存最终 chunk 到 PostgreSQL"]
+        H --> I["生成 chunk embedding"]
+        I --> J["写入 Qdrant"]
+        J --> K["更新文档状态 COMPLETED"]
     end
 
     subgraph Retrieval["在线检索链路"]
@@ -156,19 +163,22 @@ V1.0 不做复杂页眉页脚识别，只做轻量清洗。
 
 职责：
 
-- 根据文档结构切分 chunk。
-- 控制 chunk size 和 overlap。
-- 生成 titlePath、chunkIndex、metadata。
-- 估算 token 数。
+- 将解析结果拆成可追踪的原子单元。
+- 以标题、页码、代码块和表格作为结构约束，而不是机械的唯一切分依据。
+- 基于相邻原子单元的语义相似度识别主题边界并聚合最终 chunk。
+- 控制目标大小、最小大小、最大大小和语义单元级 overlap。
+- 生成 `titlePath`、`chunkIndex`、来源 block 范围和策略版本等 metadata。
+- 使用 token 估算作为上下文预算和运行时安全边界。
 
 ### 4.5 EmbeddingService
 
 职责：
 
-- 批量调用 embedding API。
+- 批量调用 embedding API，为原子单元边界检测和最终 chunk 向量化提供向量。
 - 控制 batch size。
 - 处理模型调用失败。
-- 返回 chunkId 到 vector 的映射。
+- 返回语义边界计算所需的相似度输入，以及最终 `chunkId` 到 vector 的映射。
+- 记录 embedding model 和策略版本，避免不同模型生成的 chunk 边界或向量被混用。
 
 ### 4.6 VectorStoreGateway
 
@@ -259,34 +269,70 @@ Worker 消费任务后：
 - 复杂页眉页脚检测。
 - 语义纠错。
 
-### 5.4 切分阶段
+### 5.4 正式切分阶段：结构感知语义分块
 
-切分优先级：
+正式版本不采用“标题一到就切一个 chunk，超长段落再硬切”的单一策略，也不允许语义模型无视文档结构自由拼接。分块器按照“原子单元 -> 结构约束 -> 语义聚合 -> token 安全边界”的顺序工作。
 
-1. 优先按文档结构切分。
-2. Markdown 按标题层级组织。
-3. PDF 按页和段落组织。
-4. TXT 按段落组织。
-5. 超长段落再按长度切分。
+#### 5.4.1 原子单元
 
-默认配置：
+解析器先将文档转换为可独立追踪的原子单元，每个单元至少包含正文、类型、起止位置和来源 metadata：
+
+- 标题：记录标题文本、层级和当前 `titlePath`。
+- 段落：作为 TXT、Markdown 正文和 PDF 文本的主要语义单元。
+- 列表、引用和相邻短段落：在语义完整时作为一个候选单元。
+- fenced code、代码片段和表格：默认保持整体，不与普通说明文字跨类型合并。
+- PDF 页码、文本块和版面位置：保留为来源 metadata；页码默认不是强制 chunk 边界。
+
+原子单元只做规范化和结构解析，不改写原文，不通过 LLM 做语义纠错。扫描 PDF 必须先经过 OCR 或其他文本提取流程，不能把空文本直接交给语义分块器。
+
+#### 5.4.2 结构约束是软边界
+
+- Markdown 标题用于提供上下文和候选边界，`titlePath` 必须继承到其后的正文 chunk。
+- 标题层级跳跃、缺失或使用不一致时，不把层级当作绝对真相；标题仍保留为 provenance metadata，由语义边界决定是否真的切分。
+- PDF 页码用于引用和回溯。一个主题跨页时允许跨页合并；页码变化必须进入 `pageStart` / `pageEnd`。
+- 代码块、表格、列表等具有自身结构的单元默认不被普通段落的相似度计算拆散；当它们超过最大 chunk 大小时，使用类型专属的安全切分规则。
+
+#### 5.4.3 语义边界检测与聚合
+
+1. 对段落或句子级原子单元生成用于边界检测的 embedding；该 embedding 只用于判断相邻内容是否仍属于同一主题。
+2. 按文档顺序计算相邻单元或滑动窗口之间的语义相似度，识别主题突变点。
+3. 相似度足够高且未超过目标大小时继续合并；出现明显主题突变，或继续合并会超过目标大小时，在当前边界结束 chunk。
+4. 语义边界阈值必须跟 embedding 模型和评测集绑定，通过检索评测标定，不写死一个跨模型通用的常数。
+5. 如果单个段落或结构单元本身超过最大大小，先在句子边界切分；只有没有可用句子边界时才使用 token 边界硬切。
+6. 如果一个候选 chunk 小于最小大小，优先与语义最接近且结构允许的相邻单元合并，避免产生只有标题、半句话或单个列表项的碎片。
+
+#### 5.4.4 Overlap 规则
+
+Overlap 优先复制完整的上一个语义单元或句子，而不是从任意字符中间截取。默认目标为最后一个或两个语义单元，且不超过 `chunkOverlap` 的 estimated-token 上限；若单个单元已经超过上限，则按照句子边界或 token 安全边界处理。
+
+这样既能保留跨 chunk 的上下文连续性，又不会因为机械 token overlap 把标题、表格行或代码语句截断。
+
+#### 5.4.5 各格式策略
+
+| 格式 | 正式策略 |
+| --- | --- |
+| `.txt` | 以段落为主要原子单元，按相邻主题相似度合并；日志、配置和记录型 TXT 使用行/记录边界，不使用普通 prose 语义规则 |
+| `.md` | 标题作为软边界和 `titlePath` 来源；标题层级松散时由语义变化决定边界；代码块、表格和列表保持结构完整 |
+| `.pdf` | 先按页面和版面提取段落/文本块，再按语义聚合；保留页码和位置用于 citation，不把每页机械作为一个 chunk |
+
+#### 5.4.6 正式默认参数
 
 ```text
-chunkSize = 800 estimated tokens
+chunkStrategyVersion = semantic-v1
+targetChunkSize = 800 estimated tokens
 chunkOverlap = 120 estimated tokens
 minChunkSize = 80 estimated tokens
 maxChunkSize = 1000 estimated tokens
+semanticBoundaryThreshold = per embedding model and evaluation set
 ```
 
-说明：
-
-- 配置概念上使用 estimated tokens。
-- V1.0 实现可以使用轻量 token 估算器，不引入复杂 tokenizer。
-- 中英文混合场景中，估算 token 比纯字符数更适合控制 prompt 上下文预算。
+`targetChunkSize` 是聚合目标，不是必须达到的硬长度；`maxChunkSize` 是硬上限；`minChunkSize` 是防止碎片化的下限。无论语义模型如何判断，所有 chunk 都必须遵守最大源文档大小、最大 chunk 数和 token 安全限制。
 
 ### 5.5 token 估算策略
 
-V1.0 使用轻量估算：
+token 估算只负责预算控制、最大长度保护和 overlap 上限，不负责替代语义边界判断。正式版本的语义边界由原子单元 embedding 和评测标定的边界策略决定。
+
+正式版本可以使用轻量估算：
 
 ```text
 中文字符：约 1 token
@@ -302,7 +348,7 @@ public interface TokenEstimator {
 }
 ```
 
-后续如果需要更精确，可以替换为模型 tokenizer。
+后续如果需要更精确，可以替换为模型 tokenizer；替换 tokenizer 或语义边界模型时必须提升 `chunkStrategyVersion`，并重新生成 chunk embedding，不能静默改变已有 chunk 的含义。
 
 ### 5.6 chunk metadata
 
@@ -314,6 +360,7 @@ public interface TokenEstimator {
 - `titlePath`
 - `charCount`
 - `tokenCount`
+- `chunkStrategyVersion`
 - `metadata`
 
 metadata 示例：
@@ -325,7 +372,10 @@ metadata 示例：
   "headingLevel": 2,
   "pageNo": null,
   "startBlockIndex": 3,
-  "endBlockIndex": 8
+  "endBlockIndex": 8,
+  "pageStart": null,
+  "pageEnd": null,
+  "boundaryStrategy": "semantic-v1"
 }
 ```
 
@@ -333,19 +383,21 @@ metadata 示例：
 
 推荐流程：
 
-1. chunker 生成 chunks。
-2. 后端提前生成 chunk ID。
-3. 设置 `vector_id = chunkId.toString()`。
-4. 批量插入 `knowledge_chunk`。
-5. 批量调用 embedding。
-6. 批量 upsert 到 Qdrant。
-7. 更新 document 状态为 `COMPLETED`。
+1. parser 生成带来源 metadata 的原子单元。
+2. 批量生成原子单元 embedding，执行语义边界检测和 chunk 聚合。
+3. 为最终 chunk 提前生成稳定的 chunk ID。
+4. 设置 `vector_id = chunkId.toString()`。
+5. 批量插入 `knowledge_chunk`。
+6. 批量生成最终 chunk embedding。
+7. 批量 upsert 到 Qdrant。
+8. 更新 document 状态为 `COMPLETED`。
 
 原因：
 
 - PostgreSQL chunk 与 Qdrant point 一一对应。
 - 删除和回溯简单。
 - trace 中可以通过 chunkId 回到原文。
+- 原子单元 embedding 与最终 chunk embedding 的职责分离，边界检测和在线检索不会混用两类向量。
 
 ### 5.8 入库一致性策略
 
@@ -888,7 +940,7 @@ V0.1 必须实现：
 - `.txt` / `.md` 文档上传。
 - 简单 PDF 解析可选。
 - 文本清洗。
-- 结构化 chunk 切分。
+- 结构感知语义 chunk 切分；在语义 embedding 不可用时，才允许使用可观测的确定性基线兜底。
 - embedding 生成。
 - Qdrant upsert。
 - 知识库检索测试。
@@ -917,7 +969,7 @@ V1.0 RAG 应支持：
 4. 文档解析异步执行。
 5. 文档状态可查看。
 6. chunk 可查看。
-7. chunk 带 titlePath、tokenCount、metadata。
+7. chunk 带 `titlePath`、`tokenCount`、来源 block 范围、`chunkStrategyVersion` 和其他 metadata。
 8. embedding 写入 Qdrant。
 9. 支持按用户和知识库过滤。
 10. 支持检索测试。
@@ -933,6 +985,7 @@ V1.0 RAG 应支持：
 
 推荐增强：
 
+- 语义边界阈值和 chunk 策略的评测调参。
 - Rerank。
 - Hybrid Search。
 - Query Rewrite。
@@ -954,7 +1007,7 @@ RAG 设计可以这样讲：
    - PostgreSQL 保存 chunk 正文和元数据，Qdrant 保存向量和 payload，通过 chunkId 关联。
 
 2. **不是黑盒检索**
-   - 文档入库经过解析、清洗、结构化 chunk、embedding、向量写入，每一步都有状态和失败处理。
+   - 文档入库经过解析、清洗、原子单元提取、语义边界检测、chunk 聚合、embedding 和向量写入，每一步都有状态和失败处理。
 
 3. **引用可追踪**
    - 最终答案带 citations，Trace 保存每次召回的 chunk 快照。
@@ -979,7 +1032,6 @@ V1.0 暂不做：
 - Word/Excel/PPT 复杂解析。
 - Graph RAG。
 - 自动知识图谱。
-- 复杂语义切分模型。
 - 本地 embedding 模型部署。
 - 大规模分布式索引。
 
