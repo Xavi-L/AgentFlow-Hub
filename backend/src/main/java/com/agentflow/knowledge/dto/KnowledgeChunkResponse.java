@@ -8,8 +8,8 @@ import java.time.OffsetDateTime;
  * 存储对象键或未来向量实现细节。
  *
  * <p>English: Safe output when an owner views text chunks. It contains reviewable body
- * text and chunk statistics without exposing userId, storage object keys, or future
- * vector implementation details.
+ * text, chunk statistics, and the observable V5 vectorization state without exposing
+ * userId or source-storage object keys.
  */
 public record KnowledgeChunkResponse(
         String id,
@@ -19,6 +19,10 @@ public record KnowledgeChunkResponse(
         String titlePath,
         int charCount,
         int tokenCount,
+        String vectorizationStatus,
+        String vectorizationError,
+        String contentHash,
+        String vectorId,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
 ) {
@@ -31,6 +35,10 @@ public record KnowledgeChunkResponse(
                 chunk.getTitlePath(),
                 chunk.getCharCount(),
                 chunk.getTokenCount(),
+                chunk.getVectorizationStatus(),
+                chunk.getVectorizationError(),
+                chunk.getContentHash(),
+                chunk.getVectorId(),
                 chunk.getCreatedAt(),
                 chunk.getUpdatedAt()
         );

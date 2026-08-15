@@ -275,6 +275,10 @@ class KnowledgeDocumentControllerTest {
                 "Refund",
                 content.codePointCount(0, content.length()),
                 2,
+                "PENDING",
+                null,
+                "e21c5e8122792c1109d3d47e61673f20f6393e8cdf7780e7f237bf29b9942f8b",
+                null,
                 now,
                 now
         );

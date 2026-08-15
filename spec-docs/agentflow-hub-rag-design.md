@@ -385,16 +385,15 @@ metadata 示例：
 
 1. parser 生成带来源 metadata 的原子单元。
 2. 批量生成原子单元 embedding，执行语义边界检测和 chunk 聚合。
-3. 为最终 chunk 提前生成稳定的 chunk ID。
-4. 设置 `vector_id = chunkId.toString()`。
-5. 批量插入 `knowledge_chunk`。
-6. 批量生成最终 chunk embedding。
-7. 批量 upsert 到 Qdrant。
-8. 更新 document 状态为 `COMPLETED`。
+3. 批量插入最终 `knowledge_chunk`，初始 `vectorization_status = PENDING`，并保存精确 UTF-8 正文的 `content_hash`。
+4. 用 `userId + knowledgeBaseId + documentId + chunkIndex + contentHash` 派生稳定、Qdrant 可接受的 UUID `vector_id`。
+5. 批量生成最终 chunk embedding。
+6. 按 `vector_id` 批量 upsert 到 Qdrant。
+7. 将该 chunk 的 `vectorization_status` 更新为 `COMPLETED` 并保存 `vector_id`；document 的解析状态保持为自己的独立事实。
 
 原因：
 
-- PostgreSQL chunk 与 Qdrant point 一一对应。
+- PostgreSQL chunk 与 Qdrant point 一一对应，且相同正文出现在不同文档/位置时不会错误争用一个 point。
 - 删除和回溯简单。
 - trace 中可以通过 chunkId 回到原文。
 - 原子单元 embedding 与最终 chunk embedding 的职责分离，边界检测和在线检索不会混用两类向量。
@@ -405,11 +404,11 @@ PostgreSQL 和 Qdrant 不在同一个事务中，需要做补偿。
 
 策略：
 
-- 文档处理期间状态为 `PROCESSING`。
-- 任何步骤失败，document 状态改为 `FAILED`，记录 `parse_error`。
+- 文档解析状态与 chunk 向量化状态分离：已完成解析的 chunk 依次经过 `PENDING → PROCESSING → COMPLETED / FAILED`。
+- 向量化失败写入受控的 `vectorization_error`，不会回写或伪造 document 的 `parse_status`。
 - 重新解析时，先删除旧 chunks 和旧 vectors，再重新入库。
-- Qdrant upsert 使用 chunkId 作为 vectorId，天然幂等。
-- 如果数据库写入成功但 Qdrant 写入失败，文档保持 `FAILED`，下次 reprocess 清理后重试。
+- Qdrant upsert 使用由 scope + content hash 派生的稳定 `vector_id`，因此重放可以安全覆盖同一点；已完成状态可直接跳过。
+- 如果 Qdrant upsert 成功但 PostgreSQL 状态更新失败，后续补偿仍使用相同 `vector_id`，不会制造重复 point。
 
 ---
 
@@ -426,8 +425,16 @@ kb_chunks
 ### 6.2 Vector ID
 
 ```text
-vector_id = knowledge_chunk.id.toString()
+content_hash = SHA-256(exact UTF-8 chunk content)
+vector_id = UUIDv8(SHA-256(
+  "agentflow-knowledge-vector-v1" + user_id + knowledge_base_id +
+  document_id + chunk_index + content_hash
+))
 ```
+
+`content_hash` 让正文变化产生新的 point identity；owner/知识库/文档/顺序范围避免两个不同
+chunk 恰好正文相同而互相覆盖。UUID 只作为 Qdrant point ID，`chunk_id` 仍保存在 payload 中用于
+回查 PostgreSQL 权威正文。
 
 ### 6.3 Payload
 

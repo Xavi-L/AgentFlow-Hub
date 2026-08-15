@@ -2,11 +2,13 @@ package com.agentflow.knowledge.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.agentflow.knowledge.chunk.ChunkDraft;
+import com.agentflow.knowledge.model.ChunkVectorizationStatus;
 import com.agentflow.knowledge.model.DocumentParseStatus;
 import com.agentflow.knowledge.model.KnowledgeChunk;
 import com.agentflow.knowledge.model.KnowledgeDocument;
 import com.agentflow.knowledge.repository.KnowledgeChunkMapper;
 import com.agentflow.knowledge.repository.KnowledgeDocumentMapper;
+import com.agentflow.knowledge.vector.ChunkVectorIdentityFactory;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -91,6 +93,8 @@ public class DocumentProcessingTransactionService {
             chunk.setTitlePath(chunkDraft.titlePath());
             chunk.setCharCount(chunkDraft.charCount());
             chunk.setTokenCount(chunkDraft.tokenCount());
+            chunk.setVectorizationStatus(ChunkVectorizationStatus.PENDING.name());
+            chunk.setContentHash(ChunkVectorIdentityFactory.contentHash(chunkDraft.content()));
             chunk.setCreatedAt(now);
             chunk.setUpdatedAt(now);
 

@@ -8,11 +8,13 @@ import java.time.OffsetDateTime;
 
 /**
  * 中文：{@code knowledge_chunk} 的 Java 映射。每一行是一个文档中按固定顺序生成的、可直接
- * 审阅的文本块；本轮不保存 embedding、Qdrant ID 或检索分数。
+ * 审阅的文本块；embedding 本身仍不写入 PostgreSQL，但 V5 保存可审阅的向量化状态、内容 hash
+ * 和稳定 Qdrant point ID。
  *
  * <p>English: Java mapping for {@code knowledge_chunk}. Each row is an ordered,
- * directly inspectable text block from one document. This slice stores no embedding,
- * Qdrant ID, or retrieval score.
+ * directly inspectable text block from one document. The embedding itself stays outside
+ * PostgreSQL, while V5 records its vectorization state, content hash, and stable Qdrant
+ * point ID.
  */
 @TableName("knowledge_chunk")
 public class KnowledgeChunk {
@@ -42,6 +44,18 @@ public class KnowledgeChunk {
 
     @TableField("token_count")
     private Integer tokenCount;
+
+    @TableField("vectorization_status")
+    private String vectorizationStatus;
+
+    @TableField("vectorization_error")
+    private String vectorizationError;
+
+    @TableField("content_hash")
+    private String contentHash;
+
+    @TableField("vector_id")
+    private String vectorId;
 
     @TableField("created_at")
     private OffsetDateTime createdAt;
@@ -119,6 +133,38 @@ public class KnowledgeChunk {
 
     public void setTokenCount(Integer tokenCount) {
         this.tokenCount = tokenCount;
+    }
+
+    public String getVectorizationStatus() {
+        return vectorizationStatus;
+    }
+
+    public void setVectorizationStatus(String vectorizationStatus) {
+        this.vectorizationStatus = vectorizationStatus;
+    }
+
+    public String getVectorizationError() {
+        return vectorizationError;
+    }
+
+    public void setVectorizationError(String vectorizationError) {
+        this.vectorizationError = vectorizationError;
+    }
+
+    public String getContentHash() {
+        return contentHash;
+    }
+
+    public void setContentHash(String contentHash) {
+        this.contentHash = contentHash;
+    }
+
+    public String getVectorId() {
+        return vectorId;
+    }
+
+    public void setVectorId(String vectorId) {
+        this.vectorId = vectorId;
     }
 
     public OffsetDateTime getCreatedAt() {

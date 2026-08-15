@@ -3,8 +3,8 @@
 # 1. Run "Login" in user-auth.http to create the local agentflowAccessToken variable.
 # 2. Run "Create a knowledge base" in knowledge-base.http. Its successful response now
 #    stores agentflowKnowledgeBaseId in the same local HTTP-client session.
-# 3. Run the upload/process/list requests below. Do not paste a real token or absolute
-#    file path into this tracked file.
+# 3. Run the upload/process/vectorize/list requests below. Do not paste a real token or
+#    absolute file path into this tracked file.
 
 @baseUrl = http://localhost:8080
 
@@ -61,10 +61,42 @@ X-Trace-Id: af-manual-document-list-after-process-001
   });
 %}
 
-### Inspect the uploaded document's persisted chunks: expected HTTP 200 and ordered chunks.
+### Vectorize the current knowledge base's PENDING chunks: expected HTTP 200.
+# With no provider/Qdrant settings yet, the V5 default development gateways generate a
+# deterministic non-semantic vector and perform an in-memory idempotent upsert. This
+# validates the synchronous state transition; it is not a Qdrant connectivity check.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chunks/vectorize-pending
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-chunk-vectorize-001
+
+> {%
+  client.test("pending chunks are vectorized", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.claimed === response.body.data.completed + response.body.data.failed,
+      "Each claimed chunk must complete or fail");
+    client.assert(response.body.data.completed >= 1,
+      "Expected at least one successfully vectorized fixture chunk");
+  });
+%}
+
+### Repeat the V5 request: expected HTTP 200 with completed=0 and previously completed chunks skipped.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chunks/vectorize-pending
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-chunk-vectorize-repeat-001
+
+> {%
+  client.test("completed chunks are safely skipped on repeat", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.data.completed === 0, "Expected no second vectorization");
+    client.assert(response.body.data.skipped >= 1, "Expected the completed fixture chunk to be skipped");
+  });
+%}
+
+### Inspect the uploaded document's persisted chunks: expected HTTP 200 and V5 vector status/ID.
 GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/documents/{{agentflowDocumentId}}/chunks?page=1&pageSize=20
 Authorization: Bearer {{agentflowAccessToken}}
-X-Trace-Id: af-manual-document-chunks-001
+X-Trace-Id: af-manual-document-chunks-after-vectorize-001
 
 > {%
   client.test("chunks are visible for the current owner", function () {
@@ -73,6 +105,14 @@ X-Trace-Id: af-manual-document-chunks-001
     client.assert(Array.isArray(response.body.data.items), "Expected chunk items array");
     client.assert(response.body.data.items.length >= 1, "Expected at least one chunk");
     client.assert(response.body.data.items[0].chunkIndex === 0, "Expected zero-based chunk index");
+    client.assert(response.body.data.items[0].vectorizationStatus === "COMPLETED",
+      "Expected V5 vectorization to complete");
+    client.assert(typeof response.body.data.items[0].vectorId === "string"
+      && /^[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(response.body.data.items[0].vectorId),
+      "Expected a stable UUID vectorId");
+    client.assert(typeof response.body.data.items[0].contentHash === "string"
+      && /^[0-9a-f]{64}$/.test(response.body.data.items[0].contentHash),
+      "Expected a SHA-256 contentHash");
   });
 %}
 

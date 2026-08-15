@@ -11,10 +11,12 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.agentflow.knowledge.chunk.ChunkDraft;
+import com.agentflow.knowledge.model.ChunkVectorizationStatus;
 import com.agentflow.knowledge.model.KnowledgeChunk;
 import com.agentflow.knowledge.model.KnowledgeDocument;
 import com.agentflow.knowledge.repository.KnowledgeChunkMapper;
 import com.agentflow.knowledge.repository.KnowledgeDocumentMapper;
+import com.agentflow.knowledge.vector.ChunkVectorIdentityFactory;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -100,6 +102,13 @@ class DocumentProcessingTransactionServiceTest {
                 .containsOnly(101L);
         assertThat(chunkCaptor.getAllValues()).extracting(KnowledgeChunk::getChunkIndex)
                 .containsExactly(0, 1);
+        assertThat(chunkCaptor.getAllValues()).extracting(KnowledgeChunk::getVectorizationStatus)
+                .containsOnly(ChunkVectorizationStatus.PENDING.name());
+        assertThat(chunkCaptor.getAllValues()).extracting(KnowledgeChunk::getContentHash)
+                .containsExactly(
+                        ChunkVectorIdentityFactory.contentHash("first chunk"),
+                        ChunkVectorIdentityFactory.contentHash("second chunk")
+                );
         verify(knowledgeDocumentMapper).update(
                 org.mockito.ArgumentMatchers.<KnowledgeDocument>isNull(),
                 documentUpdateCaptor.capture()
