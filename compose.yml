@@ -1,0 +1,20 @@
+# Local single-node Qdrant for AgentFlow development.
+# REST API/dashboard: http://localhost:6333
+# gRPC API:             localhost:6334
+#
+# The ports are bound only to this machine. Do not expose this compose setup to a
+# public network without enabling Qdrant API-key authentication and TLS.
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: agentflow-qdrant
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+
+volumes:
+  qdrant_storage:
+    name: agentflow-qdrant-storage

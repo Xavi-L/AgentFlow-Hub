@@ -40,9 +40,23 @@ mybatis-plus:
 
 agentflow:
   qdrant:
-    host: ${QDRANT_HOST:localhost}
-    port: ${QDRANT_PORT:6334}
-    collection: ${QDRANT_COLLECTION:agentflow_chunks}
+    # V6 uses Qdrant's REST API. The local compose.yml binds it to 127.0.0.1:6333.
+    base-url: ${QDRANT_BASE_URL:http://127.0.0.1:6333}
+    api-key: ${QDRANT_API_KEY:}
+    collection: ${QDRANT_COLLECTION:agentflow_chunks_te_v4_1024}
+    vector-size: ${QDRANT_VECTOR_SIZE:1024}
+    timeout: ${QDRANT_TIMEOUT:PT10S}
+  knowledge:
+    vectorization:
+      # `remote` replaces V5's deterministic/in-memory development adapters.
+      mode: ${KNOWLEDGE_VECTORIZATION_MODE:remote}
+      embedding:
+        dashscope:
+          base-url: ${DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+          api-key: ${DASHSCOPE_API_KEY:}
+          model: ${DASHSCOPE_EMBEDDING_MODEL:text-embedding-v4}
+          dimensions: ${DASHSCOPE_EMBEDDING_DIMENSIONS:1024}
+          timeout: ${DASHSCOPE_TIMEOUT:PT30S}
   llm:
     base-url: ${OPENAI_BASE_URL:http://127.0.0.1:1234/v1}
     api-key: ${OPENAI_API_KEY:}

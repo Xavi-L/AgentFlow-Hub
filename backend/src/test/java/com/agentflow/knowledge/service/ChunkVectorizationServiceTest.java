@@ -83,7 +83,7 @@ class ChunkVectorizationServiceTest {
 
         verify(embeddingGateway).embed(embeddingRequestCaptor.capture());
         assertThat(embeddingRequestCaptor.getValue()).isEqualTo(
-                new EmbeddingRequest("Refund rules", "openai-compatible", "text-embedding-v3")
+                new EmbeddingRequest("Refund rules", "dashscope", "text-embedding-v4")
         );
         verify(vectorStoreGateway).upsert(vectorRecordCaptor.capture());
         VectorStoreRecord record = vectorRecordCaptor.getValue();
@@ -94,8 +94,8 @@ class ChunkVectorizationServiceTest {
                 .containsEntry("userId", 101L)
                 .containsEntry("chunkIndex", 0)
                 .containsEntry("contentHash", identity.contentHash())
-                .containsEntry("embeddingProvider", "openai-compatible")
-                .containsEntry("embeddingModel", "text-embedding-v3")
+                .containsEntry("embeddingProvider", "dashscope")
+                .containsEntry("embeddingModel", "text-embedding-v4")
                 .doesNotContainKey("content");
         verify(transactionService).markCompleted(chunk, identity.vectorId());
         assertThat(response).isEqualTo(new ChunkVectorizationResponse(1, 1, 1, 0, 0));
@@ -168,8 +168,8 @@ class ChunkVectorizationServiceTest {
         KnowledgeBase knowledgeBase = new KnowledgeBase();
         knowledgeBase.setId(201L);
         knowledgeBase.setUserId(101L);
-        knowledgeBase.setEmbeddingProvider("openai-compatible");
-        knowledgeBase.setEmbeddingModel("text-embedding-v3");
+        knowledgeBase.setEmbeddingProvider("dashscope");
+        knowledgeBase.setEmbeddingModel("text-embedding-v4");
         return knowledgeBase;
     }
 

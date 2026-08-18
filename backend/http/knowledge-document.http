@@ -62,9 +62,9 @@ X-Trace-Id: af-manual-document-list-after-process-001
 %}
 
 ### Vectorize the current knowledge base's PENDING chunks: expected HTTP 200.
-# With no provider/Qdrant settings yet, the V5 default development gateways generate a
-# deterministic non-semantic vector and perform an in-memory idempotent upsert. This
-# validates the synchronous state transition; it is not a Qdrant connectivity check.
+# V6 remote mode requires a running local Qdrant and DASHSCOPE_API_KEY in the same
+# AgentFlow process environment. It writes a real text-embedding-v4 dense vector to
+# Qdrant, so this request consumes the provider's input-token quota.
 POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chunks/vectorize-pending
 Authorization: Bearer {{agentflowAccessToken}}
 X-Trace-Id: af-manual-chunk-vectorize-001

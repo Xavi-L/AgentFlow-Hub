@@ -8,9 +8,9 @@
 后可查看稳定 `vectorId`、失败可追踪、重复调用安全”；它**不**做语义查询、rerank、Agent、异步队列
 或自动重试。
 
-真实 embedding provider 和 Qdrant 连接配置暂不进入仓库。没有配置时，Spring 会注入确定性的本地
-开发 adapter 来完成 HTTP 状态机验收；它不代表语义 embedding，也不能被当作真实 Qdrant 连通性或
-检索质量的证据。后续只需替换两个 Gateway bean，不需修改 V5 业务编排层。
+> V5 建立了本地可验收的状态机与 Gateway 边界。真实 DashScope + Qdrant 的 remote mode 已在 V6
+> 接入，配置与真实环境验收以 `07_REAL_VECTOR_INGESTION_PACKAGE_INTERFACE.md` 为准。本文件保留 V5
+> 的稳定 identity、状态机和本地 adapter 契约，便于理解两层职责如何分离。
 
 ## 1. V5 最小闭环
 
@@ -110,16 +110,16 @@ public interface VectorStoreGateway {
 `ChunkVectorizationService` 只依赖上述接口和 provider-neutral records；它没有任何模型客户端或 Qdrant
 SDK import。
 
-当前无配置时的默认 bean：
+V5 基线的 local mode bean：
 
 | Bean | 作用 | 边界 |
 | --- | --- | --- |
 | `DeterministicDevelopmentEmbeddingGateway` | 从正文 hash 生成固定 16 维浮点向量 | 仅用于调用链和 HTTP 验收，不具有语义能力 |
 | `InMemoryVectorStoreGateway` | 根据 `vectorId` 做线程安全覆盖写入 | 仅模拟 Qdrant upsert 的幂等性，不提供搜索或持久化 |
 
-默认配置选择 `agentflow.knowledge.vectorization.mode=local`；该属性缺省时也会选择本地 adapter。后续接入
-真实 embedding 与 Qdrant 时，设置另一个 mode 并提供各自的 Gateway bean 即可；URL、API key、collection
-和模型配置本轮均保持空白。
+当 `agentflow.knowledge.vectorization.mode=local` 时会选择这些 adapter；它适合状态机单元测试与离线
+HTTP 验收，不能证明真实语义质量。V6 的 `remote` mode 提供 DashScope 和 Qdrant bean，但仍不改变本类
+业务编排、稳定 identity 或幂等写入语义。
 
 ## 6. HTTP 接口
 

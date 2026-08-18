@@ -15,8 +15,8 @@ X-Trace-Id: af-manual-kb-create-001
 {
   "name": "支付业务知识库",
   "description": "支付失败、错误码、退款规则相关文档",
-  "embeddingProvider": "openai-compatible",
-  "embeddingModel": "text-embedding-v3",
+  "embeddingProvider": "dashscope",
+  "embeddingModel": "text-embedding-v4",
   "chunkSize": 800,
   "chunkOverlap": 120
 }

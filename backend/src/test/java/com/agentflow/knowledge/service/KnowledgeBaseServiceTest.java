@@ -96,8 +96,8 @@ class KnowledgeBaseServiceTest {
         assertThat(persisted.getUserId()).isEqualTo(currentUser.id());
         assertThat(persisted.getName()).isEqualTo("Payment knowledge base");
         assertThat(persisted.getDescription()).isEqualTo("Error codes and refund rules");
-        assertThat(persisted.getEmbeddingProvider()).isEqualTo("openai-compatible");
-        assertThat(persisted.getEmbeddingModel()).isEqualTo("text-embedding-v3");
+        assertThat(persisted.getEmbeddingProvider()).isEqualTo("dashscope");
+        assertThat(persisted.getEmbeddingModel()).isEqualTo("text-embedding-v4");
         assertThat(persisted.getChunkSize()).isEqualTo(800);
         assertThat(persisted.getChunkOverlap()).isEqualTo(120);
         assertThat(persisted.getStatus()).isEqualTo("ACTIVE");
@@ -184,8 +184,8 @@ class KnowledgeBaseServiceTest {
         knowledgeBase.setId(id);
         knowledgeBase.setUserId(101L);
         knowledgeBase.setName(name);
-        knowledgeBase.setEmbeddingProvider("openai-compatible");
-        knowledgeBase.setEmbeddingModel("text-embedding-v3");
+        knowledgeBase.setEmbeddingProvider("dashscope");
+        knowledgeBase.setEmbeddingModel("text-embedding-v4");
         knowledgeBase.setChunkSize(800);
         knowledgeBase.setChunkOverlap(120);
         knowledgeBase.setStatus(status);

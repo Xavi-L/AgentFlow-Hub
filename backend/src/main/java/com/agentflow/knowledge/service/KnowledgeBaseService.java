@@ -26,8 +26,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class KnowledgeBaseService {
     private static final String ACTIVE_STATUS = "ACTIVE";
-    private static final String DEFAULT_EMBEDDING_PROVIDER = "openai-compatible";
-    private static final String DEFAULT_EMBEDDING_MODEL = "text-embedding-v3";
+    // V6's single configured collection is text-embedding-v4 at 1024 dimensions.
+    // A later model migration must create a separate collection and re-vectorize rather
+    // than mixing incompatible vectors into this one.
+    private static final String DEFAULT_EMBEDDING_PROVIDER = "dashscope";
+    private static final String DEFAULT_EMBEDDING_MODEL = "text-embedding-v4";
     private static final int DEFAULT_CHUNK_SIZE = 800;
     private static final int DEFAULT_CHUNK_OVERLAP = 120;
     private static final int MIN_CHUNK_SIZE = 80;
