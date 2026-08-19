@@ -31,6 +31,17 @@ public class KnowledgeChunk {
     @TableField("document_id")
     private Long documentId;
 
+    /**
+     * 中文：仅供 V7/V8 canonical retrieval 投影使用的来源显示名。它来自已通过同一 owner / 知识库
+     * 范围校验的 {@code knowledge_document.file_name}，不是 {@code knowledge_chunk} 的持久列。
+     *
+     * <p>English: Source display name projected only for V7/V8 canonical retrieval. It
+     * comes from {@code knowledge_document.file_name} after the same owner/knowledge-base
+     * scope check; it is not a persisted {@code knowledge_chunk} column.
+     */
+    @TableField(exist = false)
+    private String documentFileName;
+
     @TableField("chunk_index")
     private Integer chunkIndex;
 
@@ -93,6 +104,14 @@ public class KnowledgeChunk {
 
     public void setDocumentId(Long documentId) {
         this.documentId = documentId;
+    }
+
+    public String getDocumentFileName() {
+        return documentFileName;
+    }
+
+    public void setDocumentFileName(String documentFileName) {
+        this.documentFileName = documentFileName;
     }
 
     public Integer getChunkIndex() {

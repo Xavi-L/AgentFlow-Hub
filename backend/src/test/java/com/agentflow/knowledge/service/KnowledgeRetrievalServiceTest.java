@@ -101,6 +101,9 @@ class KnowledgeRetrievalServiceTest {
         assertThat(response.items()).extracting(item -> item.chunkId()).containsExactly("402", "401");
         assertThat(response.items()).extracting(item -> item.rank()).containsExactly(1, 2);
         assertThat(response.items()).extracting(item -> item.score()).containsExactly(0.97, 0.88);
+        assertThat(response.items()).extracting(item -> item.fileName())
+                .containsExactly("refund-guide.md", "refund-guide.md");
+        assertThat(response.items()).extracting(item -> item.tokenCount()).containsExactly(8, 8);
     }
 
     @Test
@@ -182,9 +185,11 @@ class KnowledgeRetrievalServiceTest {
         chunk.setUserId(101L);
         chunk.setKnowledgeBaseId(201L);
         chunk.setDocumentId(documentId);
+        chunk.setDocumentFileName("refund-guide.md");
         chunk.setChunkIndex(chunkIndex);
         chunk.setTitlePath("支付 / 退款");
         chunk.setContent(content);
+        chunk.setTokenCount(8);
         chunk.setVectorizationStatus("COMPLETED");
         chunk.setVectorId(vectorId);
         return chunk;

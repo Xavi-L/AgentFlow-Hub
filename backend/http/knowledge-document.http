@@ -156,6 +156,75 @@ X-Trace-Id: af-manual-retrieve-test-invalid-topk-001
   "topK": 11
 }
 
+### V8 deterministic RAG context assembly: expected HTTP 200 with [S#] markers and sources.
+# This reuses V7 retrieval, so it still embeds the query and queries the configured V6 Qdrant
+# collection. It does not call an LLM, build a prompt, or generate an answer.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/retrieve-context-test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-retrieve-context-test-001
+
+{
+  "query": "退款失败时应该如何排查？",
+  "topK": 5,
+  "maxContextTokens": 3000
+}
+
+> {%
+  client.test("V8 context uses stable source markers within its budget", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.maxContextTokens === 3000, "Expected requested context budget");
+    client.assert(response.body.data.usedContextTokens <= response.body.data.maxContextTokens,
+      "Assembled context must stay within its budget");
+    client.assert(typeof response.body.data.skippedChunkCount === "number",
+      "Expected an explicit skipped chunk count");
+    client.assert(typeof response.body.data.context === "string", "Expected assembled context string");
+    client.assert(Array.isArray(response.body.data.sources), "Expected included source array");
+    client.assert(response.body.data.sources.length >= 1, "Expected at least one fixture source");
+    client.assert(response.body.data.sources[0].citationId === "S1", "Expected stable first citation ID");
+    client.assert(typeof response.body.data.sources[0].chunkId === "string", "Expected canonical chunkId");
+    client.assert(typeof response.body.data.sources[0].documentId === "string", "Expected canonical documentId");
+    client.assert(typeof response.body.data.sources[0].fileName === "string", "Expected source filename");
+    client.assert(typeof response.body.data.sources[0].titlePath === "string", "Expected source title path");
+    client.assert(typeof response.body.data.sources[0].score === "number", "Expected retrieval score");
+    client.assert(response.body.data.context.indexOf("[S1]") >= 0, "Expected [S1] in context");
+  });
+%}
+
+### V8 no-truncation boundary: expected HTTP 200, empty context, and skipped chunks.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/retrieve-context-test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-retrieve-context-test-budget-001
+
+{
+  "query": "退款失败时应该如何排查？",
+  "topK": 5,
+  "maxContextTokens": 1
+}
+
+> {%
+  client.test("V8 does not truncate a chunk to fit", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.data.context === "", "Expected no partial context");
+    client.assert(response.body.data.sources.length === 0, "Expected no partial source");
+    client.assert(response.body.data.skippedChunkCount >= 1, "Expected oversized chunks to be counted");
+  });
+%}
+
+### Invalid V8 maxContextTokens: expected HTTP 400 / COMMON_PARAM_INVALID.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/retrieve-context-test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-retrieve-context-test-invalid-budget-001
+
+{
+  "query": "退款失败如何处理？",
+  "topK": 5,
+  "maxContextTokens": 0
+}
+
 ### Unsupported filename suffix: expected HTTP 400 / KNOWLEDGE_DOCUMENT_FILE_TYPE_UNSUPPORTED.
 POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/documents
 Authorization: Bearer {{agentflowAccessToken}}

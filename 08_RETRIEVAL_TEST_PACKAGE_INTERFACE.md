@@ -35,8 +35,10 @@ Content-Type: application/json
       "score": 0.91,
       "chunkId": "401",
       "documentId": "301",
+      "fileName": "refund-rules.md",
       "chunkIndex": 0,
       "titlePath": "退款规则示例",
+      "tokenCount": 18,
       "content": "退款失败时，先核对支付渠道返回的错误码。"
     }
   ]
@@ -81,9 +83,10 @@ Qdrant payload 是检索索引，不是正文来源，也不能单独被信任�
    `COMPLETED` 且未软删除；
 3. PostgreSQL 当前 `chunk.vectorId` 与 Qdrant hit 的 point ID 精确一致。
 
-仅在三项均成立时，V7 才从 PostgreSQL 返回 `content`、`titlePath` 等字段，并按 Qdrant score
-顺序重新编号 `rank`。Qdrant 中的陈旧 point、错误 payload、被删除或重新处理后的 chunk 会静默从
-结果排除，不会泄漏或覆盖 PostgreSQL 当前数据。
+仅在三项均成立时，V7 才从 PostgreSQL 返回 `content`、`titlePath`、来源 document 的 `fileName` 以及
+V4 已持久化的 `tokenCount`，并按 Qdrant score 顺序重新编号 `rank`。这些字段都来自同一次 canonical
+PostgreSQL 回读，不能由 Qdrant payload 替代。Qdrant 中的陈旧 point、错误 payload、被删除或重新处理后的
+chunk 会静默从结果排除，不会泄漏或覆盖 PostgreSQL 当前数据。
 
 ## 4. 数据与状态边界
 
@@ -106,7 +109,8 @@ Qdrant collection 仍由 V6 的 `agentflow_chunks_te_v4_1024` / 1024 dimensions 
 ## 6. 明确不做
 
 - rerank、关键词/BM25/hybrid retrieval、query rewrite 或厂商 query instruction；
-- Agent tool、上下文拼装、LLM 回答生成、引用生成；
+- 本 `retrieve-test` 接口内的 Agent tool、上下文拼装、LLM 回答生成或答案引用；V8 的独立
+  `retrieve-context-test` 只消费本接口的 canonical 结果，仍不生成回答；
 - 异步检索、重试/死信、失败 chunk 重向量化；
 - 检索日志、点击反馈、离线评测、缓存、分页或跨知识库查询；
 - delete-by-vector、payload index 优化、named/sparse vector 或 collection 迁移。

@@ -6,10 +6,10 @@ import static org.mockito.Mockito.when;
 
 import com.agentflow.common.error.GlobalExceptionHandler;
 import com.agentflow.common.web.TraceIdFilter;
-import com.agentflow.knowledge.dto.KnowledgeRetrievalResponse;
-import com.agentflow.knowledge.dto.RetrieveTestRequest;
-import com.agentflow.knowledge.dto.RetrievedChunkResponse;
-import com.agentflow.knowledge.service.KnowledgeRetrievalService;
+import com.agentflow.knowledge.dto.KnowledgeContextResponse;
+import com.agentflow.knowledge.dto.KnowledgeContextSourceResponse;
+import com.agentflow.knowledge.dto.RetrieveContextTestRequest;
+import com.agentflow.knowledge.service.KnowledgeContextService;
 import com.agentflow.user.security.AuthenticatedUser;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
@@ -22,7 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-class KnowledgeRetrievalControllerTest {
+class KnowledgeContextControllerTest {
 
     @AfterEach
     void clearSecurityContext() {
@@ -30,60 +30,67 @@ class KnowledgeRetrievalControllerTest {
     }
 
     @Test
-    void shouldBindTheOwnerScopedRetrieveTestRoute() throws Exception {
-        KnowledgeRetrievalService service = Mockito.mock(KnowledgeRetrievalService.class);
+    void shouldBindTheOwnerScopedRetrieveContextTestRoute() throws Exception {
+        KnowledgeContextService service = Mockito.mock(KnowledgeContextService.class);
         AuthenticatedUser currentUser = currentUser();
-        RetrieveTestRequest request = new RetrieveTestRequest("退款失败如何排查？", 3);
-        when(service.retrieveTest(currentUser, 201L, request)).thenReturn(new KnowledgeRetrievalResponse(
+        RetrieveContextTestRequest request = new RetrieveContextTestRequest("退款失败如何排查？", 3, 800);
+        when(service.retrieveContextTest(currentUser, 201L, request)).thenReturn(new KnowledgeContextResponse(
                 "退款失败如何排查？",
                 3,
-                List.of(new RetrievedChunkResponse(
-                        1,
-                        0.92,
+                800,
+                36,
+                1,
+                "[S1]\\nSource: refund-rules.md\\nContent:\\n先检查支付渠道错误码",
+                List.of(new KnowledgeContextSourceResponse(
+                        "S1",
                         "401",
                         "301",
                         "refund-rules.md",
-                        0,
                         "支付 / 退款",
-                        8,
-                        "先检查支付渠道错误码"
+                        0.92
                 ))
         ));
         authenticate(currentUser);
 
         mockMvc(service).perform(MockMvcRequestBuilders.post(
-                        "/api/v1/knowledge-bases/{knowledgeBaseId}/retrieve-test", 201L
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}/retrieve-context-test", 201L
                 )
-                        .header("X-Trace-Id", "af-test-retrieve")
+                        .header("X-Trace-Id", "af-test-retrieve-context")
                         .contentType("application/json")
                         .content("""
-                                {"query":"退款失败如何排查？","topK":3}
+                                {"query":"退款失败如何排查？","topK":3,"maxContextTokens":800}
                                 """))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
                         .value("OK"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
-                        "$.data.items[0].chunkId"
-                ).value("401"))
+                        "$.data.context"
+                ).value("[S1]\\nSource: refund-rules.md\\nContent:\\n先检查支付渠道错误码"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
-                        "$.data.items[0].rank"
+                        "$.data.sources[0].citationId"
+                ).value("S1"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.sources[0].fileName"
+                ).value("refund-rules.md"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.skippedChunkCount"
                 ).value(1));
 
-        verify(service).retrieveTest(currentUser, 201L, request);
+        verify(service).retrieveContextTest(currentUser, 201L, request);
     }
 
     @Test
-    void shouldRejectBlankQueriesBeforeCallingTheService() throws Exception {
-        KnowledgeRetrievalService service = Mockito.mock(KnowledgeRetrievalService.class);
+    void shouldRejectAnOutOfRangeContextBudgetBeforeCallingTheService() throws Exception {
+        KnowledgeContextService service = Mockito.mock(KnowledgeContextService.class);
         authenticate(currentUser());
 
         mockMvc(service).perform(MockMvcRequestBuilders.post(
-                        "/api/v1/knowledge-bases/{knowledgeBaseId}/retrieve-test", 201L
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}/retrieve-context-test", 201L
                 )
-                        .header("X-Trace-Id", "af-test-retrieve-blank")
+                        .header("X-Trace-Id", "af-test-retrieve-context-invalid-budget")
                         .contentType("application/json")
                         .content("""
-                                {"query":"   ","topK":3}
+                                {"query":"退款规则","topK":3,"maxContextTokens":0}
                                 """))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isBadRequest())
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
@@ -92,27 +99,9 @@ class KnowledgeRetrievalControllerTest {
         verifyNoInteractions(service);
     }
 
-    @Test
-    void shouldMapANonNumericKnowledgeBaseIdTo400InsteadOf500() throws Exception {
-        KnowledgeRetrievalService service = Mockito.mock(KnowledgeRetrievalService.class);
-        authenticate(currentUser());
-
-        mockMvc(service).perform(MockMvcRequestBuilders.post(
-                        "/api/v1/knowledge-bases/not-a-number/retrieve-test"
-                )
-                        .header("X-Trace-Id", "af-test-retrieve-path")
-                        .contentType("application/json")
-                        .content("""
-                                {"query":"退款规则"}
-                                """))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isBadRequest())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
-                        .value("COMMON_PARAM_INVALID"));
-    }
-
-    private static MockMvc mockMvc(KnowledgeRetrievalService service) {
+    private static MockMvc mockMvc(KnowledgeContextService service) {
         return MockMvcBuilders
-                .standaloneSetup(new KnowledgeRetrievalController(service))
+                .standaloneSetup(new KnowledgeContextController(service))
                 .addPlaceholderValue("agentflow.api.prefix", "/api/v1")
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
