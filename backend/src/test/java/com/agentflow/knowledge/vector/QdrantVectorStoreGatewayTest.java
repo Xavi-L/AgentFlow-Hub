@@ -1,5 +1,6 @@
 package com.agentflow.knowledge.vector;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
@@ -72,6 +73,73 @@ class QdrantVectorStoreGatewayTest {
                 .hasMessageContaining("does not match Qdrant vectorSize 3");
     }
 
+    @Test
+    void shouldQueryOnlyTheCurrentOwnerAndKnowledgeBaseThenReturnPointLocators() {
+        QdrantProperties properties = properties();
+        RestClient.Builder builder = RestClient.builder().baseUrl(properties.getBaseUrl());
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        QdrantVectorStoreGateway gateway = new QdrantVectorStoreGateway(properties, builder.build());
+
+        server.expect(requestTo("http://qdrant.test/collections/agentflow_chunks_te_v4_3"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(collectionResponse(), MediaType.APPLICATION_JSON));
+        server.expect(requestTo("http://qdrant.test/collections/agentflow_chunks_te_v4_3/points/query"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header("api-key", "test-qdrant-key"))
+                .andExpect(content().json("""
+                        {
+                          "query":[0.125,-0.5,0.75],
+                          "filter":{"must":[
+                            {"key":"userId","match":{"value":101}},
+                            {"key":"knowledgeBaseId","match":{"value":201}}
+                          ]},
+                          "limit":3,
+                          "with_payload":["chunkId"],
+                          "with_vector":false
+                        }
+                        """))
+                .andRespond(withSuccess("""
+                        {
+                          "result":{"points":[
+                            {"id":"6f221541-64ae-8c32-9f22-c44f515cd6a0","score":0.91,
+                             "payload":{"chunkId":401}}
+                          ]},
+                          "status":"ok"
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        List<VectorSearchHit> hits = gateway.search(new VectorSearchRequest(
+                new EmbeddingVector(List.of(0.125f, -0.5f, 0.75f)),
+                101L,
+                201L,
+                3
+        ));
+
+        assertThat(hits).containsExactly(new VectorSearchHit(
+                "6f221541-64ae-8c32-9f22-c44f515cd6a0", 401L, 0.91
+        ));
+        server.verify();
+    }
+
+    @Test
+    void shouldNotCreateACollectionWhenAReadOnlySearchFindsNone() {
+        QdrantProperties properties = properties();
+        RestClient.Builder builder = RestClient.builder().baseUrl(properties.getBaseUrl());
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        QdrantVectorStoreGateway gateway = new QdrantVectorStoreGateway(properties, builder.build());
+
+        server.expect(requestTo("http://qdrant.test/collections/agentflow_chunks_te_v4_3"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withStatus(HttpStatus.NOT_FOUND));
+
+        assertThatThrownBy(() -> gateway.search(new VectorSearchRequest(
+                new EmbeddingVector(List.of(0.125f, -0.5f, 0.75f)), 101L, 201L, 3
+        )))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("does not exist for retrieval");
+        server.verify();
+    }
+
     private static QdrantProperties properties() {
         QdrantProperties properties = new QdrantProperties();
         properties.setBaseUrl("http://qdrant.test");
@@ -87,5 +155,11 @@ class QdrantVectorStoreGatewayTest {
                 new EmbeddingVector(List.of(0.125f, -0.5f, 0.75f)),
                 Map.of("chunkId", 401L, "contentHash", "hash")
         );
+    }
+
+    private static String collectionResponse() {
+        return """
+                {"result":{"config":{"params":{"vectors":{"size":3,"distance":"Cosine"}}}}}
+                """;
     }
 }

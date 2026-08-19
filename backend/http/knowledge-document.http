@@ -116,6 +116,46 @@ X-Trace-Id: af-manual-document-chunks-after-vectorize-001
   });
 %}
 
+### V7 semantic retrieval verification: expected HTTP 200 with canonical chunks only.
+# This embeds the query through the same configured DashScope model and queries the V6
+# Qdrant collection, so it also consumes provider input-token quota. It is deliberately
+# not an answer-generation, rerank, or Agent endpoint.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/retrieve-test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-retrieve-test-001
+
+{
+  "query": "退款失败时应该如何排查？",
+  "topK": 5
+}
+
+> {%
+  client.test("semantic retrieval returns scoped canonical chunks", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.query === "退款失败时应该如何排查？", "Expected normalized query");
+    client.assert(response.body.data.topK === 5, "Expected requested topK");
+    client.assert(Array.isArray(response.body.data.items), "Expected result items array");
+    client.assert(response.body.data.items.length >= 1, "Expected at least one fixture chunk");
+    client.assert(response.body.data.items[0].rank === 1, "Expected first result rank");
+    client.assert(typeof response.body.data.items[0].score === "number", "Expected vector score");
+    client.assert(typeof response.body.data.items[0].chunkId === "string", "Expected canonical chunkId");
+    client.assert(typeof response.body.data.items[0].content === "string", "Expected canonical chunk content");
+  });
+%}
+
+### Invalid V7 topK: expected HTTP 400 / COMMON_PARAM_INVALID.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/retrieve-test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-retrieve-test-invalid-topk-001
+
+{
+  "query": "退款失败如何处理？",
+  "topK": 11
+}
+
 ### Unsupported filename suffix: expected HTTP 400 / KNOWLEDGE_DOCUMENT_FILE_TYPE_UNSUPPORTED.
 POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/documents
 Authorization: Bearer {{agentflowAccessToken}}

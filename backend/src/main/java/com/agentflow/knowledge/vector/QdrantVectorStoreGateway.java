@@ -1,6 +1,7 @@
 package com.agentflow.knowledge.vector;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,14 +13,15 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 /**
- * 中文：V6 的 Qdrant REST 写入适配器。首次写入时它只会创建或验证一个 plain dense-vector
- * collection；随后使用 V5 已派生的 UUID point ID 进行 {@code wait=true} 的幂等 upsert。
- * 搜索、删除、named vectors 和 sparse vectors 仍留给独立切片。
+ * 中文：V6/V7 的 Qdrant REST 适配器。首次写入时它只会创建或验证一个 plain dense-vector
+ * collection；随后使用 V5 已派生的 UUID point ID 进行 {@code wait=true} 的幂等 upsert。V7
+ * 通过 Qdrant Query Points API 作 scoped dense retrieval；删除、rerank、named vectors 和
+ * sparse vectors 仍留给独立切片。
  *
- * <p>English: V6 Qdrant REST write adapter. On the first write it creates or validates
- * one plain dense-vector collection, then performs a {@code wait=true} idempotent upsert
- * using V5's derived UUID point ID. Search, deletion, named vectors, and sparse vectors
- * remain separate slices.
+ * <p>English: V6/V7 Qdrant REST adapter. On the first write it creates or validates one
+ * plain dense-vector collection, then performs a {@code wait=true} idempotent upsert
+ * using V5's derived UUID point ID. V7 uses Qdrant Query Points for scoped dense
+ * retrieval; deletion, reranking, named vectors, and sparse vectors remain deferred.
  */
 public final class QdrantVectorStoreGateway implements VectorStoreGateway {
     private static final String COSINE_DISTANCE = "Cosine";
@@ -66,6 +68,38 @@ public final class QdrantVectorStoreGateway implements VectorStoreGateway {
         }
     }
 
+    @Override
+    public List<VectorSearchHit> search(VectorSearchRequest request) {
+        VectorSearchRequest safeRequest = Objects.requireNonNull(request, "request must not be null");
+        if (safeRequest.vector().values().size() != properties.getVectorSize()) {
+            throw new IllegalArgumentException(
+                    "Query vector dimension " + safeRequest.vector().values().size()
+                            + " does not match Qdrant vectorSize " + properties.getVectorSize()
+            );
+        }
+        ensureExistingCollectionForSearch();
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("query", safeRequest.vector().values());
+        body.put("filter", scopeFilter(safeRequest));
+        body.put("limit", safeRequest.limit());
+        body.put("with_payload", List.of("chunkId"));
+        body.put("with_vector", false);
+
+        try {
+            JsonNode response = restClient.post()
+                    .uri("/collections/" + collection + "/points/query")
+                    .headers(this::applyApiKeyIfPresent)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(JsonNode.class);
+            return parseSearchHits(response);
+        } catch (RestClientException searchFailure) {
+            throw new IllegalStateException("Qdrant point query failed", searchFailure);
+        }
+    }
+
     private synchronized void ensureCollection() {
         if (collectionReady) {
             return;
@@ -82,6 +116,29 @@ public final class QdrantVectorStoreGateway implements VectorStoreGateway {
                 throw new IllegalStateException("Could not inspect Qdrant collection", responseFailure);
             }
             createCollection();
+        } catch (RestClientException requestFailure) {
+            throw new IllegalStateException("Could not inspect Qdrant collection", requestFailure);
+        }
+        collectionReady = true;
+    }
+
+    /** A V7 read must never create a collection as a side effect. */
+    private synchronized void ensureExistingCollectionForSearch() {
+        if (collectionReady) {
+            return;
+        }
+        try {
+            JsonNode response = restClient.get()
+                    .uri("/collections/" + collection)
+                    .headers(this::applyApiKeyIfPresent)
+                    .retrieve()
+                    .body(JsonNode.class);
+            verifyExistingCollection(response);
+        } catch (RestClientResponseException responseFailure) {
+            if (responseFailure.getStatusCode().value() == 404) {
+                throw new IllegalStateException("Qdrant collection does not exist for retrieval", responseFailure);
+            }
+            throw new IllegalStateException("Could not inspect Qdrant collection", responseFailure);
         } catch (RestClientException requestFailure) {
             throw new IllegalStateException("Could not inspect Qdrant collection", requestFailure);
         }
@@ -126,6 +183,39 @@ public final class QdrantVectorStoreGateway implements VectorStoreGateway {
         if (properties.getApiKey() != null && !properties.getApiKey().isBlank()) {
             headers.set("api-key", properties.getApiKey().trim());
         }
+    }
+
+    private static Map<String, Object> scopeFilter(VectorSearchRequest request) {
+        return Map.of("must", List.of(
+                matchFilter("userId", request.userId()),
+                matchFilter("knowledgeBaseId", request.knowledgeBaseId())
+        ));
+    }
+
+    private static Map<String, Object> matchFilter(String key, long value) {
+        return Map.of("key", key, "match", Map.of("value", value));
+    }
+
+    private static List<VectorSearchHit> parseSearchHits(JsonNode response) {
+        JsonNode result = response == null ? null : response.path("result");
+        JsonNode points = result != null && result.isArray() ? result : result == null ? null : result.path("points");
+        if (points == null || !points.isArray()) {
+            throw new IllegalStateException("Qdrant query response does not contain result points");
+        }
+
+        List<VectorSearchHit> hits = new ArrayList<>(points.size());
+        for (JsonNode point : points) {
+            JsonNode chunkId = point.path("payload").path("chunkId");
+            JsonNode score = point.path("score");
+            if (!chunkId.isIntegralNumber() || chunkId.longValue() <= 0) {
+                throw new IllegalStateException("Qdrant query result has no positive chunkId payload");
+            }
+            if (!score.isNumber() || !Double.isFinite(score.doubleValue())) {
+                throw new IllegalStateException("Qdrant query result has a non-finite score");
+            }
+            hits.add(new VectorSearchHit(point.path("id").asText(), chunkId.longValue(), score.doubleValue()));
+        }
+        return List.copyOf(hits);
     }
 
     private static String requireCollectionName(String value) {
