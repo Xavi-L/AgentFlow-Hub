@@ -188,3 +188,21 @@ ORDER BY installed_rank;
 - 知识库详情、修改、删除与 `updatedAt` patch 更新。
 
 这样下一步会在一个已经有明确 owner、状态、分页和数据库边界的知识库根资源上继续，而不是直接从文件上传和向量库开始堆功能。
+
+## 面试问题与回答
+
+### 问题 1：这个切片怎样防止已登录用户通过篡改 `userId` 访问或创建其他人的知识库？
+
+**回答：** 请求 DTO 根本没有 `userId`，`KnowledgeBaseController` 只从 `SecurityContext` 注入的 `AuthenticatedUser` 取得身份，`KnowledgeBaseService.create(...)` 固定写入 `currentUser.id()`。列表查询同时限定 `user_id = currentUser.id` 与 `deleted_at IS NULL`，因此不能退化为全表枚举；对外响应也不暴露 `userId`、`metadata` 或 `deletedAt`。这是一层“身份来源 + 查询条件 + 输出 DTO”的组合边界，而不是只靠前端隐藏字段。`KnowledgeBaseServiceTest` 用 mock Mapper 检查 owner 赋值和查询条件，是本地单元证据；跨用户的真实数据库/API 联调不应由该测试冒充。按 ID 的详情、修改、删除尚未纳入本切片，后续路由仍须带 owner 条件，并把未找到与非所有者统一为 404。
+
+### 问题 2：为什么 `chunkSize` / `chunkOverlap` 同时在 DTO、Service 和数据库约束中处理？
+
+**回答：** DTO 的 `@Min/@Max` 能在进入 Service 前拦截单字段越界；`chunkOverlap < chunkSize` 是跨字段关系，并且要针对缺省后的有效 `chunkSize` 判断，所以 Service 再显式校验，违规时返回 `COMMON_PARAM_INVALID`；V2 的 `CHECK` 约束最后保护直接 SQL、其他入口和并发下的持久化一致性。范围为 `80–1000`，overlap 为 `0 <= overlap < chunkSize`，以避免无意义或无法切分的配置。Flyway 已应用迁移不能倒改，未来改变规则必须新增高版本 migration。现有 Service 测试覆盖 overlap 等于 size 时不插入；它是 mock 数据访问测试，数据库 CHECK 的实际执行需以本地 Flyway/HTTP/SQL 验收确认。
+
+### 问题 3：文档中的 V2 初始 embedding 默认值与当前代码的默认值为何不同，能否把它当作已经完成的向量能力？
+
+**回答：** V2 创建表时的初始默认值是 `openai-compatible` / `text-embedding-v3`；后续不可变的 V6 migration 只修改新建行的数据库默认值为 `dashscope` / `text-embedding-v4`，当前 `KnowledgeBaseService` 也显式使用这一组默认值。已有知识库不会被隐式改写，因为模型或维度变化需要新 collection 和明确的重新向量化，不能混合旧向量。这里保存的只是元数据和后续配置，不意味着本 V2 切片已经上传文档、生成 embedding、写入 Qdrant 或提供 RAG；这些能力属于后续切片，相关本地 adapter/单元测试也不能作为真实外部服务验收。
+
+### 问题 4：如何验证这个切片的创建与分页契约，验证边界是什么？
+
+**回答：** 创建返回 `201 Created` 和统一 `ApiResponse<KnowledgeBaseResponse>`，其中 id 以字符串输出，Service 在插入前同时设置 `createdAt`、`updatedAt`，避免 MyBatis 未回读数据库默认值导致创建响应缺时间字段；分页复用 `PageRequest`，按 `created_at DESC, id DESC` 返回当前 owner 未软删除的记录，`DISABLED` 项仍可被其 owner 看见以便后续管理。`KnowledgeBaseControllerTest` 和 `KnowledgeBaseServiceTest` 以 Mockito 验证 201、默认值、分页以及 owner 过滤，是本地单元证据。`backend/http/knowledge-base.http` 给出本地手工顺序：先登录，再创建、默认值创建、列表、非法切分参数和无 token；其预期分别包含 201、200、400、401。文件上传、解析、向量库和真实外部 embedding/Qdrant 验收均未纳入本元数据切片。

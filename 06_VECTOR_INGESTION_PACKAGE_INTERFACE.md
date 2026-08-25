@@ -191,3 +191,21 @@ vectorize → Inspect chunks。
 
 这组验收证明 V5 的 owner scope、状态机、稳定 identity 与幂等调用链；真实 Qdrant endpoint、embedding
 API、语义检索效果、rerank、Agent 和异步队列都不在本切片的验收范围内。
+
+## 面试问题与回答
+
+### 问题 1：为什么 V5 只显式处理已解析完成文档下的 `PENDING` chunk，而不在 V4 分块时顺带向量化？
+
+**回答：** V5 把向量化定义为独立、可观察的阶段：候选项必须属于当前 JWT owner 的未软删除知识库，来源 document 为 `COMPLETED` 且未删除，chunk 自身仍是 `PENDING`。`POST /chunks/vectorize-pending` 再显式触发 `EmbeddingGateway` 和 `VectorStoreGateway`，因此文本落库成功、向量调用失败和重复调用可分别表达。这样 V4 的 PostgreSQL chunk 是先可审阅的权威输入，V5 不会因外部 provider 故障破坏解析完成态；语义查询、rerank、Agent、队列和自动重试均未纳入 V5。
+
+### 问题 2：并发请求和 PostgreSQL/Qdrant 无法共享事务时，V5 如何保证状态尽可能一致？
+
+**回答：** `ChunkVectorizationTransactionService` 只用条件更新认领仍为 `PENDING` 的 chunk，并把认领、成功和失败分别放在 `REQUIRES_NEW` 短事务中；embedding 与向量 upsert 始终在数据库事务外执行，避免网络延迟占用连接。数据库约束要求 `COMPLETED` 必有 `vectorId` 且无错误，`FAILED` 必有受控错误且无 `vectorId`。不过 PostgreSQL 与 Qdrant 没有分布式事务：若 point 已 upsert 而完成状态写回失败，远端 point 可能已存在；稳定 `vectorId` 让后续专门设计的补偿重试仍是同一点的 upsert，而不会制造重复 point。V5 本身不自动重试失败项，也不回收陈旧 `PROCESSING`。
+
+### 问题 3：为什么 `vectorId` 不能只由正文 hash 生成，PostgreSQL 又为什么仍是 chunk 正文的权威来源？
+
+**回答：** `ChunkVectorIdentityFactory` 先对精确 UTF-8 正文求小写 SHA-256，再将固定命名空间、`userId`、`knowledgeBaseId`、`documentId`、`chunkIndex` 和 hash 一起派生为 UUIDv8。只按正文 hash 会让不同文档中相同的段落争用一个 Qdrant point；加入范围和位置后，重复执行同一 chunk 稳定幂等，正文变化也会改变 hash 与 ID。Qdrant payload 仅保存过滤和回查所需的范围、位置、模型及 hash metadata，长正文仍保存在 PostgreSQL，避免向量库成为难以审计的第二权威副本。
+
+### 问题 4：V5 的本地测试、local adapter 与当前 remote HTTP 验收各能证明什么？
+
+**回答：** V5 的 `local` mode 使用确定性的 16 维开发 embedding 和内存向量存储，`ChunkVectorizationServiceTest`、identity/transaction 测试可验证状态机、稳定 ID、失败隔离和幂等调用链，但不证明语义质量、持久化或真实 provider 可用性。当前 `application-dev.yml` 默认选择 V6 的 `remote` mode；现有 `knowledge-document.http` 的 Vectorize 请求明确要求运行中的 Qdrant 与进程环境中的 `DASHSCOPE_API_KEY`，并会消耗真实 provider 配额。只有在该实际环境中手工运行成功，才构成对应外部服务的验收证据；不能由 V5 的 mock/local 结果推断远端 DashScope、Qdrant 或后续检索能力已经验证。

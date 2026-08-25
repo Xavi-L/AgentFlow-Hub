@@ -513,3 +513,21 @@ user
 ```
 
 那时需要先配置 PostgreSQL，并创建第一张表 `app_user`。
+
+## 面试问题与回答
+
+### 问题 1：为什么 Controller 不直接返回业务对象，而要统一使用 `ApiResponse<T>`？
+
+**回答：** 已实现的 `ApiResponse<T>` 把所有 REST 响应稳定为 `code`、`message`、`data`、`traceId` 和 `timestamp` 五个外层字段，泛型 `T` 仍保留每个接口数据的编译期类型。成功和失败分别通过工厂方法创建，失败时仍显式输出 `data: null`，因此前端不需要针对不同错误结构分支解包；HTTP 状态码则仍由 Controller 或 `ErrorCode` 决定，不会把 `201`、`400`、`404` 等语义混成一个状态。代价是所有接口都要遵守这份公共契约，但换来的是跨模块一致性。`ApiResponseTest` 与健康检查的 `MockMvc` 测试覆盖了该外壳和 traceId 字段；它们是本地单元/HTTP 契约验证，不等同于线上服务可用性证明。
+
+### 问题 2：`GlobalExceptionHandler` 如何既保持错误语义，又避免泄露内部实现？
+
+**回答：** 本切片用 `ErrorCode` 将稳定业务码、默认文案和 HTTP 状态码绑定在一起；业务层对可预期失败抛出携带该枚举的 `BusinessException`，处理器据此返回对应状态和统一外壳。参数校验与损坏 JSON 分别归为 `COMMON_PARAM_INVALID` 和 `COMMON_REQUEST_BODY_INVALID`，而未知异常只向客户端返回 `SYS_INTERNAL_ERROR`，完整异常仅记录在服务端日志中。这样调用方能按稳定 code 处理，数据库密码、堆栈等内部细节不会出现在响应中。现有 `GlobalExceptionHandlerTest` 覆盖业务 404、未知异常隐藏细节等映射；它验证处理器逻辑，未替代真实部署中的日志、网关或监控验收。
+
+### 问题 3：为什么 traceId 采用 `ThreadLocal`，并且必须在 `finally` 中清理？
+
+**回答：** `TraceIdFilter` 继承 `OncePerRequestFilter`，在请求最早阶段复用并 trim 客户端的 `X-Trace-Id`，没有时生成 `af-日期-随机短串`；随后把同一值放入 `TraceIdHolder` 和响应头，`ApiResponse` 创建时再读取它。普通静态变量会让并发请求串号，`ThreadLocal` 能隔离当前处理线程；但容器线程会复用，所以 `finally` 中的 `remove()` 是必须的，否则下一请求可能继承旧 traceId。`TraceIdFilterTest` 和 `HealthControllerTest` 使用 mock servlet/MockMvc 证明“请求头、响应头、响应体一致且请求后已清理”；这不是跨服务链路追踪或线上观测平台的验证，后者未纳入本切片。
+
+### 问题 4：分页为什么在请求端“归一化”、在响应端却“严格校验并防御性复制”？
+
+**回答：** `PageRequest` 是外部输入边界，Spring 绑定后会把页码收敛到至少 1、页大小收敛到 1–100，降低业务层重复处理无效输入的成本；`offset()` 用 `Math.multiplyExact`，极端页码溢出时明确失败而不是生成负偏移。`PageResult.of(...)` 则拒绝不可能的元数据（负总数、非法页码或页大小），使用 `List.copyOf` 防止 Controller 返回后原列表被修改，并以 long 乘法计算 `hasNext` 避免整数溢出。现有 `PageRequestTest`、`PageResultTest` 覆盖边界、溢出和防御性复制；本阶段明确不接数据库，因此这些测试不主张已经验证了某个数据库的 `LIMIT/OFFSET` 行为。

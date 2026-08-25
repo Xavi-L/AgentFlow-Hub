@@ -180,3 +180,21 @@ ORDER BY chunk_index ASC;
 
 这两条查询把“原始文档状态”和“确定性 chunk 序列”分开观察，是后续 embedding / Qdrant 接入前的可靠
 输入验收点。
+
+## 面试问题与回答
+
+### 问题 1：为什么 V4 要用 `PENDING → PROCESSING → COMPLETED/FAILED` 状态机，而不是让每个请求直接重跑解析？
+
+**回答：** `DocumentProcessingTransactionService.claimPendingDocument` 以“仍为 `PENDING`”作为条件更新；并发请求只有一个能认领成功，其他请求记为 `skipped`，不会读取文件或重复插入 chunk。解析和分块在数据库事务外进行，避免 I/O 或 UTF-8 解码长期占用连接；全部 chunk 的插入和改为 `COMPLETED` 则在一个 `REQUIRES_NEW` 短事务中提交，失败会整体回滚，再由独立短事务写入受控 `FAILED/parse_error`。这保证单篇文档的完成态不对应半套 chunk，也保证一篇坏文件不阻塞同批文档；显式重试、陈旧 `PROCESSING` 回收和异步队列明确未纳入 V4。
+
+### 问题 2：V4 为什么只做严格 UTF-8 与轻量 Markdown 处理，而不直接接入完整 Markdown AST 或更多文件格式？
+
+**回答：** 本切片只读取 V3 已保存的受控 `TXT`/`MD` 对象键，借由 `DocumentStorage.open` 避免用用户文件名或绝对路径打开文件。TXT/Markdown 都严格 UTF-8 解码、去 BOM、统一换行；非法字节会使该文档变为 `FAILED`，而不是静默替换成乱码。Markdown 保留正文，仅识别 fenced code 外的 ATX 标题生成 `titlePath`，代码围栏内的空行与伪标题不会被错误处理。完整 AST、HTML/PDF/Office 解析和富媒体清洗会显著扩大失败语义与依赖面，属于后续按类型独立扩展的范围；`parse_error` 仅留作内部受控诊断，不通过 chunk 查询暴露。
+
+### 问题 3：为什么分块使用轻量的 estimated-token 规则，而不是声称与 embedding 模型 tokenizer 完全一致？
+
+**回答：** 知识库既有的 `chunkSize`/`chunkOverlap` 契约以 estimated tokens 表示，V4 的 `LightweightTokenEstimator` 和 `DocumentChunker` 因此采用可复现规则：CJK/日文假名/韩文按 code point，普通词按连续词，无空格超长串按段处理。分块优先在接近容量的段落边界结束，必要时才硬切，并保证相邻块按 token 边界精确 overlap；`charCount` 则单独按 Unicode code point 统计。它没有伪装为某个 provider 的 tokenizer，并且在创建 token spans 前限制单文档 500,000 个 code point、最多 10,000 个 chunk，防止病态 overlap 造成内存或行数膨胀。未来切换模型级 tokenizer 时应版本化并重处理，而不是悄悄改写既有 chunk。
+
+### 问题 4：怎样验证 V4 的结果可审阅且可复现，验证范围又到哪里为止？
+
+**回答：** 解析器、`DocumentChunker` 和处理服务的单元测试分别覆盖严格 UTF-8、标题路径、稳定顺序与 overlap、异常文件继续处理、并发认领和“全部 chunks 后才 COMPLETED”。本地 IDEA HTTP 验收按 Login → Create knowledge base → Upload fixture → Process pending → List documents → Inspect chunks 执行；owner-scoped chunk 接口按 `chunkIndex ASC` 返回正文、`titlePath`、字符数和估算 token 数，也可用文中的两条 PostgreSQL 查询核对状态与序列。这些证据证明本地 V4 解析/落库闭环，不证明 embedding、Qdrant、语义检索、自动重试或异步处理已实现。

@@ -116,3 +116,35 @@ API-key 认证与 TLS，再设置 `QDRANT_API_KEY`。
 - Qdrant 不可达、collection 契约不符或 upsert 失败：chunk 标为 `FAILED`，保存 `Vector store upsert failed`。
 - V5 保证 PostgreSQL 与 Qdrant 的部分失败重放使用同一个 `vectorId`；V6 不自动重试 `FAILED` 或回收陈旧
   `PROCESSING`，这些仍是后续独立的可靠性切片。
+
+## 面试问题与回答
+
+### 问题 1：为什么 V6 要固定 `dashscope/text-embedding-v4`、1024 维和一个 Cosine collection？以后换模型怎么办？
+
+**回答：** 已实现的 V6 把模型、维度、距离度量和 collection 当作同一份向量空间契约：remote mode 启动时会比较
+DashScope dimensions 与 Qdrant `vectorSize`，Gateway 还会校验知识库 provider/model、返回向量维度及既有
+collection 的 1024 维 Cosine 配置。这样避免不同语义空间的向量混写后产生不可解释的相似度。`V6` migration
+只改新建知识库的默认值，不会迁移旧数据；更换模型或维度必须新建 collection 并显式重新向量化，旧知识库迁移
+不属于本切片。
+
+### 问题 2：`vectorize-pending` 如何处理重复调用、并发与 PostgreSQL/Qdrant 的部分失败？
+
+**回答：** 已实现流程先以条件更新在短事务中认领仍为 `PENDING` 的 chunk，再在事务外调用 embedding 与 Qdrant，最后
+在独立短事务写回 `COMPLETED` 或受控 `FAILED`，因此不会在外部 HTTP 调用期间持有数据库事务。`vectorId` 由
+user、知识库、document、chunkIndex 和正文 hash 稳定派生，Qdrant 用 `wait=true` 对同一 ID upsert；已完成的
+chunk 会被跳过。这降低了重复写入风险，但不等于分布式事务：`FAILED` 自动重试和陈旧 `PROCESSING` 回收明确未纳入
+本切片。
+
+### 问题 3：为什么 PostgreSQL 仍是正文权威，而不是直接把 Qdrant payload 当作知识内容？
+
+**回答：** 当前实现把 Qdrant 用作向量索引和回查/过滤 metadata 存储，写入 payload 不含 chunk 正文；正文、生命周期状态、
+`contentHash` 和当前 `vectorId` 仍以 PostgreSQL 为准。这样 V7 以后可以用 PostgreSQL 重读并验证 Qdrant hit 是否
+仍对应当前 chunk，避免过期 point、删除后的数据或错误 payload 被直接暴露。Qdrant 只承担本切片约定的向量写入，
+不是第二份内容真相源。
+
+### 问题 4：怎样说明 V6 已验证到什么程度，而不把 mock 或配置当成真实云服务验收？
+
+**回答：** 已有自动化测试验证 remote mode 的 Bean 选择和维度不匹配拒绝，并用 `MockRestServiceServer` 检查
+DashScope/Qdrant 请求、collection 契约、稳定 upsert 和失败分支；这些是本地/mock 契约验收，不是 DashScope 或
+Qdrant 的真实连通性证明。真实验收仍需在实际运行的 Qdrant、同一应用进程注入的 `DASHSCOPE_API_KEY`、新建的
+V6-compatible 知识库及已完成解析的文档条件下调用 `vectorize-pending`，再同时核对 PostgreSQL 状态与 Qdrant point。

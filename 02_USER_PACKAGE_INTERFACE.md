@@ -238,3 +238,21 @@ SELECT username, last_login_at, updated_at
 FROM app_user
 WHERE username = '你的用户名';
 ```
+
+## 面试问题与回答
+
+### 问题 1：注册时为什么既做用户名/邮箱查重，又保留数据库唯一约束？密码怎样避免落库为明文？
+
+**回答：** `UserRegistrationService` 先查重是为了返回精确的 `USER_USERNAME_ALREADY_EXISTS` 或 `USER_EMAIL_ALREADY_EXISTS`，并在已知冲突时避免无意义的 BCrypt 计算；但两个并发请求仍可能都在预检查后才插入，所以 V1 的唯一约束才是最终正确性防线，竞争产生的 `DuplicateKeyException` 会统一转为 409。请求 DTO 不暴露 `role`、`status`、`passwordHash` 等服务端字段，Service 在插入前只写 `PasswordEncoder.encode(...)` 的结果，响应也不返回哈希；BIGINT id 对外转字符串以避免 JavaScript 精度丢失。`UserRegistrationServiceTest` 是无真实 PostgreSQL 的 Mockito 单元测试，证明编排和持久化对象，不应把它表述为并发数据库联调结果；文档中的 HTTP/Query Console 步骤才是本地手工验收路径。
+
+### 问题 2：登录接口为什么把“用户不存在”和“密码错误”都返回同一个 401，却在密码正确后返回账号禁用？
+
+**回答：** `UserLoginService` 对查不到用户和 BCrypt 比对失败统一返回 `AUTH_INVALID_CREDENTIALS`，避免接口成为枚举用户名的信号源；只有凭据已被正确证明后，才报告 `AUTH_ACCOUNT_DISABLED`。活跃账号登录时，代码先以只含 `lastLoginAt`、`updatedAt` 的 patch entity 更新审计字段，再签发 token，避免把刚查出的整行数据回写覆盖并发更新。`UserLoginServiceTest` 覆盖这三种分支及“失败不签发 token”；这是 mock Mapper、mock JWT 的单元证据，不是对真实数据库、密码泄露防护或生产登录流量的外部验收。
+
+### 问题 3：JWT 已验证签名后，为什么还要在每个已认证请求中查询当前用户状态？
+
+**回答：** JWT 只证明 token 的签名、issuer、时间边界和 `token_type=access`，subject 仅保存用户 ID，不保存密码、邮箱或可过期的角色信息。`JwtAuthenticationFilter` 验签后调用 `CurrentUserService`，要求数据库中的账号仍为 `ACTIVE` 且未软删除，并用刚读取的角色建立 `SecurityContext`；因此禁用或软删除会立即拒绝旧 token，而不必等其过期。取舍是每次受保护请求多一次数据库读取，后续如需缓存必须不削弱这一失效语义。本切片只有 access token；refresh token、注销和 Redis 黑名单明确是后续规划。`JwtServiceTest` 使用固定时钟验证过期、issuer 和密钥长度等规则，`JwtAuthenticationFilterTest` 使用 mock 验证过滤器行为，均不是线上 token 服务验收。
+
+### 问题 4：为什么 401/403 的统一 JSON 不能只依赖 `GlobalExceptionHandler`，本切片如何验收认证链路？
+
+**回答：** Spring Security 过滤器链中的认证失败不会进入 MVC 的 `GlobalExceptionHandler`，所以 `RestAuthenticationEntryPoint` 和 `RestAccessDeniedHandler` 直接用 `ObjectMapper` 输出同一份 `ApiResponse`，分别对应未认证/无效 token 的 401 与已认证但无权限的 403；traceId 仍由更前面的 `TraceIdFilter` 写入响应。当前 `AuthControllerTest`、`JwtAuthenticationFilterTest` 等测试覆盖统一外壳、校验失败和无效 token 的本地行为。`backend/http/user-auth.http` 定义的 Login、带 token 的 `/users/me`、无 token、无效 token 是本地手工验收顺序；它们不构成真实外部身份提供商、refresh-token 或线上部署的验证。

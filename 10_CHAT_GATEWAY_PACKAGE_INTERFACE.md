@@ -133,3 +133,33 @@ Gateway failure，绝不把 provider URL、响应体或密钥回传给客户端�
 - Agent/tool calling、Prompt 管理、rerank/hybrid retrieval/query rewrite、重试生成或回答评测；
 - V7/V8、Embedding、Qdrant、向量写入或既有 retrieval 的任何改动；
 - 将模型回答中的自由文本、文件名或未知 citation 升格为来源事实。
+
+## 面试问题与回答
+
+### 问题 1：V9 为什么只消费 V8 的 `KnowledgeContextResponse`，而不直接调用 V7、Embedding 或 Qdrant？
+
+**回答：** 已实现的 `KnowledgeChatService` 只依赖 `KnowledgeContextService` 与 `ChatGateway`：它把 V8 已规范化的
+query、逐字未修改的 context、原始预算统计和 sources 继续传递，不重新检索、重排、估算 token 或编号 citation。这样
+检索范围、内容权威性和预算边界仍由 V7/V8 负责，生成层只负责一次回答和引用核验；V9 直接访问 V7、embedding、Qdrant
+或重装配 context 都是明确未纳入的越层实现。
+
+### 问题 2：如何防止客户端借 chat 接口篡改模型、Prompt、知识块或引用？
+
+**回答：** `chat-test` 请求使用局部严格白名单，只接受 `query`、`topK`、`maxContextTokens` 与 `maxAnswerTokens` 四个字段；
+`model`、`prompt`、`chunkId`、`citationId` 和其他字段会在进入 Service 前返回 `400 COMMON_REQUEST_BODY_INVALID`。模型名
+只从服务端 `agentflow.llm` 配置读取，Gateway 固定内部 system instruction，并把 `maxAnswerTokens` 限制为 `1..4096`。
+这保证客户端不能改变本切片的模型选择、上下文来源或引用表，但不包含多模型调度、Prompt 管理等后续能力。
+
+### 问题 3：模型回答里的 citation 如何校验，异常时如何避免把伪造来源返回给客户端？
+
+**回答：** 已实现校验只接受严格 `[S数字]`，要求至少一个标记且每个 ID 都存在于 V8 的 `sources[].citationId`；重复合法 ID
+按首次出现顺序去重。缺失、未知、嵌套、未闭合或其他畸形 S 型标记统一返回 `502 KNOWLEDGE_CHAT_CITATION_INVALID`，不会把
+模型自由文本升级为来源。若 V8 没有任何完整 context/source，则先返回 `409 KNOWLEDGE_CONTEXT_EMPTY` 且不调用 Gateway；
+Gateway 连接、上游非成功或无有效 answer 时返回不泄露 provider 细节的 `503 KNOWLEDGE_CHAT_GATEWAY_UNAVAILABLE`，本切片不重试。
+
+### 问题 4：怎样区分 V9 的自动化验证、真实本地模型调用与尚未覆盖的生产能力？
+
+**回答：** 自动化测试用 mock 验证 V8 context 的原样传递、固定非流式 `/chat/completions` 请求、服务端模型和 instruction、
+引用/错误映射及禁止字段；这证明编排和 adapter 契约，不是实际模型质量或外部服务可用性的证明。`knowledge-document.http`
+的 happy path 只有在应用进程配置本地 OpenAI-compatible 服务与 `OPENAI_*` 环境变量后才会发起一次真实模型调用；它仍不同于
+线上 SLA、流式、多轮会话、回答落库、Agent/tool calling 或效果评测，这些都未纳入本切片。

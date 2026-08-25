@@ -158,3 +158,33 @@ backend/http/knowledge-document.http
 
 V9 可以以此为输入边界：只引入一个受控 `ChatGateway`，接收 V8 的 `context` 和 `sources`，返回答案并把
 答案中的 `[S#]` 与这份稳定来源表核对；它不应回头重做 V7/V8 的召回、预算或 citation 编号。
+
+## 面试问题与回答
+
+### 问题 1：为什么 V8 不直接调用 LLM，而要单独做 context 装配？
+
+**回答：** 已实现的 `KnowledgeContextService` 只依赖 V7 的 canonical retrieval 和 `TokenEstimator`，不直接依赖
+embedding、Qdrant、LLM 或 Prompt。V7 先完成 owner scope、PostgreSQL 正文回读和当前 `vectorId` 校验，V8 再把这些
+已验证结果装配成可审计的 `context + sources`；这样 V9 只消费 `KnowledgeContextResponse`，不能悄悄重做召回或预算。
+V8 本身没有模型调用、Prompt、回答或 citation 持久化，这些不应被表述为本切片的已实现生成能力。
+
+### 问题 2：`maxContextTokens` 是怎样计算的？为什么宁可跳过也不截断 chunk？
+
+**回答：** 每个完整 block 的预算由 V4 持久化的 `chunk.tokenCount` 加上 V8 固定 `[S#]`、文件名、标题和 ID 包装的
+确定性估算开销构成，因此 `usedContextTokens` 覆盖返回的完整 context，而不仅是正文。当前使用的是 lightweight estimated
+tokens，不冒充任何 provider 或未来聊天模型的 tokenizer。放不下时已实现行为是完整跳过并计入 `skippedChunkCount`，继续按
+V7 原相似度顺序考察后续 chunk；无任何完整 block 可放入时返回空 context/source，绝不混入半段正文。
+
+### 问题 3：V8 的 `[S#]` 如何保证能追溯到真实来源，而不是模型编出来的标签？
+
+**回答：** `[S#]` 由后端只为实际进入 context 的 chunk 按包含顺序生成，同时生成同 ID、同顺序的 `sources` 条目。其
+`chunkId`、`documentId`、`fileName`、`titlePath` 和 score 来自 V7 已验证的 canonical retrieval；其中正文、文件名和
+tokenCount 仍以 PostgreSQL 为权威，Qdrant 不提供正文事实。客户端不能传 chunk、文件名或 citation ID，V8 也不写 citation
+表；答案引用核验是后续 V9 的职责。
+
+### 问题 4：V8 目前有哪些验收证据，又有哪些外部依赖尚不能由它单独证明？
+
+**回答：** 现有单元/Controller 测试覆盖了固定格式、相似度顺序、预算上限、跳过而不截断，以及 `maxContextTokens` 非法时
+在调用 V7 前返回 `400`；它们属于本地/mock 契约验证。`backend/http/knowledge-document.http` 还提供了成功、预算为 1 和
+非法预算三条可执行的手工路径；成功路径仍依赖已经真实可检索的 V5/V6/V7 环境，不能由 V8 单独证明。V8 不调用 LLM，
+因此它不能单独证明真实 Chat 服务、答案质量或线上 RAG 效果；这些均不在本切片范围。

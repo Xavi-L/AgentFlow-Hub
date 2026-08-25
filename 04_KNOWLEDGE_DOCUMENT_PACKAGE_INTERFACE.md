@@ -191,3 +191,21 @@ backend/http/fixtures/refund-rules.md
 ```
 
 该 fixture 仅用于 API 验收，不是运行时用户数据。
+
+## 面试问题与回答
+
+### 问题 1：为什么 V3 上传成功后只将文档置为 `PENDING`，而不在同一请求中完成解析和检索？
+
+**回答：** V3 的职责是可靠接收原始资料：`KnowledgeDocumentService.upload` 完成 owner 范围校验、文件准入、本地受控存储和元数据插入后，只写入 `parseStatus = PENDING`。这样“文件已接收”与“文本可解析、可分块、可检索”是可观察的不同事实，上传链路也不会因后续耗时或失败而失去明确语义。TXT/Markdown 解析和 `knowledge_chunk` 是 V4，embedding、向量库和检索不属于 V3；因此不能把 `201 Created` 或 `PENDING` 表述为 RAG 已可用。
+
+### 问题 2：上传接口如何避免客户端伪造归属或利用文件名越权访问路径？
+
+**回答：** 当前用户只从 JWT 建立的 `AuthenticatedUser` 取得，`userId`、知识库归属、存储对象键和 `parseStatus` 都不是 multipart 可写字段。Service 以 `knowledgeBaseId + currentUser.id()` 查询，缺失、非 owner 和软删除统一返回 `404 COMMON_NOT_FOUND`，避免资源枚举；V3 的 `(knowledge_base_id, user_id)` 复合外键再提供数据库侧的一致性约束。原始文件名会被规范化且仅用于展示，物理对象键由服务端 UUID 生成并限制在配置的存储根目录内，响应也不会返回路径或对象键。当前仅用受控后缀决定 `TXT`/`MD` 和服务端 MIME，客户端 `Content-Type` 不被信任；这不是正文安全扫描，非法 UTF-8 或内容质量问题留给 V4 的解析阶段处理。
+
+### 问题 3：数据库事务不能回滚本地文件系统时，V3 如何降低文件与元数据不一致的风险？
+
+**回答：** `LocalDocumentStorage` 先写同目录临时文件，再原子移动到服务端对象键；之后 V3 才插入 `knowledge_document`。若元数据插入失败，`KnowledgeDocumentService` 会立即尽力删除刚保存的对象；若外层数据库事务在方法返回后回滚，则通过 `afterCompletion` 注册同样的清理。这里刻意不宣称文件系统与 PostgreSQL 是分布式强事务：清理本身失败只记录服务端日志，仍可能留下需运维处理的孤儿文件，但不会把内部存储细节暴露给客户端。
+
+### 问题 4：V3 如何验收，哪些结论不能由这些验收推出？
+
+**回答：** `KnowledgeDocumentServiceTest`、`KnowledgeDocumentControllerTest` 和 `LocalDocumentStorageTest` 覆盖了 PENDING 写入、空文件/错误后缀、owner 范围、存储或元数据失败清理等本地行为。手工 HTTP 验收按 Login → Create knowledge base → Upload → List → Unsupported suffix → No token 的 V3 子序列执行，可观察 `201`、`PENDING`、分页和受控错误码。这些是单元测试与本地应用 HTTP 验收；它们不证明 V4 解析、V5/V6 向量化、语义检索、生产对象存储或病毒扫描已经完成。

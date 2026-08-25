@@ -114,3 +114,32 @@ Qdrant collection 仍由 V6 的 `agentflow_chunks_te_v4_1024` / 1024 dimensions 
 - 异步检索、重试/死信、失败 chunk 重向量化；
 - 检索日志、点击反馈、离线评测、缓存、分页或跨知识库查询；
 - delete-by-vector、payload index 优化、named/sparse vector 或 collection 迁移。
+
+## 面试问题与回答
+
+### 问题 1：既然 Qdrant 已经返回了命中，为什么 V7 还要回 PostgreSQL 做一次校验？
+
+**回答：** Qdrant 在本切片只是候选排序和定位索引，不能单独证明权限、文档生命周期或正文的新鲜性。已实现路径先以服务端
+固定的 `userId + knowledgeBaseId` filter 查询，再从 PostgreSQL 回读同 owner/知识库、`COMPLETED` chunk 与未删除且
+已完成解析的 document，最后要求 hit 的 point ID 精确等于当前 `chunk.vectorId`。只有三层都通过才返回 PostgreSQL
+正文；陈旧、删除或重处理后的 point 会被静默排除，而非被向量 payload 覆盖。
+
+### 问题 2：为什么不让客户端在 JSON 中提交 `userId` 或任意 Qdrant filter？
+
+**回答：** 已实现的 `userId` 只来自 JWT principal，`knowledgeBaseId` 只来自路径，`VectorSearchRequest` 要求服务层提供
+这两个正数范围；Qdrant adapter 固定生成两个 `must` filter，不透传 Controller 的任意 filter。这样客户不能把检索范围
+扩展到其他用户或知识库。缺失、非 owner、软删除知识库会在外部 embedding/Qdrant 调用前统一得到 `404`，非 `ACTIVE`
+知识库得到 `409`；跨知识库、跨用户检索未纳入此接口。
+
+### 问题 3：返回的 `score` 能否当作“答案正确率”或跨模型的置信度？
+
+**回答：** 不能。`score` 是当前 Cosine collection 这一次 dense retrieval 的原始相似度，只用于保留和观察本次候选排序；
+V7 在 PostgreSQL 校验后按仍有效的 Qdrant 顺序重新编号 `rank`。它不是答案正确率、概率或跨模型可比指标。接口把 `topK`
+限制在 `1..10`、默认 `5`，也不做 rerank、BM25/hybrid、query rewrite 或离线效果评测；这些要在后续独立切片定义。
+
+### 问题 4：V7 的测试与手工 HTTP 验收各自证明什么？
+
+**回答：** 自动化单元/mock 测试覆盖了服务端 scope、恢复 Qdrant 相似度顺序、排除 vectorId 不匹配的陈旧命中，以及
+Qdrant 查询请求的固定 filter；它们不证明真实 embedding 服务或 Qdrant 已可用。`retrieve-test` 的手工 HTTP 验收必须
+先完成 V6 的真实向量化前置条件，并使用已配置的 embedding 服务和存在的 collection；读路径若找不到 collection 会受控失败，
+不会为了查询创建它。本切片也没有生成回答、日志、缓存或异步检索能力。
