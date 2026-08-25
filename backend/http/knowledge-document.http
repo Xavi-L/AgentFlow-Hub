@@ -225,6 +225,97 @@ X-Trace-Id: af-manual-retrieve-context-test-invalid-budget-001
   "maxContextTokens": 0
 }
 
+### V9 one-shot grounded chat: run only when a local OpenAI-compatible server is configured.
+# Set OPENAI_BASE_URL, OPENAI_API_KEY (or leave it empty only for a local no-auth server), and
+# OPENAI_CHAT_MODEL in the AgentFlow process environment. This makes one real model call and is
+# intentionally not an automated acceptance check. V9 itself reuses V8 context/sources; it does
+# not rerank, rebuild context, or create a session/history.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-chat-test-001
+
+{
+  "query": "退款失败时应该如何排查？",
+  "topK": 5,
+  "maxContextTokens": 3000,
+  "maxAnswerTokens": 512
+}
+
+> {%
+  client.test("V9 answer is grounded in the V8 source table", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(typeof response.body.data.answer === "string" && response.body.data.answer.length > 0,
+      "Expected a non-empty answer");
+    client.assert(response.body.data.maxContextTokens === 3000, "Expected V8 context budget");
+    client.assert(response.body.data.usedContextTokens <= response.body.data.maxContextTokens,
+      "V8 context accounting must be preserved");
+    client.assert(response.body.data.maxAnswerTokens === 512, "Expected configured answer budget");
+    client.assert(Array.isArray(response.body.data.sources) && response.body.data.sources.length >= 1,
+      "Expected original V8 source table");
+    client.assert(Array.isArray(response.body.data.citationIds) && response.body.data.citationIds.length >= 1,
+      "Expected server-validated citations");
+    response.body.data.citationIds.forEach(function (citationId) {
+      client.assert(response.body.data.sources.some(function (source) {
+        return source.citationId === citationId;
+      }), "Every citation must map to a returned V8 source");
+    });
+  });
+%}
+
+### V9 empty V8 context: expected HTTP 409 / KNOWLEDGE_CONTEXT_EMPTY and no LLM call.
+# This request is safe to run even with no local model service: the V8 one-token budget cannot
+# contain a whole fixture block, so KnowledgeChatService returns before it reaches ChatGateway.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-chat-test-empty-context-001
+
+{
+  "query": "退款失败时应该如何排查？",
+  "topK": 5,
+  "maxContextTokens": 1,
+  "maxAnswerTokens": 256
+}
+
+> {%
+  client.test("V9 refuses an answer without V8 sources", function () {
+    client.assert(response.status === 409, "Expected HTTP 409");
+    client.assert(response.body.code === "KNOWLEDGE_CONTEXT_EMPTY",
+      "Expected controlled empty-context error");
+  });
+%}
+
+### Invalid V9 maxAnswerTokens: expected HTTP 400 / COMMON_PARAM_INVALID before V8 or LLM work.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-chat-test-invalid-answer-budget-001
+
+{
+  "query": "退款失败如何处理？",
+  "topK": 5,
+  "maxContextTokens": 3000,
+  "maxAnswerTokens": 0
+}
+
+### Forbidden V9 client control field: expected HTTP 400 / COMMON_REQUEST_BODY_INVALID.
+# The chat request has a strict four-field allowlist. `model`, `prompt`, `chunkId`, and
+# `citationId` are all rejected; this representative request verifies the model boundary.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-chat-test-forbidden-field-001
+
+{
+  "query": "退款失败如何处理？",
+  "topK": 5,
+  "maxContextTokens": 3000,
+  "maxAnswerTokens": 256,
+  "model": "client-must-not-control-model"
+}
+
 ### Unsupported filename suffix: expected HTTP 400 / KNOWLEDGE_DOCUMENT_FILE_TYPE_UNSUPPORTED.
 POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/documents
 Authorization: Bearer {{agentflowAccessToken}}

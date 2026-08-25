@@ -22,6 +22,21 @@ public enum ErrorCode {
     USER_EMAIL_ALREADY_EXISTS("USER_EMAIL_ALREADY_EXISTS", "Email is already in use", 409),
     USER_ACCOUNT_ALREADY_EXISTS("USER_ACCOUNT_ALREADY_EXISTS", "Username or email is already in use", 409),
     KNOWLEDGE_BASE_NOT_ACTIVE("KNOWLEDGE_BASE_NOT_ACTIVE", "Knowledge base is not active", 409),
+    KNOWLEDGE_CONTEXT_EMPTY(
+            "KNOWLEDGE_CONTEXT_EMPTY",
+            "Knowledge context contains no usable source",
+            409
+    ),
+    KNOWLEDGE_CHAT_GATEWAY_UNAVAILABLE(
+            "KNOWLEDGE_CHAT_GATEWAY_UNAVAILABLE",
+            "Knowledge chat model is unavailable",
+            503
+    ),
+    KNOWLEDGE_CHAT_CITATION_INVALID(
+            "KNOWLEDGE_CHAT_CITATION_INVALID",
+            "Knowledge chat answer contains invalid citations",
+            502
+    ),
     KNOWLEDGE_DOCUMENT_FILE_REQUIRED("KNOWLEDGE_DOCUMENT_FILE_REQUIRED", "A document file is required", 400),
     KNOWLEDGE_DOCUMENT_FILE_EMPTY("KNOWLEDGE_DOCUMENT_FILE_EMPTY", "Document file must not be empty", 400),
     KNOWLEDGE_DOCUMENT_FILE_NAME_INVALID("KNOWLEDGE_DOCUMENT_FILE_NAME_INVALID", "Document file name is invalid", 400),
