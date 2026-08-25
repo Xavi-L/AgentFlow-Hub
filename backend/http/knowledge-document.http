@@ -264,6 +264,67 @@ X-Trace-Id: af-manual-chat-test-001
   });
 %}
 
+### V10 one-shot grounded chat with immutable answer audit: run only after V9's prerequisites are ready.
+# This makes one real model call through the existing V9 path, then freezes only the validated
+# answer, V8 budgets, valid citation IDs, and V8 source table. It does not create a session or
+# a retrieval log. Run the following GET immediately after this request; it must not call a model.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-v10-chat-audit-001
+
+{
+  "query": "退款失败时应该如何排查？",
+  "topK": 5,
+  "maxContextTokens": 3000,
+  "maxAnswerTokens": 512
+}
+
+> {%
+  client.test("V10 saves one citation-validated answer snapshot", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(typeof response.body.data.answerId === "string" && response.body.data.answerId.length > 0,
+      "Expected persisted answerId");
+    client.assert(typeof response.body.data.answer === "string" && response.body.data.answer.length > 0,
+      "Expected a non-empty answer");
+    client.assert(response.body.data.maxContextTokens === 3000, "Expected frozen V8 context budget");
+    client.assert(response.body.data.usedContextTokens <= response.body.data.maxContextTokens,
+      "Expected preserved V8 context accounting");
+    client.assert(Array.isArray(response.body.data.sources) && response.body.data.sources.length >= 1,
+      "Expected frozen V8 source table");
+    client.assert(Array.isArray(response.body.data.citationIds) && response.body.data.citationIds.length >= 1,
+      "Expected V9-validated citations");
+    response.body.data.citationIds.forEach(function (citationId) {
+      client.assert(response.body.data.sources.some(function (source) {
+        return source.citationId === citationId;
+      }), "Every citation must map to the frozen V8 source table");
+    });
+  });
+  client.global.set("agentflowChatAnswerId", response.body.data.answerId);
+%}
+
+### V10 read the immutable answer snapshot: expected HTTP 200 without a new retrieval or model call.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answers/{{agentflowChatAnswerId}}
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v10-chat-audit-read-001
+
+> {%
+  client.test("V10 reads the saved answer and sources", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.answerId === client.global.get("agentflowChatAnswerId"),
+      "Expected the same immutable answerId");
+    client.assert(typeof response.body.data.answer === "string" && response.body.data.answer.length > 0,
+      "Expected the saved answer");
+    client.assert(typeof response.body.data.createdAt === "string", "Expected snapshot creation time");
+    client.assert(Array.isArray(response.body.data.sources) && response.body.data.sources.length >= 1,
+      "Expected saved source snapshot");
+    client.assert(Array.isArray(response.body.data.citationIds) && response.body.data.citationIds.length >= 1,
+      "Expected saved valid citation IDs");
+  });
+%}
+
 ### V9 empty V8 context: expected HTTP 409 / KNOWLEDGE_CONTEXT_EMPTY and no LLM call.
 # This request is safe to run even with no local model service: the V8 one-token budget cannot
 # contain a whole fixture block, so KnowledgeChatService returns before it reaches ChatGateway.

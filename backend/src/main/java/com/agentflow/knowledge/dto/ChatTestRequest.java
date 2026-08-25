@@ -8,10 +8,10 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 /**
- * 中文：V9 单次 RAG 回答的窄请求边界。局部严格反序列化器只接受本 record 的四个字段，避免
+ * 中文：V9/V10 单次 RAG 回答的窄请求边界。局部严格反序列化器只接受本 record 的四个字段，避免
  * 客户端插入模型、Prompt、chunk 或 citation 控制面。
  *
- * <p>English: Narrow V9 input for one RAG answer. Its local strict deserializer accepts
+ * <p>English: Narrow V9/V10 input for one RAG answer. Its local strict deserializer accepts
  * only these four fields so clients cannot inject model, prompt, chunk, or citation controls.
  */
 @JsonDeserialize(using = ChatTestRequestDeserializer.class)

@@ -9,7 +9,7 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.Set;
 
-/** Local allowlist so V9 stays strict even though the application's global Jackson mode is lenient. */
+/** Local allowlist so V9/V10 stay strict even though the application's global Jackson mode is lenient. */
 public final class ChatTestRequestDeserializer extends StdDeserializer<ChatTestRequest> {
     private static final Set<String> ALLOWED_FIELDS = Set.of(
             "query",
@@ -26,14 +26,14 @@ public final class ChatTestRequestDeserializer extends StdDeserializer<ChatTestR
     public ChatTestRequest deserialize(JsonParser parser, DeserializationContext context) throws IOException {
         JsonNode body = parser.getCodec().readTree(parser);
         if (body == null || !body.isObject()) {
-            throw JsonMappingException.from(parser, "chat-test request body must be a JSON object");
+            throw JsonMappingException.from(parser, "chat request body must be a JSON object");
         }
 
         Iterator<String> fieldNames = body.fieldNames();
         while (fieldNames.hasNext()) {
             String fieldName = fieldNames.next();
             if (!ALLOWED_FIELDS.contains(fieldName)) {
-                throw JsonMappingException.from(parser, "chat-test does not allow field: " + fieldName);
+                throw JsonMappingException.from(parser, "chat request does not allow field: " + fieldName);
             }
         }
 
