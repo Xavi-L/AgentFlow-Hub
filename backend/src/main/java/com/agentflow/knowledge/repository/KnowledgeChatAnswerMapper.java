@@ -9,12 +9,14 @@ import org.apache.ibatis.annotations.Results;
 import org.apache.ibatis.annotations.Select;
 
 /**
- * 中文：V10 回答审计记录的数据访问边界。写入仅使用 BaseMapper.insert；读取必须同时带上
- * answerId、knowledgeBaseId 和已认证 owner，不能先按 ID 取行再在 Java 中判断归属。
+ * 中文：V10/V11 回答审计记录的数据访问边界。写入仅使用 BaseMapper.insert；单条读取必须同时带上
+ * answerId、knowledgeBaseId 和已认证 owner，不能先按 ID 取行再在 Java 中判断归属。V11 分页读取使用
+ * BaseMapper.selectPage 和 Service 构造的 owner、knowledgeBaseId、固定排序 wrapper。
  *
- * <p>English: Data access for V10 answer audit rows. Writes use only BaseMapper.insert;
- * reads bind answerId, knowledgeBaseId, and authenticated owner in one SQL predicate rather
- * than fetching by ID and checking ownership in Java.</p>
+ * <p>English: Data access for V10/V11 answer audit rows. Writes use only BaseMapper.insert;
+ * detail reads bind answerId, knowledgeBaseId, and authenticated owner in one SQL predicate
+ * rather than fetching by ID and checking ownership in Java. V11 paged reads use
+ * BaseMapper.selectPage with the Service-owned scope and fixed-sort wrapper.</p>
  */
 @Mapper
 public interface KnowledgeChatAnswerMapper extends BaseMapper<KnowledgeChatAnswer> {

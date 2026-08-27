@@ -325,6 +325,39 @@ X-Trace-Id: af-manual-v10-chat-audit-read-001
   });
 %}
 
+### V11 page the immutable answer-audit ledger: expected HTTP 200 without retrieval or a model call.
+# Run this after the V10 POST above has saved agentflowChatAnswerId. This reads only the V10
+# knowledge_chat_answer row summaries for the current owner and this knowledge base; it does
+# not create a chat, session, context, source table, or provider request.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answers?page=1&pageSize=20
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v11-chat-audit-list-001
+
+> {%
+  client.test("V11 returns only immutable answer-audit summaries", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.page === 1, "Expected requested page");
+    client.assert(response.body.data.pageSize === 20, "Expected requested page size");
+    client.assert(Array.isArray(response.body.data.items), "Expected paged audit-summary items");
+    client.assert(response.body.data.items.length >= 1, "Expected the V10 audit saved above");
+    const item = response.body.data.items[0];
+    client.assert(typeof item.answerId === "string" && item.answerId.length > 0,
+      "Expected immutable answerId");
+    client.assert(typeof item.query === "string" && item.query.length > 0,
+      "Expected frozen query summary");
+    client.assert(Array.isArray(item.citationIds) && item.citationIds.length >= 1,
+      "Expected frozen validated citation IDs");
+    client.assert(typeof item.createdAt === "string", "Expected audit creation time");
+    client.assert(!Object.prototype.hasOwnProperty.call(item, "answer"),
+      "V11 list must not expose full answer text");
+    client.assert(!Object.prototype.hasOwnProperty.call(item, "sources"),
+      "V11 list must not expose the V10 source snapshot");
+    client.assert(!Object.prototype.hasOwnProperty.call(item, "maxContextTokens"),
+      "V11 list must not expose V8 budget fields");
+  });
+%}
+
 ### V9 empty V8 context: expected HTTP 409 / KNOWLEDGE_CONTEXT_EMPTY and no LLM call.
 # This request is safe to run even with no local model service: the V8 one-token budget cannot
 # contain a whole fixture block, so KnowledgeChatService returns before it reaches ChatGateway.

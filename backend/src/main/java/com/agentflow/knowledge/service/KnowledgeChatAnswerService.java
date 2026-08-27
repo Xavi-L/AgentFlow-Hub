@@ -1,14 +1,19 @@
 package com.agentflow.knowledge.service;
 
+import com.agentflow.common.api.PageRequest;
+import com.agentflow.common.api.PageResult;
 import com.agentflow.common.error.BusinessException;
 import com.agentflow.common.error.ErrorCode;
 import com.agentflow.knowledge.dto.ChatTestRequest;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerResponse;
+import com.agentflow.knowledge.dto.KnowledgeChatAnswerSummaryResponse;
 import com.agentflow.knowledge.dto.KnowledgeChatResponse;
 import com.agentflow.knowledge.dto.KnowledgeContextSourceResponse;
 import com.agentflow.knowledge.model.KnowledgeChatAnswer;
 import com.agentflow.knowledge.repository.KnowledgeChatAnswerMapper;
 import com.agentflow.user.security.AuthenticatedUser;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,12 +24,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 中文：V10 的持久化边界。它先调用已经完成 context 与 citation 校验的 V9，再把其结果冻结为
- * 一行 append-only 记录；按 ID 查询时只访问该行，绝不回到 V7/V8、Qdrant 或 ChatGateway。
+ * 中文：V10 的持久化边界与 V11 的只读审计台账。它先调用已经完成 context 与 citation 校验的 V9，
+ * 再把其结果冻结为一行 append-only 记录；按 ID 或分页查询时只访问该行，绝不回到 V7/V8、Qdrant
+ * 或 ChatGateway。
  *
- * <p>English: V10's persistence boundary. It first calls V9 after context/citation
- * validation, then freezes the result as one append-only row. ID reads access only that row
- * and never return to V7/V8, Qdrant, or ChatGateway.</p>
+ * <p>English: V10's persistence boundary and V11's read-only audit ledger. It first calls V9
+ * after context/citation validation, then freezes the result as one append-only row. ID and
+ * paged reads access only that row and never return to V7/V8, Qdrant, or ChatGateway.</p>
  */
 @Service
 public class KnowledgeChatAnswerService {
@@ -119,6 +125,52 @@ public class KnowledgeChatAnswerService {
                 auditRecord,
                 readSources(auditRecord.getSourcesSnapshotJson()),
                 readCitationIds(auditRecord.getCitationIdsJson())
+        );
+    }
+
+    /**
+     * Returns only immutable ledger summaries for one authenticated owner and one knowledge
+     * base. This deliberately selects no answer text, V8 budget, or source snapshot and never
+     * calls V9; a caller needing those frozen fields must use {@link #getById}.
+     */
+    @Transactional(readOnly = true)
+    public PageResult<KnowledgeChatAnswerSummaryResponse> listOwnedByKnowledgeBase(
+            AuthenticatedUser currentUser,
+            Long knowledgeBaseId,
+            PageRequest pageRequest
+    ) {
+        Objects.requireNonNull(currentUser, "currentUser must not be null");
+        Objects.requireNonNull(knowledgeBaseId, "knowledgeBaseId must not be null");
+        Objects.requireNonNull(pageRequest, "pageRequest must not be null");
+
+        Page<KnowledgeChatAnswer> databasePage = new Page<>(
+                pageRequest.getPage(),
+                pageRequest.getPageSize()
+        );
+        knowledgeChatAnswerMapper.selectPage(
+                databasePage,
+                Wrappers.<KnowledgeChatAnswer>lambdaQuery()
+                        .select(
+                                KnowledgeChatAnswer::getId,
+                                KnowledgeChatAnswer::getQuery,
+                                KnowledgeChatAnswer::getCitationIdsJson,
+                                KnowledgeChatAnswer::getCreatedAt
+                        )
+                        .eq(KnowledgeChatAnswer::getUserId, currentUser.id())
+                        .eq(KnowledgeChatAnswer::getKnowledgeBaseId, knowledgeBaseId)
+                        .orderByDesc(KnowledgeChatAnswer::getCreatedAt, KnowledgeChatAnswer::getId)
+        );
+
+        return PageResult.of(
+                databasePage.getRecords().stream()
+                        .map(answer -> KnowledgeChatAnswerSummaryResponse.from(
+                                answer,
+                                readCitationIds(answer.getCitationIdsJson())
+                        ))
+                        .toList(),
+                pageRequest.getPage(),
+                pageRequest.getPageSize(),
+                databasePage.getTotal()
         );
     }
 

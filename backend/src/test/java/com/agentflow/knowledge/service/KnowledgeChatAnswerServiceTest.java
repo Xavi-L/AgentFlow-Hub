@@ -7,10 +7,18 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.baomidou.mybatisplus.core.conditions.AbstractWrapper;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.agentflow.common.api.PageRequest;
+import com.agentflow.common.api.PageResult;
 import com.agentflow.common.error.BusinessException;
 import com.agentflow.common.error.ErrorCode;
 import com.agentflow.knowledge.dto.ChatTestRequest;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerResponse;
+import com.agentflow.knowledge.dto.KnowledgeChatAnswerSummaryResponse;
 import com.agentflow.knowledge.dto.KnowledgeChatResponse;
 import com.agentflow.knowledge.dto.KnowledgeContextSourceResponse;
 import com.agentflow.knowledge.model.KnowledgeChatAnswer;
@@ -19,15 +27,28 @@ import com.agentflow.user.security.AuthenticatedUser;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.util.List;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class KnowledgeChatAnswerServiceTest {
+
+    @BeforeAll
+    static void initializeKnowledgeChatAnswerLambdaCache() {
+        MapperBuilderAssistant assistant = new MapperBuilderAssistant(
+                new MybatisConfiguration(),
+                "KnowledgeChatAnswerServiceTest"
+        );
+        assistant.setCurrentNamespace(KnowledgeChatAnswerMapper.class.getName());
+        TableInfoHelper.initTableInfo(assistant, KnowledgeChatAnswer.class);
+    }
 
     @Mock
     private KnowledgeChatService knowledgeChatService;
@@ -38,6 +59,12 @@ class KnowledgeChatAnswerServiceTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private KnowledgeChatAnswerService knowledgeChatAnswerService;
+
+    @Captor
+    private ArgumentCaptor<IPage<KnowledgeChatAnswer>> listPageCaptor;
+
+    @Captor
+    private ArgumentCaptor<Wrapper<KnowledgeChatAnswer>> listQueryCaptor;
 
     @BeforeEach
     void setUp() {
@@ -144,6 +171,87 @@ class KnowledgeChatAnswerServiceTest {
     }
 
     @Test
+    void shouldListOnlyCurrentOwnersKnowledgeBaseAuditSummariesByPageInStableTimestampAndIdOrder() {
+        OffsetDateTime sharedCreatedAt = OffsetDateTime.parse("2026-08-25T10:30:00+08:00");
+        when(knowledgeChatAnswerMapper.selectPage(
+                org.mockito.ArgumentMatchers.<IPage<KnowledgeChatAnswer>>any(),
+                org.mockito.ArgumentMatchers.<Wrapper<KnowledgeChatAnswer>>any()
+        )).thenAnswer(invocation -> {
+            IPage<KnowledgeChatAnswer> page = invocation.getArgument(0);
+            // The two records have the same timestamp. Their descending ID order is the
+            // deterministic V11 tie-breaker encoded in the captured SQL wrapper below.
+            page.setRecords(List.of(
+                    auditSummary(503L, "较新的同秒审计回答", "[\"S2\"]", sharedCreatedAt),
+                    auditSummary(502L, "较早的同秒审计回答", "[\"S1\"]", sharedCreatedAt)
+            ));
+            page.setTotal(5L);
+            return page;
+        });
+
+        PageResult<KnowledgeChatAnswerSummaryResponse> result =
+                knowledgeChatAnswerService.listOwnedByKnowledgeBase(
+                        currentUser(),
+                        201L,
+                        new PageRequest(2, 2)
+                );
+
+        verify(knowledgeChatAnswerMapper).selectPage(listPageCaptor.capture(), listQueryCaptor.capture());
+        assertThat(listPageCaptor.getValue().getCurrent()).isEqualTo(2L);
+        assertThat(listPageCaptor.getValue().getSize()).isEqualTo(2L);
+        String listSqlSegment = listQueryCaptor.getValue().getSqlSegment();
+        assertThat(listSqlSegment).contains(
+                "user_id", "knowledge_base_id", "created_at DESC", "id DESC"
+        );
+        assertThat(listSqlSegment.indexOf("created_at DESC"))
+                .isLessThan(listSqlSegment.indexOf("id DESC"));
+        assertThat(((AbstractWrapper<?, ?, ?>) listQueryCaptor.getValue()).getParamNameValuePairs())
+                .containsValue(101L)
+                .containsValue(201L);
+        assertThat(listQueryCaptor.getValue().getSqlSelect()).contains(
+                "id", "query", "citation_ids_json", "created_at"
+        );
+        assertThat(listQueryCaptor.getValue().getSqlSelect()).doesNotContain(
+                "answer", "sources_snapshot_json", "max_context_tokens"
+        );
+        assertThat(result.getItems()).extracting(KnowledgeChatAnswerSummaryResponse::answerId)
+                .containsExactly("503", "502");
+        assertThat(result.getItems()).extracting(KnowledgeChatAnswerSummaryResponse::citationIds)
+                .containsExactly(List.of("S2"), List.of("S1"));
+        assertThat(result.getPage()).isEqualTo(2);
+        assertThat(result.getPageSize()).isEqualTo(2);
+        assertThat(result.getTotal()).isEqualTo(5L);
+        assertThat(result.isHasNext()).isTrue();
+        verifyNoInteractions(knowledgeChatService);
+    }
+
+    @Test
+    void shouldReturnAnEmptyOwnerScopedAuditLedgerPageWithoutCallingV9() {
+        when(knowledgeChatAnswerMapper.selectPage(
+                org.mockito.ArgumentMatchers.<IPage<KnowledgeChatAnswer>>any(),
+                org.mockito.ArgumentMatchers.<Wrapper<KnowledgeChatAnswer>>any()
+        )).thenAnswer(invocation -> {
+            IPage<KnowledgeChatAnswer> page = invocation.getArgument(0);
+            page.setRecords(List.of());
+            page.setTotal(0L);
+            return page;
+        });
+
+        PageResult<KnowledgeChatAnswerSummaryResponse> result =
+                knowledgeChatAnswerService.listOwnedByKnowledgeBase(
+                        currentUser(),
+                        201L,
+                        new PageRequest(1, 20)
+                );
+
+        assertThat(result.getItems()).isEmpty();
+        assertThat(result.getPage()).isOne();
+        assertThat(result.getPageSize()).isEqualTo(20);
+        assertThat(result.getTotal()).isZero();
+        assertThat(result.isHasNext()).isFalse();
+        verifyNoInteractions(knowledgeChatService);
+    }
+
+    @Test
     void shouldFailFastWhenTheAuditInsertDoesNotCreateExactlyOneRow() {
         when(knowledgeChatService.chatTest(currentUser(), 201L, request())).thenReturn(generatedResponse());
         when(knowledgeChatAnswerMapper.insert(any(KnowledgeChatAnswer.class))).thenReturn(0);
@@ -205,6 +313,20 @@ class KnowledgeChatAnswerServiceTest {
                 """);
         answer.setCitationIdsJson("[\"S1\"]");
         answer.setCreatedAt(OffsetDateTime.parse("2026-08-25T10:30:00+08:00"));
+        return answer;
+    }
+
+    private static KnowledgeChatAnswer auditSummary(
+            Long id,
+            String query,
+            String citationIdsJson,
+            OffsetDateTime createdAt
+    ) {
+        KnowledgeChatAnswer answer = new KnowledgeChatAnswer();
+        answer.setId(id);
+        answer.setQuery(query);
+        answer.setCitationIdsJson(citationIdsJson);
+        answer.setCreatedAt(createdAt);
         return answer;
     }
 
