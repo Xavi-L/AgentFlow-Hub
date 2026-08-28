@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedback;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackStatus;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import java.time.OffsetDateTime;
 import java.util.Map;
 import org.apache.ibatis.mapping.BoundSql;
@@ -13,6 +14,43 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import org.junit.jupiter.api.Test;
 
 class KnowledgeChatAnswerFeedbackMapperTest {
+
+    @Test
+    void shouldRegisterTheV14SubmittedEventLedgerWithParentOwnerAndKnowledgeBaseScope() {
+        MybatisConfiguration configuration = new MybatisConfiguration();
+
+        configuration.addMapper(KnowledgeChatAnswerFeedbackMapper.class);
+
+        String mapperName = KnowledgeChatAnswerFeedbackMapper.class.getName();
+        String ledgerSelectId = mapperName + ".selectPageOwnedByKnowledgeBase";
+        assertThat(configuration.hasStatement(ledgerSelectId, false)).isTrue();
+        MappedStatement ledgerSelect = configuration.getMappedStatement(ledgerSelectId);
+        BoundSql ledgerSql = ledgerSelect.getBoundSql(Map.of(
+                "page", new Page<KnowledgeChatAnswerFeedback>(1, 20),
+                "knowledgeBaseId", 201L,
+                "userId", 101L
+        ));
+        assertThat(ledgerSql.getSql()).contains(
+                "SELECT f.id",
+                "f.answer_id",
+                "f.verdict",
+                "f.created_at",
+                "FROM knowledge_chat_answer_feedback f",
+                "JOIN knowledge_chat_answer a ON a.id = f.answer_id",
+                "a.knowledge_base_id",
+                "a.user_id",
+                "ORDER BY f.created_at DESC, f.id DESC"
+        );
+        assertThat(ledgerSql.getSql()).doesNotContain(
+                "LEFT JOIN",
+                "query",
+                "citation_ids_json",
+                "sources_snapshot_json"
+        );
+        assertThat(ledgerSelect.getResultMaps().getFirst().getResultMappings())
+                .extracting(ResultMapping::getProperty)
+                .containsExactly("id", "answerId", "verdict", "createdAt");
+    }
 
     @Test
     void shouldRegisterTheParentAnswerDrivenV13LeftJoinStatusStatement() {

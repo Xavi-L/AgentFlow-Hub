@@ -378,6 +378,29 @@ X-Trace-Id: af-manual-v13-answer-feedback-unsubmitted-001
   });
 %}
 
+### V14 page the empty immutable answer-feedback ledger: expected HTTP 200 and no write.
+# Run this before V12's first submission and against the fresh knowledge base created above. The
+# feedback-driven parent JOIN has no matching V12 event, so it must return a normal empty page
+# rather than reveal a knowledge-base or answer existence distinction.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answer-feedbacks?page=1&pageSize=20
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v14-feedback-ledger-empty-001
+
+> {%
+  client.test("V14 returns an empty scoped feedback ledger before the first V12 event", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.message === "Knowledge chat answer feedback ledger retrieved",
+      "Expected read-only feedback-ledger message");
+    client.assert(response.body.data.page === 1, "Expected requested page");
+    client.assert(response.body.data.pageSize === 20, "Expected requested page size");
+    client.assert(response.body.data.total === 0, "Expected no V12 event in the fresh knowledge base");
+    client.assert(response.body.data.hasNext === false, "Expected no next page");
+    client.assert(Array.isArray(response.body.data.items) && response.body.data.items.length === 0,
+      "Expected an empty V14 event page");
+  });
+%}
+
 ### V12 submit one immutable binary answer-feedback event: expected HTTP 200 without retrieval or a model call.
 # Run this after the V10 POST above has set agentflowChatAnswerId. V12 scopes every feedback
 # lookup/write through this V10 answer's current owner and knowledge base, then appends exactly
@@ -406,6 +429,35 @@ X-Trace-Id: af-manual-v12-answer-feedback-create-001
   });
   client.global.set("agentflowChatAnswerFeedbackId", response.body.data.feedbackId);
   client.global.set("agentflowChatAnswerFeedbackCreatedAt", response.body.data.createdAt);
+%}
+
+### V14 page the immutable answer-feedback ledger: expected HTTP 200 with the same V12 event.
+# Run this after V12's first submission above. This is a feedback-to-parent-answer JOIN read only:
+# it returns only submitted V12 events in feedback.created_at DESC, feedback.id DESC order and
+# does not create status state, retry feedback, enter V7/V8/V9, retrieve, or call a model.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answer-feedbacks?page=1&pageSize=20
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v14-feedback-ledger-submitted-001
+
+> {%
+  client.test("V14 reads back only the immutable V12 event fields", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.page === 1, "Expected requested page");
+    client.assert(response.body.data.pageSize === 20, "Expected requested page size");
+    client.assert(Array.isArray(response.body.data.items), "Expected paged feedback events");
+    const item = response.body.data.items.find(function (candidate) {
+      return candidate.feedbackId === client.global.get("agentflowChatAnswerFeedbackId");
+    });
+    client.assert(item !== undefined, "Expected the V12 feedback event saved above");
+    client.assert(item.answerId === client.global.get("agentflowChatAnswerId"),
+      "Expected the same immutable answerId");
+    client.assert(item.verdict === "HELPFUL", "Expected the original V12 verdict");
+    client.assert(item.createdAt === client.global.get("agentflowChatAnswerFeedbackCreatedAt"),
+      "Expected the original V12 creation time");
+    client.assert(Object.keys(item).sort().join(",") === "answerId,createdAt,feedbackId,verdict",
+      "V14 item must contain exactly the four immutable V12 event fields");
+  });
 %}
 
 ### V13 read the submitted immutable answer-feedback status: expected HTTP 200 and the same V12 event.

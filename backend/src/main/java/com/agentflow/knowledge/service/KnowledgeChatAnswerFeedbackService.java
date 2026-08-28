@@ -1,5 +1,7 @@
 package com.agentflow.knowledge.service;
 
+import com.agentflow.common.api.PageRequest;
+import com.agentflow.common.api.PageResult;
 import com.agentflow.common.error.BusinessException;
 import com.agentflow.common.error.ErrorCode;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackRequest;
@@ -10,19 +12,21 @@ import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackStatus;
 import com.agentflow.knowledge.repository.KnowledgeChatAnswerFeedbackMapper;
 import com.agentflow.user.security.AuthenticatedUser;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import java.time.OffsetDateTime;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 中文：V12 的不可变二元反馈写入边界。它只验证已持久化回答的 owner/知识库范围并写入或读取反馈
- * 行；不会重新检索、调用模型、修改回答快照，或把反馈解释为模型评测或训练数据。
+ * 中文：V12 的不可变二元反馈写入边界，以及 V13/V14 的只读事件可见性。它只验证已持久化回答的
+ * owner/知识库范围并写入或读取 feedback 行；不会重新检索、调用模型、修改回答快照，或把反馈解释为
+ * 模型评测或训练数据。
  *
- * <p>English: V12's immutable binary-feedback write boundary. It only validates an existing
- * persisted answer's owner/knowledge-base scope and writes or reads a feedback row; it never
- * retrieves again, calls a model, mutates an answer snapshot, or treats feedback as model
- * evaluation or training data.</p>
+ * <p>English: V12's immutable binary-feedback write boundary and V13/V14's read-only event
+ * visibility. It only validates an existing persisted answer's owner/knowledge-base scope and
+ * writes or reads a feedback row; it never retrieves again, calls a model, mutates an answer
+ * snapshot, or treats feedback as model evaluation or training data.</p>
  */
 @Service
 public class KnowledgeChatAnswerFeedbackService {
@@ -68,6 +72,41 @@ public class KnowledgeChatAnswerFeedbackService {
         feedback.setCreatedAt(status.getCreatedAt());
         return KnowledgeChatAnswerFeedbackStatusResponse.submitted(
                 KnowledgeChatAnswerFeedbackResponse.from(feedback)
+        );
+    }
+
+    /**
+     * Returns only submitted V12 events for one owner and knowledge base. A zero-row parent
+     * JOIN result intentionally remains an empty page, whether that is because the knowledge
+     * base is empty, foreign, or outside the current owner's scope.
+     */
+    @Transactional(readOnly = true)
+    public PageResult<KnowledgeChatAnswerFeedbackResponse> listOwnedByKnowledgeBase(
+            AuthenticatedUser currentUser,
+            Long knowledgeBaseId,
+            PageRequest pageRequest
+    ) {
+        Objects.requireNonNull(currentUser, "currentUser must not be null");
+        Objects.requireNonNull(knowledgeBaseId, "knowledgeBaseId must not be null");
+        Objects.requireNonNull(pageRequest, "pageRequest must not be null");
+
+        Page<KnowledgeChatAnswerFeedback> databasePage = new Page<>(
+                pageRequest.getPage(),
+                pageRequest.getPageSize()
+        );
+        knowledgeChatAnswerFeedbackMapper.selectPageOwnedByKnowledgeBase(
+                databasePage,
+                knowledgeBaseId,
+                currentUser.id()
+        );
+
+        return PageResult.of(
+                databasePage.getRecords().stream()
+                        .map(KnowledgeChatAnswerFeedbackResponse::from)
+                        .toList(),
+                pageRequest.getPage(),
+                pageRequest.getPageSize(),
+                databasePage.getTotal()
         );
     }
 

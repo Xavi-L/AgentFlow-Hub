@@ -11,6 +11,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.agentflow.common.api.PageRequest;
+import com.agentflow.common.api.PageResult;
 import com.agentflow.common.error.BusinessException;
 import com.agentflow.common.error.ErrorCode;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackRequest;
@@ -21,11 +23,13 @@ import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackStatus;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackVerdict;
 import com.agentflow.knowledge.repository.KnowledgeChatAnswerFeedbackMapper;
 import com.agentflow.user.security.AuthenticatedUser;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import java.time.OffsetDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -35,6 +39,9 @@ class KnowledgeChatAnswerFeedbackServiceTest {
 
     @Mock
     private KnowledgeChatAnswerFeedbackMapper knowledgeChatAnswerFeedbackMapper;
+
+    @Captor
+    private ArgumentCaptor<Page<KnowledgeChatAnswerFeedback>> feedbackPageCaptor;
 
     private KnowledgeChatAnswerFeedbackService knowledgeChatAnswerFeedbackService;
 
@@ -114,6 +121,118 @@ class KnowledgeChatAnswerFeedbackServiceTest {
         verify(knowledgeChatAnswerFeedbackMapper).selectStatusOwnedByAnswerId(501L, 201L, 101L);
         verify(knowledgeChatAnswerFeedbackMapper).selectStatusOwnedByAnswerId(501L, 202L, 101L);
         verify(knowledgeChatAnswerFeedbackMapper).selectStatusOwnedByAnswerId(501L, 201L, 102L);
+        verify(knowledgeChatAnswerFeedbackMapper, never()).insertIfAbsent(
+                any(KnowledgeChatAnswerFeedback.class),
+                anyLong(),
+                anyLong()
+        );
+    }
+
+    @Test
+    void shouldListOnlyCurrentOwnersSubmittedV12EventsInStableTimestampAndIdOrder() {
+        OffsetDateTime sharedCreatedAt = OffsetDateTime.parse("2026-08-28T10:30:00+08:00");
+        when(knowledgeChatAnswerFeedbackMapper.selectPageOwnedByKnowledgeBase(
+                org.mockito.ArgumentMatchers.<Page<KnowledgeChatAnswerFeedback>>any(),
+                eq(201L),
+                eq(101L)
+        )).thenAnswer(invocation -> {
+            Page<KnowledgeChatAnswerFeedback> page = invocation.getArgument(0);
+            // The mapper's f.created_at DESC, f.id DESC SQL ordering keeps same-timestamp
+            // events deterministic before pagination. The service must preserve that order.
+            page.setRecords(java.util.List.of(
+                    storedFeedback(703L, 503L, "NOT_HELPFUL", sharedCreatedAt),
+                    storedFeedback(702L, 502L, "HELPFUL", sharedCreatedAt)
+            ));
+            page.setTotal(5L);
+            return page;
+        });
+
+        PageResult<KnowledgeChatAnswerFeedbackResponse> result = knowledgeChatAnswerFeedbackService
+                .listOwnedByKnowledgeBase(currentUser(), 201L, new PageRequest(2, 2));
+
+        verify(knowledgeChatAnswerFeedbackMapper).selectPageOwnedByKnowledgeBase(
+                feedbackPageCaptor.capture(),
+                eq(201L),
+                eq(101L)
+        );
+        assertThat(feedbackPageCaptor.getValue().getCurrent()).isEqualTo(2L);
+        assertThat(feedbackPageCaptor.getValue().getSize()).isEqualTo(2L);
+        assertThat(result.getItems()).extracting(KnowledgeChatAnswerFeedbackResponse::feedbackId)
+                .containsExactly("703", "702");
+        assertThat(result.getItems()).extracting(KnowledgeChatAnswerFeedbackResponse::answerId)
+                .containsExactly("503", "502");
+        assertThat(result.getItems()).extracting(KnowledgeChatAnswerFeedbackResponse::verdict)
+                .containsExactly(
+                        KnowledgeChatAnswerFeedbackVerdict.NOT_HELPFUL,
+                        KnowledgeChatAnswerFeedbackVerdict.HELPFUL
+                );
+        assertThat(result.getPage()).isEqualTo(2);
+        assertThat(result.getPageSize()).isEqualTo(2);
+        assertThat(result.getTotal()).isEqualTo(5L);
+        assertThat(result.isHasNext()).isTrue();
+        verify(knowledgeChatAnswerFeedbackMapper, never()).selectStatusOwnedByAnswerId(
+                anyLong(),
+                anyLong(),
+                anyLong()
+        );
+        verify(knowledgeChatAnswerFeedbackMapper, never()).selectOwnedByAnswerId(
+                anyLong(),
+                anyLong(),
+                anyLong()
+        );
+        verify(knowledgeChatAnswerFeedbackMapper, never()).insertIfAbsent(
+                any(KnowledgeChatAnswerFeedback.class),
+                anyLong(),
+                anyLong()
+        );
+    }
+
+    @Test
+    void shouldReturnTheSameEmptyV14PageForEmptyForeignAndWrongKnowledgeBaseScopes() {
+        when(knowledgeChatAnswerFeedbackMapper.selectPageOwnedByKnowledgeBase(
+                org.mockito.ArgumentMatchers.<Page<KnowledgeChatAnswerFeedback>>any(),
+                anyLong(),
+                anyLong()
+        )).thenAnswer(invocation -> {
+            Page<KnowledgeChatAnswerFeedback> page = invocation.getArgument(0);
+            page.setRecords(java.util.List.of());
+            page.setTotal(0L);
+            return page;
+        });
+
+        PageResult<KnowledgeChatAnswerFeedbackResponse> empty = knowledgeChatAnswerFeedbackService
+                .listOwnedByKnowledgeBase(currentUser(), 201L, new PageRequest(1, 20));
+        PageResult<KnowledgeChatAnswerFeedbackResponse> wrongKnowledgeBase =
+                knowledgeChatAnswerFeedbackService.listOwnedByKnowledgeBase(
+                        currentUser(),
+                        202L,
+                        new PageRequest(1, 20)
+                );
+        PageResult<KnowledgeChatAnswerFeedbackResponse> foreignOwner =
+                knowledgeChatAnswerFeedbackService.listOwnedByKnowledgeBase(
+                        new AuthenticatedUser(102L, "other_owner", "Other", "USER"),
+                        201L,
+                        new PageRequest(1, 20)
+                );
+
+        assertEmptyPage(empty);
+        assertEmptyPage(wrongKnowledgeBase);
+        assertEmptyPage(foreignOwner);
+        verify(knowledgeChatAnswerFeedbackMapper).selectPageOwnedByKnowledgeBase(
+                org.mockito.ArgumentMatchers.<Page<KnowledgeChatAnswerFeedback>>any(),
+                eq(201L),
+                eq(101L)
+        );
+        verify(knowledgeChatAnswerFeedbackMapper).selectPageOwnedByKnowledgeBase(
+                org.mockito.ArgumentMatchers.<Page<KnowledgeChatAnswerFeedback>>any(),
+                eq(202L),
+                eq(101L)
+        );
+        verify(knowledgeChatAnswerFeedbackMapper).selectPageOwnedByKnowledgeBase(
+                org.mockito.ArgumentMatchers.<Page<KnowledgeChatAnswerFeedback>>any(),
+                eq(201L),
+                eq(102L)
+        );
         verify(knowledgeChatAnswerFeedbackMapper, never()).insertIfAbsent(
                 any(KnowledgeChatAnswerFeedback.class),
                 anyLong(),
@@ -336,12 +455,34 @@ class KnowledgeChatAnswerFeedbackServiceTest {
     }
 
     private static KnowledgeChatAnswerFeedback storedFeedback(Long id, Long answerId, String verdict) {
+        return storedFeedback(
+                id,
+                answerId,
+                verdict,
+                OffsetDateTime.parse("2026-08-27T10:30:00+08:00")
+        );
+    }
+
+    private static KnowledgeChatAnswerFeedback storedFeedback(
+            Long id,
+            Long answerId,
+            String verdict,
+            OffsetDateTime createdAt
+    ) {
         KnowledgeChatAnswerFeedback feedback = new KnowledgeChatAnswerFeedback();
         feedback.setId(id);
         feedback.setAnswerId(answerId);
         feedback.setVerdict(verdict);
-        feedback.setCreatedAt(OffsetDateTime.parse("2026-08-27T10:30:00+08:00"));
+        feedback.setCreatedAt(createdAt);
         return feedback;
+    }
+
+    private static void assertEmptyPage(PageResult<KnowledgeChatAnswerFeedbackResponse> page) {
+        assertThat(page.getItems()).isEmpty();
+        assertThat(page.getPage()).isOne();
+        assertThat(page.getPageSize()).isEqualTo(20);
+        assertThat(page.getTotal()).isZero();
+        assertThat(page.isHasNext()).isFalse();
     }
 
     private static KnowledgeChatAnswerFeedbackStatus status(

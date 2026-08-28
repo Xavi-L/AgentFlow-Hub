@@ -3,6 +3,7 @@ package com.agentflow.knowledge.repository;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedback;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackStatus;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -20,6 +21,34 @@ import org.apache.ibatis.annotations.Select;
  */
 @Mapper
 public interface KnowledgeChatAnswerFeedbackMapper extends BaseMapper<KnowledgeChatAnswerFeedback> {
+
+    /**
+     * Reads the V14 ledger from submitted feedback events and scopes every row through its
+     * immutable parent answer. It intentionally does not pre-check knowledge-base existence:
+     * empty, foreign-owner, and wrong-knowledge-base ranges all produce an empty page.
+     */
+    @Results(id = "knowledgeChatAnswerFeedbackLedgerResult", value = {
+            @Result(id = true, property = "id", column = "id"),
+            @Result(property = "answerId", column = "answer_id"),
+            @Result(property = "verdict", column = "verdict"),
+            @Result(property = "createdAt", column = "created_at")
+    })
+    @Select("""
+            SELECT f.id,
+                   f.answer_id,
+                   f.verdict,
+                   f.created_at
+            FROM knowledge_chat_answer_feedback f
+            JOIN knowledge_chat_answer a ON a.id = f.answer_id
+            WHERE a.knowledge_base_id = #{knowledgeBaseId}
+              AND a.user_id = #{userId}
+            ORDER BY f.created_at DESC, f.id DESC
+            """)
+    Page<KnowledgeChatAnswerFeedback> selectPageOwnedByKnowledgeBase(
+            @Param("page") Page<KnowledgeChatAnswerFeedback> page,
+            @Param("knowledgeBaseId") Long knowledgeBaseId,
+            @Param("userId") Long userId
+    );
 
     /**
      * Reads the V13 status from the scoped parent answer. A returned row with a null feedbackId

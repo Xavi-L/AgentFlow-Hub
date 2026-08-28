@@ -240,6 +240,88 @@ class KnowledgeChatAnswerControllerTest {
     }
 
     @Test
+    void shouldListOnlyFourFieldV12EventsThroughTheV14FeedbackLedgerRoute() throws Exception {
+        KnowledgeChatAnswerService answerService = Mockito.mock(KnowledgeChatAnswerService.class);
+        KnowledgeChatAnswerFeedbackService feedbackService = Mockito.mock(
+                KnowledgeChatAnswerFeedbackService.class
+        );
+        AuthenticatedUser currentUser = currentUser();
+        PageResult<KnowledgeChatAnswerFeedbackResponse> page = PageResult.of(
+                List.of(feedbackResponse()),
+                2,
+                5,
+                6
+        );
+        when(feedbackService.listOwnedByKnowledgeBase(eq(currentUser), eq(201L), any(PageRequest.class)))
+                .thenReturn(page);
+        authenticate(currentUser);
+
+        mockMvc(answerService, feedbackService).perform(MockMvcRequestBuilders.get(
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}/chat-answer-feedbacks", 201L
+                )
+                        .param("page", "2")
+                        .param("pageSize", "5")
+                        .header("X-Trace-Id", "af-test-v14-feedback-ledger-001"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("OK"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
+                        .value("Knowledge chat answer feedback ledger retrieved"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.page"
+                ).value(2))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.pageSize"
+                ).value(5))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.total"
+                ).value(6))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.hasNext"
+                ).value(false))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.items[0].feedbackId"
+                ).value("701"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.items[0].answerId"
+                ).value("501"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.items[0].verdict"
+                ).value("HELPFUL"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.items[0].createdAt"
+                ).exists())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.items[0].submitted"
+                ).doesNotExist())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.items[0].feedback"
+                ).doesNotExist())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.items[0].query"
+                ).doesNotExist())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.items[0].citationIds"
+                ).doesNotExist())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.items[0].answer"
+                ).doesNotExist())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.items[0].sources"
+                ).doesNotExist());
+
+        ArgumentCaptor<PageRequest> pageRequestCaptor = ArgumentCaptor.forClass(PageRequest.class);
+        verify(feedbackService).listOwnedByKnowledgeBase(
+                eq(currentUser),
+                eq(201L),
+                pageRequestCaptor.capture()
+        );
+        assertThat(pageRequestCaptor.getValue().getPage()).isEqualTo(2);
+        assertThat(pageRequestCaptor.getValue().getPageSize()).isEqualTo(5);
+        verifyNoInteractions(answerService);
+    }
+
+    @Test
     void shouldRejectUnexpectedOrInvalidFeedbackVerdictBeforeCallingTheService() throws Exception {
         KnowledgeChatAnswerService answerService = Mockito.mock(KnowledgeChatAnswerService.class);
         KnowledgeChatAnswerFeedbackService feedbackService = Mockito.mock(

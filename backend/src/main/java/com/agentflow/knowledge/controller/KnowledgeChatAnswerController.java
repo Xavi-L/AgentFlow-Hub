@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** V10/V11 immutable answer audit routes plus V12 feedback and its V13 read-only status. */
+/** V10/V11 immutable answer audit routes plus V12 feedback, V13 status, and V14 ledger reads. */
 @RestController
 @RequestMapping("${agentflow.api.prefix}/knowledge-bases/{knowledgeBaseId}")
 public class KnowledgeChatAnswerController {
@@ -91,6 +91,22 @@ public class KnowledgeChatAnswerController {
                         currentUser,
                         knowledgeBaseId,
                         answerId
+                )
+        );
+    }
+
+    @GetMapping("/chat-answer-feedbacks")
+    public ApiResponse<PageResult<KnowledgeChatAnswerFeedbackResponse>> listFeedbacks(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @PathVariable("knowledgeBaseId") Long knowledgeBaseId,
+            @ModelAttribute PageRequest pageRequest
+    ) {
+        return ApiResponse.success(
+                "Knowledge chat answer feedback ledger retrieved",
+                knowledgeChatAnswerFeedbackService.listOwnedByKnowledgeBase(
+                        currentUser,
+                        knowledgeBaseId,
+                        pageRequest
                 )
         );
     }
