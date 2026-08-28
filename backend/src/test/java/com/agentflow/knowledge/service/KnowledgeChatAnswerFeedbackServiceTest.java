@@ -17,8 +17,10 @@ import com.agentflow.common.error.BusinessException;
 import com.agentflow.common.error.ErrorCode;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackRequest;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackResponse;
+import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackSummaryResponse;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackStatusResponse;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedback;
+import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackSummary;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackStatus;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackVerdict;
 import com.agentflow.knowledge.repository.KnowledgeChatAnswerFeedbackMapper;
@@ -49,6 +51,99 @@ class KnowledgeChatAnswerFeedbackServiceTest {
     void setUp() {
         knowledgeChatAnswerFeedbackService = new KnowledgeChatAnswerFeedbackService(
                 knowledgeChatAnswerFeedbackMapper
+        );
+    }
+
+    @Test
+    void shouldReadRawV15CountsForFirstHelpfulThenAnIndependentNotHelpfulEventWithoutWriting() {
+        when(knowledgeChatAnswerFeedbackMapper.selectSummaryOwnedByKnowledgeBase(201L, 101L))
+                .thenReturn(
+                        summary(1L, 1L, 0L),
+                        summary(2L, 1L, 1L)
+                );
+
+        KnowledgeChatAnswerFeedbackSummaryResponse afterFirstHelpful =
+                knowledgeChatAnswerFeedbackService.getSummaryOwnedByKnowledgeBase(
+                        currentUser(),
+                        201L
+                );
+        KnowledgeChatAnswerFeedbackSummaryResponse afterIndependentNotHelpful =
+                knowledgeChatAnswerFeedbackService.getSummaryOwnedByKnowledgeBase(
+                        currentUser(),
+                        201L
+                );
+
+        assertSummary(afterFirstHelpful, 1L, 1L, 0L);
+        assertSummary(afterIndependentNotHelpful, 2L, 1L, 1L);
+        verify(knowledgeChatAnswerFeedbackMapper, times(2))
+                .selectSummaryOwnedByKnowledgeBase(201L, 101L);
+        verify(knowledgeChatAnswerFeedbackMapper, never()).insertIfAbsent(
+                any(KnowledgeChatAnswerFeedback.class),
+                anyLong(),
+                anyLong()
+        );
+        verify(knowledgeChatAnswerFeedbackMapper, never()).selectOwnedByAnswerId(
+                anyLong(),
+                anyLong(),
+                anyLong()
+        );
+        verify(knowledgeChatAnswerFeedbackMapper, never()).selectStatusOwnedByAnswerId(
+                anyLong(),
+                anyLong(),
+                anyLong()
+        );
+        verify(knowledgeChatAnswerFeedbackMapper, never()).selectPageOwnedByKnowledgeBase(
+                org.mockito.ArgumentMatchers.<Page<KnowledgeChatAnswerFeedback>>any(),
+                anyLong(),
+                anyLong()
+        );
+    }
+
+    @Test
+    void shouldReturnTheSameZeroV15SummaryForEmptyForeignAndWrongKnowledgeBaseScopes() {
+        when(knowledgeChatAnswerFeedbackMapper.selectSummaryOwnedByKnowledgeBase(
+                anyLong(),
+                anyLong()
+        )).thenReturn(summary(0L, 0L, 0L));
+
+        KnowledgeChatAnswerFeedbackSummaryResponse empty = knowledgeChatAnswerFeedbackService
+                .getSummaryOwnedByKnowledgeBase(currentUser(), 201L);
+        KnowledgeChatAnswerFeedbackSummaryResponse wrongKnowledgeBase =
+                knowledgeChatAnswerFeedbackService.getSummaryOwnedByKnowledgeBase(
+                        currentUser(),
+                        202L
+                );
+        KnowledgeChatAnswerFeedbackSummaryResponse foreignOwner = knowledgeChatAnswerFeedbackService
+                .getSummaryOwnedByKnowledgeBase(
+                        new AuthenticatedUser(102L, "other_owner", "Other", "USER"),
+                        201L
+                );
+
+        assertSummary(empty, 0L, 0L, 0L);
+        assertSummary(wrongKnowledgeBase, 0L, 0L, 0L);
+        assertSummary(foreignOwner, 0L, 0L, 0L);
+        verify(knowledgeChatAnswerFeedbackMapper).selectSummaryOwnedByKnowledgeBase(201L, 101L);
+        verify(knowledgeChatAnswerFeedbackMapper).selectSummaryOwnedByKnowledgeBase(202L, 101L);
+        verify(knowledgeChatAnswerFeedbackMapper).selectSummaryOwnedByKnowledgeBase(201L, 102L);
+        verify(knowledgeChatAnswerFeedbackMapper, never()).insertIfAbsent(
+                any(KnowledgeChatAnswerFeedback.class),
+                anyLong(),
+                anyLong()
+        );
+        verify(knowledgeChatAnswerFeedbackMapper, never()).selectOwnedByAnswerId(
+                anyLong(),
+                anyLong(),
+                anyLong()
+        );
+        verify(knowledgeChatAnswerFeedbackMapper, never()).selectStatusOwnedByAnswerId(
+                anyLong(),
+                anyLong(),
+                anyLong()
+        );
+        verify(knowledgeChatAnswerFeedbackMapper, never()).selectPageOwnedByKnowledgeBase(
+                org.mockito.ArgumentMatchers.<Page<KnowledgeChatAnswerFeedback>>any(),
+                anyLong(),
+                anyLong()
         );
     }
 
@@ -452,6 +547,31 @@ class KnowledgeChatAnswerFeedbackServiceTest {
 
     private static KnowledgeChatAnswerFeedbackRequest request(KnowledgeChatAnswerFeedbackVerdict verdict) {
         return new KnowledgeChatAnswerFeedbackRequest(verdict);
+    }
+
+    private static KnowledgeChatAnswerFeedbackSummary summary(
+            Long submittedCount,
+            Long helpfulCount,
+            Long notHelpfulCount
+    ) {
+        KnowledgeChatAnswerFeedbackSummary summary = new KnowledgeChatAnswerFeedbackSummary();
+        summary.setSubmittedCount(submittedCount);
+        summary.setHelpfulCount(helpfulCount);
+        summary.setNotHelpfulCount(notHelpfulCount);
+        return summary;
+    }
+
+    private static void assertSummary(
+            KnowledgeChatAnswerFeedbackSummaryResponse summary,
+            long submittedCount,
+            long helpfulCount,
+            long notHelpfulCount
+    ) {
+        assertThat(summary.submittedCount()).isEqualTo(submittedCount);
+        assertThat(summary.helpfulCount()).isEqualTo(helpfulCount);
+        assertThat(summary.notHelpfulCount()).isEqualTo(notHelpfulCount);
+        assertThat(summary.submittedCount())
+                .isEqualTo(Math.addExact(summary.helpfulCount(), summary.notHelpfulCount()));
     }
 
     private static KnowledgeChatAnswerFeedback storedFeedback(Long id, Long answerId, String verdict) {

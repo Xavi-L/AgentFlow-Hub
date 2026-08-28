@@ -401,6 +401,29 @@ X-Trace-Id: af-manual-v14-feedback-ledger-empty-001
   });
 %}
 
+### V15 read the empty immutable answer-feedback raw count summary: expected HTTP 200 / 0-0-0.
+# Run this before V12's first submission against the fresh knowledge base created above. The
+# feedback INNER JOIN has no matching immutable event, so no knowledge-base or answer existence
+# pre-check is allowed and all three raw event counts must be zero.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answer-feedbacks/summary
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v15-feedback-summary-empty-001
+
+> {%
+  client.test("V15 returns zero raw feedback counts before the first V12 event", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.message === "Knowledge chat answer feedback summary retrieved",
+      "Expected read-only feedback-summary message");
+    client.assert(response.body.data.submittedCount === 0, "Expected zero submitted events");
+    client.assert(response.body.data.helpfulCount === 0, "Expected zero HELPFUL events");
+    client.assert(response.body.data.notHelpfulCount === 0, "Expected zero NOT_HELPFUL events");
+    client.assert(Object.keys(response.body.data).sort().join(",")
+      === "helpfulCount,notHelpfulCount,submittedCount",
+      "V15 data must contain exactly the three raw event counts");
+  });
+%}
+
 ### V12 submit one immutable binary answer-feedback event: expected HTTP 200 without retrieval or a model call.
 # Run this after the V10 POST above has set agentflowChatAnswerId. V12 scopes every feedback
 # lookup/write through this V10 answer's current owner and knowledge base, then appends exactly
@@ -431,6 +454,26 @@ X-Trace-Id: af-manual-v12-answer-feedback-create-001
   client.global.set("agentflowChatAnswerFeedbackCreatedAt", response.body.data.createdAt);
 %}
 
+### V15 read raw counts after the first HELPFUL feedback: expected HTTP 200 / 1-1-0.
+# This is a read-only aggregate over the existing V12 event and its scoped parent answer. It does
+# not retry V12, call V7/V8/V9, retrieve, or call a model.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answer-feedbacks/summary
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v15-feedback-summary-helpful-001
+
+> {%
+  client.test("V15 counts the first HELPFUL immutable event", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.submittedCount === 1, "Expected one submitted event");
+    client.assert(response.body.data.helpfulCount === 1, "Expected one HELPFUL event");
+    client.assert(response.body.data.notHelpfulCount === 0, "Expected zero NOT_HELPFUL events");
+    client.assert(response.body.data.submittedCount
+      === response.body.data.helpfulCount + response.body.data.notHelpfulCount,
+      "Submitted events must equal the two immutable verdict counts");
+  });
+%}
+
 ### V14 page the immutable answer-feedback ledger: expected HTTP 200 with the same V12 event.
 # Run this after V12's first submission above. This is a feedback-to-parent-answer JOIN read only:
 # it returns only submitted V12 events in feedback.created_at DESC, feedback.id DESC order and
@@ -457,6 +500,71 @@ X-Trace-Id: af-manual-v14-feedback-ledger-submitted-001
       "Expected the original V12 creation time");
     client.assert(Object.keys(item).sort().join(",") === "answerId,createdAt,feedbackId,verdict",
       "V14 item must contain exactly the four immutable V12 event fields");
+  });
+%}
+
+### V10 create a second independent immutable answer for V15's NOT_HELPFUL count: requires the local model prerequisite.
+# This intentionally creates a different V10 answerId before submitting NOT_HELPFUL. Do not post
+# an opposite verdict to the first answer: V12 must still reject that as HTTP 409.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-v15-second-chat-audit-001
+
+{
+  "query": "退款失败后如何核对处理记录？",
+  "topK": 5,
+  "maxContextTokens": 3000,
+  "maxAnswerTokens": 512
+}
+
+> {%
+  client.test("V15 setup creates a second independent immutable answer", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(typeof response.body.data.answerId === "string" && response.body.data.answerId.length > 0,
+      "Expected a second persisted answerId");
+    client.assert(response.body.data.answerId !== client.global.get("agentflowChatAnswerId"),
+      "Expected a different answerId rather than a second verdict for the first answer");
+  });
+  client.global.set("agentflowSecondChatAnswerId", response.body.data.answerId);
+%}
+
+### V12 submit NOT_HELPFUL for the second independent immutable answer: expected HTTP 200.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answers/{{agentflowSecondChatAnswerId}}/feedback
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-v15-second-answer-not-helpful-001
+
+{
+  "verdict": "NOT_HELPFUL"
+}
+
+> {%
+  client.test("V15 setup records one NOT_HELPFUL event for the second answer", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.answerId === client.global.get("agentflowSecondChatAnswerId"),
+      "Expected feedback for the second immutable answer");
+    client.assert(response.body.data.verdict === "NOT_HELPFUL", "Expected second first-submission verdict");
+  });
+%}
+
+### V15 read raw counts after independent HELPFUL and NOT_HELPFUL feedback: expected HTTP 200 / 2-1-1.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answer-feedbacks/summary
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v15-feedback-summary-two-verdicts-001
+
+> {%
+  client.test("V15 counts two immutable events across two independent answers", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.submittedCount === 2, "Expected two submitted events");
+    client.assert(response.body.data.helpfulCount === 1, "Expected one HELPFUL event");
+    client.assert(response.body.data.notHelpfulCount === 1, "Expected one NOT_HELPFUL event");
+    client.assert(response.body.data.submittedCount
+      === response.body.data.helpfulCount + response.body.data.notHelpfulCount,
+      "Submitted events must equal the two immutable verdict counts");
   });
 %}
 

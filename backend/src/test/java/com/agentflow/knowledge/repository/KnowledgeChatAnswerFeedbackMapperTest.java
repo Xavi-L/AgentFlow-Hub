@@ -3,6 +3,7 @@ package com.agentflow.knowledge.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedback;
+import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackSummary;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackStatus;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import java.time.OffsetDateTime;
@@ -14,6 +15,44 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import org.junit.jupiter.api.Test;
 
 class KnowledgeChatAnswerFeedbackMapperTest {
+
+    @Test
+    void shouldRegisterTheV15RawEventSummaryThroughAnInnerJoinToScopedParentAnswers() {
+        MybatisConfiguration configuration = new MybatisConfiguration();
+
+        configuration.addMapper(KnowledgeChatAnswerFeedbackMapper.class);
+
+        String mapperName = KnowledgeChatAnswerFeedbackMapper.class.getName();
+        String summarySelectId = mapperName + ".selectSummaryOwnedByKnowledgeBase";
+        assertThat(configuration.hasStatement(summarySelectId, false)).isTrue();
+        MappedStatement summarySelect = configuration.getMappedStatement(summarySelectId);
+        BoundSql summarySql = summarySelect.getBoundSql(Map.of(
+                "knowledgeBaseId", 201L,
+                "userId", 101L
+        ));
+        assertThat(summarySql.getSql()).contains(
+                "SELECT COUNT(*) AS submitted_count",
+                "COUNT(*) FILTER (WHERE f.verdict = 'HELPFUL') AS helpful_count",
+                "COUNT(*) FILTER (WHERE f.verdict = 'NOT_HELPFUL') AS not_helpful_count",
+                "FROM knowledge_chat_answer_feedback f",
+                "INNER JOIN knowledge_chat_answer a ON a.id = f.answer_id",
+                "a.knowledge_base_id",
+                "a.user_id"
+        );
+        assertThat(summarySql.getSql()).doesNotContain(
+                "LEFT JOIN",
+                "GROUP BY",
+                "ORDER BY",
+                "INSERT",
+                "UPDATE",
+                "DELETE"
+        );
+        assertThat(summarySelect.getResultMaps().getFirst().getType())
+                .isEqualTo(KnowledgeChatAnswerFeedbackSummary.class);
+        assertThat(summarySelect.getResultMaps().getFirst().getResultMappings())
+                .extracting(ResultMapping::getProperty)
+                .containsExactly("submittedCount", "helpfulCount", "notHelpfulCount");
+    }
 
     @Test
     void shouldRegisterTheV14SubmittedEventLedgerWithParentOwnerAndKnowledgeBaseScope() {

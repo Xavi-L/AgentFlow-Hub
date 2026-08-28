@@ -1,6 +1,7 @@
 package com.agentflow.knowledge.repository;
 
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedback;
+import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackSummary;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackStatus;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -12,15 +13,39 @@ import org.apache.ibatis.annotations.Results;
 import org.apache.ibatis.annotations.Select;
 
 /**
- * 中文：V12 不可变回答反馈的数据访问边界。answer_id 的唯一约束和 PostgreSQL 的 ON CONFLICT 保证
- * 并发重试不产生第二条事件；每次读取和写入均把 owner、知识库和 answerId 放在同一 SQL 范围内。
+ * 中文：V12–V15 不可变回答反馈的数据访问边界。answer_id 的唯一约束和 PostgreSQL 的 ON CONFLICT
+ * 保证并发重试不产生第二条事件；每次读取和写入均把 owner、知识库和 answerId 放在同一 SQL 范围内。
  *
- * <p>English: Data access for V12 immutable answer feedback. The answer_id uniqueness
+ * <p>English: Data access for V12–V15 immutable answer feedback. The answer_id uniqueness
  * constraint plus PostgreSQL ON CONFLICT prevents concurrent retries from creating a second
  * event; every read and write binds owner, knowledge base, and answerId in one SQL scope.</p>
  */
 @Mapper
 public interface KnowledgeChatAnswerFeedbackMapper extends BaseMapper<KnowledgeChatAnswerFeedback> {
+
+    /**
+     * Aggregates the V15 raw event counts from submitted feedback rows scoped through immutable
+     * parent answers. PostgreSQL aggregates return one zero-count row for an empty, foreign, or
+     * wrong-knowledge-base scope, so this deliberately performs no existence pre-check.
+     */
+    @Results(id = "knowledgeChatAnswerFeedbackSummaryResult", value = {
+            @Result(property = "submittedCount", column = "submitted_count"),
+            @Result(property = "helpfulCount", column = "helpful_count"),
+            @Result(property = "notHelpfulCount", column = "not_helpful_count")
+    })
+    @Select("""
+            SELECT COUNT(*) AS submitted_count,
+                   COUNT(*) FILTER (WHERE f.verdict = 'HELPFUL') AS helpful_count,
+                   COUNT(*) FILTER (WHERE f.verdict = 'NOT_HELPFUL') AS not_helpful_count
+            FROM knowledge_chat_answer_feedback f
+            INNER JOIN knowledge_chat_answer a ON a.id = f.answer_id
+            WHERE a.knowledge_base_id = #{knowledgeBaseId}
+              AND a.user_id = #{userId}
+            """)
+    KnowledgeChatAnswerFeedbackSummary selectSummaryOwnedByKnowledgeBase(
+            @Param("knowledgeBaseId") Long knowledgeBaseId,
+            @Param("userId") Long userId
+    );
 
     /**
      * Reads the V14 ledger from submitted feedback events and scopes every row through its

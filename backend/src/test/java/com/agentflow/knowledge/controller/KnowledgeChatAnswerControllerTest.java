@@ -17,6 +17,7 @@ import com.agentflow.common.web.TraceIdFilter;
 import com.agentflow.knowledge.dto.ChatTestRequest;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackRequest;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackResponse;
+import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackSummaryResponse;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackStatusResponse;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerResponse;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerSummaryResponse;
@@ -318,6 +319,98 @@ class KnowledgeChatAnswerControllerTest {
         );
         assertThat(pageRequestCaptor.getValue().getPage()).isEqualTo(2);
         assertThat(pageRequestCaptor.getValue().getPageSize()).isEqualTo(5);
+        verifyNoInteractions(answerService);
+    }
+
+    @Test
+    void shouldExposeOnlyThreeNumericV15RawFeedbackSummaryFields() throws Exception {
+        KnowledgeChatAnswerService answerService = Mockito.mock(KnowledgeChatAnswerService.class);
+        KnowledgeChatAnswerFeedbackService feedbackService = Mockito.mock(
+                KnowledgeChatAnswerFeedbackService.class
+        );
+        AuthenticatedUser currentUser = currentUser();
+        when(feedbackService.getSummaryOwnedByKnowledgeBase(currentUser, 201L))
+                .thenReturn(new KnowledgeChatAnswerFeedbackSummaryResponse(2L, 1L, 1L));
+        authenticate(currentUser);
+
+        mockMvc(answerService, feedbackService).perform(MockMvcRequestBuilders.get(
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}/chat-answer-feedbacks/summary",
+                        201L
+                )
+                        .header("X-Trace-Id", "af-test-v15-feedback-summary-001"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("OK"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
+                        .value("Knowledge chat answer feedback summary retrieved"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data",
+                        org.hamcrest.Matchers.aMapWithSize(3)
+                ))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.submittedCount"
+                ).isNumber())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.submittedCount"
+                ).value(2))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.helpfulCount"
+                ).isNumber())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.helpfulCount"
+                ).value(1))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.notHelpfulCount"
+                ).isNumber())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.notHelpfulCount"
+                ).value(1));
+
+        verify(feedbackService).getSummaryOwnedByKnowledgeBase(currentUser, 201L);
+        verifyNoInteractions(answerService);
+    }
+
+    @Test
+    void shouldExposeTheEmptyV15SummaryAsNumericZeroCounts() throws Exception {
+        KnowledgeChatAnswerService answerService = Mockito.mock(KnowledgeChatAnswerService.class);
+        KnowledgeChatAnswerFeedbackService feedbackService = Mockito.mock(
+                KnowledgeChatAnswerFeedbackService.class
+        );
+        AuthenticatedUser currentUser = currentUser();
+        when(feedbackService.getSummaryOwnedByKnowledgeBase(currentUser, 201L))
+                .thenReturn(new KnowledgeChatAnswerFeedbackSummaryResponse(0L, 0L, 0L));
+        authenticate(currentUser);
+
+        mockMvc(answerService, feedbackService).perform(MockMvcRequestBuilders.get(
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}/chat-answer-feedbacks/summary",
+                        201L
+                )
+                        .header("X-Trace-Id", "af-test-v15-feedback-summary-empty-001"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data",
+                        org.hamcrest.Matchers.aMapWithSize(3)
+                ))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.submittedCount"
+                ).isNumber())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.submittedCount"
+                ).value(0))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.helpfulCount"
+                ).isNumber())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.helpfulCount"
+                ).value(0))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.notHelpfulCount"
+                ).isNumber())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.notHelpfulCount"
+                ).value(0));
+
+        verify(feedbackService).getSummaryOwnedByKnowledgeBase(currentUser, 201L);
         verifyNoInteractions(answerService);
     }
 
