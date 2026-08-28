@@ -1,6 +1,7 @@
 package com.agentflow.knowledge.repository;
 
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedback;
+import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackStatus;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
@@ -19,6 +20,33 @@ import org.apache.ibatis.annotations.Select;
  */
 @Mapper
 public interface KnowledgeChatAnswerFeedbackMapper extends BaseMapper<KnowledgeChatAnswerFeedback> {
+
+    /**
+     * Reads the V13 status from the scoped parent answer. A returned row with a null feedbackId
+     * means that the answer is visible to the current owner but no V12 event has been submitted.
+     */
+    @Results(id = "knowledgeChatAnswerFeedbackStatusResult", value = {
+            @Result(property = "answerId", column = "answer_id"),
+            @Result(property = "feedbackId", column = "feedback_id"),
+            @Result(property = "verdict", column = "verdict"),
+            @Result(property = "createdAt", column = "created_at")
+    })
+    @Select("""
+            SELECT a.id AS answer_id,
+                   f.id AS feedback_id,
+                   f.verdict,
+                   f.created_at
+            FROM knowledge_chat_answer a
+            LEFT JOIN knowledge_chat_answer_feedback f ON f.answer_id = a.id
+            WHERE a.id = #{answerId}
+              AND a.knowledge_base_id = #{knowledgeBaseId}
+              AND a.user_id = #{userId}
+            """)
+    KnowledgeChatAnswerFeedbackStatus selectStatusOwnedByAnswerId(
+            @Param("answerId") Long answerId,
+            @Param("knowledgeBaseId") Long knowledgeBaseId,
+            @Param("userId") Long userId
+    );
 
     @Results(id = "knowledgeChatAnswerFeedbackResult", value = {
             @Result(id = true, property = "id", column = "id"),

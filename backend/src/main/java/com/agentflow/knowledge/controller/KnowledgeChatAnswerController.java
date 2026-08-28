@@ -6,6 +6,7 @@ import com.agentflow.common.api.PageResult;
 import com.agentflow.knowledge.dto.ChatTestRequest;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackRequest;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackResponse;
+import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackStatusResponse;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerResponse;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerSummaryResponse;
 import com.agentflow.knowledge.service.KnowledgeChatAnswerService;
@@ -21,7 +22,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** V10/V11 immutable answer audit routes plus V12 one-time binary feedback submission. */
+/** V10/V11 immutable answer audit routes plus V12 feedback and its V13 read-only status. */
 @RestController
 @RequestMapping("${agentflow.api.prefix}/knowledge-bases/{knowledgeBaseId}")
 public class KnowledgeChatAnswerController {
@@ -74,6 +75,22 @@ public class KnowledgeChatAnswerController {
                         knowledgeBaseId,
                         answerId,
                         request
+                )
+        );
+    }
+
+    @GetMapping("/chat-answers/{answerId}/feedback")
+    public ApiResponse<KnowledgeChatAnswerFeedbackStatusResponse> getFeedbackStatus(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @PathVariable("knowledgeBaseId") Long knowledgeBaseId,
+            @PathVariable("answerId") Long answerId
+    ) {
+        return ApiResponse.success(
+                "Knowledge chat answer feedback status retrieved",
+                knowledgeChatAnswerFeedbackService.getFeedbackStatus(
+                        currentUser,
+                        knowledgeBaseId,
+                        answerId
                 )
         );
     }

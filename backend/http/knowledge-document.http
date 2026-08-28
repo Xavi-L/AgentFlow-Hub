@@ -358,6 +358,26 @@ X-Trace-Id: af-manual-v11-chat-audit-list-001
   });
 %}
 
+### V13 read the unsubmitted immutable answer-feedback status: expected HTTP 200 without retrieval, a model call, or a write.
+# Run this after the V10 POST above has set agentflowChatAnswerId and before the V12 POST below.
+# The scoped parent answer exists, but no V12 feedback has been submitted yet, so feedback must
+# be absent rather than null or a newly created event.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answers/{{agentflowChatAnswerId}}/feedback
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v13-answer-feedback-unsubmitted-001
+
+> {%
+  client.test("V13 reads an existing answer with no feedback as unsubmitted", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.message === "Knowledge chat answer feedback status retrieved",
+      "Expected read-only feedback-status message");
+    client.assert(response.body.data.submitted === false, "Expected unsubmitted status");
+    client.assert(!Object.prototype.hasOwnProperty.call(response.body.data, "feedback"),
+      "Unsubmitted status must not include feedback:null or a synthetic event");
+  });
+%}
+
 ### V12 submit one immutable binary answer-feedback event: expected HTTP 200 without retrieval or a model call.
 # Run this after the V10 POST above has set agentflowChatAnswerId. V12 scopes every feedback
 # lookup/write through this V10 answer's current owner and knowledge base, then appends exactly
@@ -386,6 +406,28 @@ X-Trace-Id: af-manual-v12-answer-feedback-create-001
   });
   client.global.set("agentflowChatAnswerFeedbackId", response.body.data.feedbackId);
   client.global.set("agentflowChatAnswerFeedbackCreatedAt", response.body.data.createdAt);
+%}
+
+### V13 read the submitted immutable answer-feedback status: expected HTTP 200 and the same V12 event.
+# Run this immediately after the V12 first submission above. This is a parent-answer LEFT JOIN
+# read only: it must return the already-created V12 event and must not write, retry, or call V7/V8/V9/a model.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answers/{{agentflowChatAnswerId}}/feedback
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v13-answer-feedback-submitted-001
+
+> {%
+  client.test("V13 reads back the same immutable V12 feedback event", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.submitted === true, "Expected submitted status");
+    client.assert(response.body.data.feedback.feedbackId === client.global.get("agentflowChatAnswerFeedbackId"),
+      "Expected the same V12 feedbackId");
+    client.assert(response.body.data.feedback.answerId === client.global.get("agentflowChatAnswerId"),
+      "Expected the same immutable answerId");
+    client.assert(response.body.data.feedback.verdict === "HELPFUL", "Expected original V12 verdict");
+    client.assert(response.body.data.feedback.createdAt === client.global.get("agentflowChatAnswerFeedbackCreatedAt"),
+      "Expected original V12 creation time");
+  });
 %}
 
 ### V12 retry the same verdict: expected HTTP 200 with the existing event and no second write.

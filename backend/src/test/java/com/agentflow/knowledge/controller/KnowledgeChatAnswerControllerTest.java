@@ -17,6 +17,7 @@ import com.agentflow.common.web.TraceIdFilter;
 import com.agentflow.knowledge.dto.ChatTestRequest;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackRequest;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackResponse;
+import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackStatusResponse;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerResponse;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerSummaryResponse;
 import com.agentflow.knowledge.dto.KnowledgeContextSourceResponse;
@@ -153,6 +154,88 @@ class KnowledgeChatAnswerControllerTest {
                 ).exists());
 
         verify(feedbackService).submitFeedback(currentUser, 201L, 501L, request);
+        verifyNoInteractions(answerService);
+    }
+
+    @Test
+    void shouldReadBothV13FeedbackStatusShapesAndKeepMissingAnswersHidden() throws Exception {
+        KnowledgeChatAnswerService answerService = Mockito.mock(KnowledgeChatAnswerService.class);
+        KnowledgeChatAnswerFeedbackService feedbackService = Mockito.mock(
+                KnowledgeChatAnswerFeedbackService.class
+        );
+        AuthenticatedUser currentUser = currentUser();
+        when(feedbackService.getFeedbackStatus(currentUser, 201L, 501L))
+                .thenReturn(KnowledgeChatAnswerFeedbackStatusResponse.unsubmitted());
+        when(feedbackService.getFeedbackStatus(currentUser, 201L, 502L))
+                .thenReturn(new KnowledgeChatAnswerFeedbackStatusResponse(
+                        true,
+                        new KnowledgeChatAnswerFeedbackResponse(
+                                "701",
+                                "502",
+                                KnowledgeChatAnswerFeedbackVerdict.HELPFUL,
+                                OffsetDateTime.parse("2026-08-28T10:30:00+08:00")
+                        )
+                ));
+        doThrow(new BusinessException(ErrorCode.KNOWLEDGE_CHAT_ANSWER_NOT_FOUND))
+                .when(feedbackService)
+                .getFeedbackStatus(currentUser, 201L, 503L);
+        authenticate(currentUser);
+        MockMvc mockMvc = mockMvc(answerService, feedbackService);
+
+        mockMvc.perform(MockMvcRequestBuilders.get(
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}/chat-answers/{answerId}/feedback",
+                        201L,
+                        501L
+                )
+                        .header("X-Trace-Id", "af-test-v13-feedback-unsubmitted-001"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("OK"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
+                        .value("Knowledge chat answer feedback status retrieved"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.submitted"
+                ).value(false))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.feedback"
+                ).doesNotExist());
+
+        mockMvc.perform(MockMvcRequestBuilders.get(
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}/chat-answers/{answerId}/feedback",
+                        201L,
+                        502L
+                )
+                        .header("X-Trace-Id", "af-test-v13-feedback-submitted-001"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.submitted"
+                ).value(true))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.feedback.feedbackId"
+                ).value("701"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.feedback.answerId"
+                ).value("502"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.feedback.verdict"
+                ).value("HELPFUL"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.feedback.createdAt"
+                ).exists());
+
+        mockMvc.perform(MockMvcRequestBuilders.get(
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}/chat-answers/{answerId}/feedback",
+                        201L,
+                        503L
+                )
+                        .header("X-Trace-Id", "af-test-v13-feedback-not-found-001"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isNotFound())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("KNOWLEDGE_CHAT_ANSWER_NOT_FOUND"));
+
+        verify(feedbackService).getFeedbackStatus(currentUser, 201L, 501L);
+        verify(feedbackService).getFeedbackStatus(currentUser, 201L, 502L);
+        verify(feedbackService).getFeedbackStatus(currentUser, 201L, 503L);
         verifyNoInteractions(answerService);
     }
 

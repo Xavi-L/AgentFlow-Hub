@@ -15,7 +15,9 @@ import com.agentflow.common.error.BusinessException;
 import com.agentflow.common.error.ErrorCode;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackRequest;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackResponse;
+import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackStatusResponse;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedback;
+import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackStatus;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackVerdict;
 import com.agentflow.knowledge.repository.KnowledgeChatAnswerFeedbackMapper;
 import com.agentflow.user.security.AuthenticatedUser;
@@ -40,6 +42,82 @@ class KnowledgeChatAnswerFeedbackServiceTest {
     void setUp() {
         knowledgeChatAnswerFeedbackService = new KnowledgeChatAnswerFeedbackService(
                 knowledgeChatAnswerFeedbackMapper
+        );
+    }
+
+    @Test
+    void shouldReadAnUnsubmittedV13StatusWithoutWritingOrCallingGenerationDependencies() {
+        when(knowledgeChatAnswerFeedbackMapper.selectStatusOwnedByAnswerId(501L, 201L, 101L))
+                .thenReturn(status(501L, null, null));
+
+        KnowledgeChatAnswerFeedbackStatusResponse response = knowledgeChatAnswerFeedbackService
+                .getFeedbackStatus(currentUser(), 201L, 501L);
+
+        assertThat(response.submitted()).isFalse();
+        assertThat(response.feedback()).isNull();
+        verify(knowledgeChatAnswerFeedbackMapper).selectStatusOwnedByAnswerId(501L, 201L, 101L);
+        verify(knowledgeChatAnswerFeedbackMapper, never()).insertIfAbsent(
+                any(KnowledgeChatAnswerFeedback.class),
+                anyLong(),
+                anyLong()
+        );
+    }
+
+    @Test
+    void shouldReadTheOriginalV12EventThroughASubmittedV13StatusWithoutWriting() {
+        when(knowledgeChatAnswerFeedbackMapper.selectStatusOwnedByAnswerId(501L, 201L, 101L))
+                .thenReturn(status(501L, 701L, "HELPFUL"));
+
+        KnowledgeChatAnswerFeedbackStatusResponse response = knowledgeChatAnswerFeedbackService
+                .getFeedbackStatus(currentUser(), 201L, 501L);
+
+        assertThat(response.submitted()).isTrue();
+        assertThat(response.feedback()).isNotNull();
+        assertThat(response.feedback().feedbackId()).isEqualTo("701");
+        assertThat(response.feedback().answerId()).isEqualTo("501");
+        assertThat(response.feedback().verdict()).isEqualTo(KnowledgeChatAnswerFeedbackVerdict.HELPFUL);
+        assertThat(response.feedback().createdAt())
+                .isEqualTo(OffsetDateTime.parse("2026-08-27T10:30:00+08:00"));
+        verify(knowledgeChatAnswerFeedbackMapper).selectStatusOwnedByAnswerId(501L, 201L, 101L);
+        verify(knowledgeChatAnswerFeedbackMapper, never()).insertIfAbsent(
+                any(KnowledgeChatAnswerFeedback.class),
+                anyLong(),
+                anyLong()
+        );
+    }
+
+    @Test
+    void shouldHideMissingForeignAndWrongKnowledgeBaseAnswersBehindTheSameV13NotFoundContract() {
+        when(knowledgeChatAnswerFeedbackMapper.selectStatusOwnedByAnswerId(
+                anyLong(),
+                anyLong(),
+                anyLong()
+        )).thenReturn(null);
+
+        assertBusinessCode(
+                () -> knowledgeChatAnswerFeedbackService.getFeedbackStatus(currentUser(), 201L, 501L),
+                ErrorCode.KNOWLEDGE_CHAT_ANSWER_NOT_FOUND
+        );
+        assertBusinessCode(
+                () -> knowledgeChatAnswerFeedbackService.getFeedbackStatus(currentUser(), 202L, 501L),
+                ErrorCode.KNOWLEDGE_CHAT_ANSWER_NOT_FOUND
+        );
+        assertBusinessCode(
+                () -> knowledgeChatAnswerFeedbackService.getFeedbackStatus(
+                        new AuthenticatedUser(102L, "other_owner", "Other", "USER"),
+                        201L,
+                        501L
+                ),
+                ErrorCode.KNOWLEDGE_CHAT_ANSWER_NOT_FOUND
+        );
+
+        verify(knowledgeChatAnswerFeedbackMapper).selectStatusOwnedByAnswerId(501L, 201L, 101L);
+        verify(knowledgeChatAnswerFeedbackMapper).selectStatusOwnedByAnswerId(501L, 202L, 101L);
+        verify(knowledgeChatAnswerFeedbackMapper).selectStatusOwnedByAnswerId(501L, 201L, 102L);
+        verify(knowledgeChatAnswerFeedbackMapper, never()).insertIfAbsent(
+                any(KnowledgeChatAnswerFeedback.class),
+                anyLong(),
+                anyLong()
         );
     }
 
@@ -264,6 +342,21 @@ class KnowledgeChatAnswerFeedbackServiceTest {
         feedback.setVerdict(verdict);
         feedback.setCreatedAt(OffsetDateTime.parse("2026-08-27T10:30:00+08:00"));
         return feedback;
+    }
+
+    private static KnowledgeChatAnswerFeedbackStatus status(
+            Long answerId,
+            Long feedbackId,
+            String verdict
+    ) {
+        KnowledgeChatAnswerFeedbackStatus status = new KnowledgeChatAnswerFeedbackStatus();
+        status.setAnswerId(answerId);
+        status.setFeedbackId(feedbackId);
+        status.setVerdict(verdict);
+        if (feedbackId != null) {
+            status.setCreatedAt(OffsetDateTime.parse("2026-08-27T10:30:00+08:00"));
+        }
+        return status;
     }
 
     private static AuthenticatedUser currentUser() {

@@ -4,7 +4,9 @@ import com.agentflow.common.error.BusinessException;
 import com.agentflow.common.error.ErrorCode;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackRequest;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackResponse;
+import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackStatusResponse;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedback;
+import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackStatus;
 import com.agentflow.knowledge.repository.KnowledgeChatAnswerFeedbackMapper;
 import com.agentflow.user.security.AuthenticatedUser;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
@@ -32,6 +34,40 @@ public class KnowledgeChatAnswerFeedbackService {
         this.knowledgeChatAnswerFeedbackMapper = Objects.requireNonNull(
                 knowledgeChatAnswerFeedbackMapper,
                 "knowledgeChatAnswerFeedbackMapper must not be null"
+        );
+    }
+
+    /**
+     * Reads only the V13 visibility state of one scoped answer. A parent answer with no feedback
+     * remains a successful read; a missing, foreign, or wrong-knowledge-base parent stays hidden
+     * behind the existing answer-not-found contract.
+     */
+    @Transactional(readOnly = true)
+    public KnowledgeChatAnswerFeedbackStatusResponse getFeedbackStatus(
+            AuthenticatedUser currentUser,
+            Long knowledgeBaseId,
+            Long answerId
+    ) {
+        Objects.requireNonNull(currentUser, "currentUser must not be null");
+        Objects.requireNonNull(knowledgeBaseId, "knowledgeBaseId must not be null");
+        Objects.requireNonNull(answerId, "answerId must not be null");
+
+        KnowledgeChatAnswerFeedbackStatus status = knowledgeChatAnswerFeedbackMapper
+                .selectStatusOwnedByAnswerId(answerId, knowledgeBaseId, currentUser.id());
+        if (status == null) {
+            throw new BusinessException(ErrorCode.KNOWLEDGE_CHAT_ANSWER_NOT_FOUND);
+        }
+        if (!status.hasSubmittedFeedback()) {
+            return KnowledgeChatAnswerFeedbackStatusResponse.unsubmitted();
+        }
+
+        KnowledgeChatAnswerFeedback feedback = new KnowledgeChatAnswerFeedback();
+        feedback.setId(status.getFeedbackId());
+        feedback.setAnswerId(status.getAnswerId());
+        feedback.setVerdict(status.getVerdict());
+        feedback.setCreatedAt(status.getCreatedAt());
+        return KnowledgeChatAnswerFeedbackStatusResponse.submitted(
+                KnowledgeChatAnswerFeedbackResponse.from(feedback)
         );
     }
 

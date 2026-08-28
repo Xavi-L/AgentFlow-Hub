@@ -3,6 +3,7 @@ package com.agentflow.knowledge.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedback;
+import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackStatus;
 import java.time.OffsetDateTime;
 import java.util.Map;
 import org.apache.ibatis.mapping.BoundSql;
@@ -12,6 +13,35 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import org.junit.jupiter.api.Test;
 
 class KnowledgeChatAnswerFeedbackMapperTest {
+
+    @Test
+    void shouldRegisterTheParentAnswerDrivenV13LeftJoinStatusStatement() {
+        MybatisConfiguration configuration = new MybatisConfiguration();
+
+        configuration.addMapper(KnowledgeChatAnswerFeedbackMapper.class);
+
+        String mapperName = KnowledgeChatAnswerFeedbackMapper.class.getName();
+        String statusSelectId = mapperName + ".selectStatusOwnedByAnswerId";
+        assertThat(configuration.hasStatement(statusSelectId, false)).isTrue();
+        MappedStatement statusSelect = configuration.getMappedStatement(statusSelectId);
+        BoundSql statusSql = statusSelect.getBoundSql(Map.of(
+                "answerId", 501L,
+                "knowledgeBaseId", 201L,
+                "userId", 101L
+        ));
+        assertThat(statusSql.getSql()).contains(
+                "FROM knowledge_chat_answer a",
+                "LEFT JOIN knowledge_chat_answer_feedback f",
+                "a.id",
+                "a.knowledge_base_id",
+                "a.user_id"
+        );
+        assertThat(statusSelect.getResultMaps().getFirst().getType())
+                .isEqualTo(KnowledgeChatAnswerFeedbackStatus.class);
+        assertThat(statusSelect.getResultMaps().getFirst().getResultMappings())
+                .extracting(ResultMapping::getProperty)
+                .contains("answerId", "feedbackId", "verdict", "createdAt");
+    }
 
     @Test
     void shouldRegisterScopedReadAndAtomicInsertIfAbsentStatements() {
