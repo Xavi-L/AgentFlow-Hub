@@ -358,6 +358,99 @@ X-Trace-Id: af-manual-v11-chat-audit-list-001
   });
 %}
 
+### V12 submit one immutable binary answer-feedback event: expected HTTP 200 without retrieval or a model call.
+# Run this after the V10 POST above has set agentflowChatAnswerId. V12 scopes every feedback
+# lookup/write through this V10 answer's current owner and knowledge base, then appends exactly
+# one independent feedback row. It does not mutate the V10 answer, create a session, or call V7/V8/V9/a model.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answers/{{agentflowChatAnswerId}}/feedback
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-v12-answer-feedback-create-001
+
+{
+  "verdict": "HELPFUL"
+}
+
+> {%
+  client.test("V12 records one immutable HELPFUL feedback event", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.message === "Knowledge chat answer feedback recorded",
+      "Expected recorded-feedback message");
+    client.assert(typeof response.body.data.feedbackId === "string" && response.body.data.feedbackId.length > 0,
+      "Expected immutable feedbackId");
+    client.assert(response.body.data.answerId === client.global.get("agentflowChatAnswerId"),
+      "Expected feedback for the V10 answer saved above");
+    client.assert(response.body.data.verdict === "HELPFUL", "Expected submitted verdict");
+    client.assert(typeof response.body.data.createdAt === "string", "Expected immutable feedback creation time");
+  });
+  client.global.set("agentflowChatAnswerFeedbackId", response.body.data.feedbackId);
+  client.global.set("agentflowChatAnswerFeedbackCreatedAt", response.body.data.createdAt);
+%}
+
+### V12 retry the same verdict: expected HTTP 200 with the existing event and no second write.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answers/{{agentflowChatAnswerId}}/feedback
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-v12-answer-feedback-idempotent-retry-001
+
+{
+  "verdict": "HELPFUL"
+}
+
+> {%
+  client.test("V12 same-verdict retry returns the original immutable event", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.feedbackId === client.global.get("agentflowChatAnswerFeedbackId"),
+      "Expected the original feedbackId rather than a duplicate row");
+    client.assert(response.body.data.answerId === client.global.get("agentflowChatAnswerId"),
+      "Expected feedback for the same answer");
+    client.assert(response.body.data.verdict === "HELPFUL", "Expected original verdict");
+    client.assert(response.body.data.createdAt === client.global.get("agentflowChatAnswerFeedbackCreatedAt"),
+      "Expected original immutable creation time");
+  });
+%}
+
+### V12 reject an opposite verdict: expected HTTP 409 / KNOWLEDGE_CHAT_ANSWER_FEEDBACK_CONFLICT.
+# This is not an update operation: the existing HELPFUL event remains unchanged.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answers/{{agentflowChatAnswerId}}/feedback
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-v12-answer-feedback-conflict-001
+
+{
+  "verdict": "NOT_HELPFUL"
+}
+
+> {%
+  client.test("V12 refuses an opposite immutable verdict", function () {
+    client.assert(response.status === 409, "Expected HTTP 409");
+    client.assert(response.body.code === "KNOWLEDGE_CHAT_ANSWER_FEEDBACK_CONFLICT",
+      "Expected controlled immutable-feedback conflict");
+  });
+%}
+
+### V12 reject extra request fields: expected HTTP 400 / COMMON_REQUEST_BODY_INVALID.
+# Only one textual verdict field is permitted; comments and client-controlled identifiers are outside V12.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answers/{{agentflowChatAnswerId}}/feedback
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-v12-answer-feedback-extra-field-001
+
+{
+  "verdict": "HELPFUL",
+  "comment": "This field is intentionally unsupported"
+}
+
+> {%
+  client.test("V12 accepts no free-text comment field", function () {
+    client.assert(response.status === 400, "Expected HTTP 400");
+    client.assert(response.body.code === "COMMON_REQUEST_BODY_INVALID",
+      "Expected strict one-field request-body validation");
+  });
+%}
+
 ### V9 empty V8 context: expected HTTP 409 / KNOWLEDGE_CONTEXT_EMPTY and no LLM call.
 # This request is safe to run even with no local model service: the V8 one-token budget cannot
 # contain a whole fixture block, so KnowledgeChatService returns before it reaches ChatGateway.

@@ -42,6 +42,11 @@ public enum ErrorCode {
             "Knowledge chat answer is not found",
             404
     ),
+    KNOWLEDGE_CHAT_ANSWER_FEEDBACK_CONFLICT(
+            "KNOWLEDGE_CHAT_ANSWER_FEEDBACK_CONFLICT",
+            "Knowledge chat answer feedback has already been recorded with a different verdict",
+            409
+    ),
     KNOWLEDGE_DOCUMENT_FILE_REQUIRED("KNOWLEDGE_DOCUMENT_FILE_REQUIRED", "A document file is required", 400),
     KNOWLEDGE_DOCUMENT_FILE_EMPTY("KNOWLEDGE_DOCUMENT_FILE_EMPTY", "Document file must not be empty", 400),
     KNOWLEDGE_DOCUMENT_FILE_NAME_INVALID("KNOWLEDGE_DOCUMENT_FILE_NAME_INVALID", "Document file name is invalid", 400),

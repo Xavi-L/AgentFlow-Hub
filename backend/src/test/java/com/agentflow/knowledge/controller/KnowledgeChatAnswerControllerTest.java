@@ -15,9 +15,13 @@ import com.agentflow.common.error.ErrorCode;
 import com.agentflow.common.error.GlobalExceptionHandler;
 import com.agentflow.common.web.TraceIdFilter;
 import com.agentflow.knowledge.dto.ChatTestRequest;
+import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackRequest;
+import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackResponse;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerResponse;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerSummaryResponse;
 import com.agentflow.knowledge.dto.KnowledgeContextSourceResponse;
+import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackVerdict;
+import com.agentflow.knowledge.service.KnowledgeChatAnswerFeedbackService;
 import com.agentflow.knowledge.service.KnowledgeChatAnswerService;
 import com.agentflow.user.security.AuthenticatedUser;
 import java.time.OffsetDateTime;
@@ -102,6 +106,166 @@ class KnowledgeChatAnswerControllerTest {
                 ).exists());
 
         verify(service).getById(currentUser, 201L, 501L);
+    }
+
+    @Test
+    void shouldSubmitTheStrictOneFieldV12FeedbackRouteAndReturnItsEvent() throws Exception {
+        KnowledgeChatAnswerService answerService = Mockito.mock(KnowledgeChatAnswerService.class);
+        KnowledgeChatAnswerFeedbackService feedbackService = Mockito.mock(
+                KnowledgeChatAnswerFeedbackService.class
+        );
+        AuthenticatedUser currentUser = currentUser();
+        KnowledgeChatAnswerFeedbackRequest request = new KnowledgeChatAnswerFeedbackRequest(
+                KnowledgeChatAnswerFeedbackVerdict.HELPFUL
+        );
+        when(feedbackService.submitFeedback(currentUser, 201L, 501L, request))
+                .thenReturn(feedbackResponse());
+        authenticate(currentUser);
+
+        mockMvc(answerService, feedbackService).perform(MockMvcRequestBuilders.post(
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}/chat-answers/{answerId}/feedback",
+                        201L,
+                        501L
+                )
+                        .header("X-Trace-Id", "af-test-v12-feedback-001")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "verdict":"HELPFUL"
+                                }
+                                """))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("OK"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
+                        .value("Knowledge chat answer feedback recorded"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.feedbackId"
+                ).value("701"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.answerId"
+                ).value("501"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.verdict"
+                ).value("HELPFUL"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.createdAt"
+                ).exists());
+
+        verify(feedbackService).submitFeedback(currentUser, 201L, 501L, request);
+        verifyNoInteractions(answerService);
+    }
+
+    @Test
+    void shouldRejectUnexpectedOrInvalidFeedbackVerdictBeforeCallingTheService() throws Exception {
+        KnowledgeChatAnswerService answerService = Mockito.mock(KnowledgeChatAnswerService.class);
+        KnowledgeChatAnswerFeedbackService feedbackService = Mockito.mock(
+                KnowledgeChatAnswerFeedbackService.class
+        );
+        authenticate(currentUser());
+        MockMvc mockMvc = mockMvc(answerService, feedbackService);
+
+        mockMvc.perform(MockMvcRequestBuilders.post(
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}/chat-answers/{answerId}/feedback",
+                        201L,
+                        501L
+                )
+                        .header("X-Trace-Id", "af-test-v12-feedback-extra-field")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "verdict":"HELPFUL",
+                                  "feedbackId":"client-must-not-control-event-id"
+                                }
+                                """))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("COMMON_REQUEST_BODY_INVALID"));
+
+        mockMvc.perform(MockMvcRequestBuilders.post(
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}/chat-answers/{answerId}/feedback",
+                        201L,
+                        501L
+                )
+                        .header("X-Trace-Id", "af-test-v12-feedback-invalid-verdict")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "verdict":"MAYBE"
+                                }
+                                """))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("COMMON_REQUEST_BODY_INVALID"));
+
+        mockMvc.perform(MockMvcRequestBuilders.post(
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}/chat-answers/{answerId}/feedback",
+                        201L,
+                        501L
+                )
+                        .header("X-Trace-Id", "af-test-v12-feedback-missing-verdict")
+                        .contentType("application/json")
+                        .content("{}"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("COMMON_PARAM_INVALID"));
+
+        verifyNoInteractions(answerService, feedbackService);
+    }
+
+    @Test
+    void shouldExposeTheV12OppositeVerdictConflictAndHiddenAnswerNotFoundContracts() throws Exception {
+        KnowledgeChatAnswerService answerService = Mockito.mock(KnowledgeChatAnswerService.class);
+        KnowledgeChatAnswerFeedbackService feedbackService = Mockito.mock(
+                KnowledgeChatAnswerFeedbackService.class
+        );
+        AuthenticatedUser currentUser = currentUser();
+        KnowledgeChatAnswerFeedbackRequest helpful = new KnowledgeChatAnswerFeedbackRequest(
+                KnowledgeChatAnswerFeedbackVerdict.HELPFUL
+        );
+        KnowledgeChatAnswerFeedbackRequest notHelpful = new KnowledgeChatAnswerFeedbackRequest(
+                KnowledgeChatAnswerFeedbackVerdict.NOT_HELPFUL
+        );
+        doThrow(new BusinessException(ErrorCode.KNOWLEDGE_CHAT_ANSWER_FEEDBACK_CONFLICT))
+                .when(feedbackService)
+                .submitFeedback(currentUser, 201L, 501L, helpful);
+        doThrow(new BusinessException(ErrorCode.KNOWLEDGE_CHAT_ANSWER_NOT_FOUND))
+                .when(feedbackService)
+                .submitFeedback(currentUser, 201L, 502L, notHelpful);
+        authenticate(currentUser);
+        MockMvc mockMvc = mockMvc(answerService, feedbackService);
+
+        mockMvc.perform(MockMvcRequestBuilders.post(
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}/chat-answers/{answerId}/feedback",
+                        201L,
+                        501L
+                )
+                        .header("X-Trace-Id", "af-test-v12-feedback-conflict")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "verdict":"HELPFUL"
+                                }
+                                """))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isConflict())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("KNOWLEDGE_CHAT_ANSWER_FEEDBACK_CONFLICT"));
+
+        mockMvc.perform(MockMvcRequestBuilders.post(
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}/chat-answers/{answerId}/feedback",
+                        201L,
+                        502L
+                )
+                        .header("X-Trace-Id", "af-test-v12-feedback-not-found")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "verdict":"NOT_HELPFUL"
+                                }
+                                """))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isNotFound())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("KNOWLEDGE_CHAT_ANSWER_NOT_FOUND"));
     }
 
     @Test
@@ -246,9 +410,28 @@ class KnowledgeChatAnswerControllerTest {
         );
     }
 
+    private static KnowledgeChatAnswerFeedbackResponse feedbackResponse() {
+        return new KnowledgeChatAnswerFeedbackResponse(
+                "701",
+                "501",
+                KnowledgeChatAnswerFeedbackVerdict.HELPFUL,
+                OffsetDateTime.parse("2026-08-28T10:30:00+08:00")
+        );
+    }
+
     private static MockMvc mockMvc(KnowledgeChatAnswerService service) {
+        return mockMvc(service, Mockito.mock(KnowledgeChatAnswerFeedbackService.class));
+    }
+
+    private static MockMvc mockMvc(
+            KnowledgeChatAnswerService knowledgeChatAnswerService,
+            KnowledgeChatAnswerFeedbackService knowledgeChatAnswerFeedbackService
+    ) {
         return MockMvcBuilders
-                .standaloneSetup(new KnowledgeChatAnswerController(service))
+                .standaloneSetup(new KnowledgeChatAnswerController(
+                        knowledgeChatAnswerService,
+                        knowledgeChatAnswerFeedbackService
+                ))
                 .addPlaceholderValue("agentflow.api.prefix", "/api/v1")
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
