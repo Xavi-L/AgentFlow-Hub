@@ -48,6 +48,57 @@ X-Trace-Id: af-manual-kb-detail-001
   });
 %}
 
+### Update only the name: expected HTTP 200 while the absent description is preserved.
+PATCH {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-kb-update-name-001
+
+{
+  "name": "更新后的支付业务知识库"
+}
+
+> {%
+  client.test("knowledge base name is partially updated", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.message === "Knowledge base updated", "Expected update message");
+    client.assert(response.body.data.name === "更新后的支付业务知识库", "Expected updated name");
+    client.assert(
+      response.body.data.description === "支付失败、错误码、退款规则相关文档",
+      "Absent description must be preserved"
+    );
+  });
+%}
+
+### Clear the description with explicit null: expected HTTP 200 and null description.
+PATCH {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-kb-clear-description-001
+
+{
+  "description": null
+}
+
+> {%
+  client.test("explicit null clears the description", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.description === null, "Expected cleared description");
+  });
+%}
+
+### Immutable metadata is rejected: expected HTTP 400 / COMMON_REQUEST_BODY_INVALID.
+PATCH {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-kb-update-forbidden-field-001
+
+{
+  "status": "DISABLED"
+}
+
 ### Create with only the required name: expected defaults in HTTP 201 response.
 POST {{baseUrl}}/api/v1/knowledge-bases
 Authorization: Bearer {{agentflowAccessToken}}

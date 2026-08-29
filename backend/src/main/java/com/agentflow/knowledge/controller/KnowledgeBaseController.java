@@ -5,6 +5,7 @@ import com.agentflow.common.api.PageRequest;
 import com.agentflow.common.api.PageResult;
 import com.agentflow.knowledge.dto.CreateKnowledgeBaseRequest;
 import com.agentflow.knowledge.dto.KnowledgeBaseResponse;
+import com.agentflow.knowledge.dto.UpdateKnowledgeBaseMetadataRequest;
 import com.agentflow.knowledge.service.KnowledgeBaseService;
 import com.agentflow.user.security.AuthenticatedUser;
 import jakarta.validation.Valid;
@@ -13,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -80,6 +82,26 @@ public class KnowledgeBaseController {
         return ApiResponse.success(
                 "Knowledge base retrieved",
                 knowledgeBaseService.getOwnedById(currentUser, knowledgeBaseId)
+        );
+    }
+
+    /**
+     * 中文：当前 owner 只能部分修改名称和描述。请求 DTO 的局部严格反序列化器拒绝所有其他
+     * JSON 字段；owner、状态和 embedding/chunk 配置永远不从请求体取得。
+     *
+     * <p>English: The current owner can partially update only name and description. The
+     * request DTO's local strict deserializer rejects every other JSON field; owner,
+     * status, and embedding/chunk settings never come from the request body.
+     */
+    @PatchMapping("/{knowledgeBaseId}")
+    public ApiResponse<KnowledgeBaseResponse> updateMetadata(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @PathVariable Long knowledgeBaseId,
+            @Valid @RequestBody UpdateKnowledgeBaseMetadataRequest request
+    ) {
+        return ApiResponse.success(
+                "Knowledge base updated",
+                knowledgeBaseService.updateMetadata(currentUser, knowledgeBaseId, request)
         );
     }
 }

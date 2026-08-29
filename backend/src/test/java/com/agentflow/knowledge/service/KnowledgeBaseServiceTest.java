@@ -3,6 +3,7 @@ package com.agentflow.knowledge.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -19,6 +20,7 @@ import com.agentflow.common.error.BusinessException;
 import com.agentflow.common.error.ErrorCode;
 import com.agentflow.knowledge.dto.CreateKnowledgeBaseRequest;
 import com.agentflow.knowledge.dto.KnowledgeBaseResponse;
+import com.agentflow.knowledge.dto.UpdateKnowledgeBaseMetadataRequest;
 import com.agentflow.knowledge.model.KnowledgeBase;
 import com.agentflow.knowledge.repository.KnowledgeBaseMapper;
 import com.agentflow.user.security.AuthenticatedUser;
@@ -200,6 +202,223 @@ class KnowledgeBaseServiceTest {
         verify(knowledgeBaseMapper).selectOne(queryCaptor.capture());
         assertThat(queryCaptor.getValue().getSqlSegment())
                 .contains("id", "user_id", "deleted_at");
+        verifyNoMoreInteractions(knowledgeBaseMapper);
+    }
+
+    @Test
+    void shouldUpdateOnlyProvidedMetadataForTheCurrentOwnerIncludingDisabledKnowledgeBases() {
+        AuthenticatedUser currentUser = currentUser();
+        KnowledgeBase existing = knowledgeBase(301L, "Original name", "DISABLED");
+        existing.setDescription("Original description");
+        OffsetDateTime previousUpdatedAt = existing.getUpdatedAt();
+        when(knowledgeBaseMapper.selectOne(org.mockito.ArgumentMatchers.<Wrapper<KnowledgeBase>>any()))
+                .thenReturn(existing);
+        when(knowledgeBaseMapper.updateMetadataOwned(
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+        )).thenReturn(1);
+
+        KnowledgeBaseResponse response = knowledgeBaseService.updateMetadata(
+                currentUser,
+                301L,
+                new UpdateKnowledgeBaseMetadataRequest(true, "  Renamed knowledge base  ", false, null)
+        );
+
+        verify(knowledgeBaseMapper).selectOne(queryCaptor.capture());
+        assertThat(queryCaptor.getValue().getSqlSegment())
+                .contains("id", "user_id", "deleted_at")
+                .doesNotContain("status");
+        verify(knowledgeBaseMapper).updateMetadataOwned(
+                eq(301L),
+                eq(currentUser.id()),
+                eq("Renamed knowledge base"),
+                eq("Original description"),
+                org.mockito.ArgumentMatchers.any(OffsetDateTime.class)
+        );
+        assertThat(response.name()).isEqualTo("Renamed knowledge base");
+        assertThat(response.description()).isEqualTo("Original description");
+        assertThat(response.status()).isEqualTo("DISABLED");
+        assertThat(response.embeddingProvider()).isEqualTo("dashscope");
+        assertThat(response.chunkSize()).isEqualTo(800);
+        assertThat(response.createdAt()).isEqualTo(existing.getCreatedAt());
+        assertThat(response.updatedAt()).isAfter(previousUpdatedAt);
+        verifyNoMoreInteractions(knowledgeBaseMapper);
+    }
+
+    @Test
+    void shouldClearDescriptionForAnExplicitNullValue() {
+        KnowledgeBase existing = knowledgeBase(301L, "Original name", "ACTIVE");
+        existing.setDescription("Original description");
+        when(knowledgeBaseMapper.selectOne(org.mockito.ArgumentMatchers.<Wrapper<KnowledgeBase>>any()))
+                .thenReturn(existing);
+        when(knowledgeBaseMapper.updateMetadataOwned(
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+        )).thenReturn(1);
+
+        KnowledgeBaseResponse response = knowledgeBaseService.updateMetadata(
+                currentUser(),
+                301L,
+                new UpdateKnowledgeBaseMetadataRequest(false, null, true, null)
+        );
+
+        verify(knowledgeBaseMapper).updateMetadataOwned(
+                eq(301L),
+                eq(101L),
+                eq("Original name"),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.any(OffsetDateTime.class)
+        );
+        assertThat(response.description()).isNull();
+    }
+
+    @Test
+    void shouldClearDescriptionForAnExplicitBlankValue() {
+        KnowledgeBase existing = knowledgeBase(301L, "Original name", "ACTIVE");
+        existing.setDescription("Original description");
+        when(knowledgeBaseMapper.selectOne(org.mockito.ArgumentMatchers.<Wrapper<KnowledgeBase>>any()))
+                .thenReturn(existing);
+        when(knowledgeBaseMapper.updateMetadataOwned(
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+        )).thenReturn(1);
+
+        KnowledgeBaseResponse response = knowledgeBaseService.updateMetadata(
+                currentUser(),
+                301L,
+                new UpdateKnowledgeBaseMetadataRequest(false, null, true, "  \t  ")
+        );
+
+        verify(knowledgeBaseMapper).updateMetadataOwned(
+                eq(301L),
+                eq(101L),
+                eq("Original name"),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.any(OffsetDateTime.class)
+        );
+        assertThat(response.description()).isNull();
+    }
+
+    @Test
+    void shouldLeaveUpdatedAtUntouchedForAnEquivalentPatch() {
+        KnowledgeBase existing = knowledgeBase(301L, "Original name", "ACTIVE");
+        existing.setDescription("Original description");
+        OffsetDateTime previousUpdatedAt = existing.getUpdatedAt();
+        when(knowledgeBaseMapper.selectOne(org.mockito.ArgumentMatchers.<Wrapper<KnowledgeBase>>any()))
+                .thenReturn(existing);
+
+        KnowledgeBaseResponse response = knowledgeBaseService.updateMetadata(
+                currentUser(),
+                301L,
+                new UpdateKnowledgeBaseMetadataRequest(
+                        true,
+                        "  Original name  ",
+                        true,
+                        "  Original description  "
+                )
+        );
+
+        assertThat(response.name()).isEqualTo("Original name");
+        assertThat(response.description()).isEqualTo("Original description");
+        assertThat(response.updatedAt()).isEqualTo(previousUpdatedAt);
+        verify(knowledgeBaseMapper).selectOne(queryCaptor.capture());
+        assertThat(queryCaptor.getValue().getSqlSegment()).contains("id", "user_id", "deleted_at");
+        verify(knowledgeBaseMapper, never()).updateMetadataOwned(
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+        );
+        verifyNoMoreInteractions(knowledgeBaseMapper);
+    }
+
+    @Test
+    void shouldRejectInvalidRecognizedMetadataFieldsBeforeLookingUpTheKnowledgeBase() {
+        for (UpdateKnowledgeBaseMetadataRequest invalidRequest : List.of(
+                new UpdateKnowledgeBaseMetadataRequest(false, null, false, null),
+                new UpdateKnowledgeBaseMetadataRequest(true, null, false, null),
+                new UpdateKnowledgeBaseMetadataRequest(true, "  ", false, null),
+                new UpdateKnowledgeBaseMetadataRequest(true, "x".repeat(129), false, null),
+                new UpdateKnowledgeBaseMetadataRequest(false, null, true, "x".repeat(4_001))
+        )) {
+            assertThatThrownBy(() -> knowledgeBaseService.updateMetadata(
+                    currentUser(),
+                    301L,
+                    invalidRequest
+            )).isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.COMMON_PARAM_INVALID));
+        }
+
+        verifyNoMoreInteractions(knowledgeBaseMapper);
+    }
+
+    @Test
+    void shouldMapAnAbsentScopedKnowledgeBaseToTheNotFoundContractWithoutAnUpdate() {
+        when(knowledgeBaseMapper.selectOne(org.mockito.ArgumentMatchers.<Wrapper<KnowledgeBase>>any()))
+                .thenReturn(null);
+
+        assertThatThrownBy(() -> knowledgeBaseService.updateMetadata(
+                currentUser(),
+                301L,
+                new UpdateKnowledgeBaseMetadataRequest(true, "Renamed", false, null)
+        )).isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMON_NOT_FOUND))
+                .hasMessage("Knowledge base not found");
+
+        verify(knowledgeBaseMapper).selectOne(queryCaptor.capture());
+        assertThat(queryCaptor.getValue().getSqlSegment()).contains("id", "user_id", "deleted_at");
+        verify(knowledgeBaseMapper, never()).updateMetadataOwned(
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+        );
+        verifyNoMoreInteractions(knowledgeBaseMapper);
+    }
+
+    @Test
+    void shouldMapAZeroRowScopedUpdateToTheSameNotFoundContract() {
+        when(knowledgeBaseMapper.selectOne(org.mockito.ArgumentMatchers.<Wrapper<KnowledgeBase>>any()))
+                .thenReturn(knowledgeBase(301L, "Original name", "ACTIVE"));
+        when(knowledgeBaseMapper.updateMetadataOwned(
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+        )).thenReturn(0);
+
+        assertThatThrownBy(() -> knowledgeBaseService.updateMetadata(
+                currentUser(),
+                301L,
+                new UpdateKnowledgeBaseMetadataRequest(true, "Renamed", false, null)
+        )).isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMON_NOT_FOUND))
+                .hasMessage("Knowledge base not found");
+
+        verify(knowledgeBaseMapper).selectOne(queryCaptor.capture());
+        assertThat(queryCaptor.getValue().getSqlSegment()).contains("id", "user_id", "deleted_at");
+        verify(knowledgeBaseMapper).updateMetadataOwned(
+                eq(301L),
+                eq(101L),
+                eq("Renamed"),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.any(OffsetDateTime.class)
+        );
         verifyNoMoreInteractions(knowledgeBaseMapper);
     }
 

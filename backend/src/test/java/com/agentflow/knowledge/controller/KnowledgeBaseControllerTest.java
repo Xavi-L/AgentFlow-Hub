@@ -3,6 +3,7 @@ package com.agentflow.knowledge.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.agentflow.common.api.ApiResponse;
@@ -12,6 +13,7 @@ import com.agentflow.common.error.GlobalExceptionHandler;
 import com.agentflow.common.web.TraceIdFilter;
 import com.agentflow.knowledge.dto.CreateKnowledgeBaseRequest;
 import com.agentflow.knowledge.dto.KnowledgeBaseResponse;
+import com.agentflow.knowledge.dto.UpdateKnowledgeBaseMetadataRequest;
 import com.agentflow.knowledge.service.KnowledgeBaseService;
 import com.agentflow.user.security.AuthenticatedUser;
 import java.time.OffsetDateTime;
@@ -111,6 +113,108 @@ class KnowledgeBaseControllerTest {
                         .doesNotExist());
 
         verify(service).getOwnedById(currentUser, 201L);
+    }
+
+    @Test
+    void shouldBindTheCurrentUserToTheStrictMetadataPatchRoute() throws Exception {
+        KnowledgeBaseService service = Mockito.mock(KnowledgeBaseService.class);
+        AuthenticatedUser currentUser = currentUser();
+        UpdateKnowledgeBaseMetadataRequest request = new UpdateKnowledgeBaseMetadataRequest(
+                true,
+                " Renamed knowledge base ",
+                true,
+                null
+        );
+        when(service.updateMetadata(currentUser, 201L, request))
+                .thenReturn(response("201", "Renamed knowledge base"));
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(currentUser, "test", List.of())
+        );
+
+        mockMvc(service).perform(MockMvcRequestBuilders.patch(
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}", 201L
+                )
+                        .header("X-Trace-Id", "af-test-kb-update")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "name":" Renamed knowledge base ",
+                                  "description":null
+                                }
+                                """))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("OK"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
+                        .value("Knowledge base updated"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.data.id")
+                        .value("201"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.data.name")
+                        .value("Renamed knowledge base"));
+
+        verify(service).updateMetadata(currentUser, 201L, request);
+    }
+
+    @Test
+    void shouldRejectForbiddenMetadataPatchFieldsBeforeCallingTheService() throws Exception {
+        KnowledgeBaseService service = Mockito.mock(KnowledgeBaseService.class);
+        AuthenticatedUser currentUser = currentUser();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(currentUser, "test", List.of())
+        );
+
+        for (String forbiddenField : List.of(
+                "status",
+                "embeddingProvider",
+                "embeddingModel",
+                "chunkSize",
+                "chunkOverlap",
+                "metadata",
+                "owner",
+                "userId",
+                "createdAt",
+                "updatedAt",
+                "deletedAt",
+                "unrecognized"
+        )) {
+            String value = forbiddenField.equals("metadata") ? "{}" : "\"client-must-not-control-this\"";
+            mockMvc(service).perform(MockMvcRequestBuilders.patch(
+                            "/api/v1/knowledge-bases/{knowledgeBaseId}", 201L
+                    )
+                            .header("X-Trace-Id", "af-test-kb-update-forbidden-" + forbiddenField)
+                            .contentType("application/json")
+                            .content("""
+                                    {"name":"Renamed knowledge base","%s":%s}
+                                    """.formatted(forbiddenField, value)))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isBadRequest())
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                            .value("COMMON_REQUEST_BODY_INVALID"));
+        }
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void shouldRejectARecognizedMetadataPatchFieldWithTheWrongJsonType() throws Exception {
+        KnowledgeBaseService service = Mockito.mock(KnowledgeBaseService.class);
+        AuthenticatedUser currentUser = currentUser();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(currentUser, "test", List.of())
+        );
+
+        mockMvc(service).perform(MockMvcRequestBuilders.patch(
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}", 201L
+                )
+                        .header("X-Trace-Id", "af-test-kb-update-wrong-type")
+                        .contentType("application/json")
+                        .content("""
+                                {"description":123}
+                                """))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("COMMON_REQUEST_BODY_INVALID"));
+
+        verifyNoInteractions(service);
     }
 
     private static AuthenticatedUser currentUser() {

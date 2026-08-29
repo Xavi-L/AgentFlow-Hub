@@ -8,6 +8,7 @@ import com.agentflow.common.error.BusinessException;
 import com.agentflow.common.error.ErrorCode;
 import com.agentflow.knowledge.dto.CreateKnowledgeBaseRequest;
 import com.agentflow.knowledge.dto.KnowledgeBaseResponse;
+import com.agentflow.knowledge.dto.UpdateKnowledgeBaseMetadataRequest;
 import com.agentflow.knowledge.model.KnowledgeBase;
 import com.agentflow.knowledge.repository.KnowledgeBaseMapper;
 import com.agentflow.user.security.AuthenticatedUser;
@@ -141,15 +142,61 @@ public class KnowledgeBaseService {
         Objects.requireNonNull(currentUser, "currentUser must not be null");
         Objects.requireNonNull(knowledgeBaseId, "knowledgeBaseId must not be null");
 
-        KnowledgeBase knowledgeBase = knowledgeBaseMapper.selectOne(
-                Wrappers.<KnowledgeBase>lambdaQuery()
-                        .eq(KnowledgeBase::getId, knowledgeBaseId)
-                        .eq(KnowledgeBase::getUserId, currentUser.id())
-                        .isNull(KnowledgeBase::getDeletedAt)
+        return KnowledgeBaseResponse.from(findOwnedNonDeleted(currentUser, knowledgeBaseId));
+    }
+
+    /**
+     * 中文：更新前先从同一 owner/未删除 scope 读取当前元数据，才能将缺失字段保持不变，也能在
+     * 同值 PATCH 时不刷新 updatedAt。实际 UPDATE 仍再次包含相同 scope，防止读取后资源被软删除
+     * 或归属发生变化时越界写入。
+     *
+     * <p>English: Reads current metadata from the same owner/non-deleted scope before
+     * updating so absent fields remain unchanged and an equal PATCH leaves updatedAt intact.
+     * The actual UPDATE repeats that scope, preventing an out-of-scope write if the resource
+     * changes after the read.
+     */
+    @Transactional
+    public KnowledgeBaseResponse updateMetadata(
+            AuthenticatedUser currentUser,
+            Long knowledgeBaseId,
+            UpdateKnowledgeBaseMetadataRequest request
+    ) {
+        Objects.requireNonNull(currentUser, "currentUser must not be null");
+        Objects.requireNonNull(knowledgeBaseId, "knowledgeBaseId must not be null");
+        Objects.requireNonNull(request, "request must not be null");
+        validateMetadataUpdateRequest(request);
+
+        KnowledgeBase knowledgeBase = findOwnedNonDeleted(currentUser, knowledgeBaseId);
+        String updatedName = request.namePresent()
+                ? normalizeRequiredName(request.name())
+                : knowledgeBase.getName();
+        String updatedDescription = request.descriptionPresent()
+                ? normalizeDescription(request.description())
+                : knowledgeBase.getDescription();
+
+        if (Objects.equals(knowledgeBase.getName(), updatedName)
+                && Objects.equals(knowledgeBase.getDescription(), updatedDescription)) {
+            return KnowledgeBaseResponse.from(knowledgeBase);
+        }
+
+        OffsetDateTime updatedAt = OffsetDateTime.now();
+        int affectedRows = knowledgeBaseMapper.updateMetadataOwned(
+                knowledgeBaseId,
+                currentUser.id(),
+                updatedName,
+                updatedDescription,
+                updatedAt
         );
-        if (knowledgeBase == null) {
+        if (affectedRows == 0) {
             throw new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Knowledge base not found");
         }
+        if (affectedRows != 1) {
+            throw new IllegalStateException("Expected exactly one updated knowledge_base row");
+        }
+
+        knowledgeBase.setName(updatedName);
+        knowledgeBase.setDescription(updatedDescription);
+        knowledgeBase.setUpdatedAt(updatedAt);
         return KnowledgeBaseResponse.from(knowledgeBase);
     }
 
@@ -166,6 +213,62 @@ public class KnowledgeBaseService {
                     "chunkOverlap must be at least 0 and smaller than chunkSize"
             );
         }
+    }
+
+    private KnowledgeBase findOwnedNonDeleted(
+            AuthenticatedUser currentUser,
+            Long knowledgeBaseId
+    ) {
+        KnowledgeBase knowledgeBase = knowledgeBaseMapper.selectOne(
+                Wrappers.<KnowledgeBase>lambdaQuery()
+                        .eq(KnowledgeBase::getId, knowledgeBaseId)
+                        .eq(KnowledgeBase::getUserId, currentUser.id())
+                        .isNull(KnowledgeBase::getDeletedAt)
+        );
+        if (knowledgeBase == null) {
+            throw new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Knowledge base not found");
+        }
+        return knowledgeBase;
+    }
+
+    private static void validateMetadataUpdateRequest(UpdateKnowledgeBaseMetadataRequest request) {
+        if (!request.hasAnyMetadataField()) {
+            throw new BusinessException(
+                    ErrorCode.COMMON_PARAM_INVALID,
+                    "At least one of name or description must be provided"
+            );
+        }
+        if (request.namePresent()) {
+            normalizeRequiredName(request.name());
+        }
+        if (request.descriptionPresent()) {
+            normalizeDescription(request.description());
+        }
+    }
+
+    private static String normalizeRequiredName(String value) {
+        String normalized = normalizeOptional(value);
+        if (normalized == null) {
+            throw new BusinessException(ErrorCode.COMMON_PARAM_INVALID, "name must not be blank");
+        }
+        if (normalized.length() > 128) {
+            throw new BusinessException(
+                    ErrorCode.COMMON_PARAM_INVALID,
+                    "name must not exceed 128 characters"
+            );
+        }
+        return normalized;
+    }
+
+    private static String normalizeDescription(String value) {
+        String normalized = normalizeOptional(value);
+        if (normalized != null && normalized.length() > 4_000) {
+            throw new BusinessException(
+                    ErrorCode.COMMON_PARAM_INVALID,
+                    "description must not exceed 4000 characters"
+            );
+        }
+        return normalized;
     }
 
     private static String normalizeOptional(String value) {
