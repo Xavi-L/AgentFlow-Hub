@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
@@ -94,6 +95,9 @@ class KnowledgeDocumentServiceTest {
 
     @Captor
     private ArgumentCaptor<Wrapper<KnowledgeDocument>> documentQueryCaptor;
+
+    @Captor
+    private ArgumentCaptor<OffsetDateTime> reprocessUpdatedAtCaptor;
 
     @Test
     void shouldStoreAnOwnedMarkdownDocumentAsPending() throws Exception {
@@ -378,6 +382,136 @@ class KnowledgeDocumentServiceTest {
 
         verify(knowledgeDocumentMapper).selectVisibleOwnedById(301L, 101L);
         verify(knowledgeBaseMapper, never()).selectOne(any());
+    }
+
+    @Test
+    void shouldReprocessAFailedVisibleOwnedDocumentToPendingWithItsDiagnosticCleared() {
+        KnowledgeDocument failedDocument = document(301L, 201L, "refund-rules.md", "MD");
+        failedDocument.setParseStatus("FAILED");
+        failedDocument.setParseError("Internal parser diagnostic");
+        when(knowledgeDocumentMapper.reprocessFailedVisibleOwned(
+                eq(301L),
+                eq(101L),
+                org.mockito.ArgumentMatchers.any(OffsetDateTime.class)
+        )).thenAnswer(invocation -> {
+            OffsetDateTime updatedAt = invocation.getArgument(2);
+            failedDocument.setParseStatus("PENDING");
+            failedDocument.setParseError(null);
+            failedDocument.setUpdatedAt(updatedAt);
+            return failedDocument;
+        });
+
+        KnowledgeDocumentResponse response = knowledgeDocumentService.reprocessOwnedFailed(
+                currentUser(),
+                301L
+        );
+
+        verify(knowledgeDocumentMapper).reprocessFailedVisibleOwned(
+                eq(301L),
+                eq(101L),
+                reprocessUpdatedAtCaptor.capture()
+        );
+        assertThat(reprocessUpdatedAtCaptor.getValue()).isNotNull();
+        assertThat(failedDocument.getParseStatus()).isEqualTo("PENDING");
+        assertThat(failedDocument.getParseError()).isNull();
+        assertThat(response.id()).isEqualTo("301");
+        assertThat(response.parseStatus()).isEqualTo("PENDING");
+        assertThat(response.updatedAt()).isEqualTo(reprocessUpdatedAtCaptor.getValue());
+        verify(knowledgeDocumentMapper, never()).selectVisibleOwnedById(any(), any());
+        verify(knowledgeBaseMapper, never()).selectOne(any());
+        verifyNoInteractions(documentStorage);
+    }
+
+    @Test
+    void shouldAllowReprocessingAFailedDocumentWhoseVisibleParentKnowledgeBaseIsDisabled() {
+        // The dedicated joined UPDATE owns parent visibility. A DISABLED parent is still visible
+        // to its owner, so this service must not use the upload-only ACTIVE precondition.
+        KnowledgeDocument requeuedDocument = document(301L, 201L, "historical-rules.txt", "TXT");
+        requeuedDocument.setParseStatus("PENDING");
+        requeuedDocument.setParseError(null);
+        when(knowledgeDocumentMapper.reprocessFailedVisibleOwned(
+                eq(301L),
+                eq(101L),
+                org.mockito.ArgumentMatchers.any(OffsetDateTime.class)
+        )).thenReturn(requeuedDocument);
+
+        KnowledgeDocumentResponse response = knowledgeDocumentService.reprocessOwnedFailed(
+                currentUser(),
+                301L
+        );
+
+        assertThat(response.fileName()).isEqualTo("historical-rules.txt");
+        assertThat(response.parseStatus()).isEqualTo("PENDING");
+        verify(knowledgeDocumentMapper).reprocessFailedVisibleOwned(
+                eq(301L),
+                eq(101L),
+                org.mockito.ArgumentMatchers.any(OffsetDateTime.class)
+        );
+        verify(knowledgeDocumentMapper, never()).selectVisibleOwnedById(any(), any());
+        verify(knowledgeBaseMapper, never()).selectOne(any());
+    }
+
+    @ParameterizedTest(name = "{0} maps to the same document-not-found response when reprocessing")
+    @ValueSource(strings = {
+            "missing document",
+            "another owner's document",
+            "soft-deleted document",
+            "document whose parent knowledge base is soft-deleted"
+    })
+    void shouldMapEveryInvisibleDocumentScopeMissToTheSameNotFoundWhenReprocessing(
+            String invisibleCause
+    ) {
+        // The conditional UPDATE and its fallback SELECT both use the same owner-and-parent scope.
+        when(knowledgeDocumentMapper.reprocessFailedVisibleOwned(
+                eq(301L),
+                eq(101L),
+                org.mockito.ArgumentMatchers.any(OffsetDateTime.class)
+        )).thenReturn(null);
+        when(knowledgeDocumentMapper.selectVisibleOwnedById(301L, 101L)).thenReturn(null);
+
+        assertThatThrownBy(() -> knowledgeDocumentService.reprocessOwnedFailed(currentUser(), 301L))
+                .as(invisibleCause)
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMON_NOT_FOUND))
+                .hasMessage("Document not found");
+
+        verify(knowledgeDocumentMapper).reprocessFailedVisibleOwned(
+                eq(301L),
+                eq(101L),
+                org.mockito.ArgumentMatchers.any(OffsetDateTime.class)
+        );
+        verify(knowledgeDocumentMapper).selectVisibleOwnedById(301L, 101L);
+        verify(knowledgeBaseMapper, never()).selectOne(any());
+        verifyNoInteractions(documentStorage);
+    }
+
+    @ParameterizedTest(name = "visible {0} document cannot be reprocessed")
+    @ValueSource(strings = {"PENDING", "PROCESSING", "COMPLETED"})
+    void shouldRejectEachVisibleNonFailedDocumentStatusFromReprocessing(String parseStatus) {
+        KnowledgeDocument visibleDocument = document(301L, 201L, "refund-rules.md", "MD");
+        visibleDocument.setParseStatus(parseStatus);
+        when(knowledgeDocumentMapper.reprocessFailedVisibleOwned(
+                eq(301L),
+                eq(101L),
+                org.mockito.ArgumentMatchers.any(OffsetDateTime.class)
+        )).thenReturn(null);
+        when(knowledgeDocumentMapper.selectVisibleOwnedById(301L, 101L)).thenReturn(visibleDocument);
+
+        assertThatThrownBy(() -> knowledgeDocumentService.reprocessOwnedFailed(currentUser(), 301L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.KNOWLEDGE_DOCUMENT_REPROCESS_CONFLICT))
+                .hasMessage("Document is not eligible for reprocessing");
+
+        verify(knowledgeDocumentMapper).reprocessFailedVisibleOwned(
+                eq(301L),
+                eq(101L),
+                org.mockito.ArgumentMatchers.any(OffsetDateTime.class)
+        );
+        verify(knowledgeDocumentMapper).selectVisibleOwnedById(301L, 101L);
+        verify(knowledgeBaseMapper, never()).selectOne(any());
+        verifyNoInteractions(documentStorage);
     }
 
     @Test

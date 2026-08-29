@@ -3,6 +3,7 @@ package com.agentflow.knowledge.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import java.time.OffsetDateTime;
 import java.util.Map;
 import org.apache.ibatis.mapping.BoundSql;
 import org.apache.ibatis.mapping.ParameterMapping;
@@ -41,6 +42,48 @@ class KnowledgeDocumentMapperTest {
                 "kb.status",
                 "kd.parse_status",
                 "UPDATE",
+                "DELETE"
+        );
+    }
+
+    @Test
+    void shouldRegisterV22FailedReprocessAsOneParentScopedConditionalReturningUpdate() {
+        MybatisConfiguration configuration = new MybatisConfiguration();
+        configuration.addMapper(KnowledgeDocumentMapper.class);
+
+        String statementId = KnowledgeDocumentMapper.class.getName()
+                + ".reprocessFailedVisibleOwned";
+        assertThat(configuration.hasStatement(statementId, false)).isTrue();
+        assertThat(configuration.getMappedStatement(statementId).isFlushCacheRequired()).isTrue();
+        assertThat(configuration.getMappedStatement(statementId).isUseCache()).isFalse();
+        BoundSql sql = configuration.getMappedStatement(statementId).getBoundSql(Map.of(
+                "documentId", 301L,
+                "userId", 101L,
+                "updatedAt", OffsetDateTime.parse("2026-08-29T12:00:00+08:00")
+        ));
+
+        assertThat(sql.getSql()).contains(
+                "UPDATE knowledge_document kd",
+                "SET parse_status = 'PENDING'",
+                "parse_error = NULL",
+                "updated_at = ?",
+                "FROM knowledge_base kb",
+                "WHERE kd.id = ?",
+                "kd.user_id = ?",
+                "kd.deleted_at IS NULL",
+                "kd.parse_status = 'FAILED'",
+                "kb.id = kd.knowledge_base_id",
+                "kb.user_id = kd.user_id",
+                "kb.deleted_at IS NULL",
+                "RETURNING kd.*"
+        );
+        assertThat(sql.getParameterMappings())
+                .extracting(ParameterMapping::getProperty)
+                .containsExactly("updatedAt", "documentId", "userId");
+        assertThat(sql.getSql()).doesNotContain(
+                "kb.status",
+                "knowledge_chunk",
+                "vector",
                 "DELETE"
         );
     }

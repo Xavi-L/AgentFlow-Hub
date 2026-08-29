@@ -47,6 +47,11 @@ public enum ErrorCode {
             "Knowledge chat answer feedback has already been recorded with a different verdict",
             409
     ),
+    KNOWLEDGE_DOCUMENT_REPROCESS_CONFLICT(
+            "KNOWLEDGE_DOCUMENT_REPROCESS_CONFLICT",
+            "Document is not eligible for reprocessing",
+            409
+    ),
     KNOWLEDGE_DOCUMENT_FILE_REQUIRED("KNOWLEDGE_DOCUMENT_FILE_REQUIRED", "A document file is required", 400),
     KNOWLEDGE_DOCUMENT_FILE_EMPTY("KNOWLEDGE_DOCUMENT_FILE_EMPTY", "Document file must not be empty", 400),
     KNOWLEDGE_DOCUMENT_FILE_NAME_INVALID("KNOWLEDGE_DOCUMENT_FILE_NAME_INVALID", "Document file name is invalid", 400),

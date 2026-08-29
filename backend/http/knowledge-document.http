@@ -53,21 +53,90 @@ X-Trace-Id: af-manual-document-detail-001
   });
 %}
 
-### Process every currently PENDING document in this knowledge base: expected HTTP 200.
+### V22 upload a nonempty whitespace-only TXT fixture that must fail while processing: expected HTTP 201 / PENDING.
+# This intentionally invalid-for-chunking source stays in the same controlled storage object. It
+# is used only to prove FAILED -> PENDING requeueing; it is not expected to parse successfully.
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/documents
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: multipart/form-data; boundary=AgentFlowV22WhitespaceOnlyBoundary
+X-Trace-Id: af-manual-document-v22-upload-failing-001
+
+--AgentFlowV22WhitespaceOnlyBoundary
+Content-Disposition: form-data; name="file"; filename="v22-whitespace-only.txt"
+Content-Type: text/plain
+
+< ./fixtures/v22-whitespace-only.txt
+--AgentFlowV22WhitespaceOnlyBoundary--
+
+> {%
+  client.test("V22 failure fixture is accepted as pending before processing", function () {
+    client.assert(response.status === 201, "Expected HTTP 201");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.fileType === "TXT", "Expected TXT file type");
+    client.assert(response.body.data.parseStatus === "PENDING", "Expected PENDING status");
+  });
+  client.global.set("agentflowFailedDocumentId", response.body.data.id);
+%}
+
+### Process every currently PENDING document, including the V22 failure fixture: expected HTTP 200.
 POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/documents/process-pending
 Authorization: Bearer {{agentflowAccessToken}}
 X-Trace-Id: af-manual-document-process-001
 
 > {%
-  client.test("pending documents are processed", function () {
+  client.test("pending documents are processed and the controlled V22 fixture fails", function () {
     client.assert(response.status === 200, "Expected HTTP 200");
     client.assert(response.body.code === "OK", "Expected code OK");
     client.assert(response.body.data.claimed >= response.body.data.completed,
       "Completed count must not exceed claimed count");
     client.assert(response.body.data.claimed === response.body.data.completed + response.body.data.failed,
       "Each claimed document must complete or fail");
+    client.assert(response.body.data.completed >= 1, "Expected the tracked Markdown fixture to complete");
+    client.assert(response.body.data.failed >= 1, "Expected the whitespace-only V22 fixture to fail");
   });
 %}
+
+### V22 read the known failed document before requeueing: expected HTTP 200 / FAILED without parseError.
+GET {{baseUrl}}/api/v1/documents/{{agentflowFailedDocumentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-document-v22-failed-detail-001
+
+> {%
+  client.test("V22 fixture is visibly failed but its diagnostic remains internal", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.id === client.global.get("agentflowFailedDocumentId"),
+      "Expected the controlled failed document ID");
+    client.assert(response.body.data.parseStatus === "FAILED", "Expected FAILED before retry");
+    client.assert(Object.keys(response.body.data).sort().join(",")
+      === "createdAt,fileName,fileSize,fileType,id,knowledgeBaseId,parseStatus,updatedAt",
+      "Failed-document detail must still expose only safe metadata");
+  });
+%}
+
+### V22 requeue the failed document without a request body: expected HTTP 200 / PENDING.
+POST {{baseUrl}}/api/v1/documents/{{agentflowFailedDocumentId}}/reprocess
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-document-v22-reprocess-001
+
+> {%
+  client.test("V22 requeues only the failed document and keeps the response safe", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.message === "Document reprocessing requested", "Expected V22 message");
+    client.assert(response.body.data.id === client.global.get("agentflowFailedDocumentId"),
+      "Expected the controlled failed document ID");
+    client.assert(response.body.data.knowledgeBaseId === client.global.get("agentflowKnowledgeBaseId"),
+      "Expected the current knowledge base ID");
+    client.assert(response.body.data.parseStatus === "PENDING", "Expected V22 retry to return PENDING");
+    client.assert(Object.keys(response.body.data).sort().join(",")
+      === "createdAt,fileName,fileSize,fileType,id,knowledgeBaseId,parseStatus,updatedAt",
+      "V22 must expose exactly the safe document metadata fields");
+  });
+%}
+
+# Do not run process-pending again for v22-whitespace-only.txt: the source remains intentionally
+# unusable, so another FAILED outcome would not prove successful reparsing or source repair.
 
 ### List the current user's documents after V4 processing: expected HTTP 200.
 GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/documents?page=1&pageSize=20

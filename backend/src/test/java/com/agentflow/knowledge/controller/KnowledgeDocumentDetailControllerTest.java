@@ -24,12 +24,13 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 /**
- * 中文：V21 顶层详情路由的 HTTP 外壳测试。它验证 JWT principal 与路径 ID 的传递、统一成功/
- * 404 响应，以及 JSON 中没有内部存储、owner、解析错误或 chunk 聚合字段。
+ * 中文：V21 顶层详情与 V22 失败文档重试路由的 HTTP 外壳测试。它验证 JWT principal 与路径 ID 的传递、
+ * 统一成功/404/409 响应，以及 JSON 中没有内部存储、owner、解析错误或 chunk 聚合字段。
  *
- * <p>English: HTTP-envelope tests for V21's top-level detail route. They verify forwarding
- * of the JWT principal and path ID, the uniform success/404 responses, and absence of internal
- * storage, owner, parser-error, and chunk-aggregation fields from JSON.
+ * <p>English: HTTP-envelope tests for V21's top-level detail and V22's failed-document reprocess
+ * routes. They verify forwarding of the JWT principal and path ID, the uniform success/404/409
+ * responses, and absence of internal storage, owner, parser-error, and chunk-aggregation fields
+ * from JSON.
  */
 class KnowledgeDocumentDetailControllerTest {
 
@@ -115,6 +116,99 @@ class KnowledgeDocumentDetailControllerTest {
     }
 
     @Test
+    void shouldRequestFailedDocumentReprocessingWithOnlyTheSafeDocumentDto() throws Exception {
+        KnowledgeDocumentService service = Mockito.mock(KnowledgeDocumentService.class);
+        AuthenticatedUser currentUser = currentUser();
+        when(service.reprocessOwnedFailed(eq(currentUser), eq(301L))).thenReturn(reprocessedResponse());
+        authenticateAs(currentUser);
+
+        mockMvc(service).perform(MockMvcRequestBuilders.post(
+                        "/api/v1/documents/{documentId}/reprocess",
+                        301L
+                ).header("X-Trace-Id", "af-test-document-reprocess"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("OK"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
+                        .value("Document reprocessing requested"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.data.id")
+                        .value("301"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.knowledgeBaseId"
+                ).value("201"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.parseStatus"
+                ).value("PENDING"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.storageBucket"
+                ).doesNotExist())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.storageObjectKey"
+                ).doesNotExist())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.userId"
+                ).doesNotExist())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.parseError"
+                ).doesNotExist())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.mimeType"
+                ).doesNotExist())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.deletedAt"
+                ).doesNotExist())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.chunkCount"
+                ).doesNotExist());
+
+        verify(service).reprocessOwnedFailed(currentUser, 301L);
+    }
+
+    @Test
+    void shouldKeepAnInvisibleDocumentAsTheUniform404WhenReprocessing() throws Exception {
+        KnowledgeDocumentService service = Mockito.mock(KnowledgeDocumentService.class);
+        AuthenticatedUser currentUser = currentUser();
+        when(service.reprocessOwnedFailed(eq(currentUser), eq(301L))).thenThrow(
+                new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Document not found")
+        );
+        authenticateAs(currentUser);
+
+        mockMvc(service).perform(MockMvcRequestBuilders.post(
+                        "/api/v1/documents/{documentId}/reprocess",
+                        301L
+                ).header("X-Trace-Id", "af-test-document-reprocess-not-found"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isNotFound())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("COMMON_NOT_FOUND"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
+                        .value("Document not found"));
+
+        verify(service).reprocessOwnedFailed(currentUser, 301L);
+    }
+
+    @Test
+    void shouldExposeAVisibleNonFailedDocumentAsTheV22ConflictContract() throws Exception {
+        KnowledgeDocumentService service = Mockito.mock(KnowledgeDocumentService.class);
+        AuthenticatedUser currentUser = currentUser();
+        when(service.reprocessOwnedFailed(eq(currentUser), eq(301L))).thenThrow(
+                new BusinessException(ErrorCode.KNOWLEDGE_DOCUMENT_REPROCESS_CONFLICT)
+        );
+        authenticateAs(currentUser);
+
+        mockMvc(service).perform(MockMvcRequestBuilders.post(
+                        "/api/v1/documents/{documentId}/reprocess",
+                        301L
+                ).header("X-Trace-Id", "af-test-document-reprocess-conflict"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isConflict())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("KNOWLEDGE_DOCUMENT_REPROCESS_CONFLICT"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
+                        .value("Document is not eligible for reprocessing"));
+
+        verify(service).reprocessOwnedFailed(currentUser, 301L);
+    }
+
+    @Test
     void shouldMapANonNumericDocumentIdTo400InsteadOf500() throws Exception {
         KnowledgeDocumentService service = Mockito.mock(KnowledgeDocumentService.class);
         authenticateAs(currentUser());
@@ -140,6 +234,20 @@ class KnowledgeDocumentDetailControllerTest {
                 7L,
                 "FAILED",
                 now,
+                now
+        );
+    }
+
+    private static KnowledgeDocumentResponse reprocessedResponse() {
+        OffsetDateTime now = OffsetDateTime.parse("2026-08-29T12:30:00+08:00");
+        return new KnowledgeDocumentResponse(
+                "301",
+                "201",
+                "refund-rules.md",
+                "MD",
+                7L,
+                "PENDING",
+                OffsetDateTime.parse("2026-08-29T12:00:00+08:00"),
                 now
         );
     }

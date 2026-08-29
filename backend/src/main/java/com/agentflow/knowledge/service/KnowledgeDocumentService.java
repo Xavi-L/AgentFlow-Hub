@@ -151,6 +151,45 @@ public class KnowledgeDocumentService {
     }
 
     /**
+     * 中文：只将当前 owner 可见的 FAILED 文档重新排入 PENDING。实际条件更新在 Mapper 的
+     * {@code UPDATE ... FROM knowledge_base ... RETURNING} 中同时验证父子可见性和 FAILED
+     * 旧状态；这里不打开文件、不启动解析，也不触碰 chunk 或向量。没有返回转换行时，再以既有
+     * JOIN 区分当前不可见的 404 与当前可见但非 FAILED 的 409。
+     *
+     * <p>English: Requeues only a visible FAILED document of the current owner as PENDING.
+     * The mapper's conditional mutation verifies parent-child visibility and the prior FAILED
+     * state together. This method neither opens the file nor starts parsing, and it does not
+     * touch chunks or vectors. A no-row mutation is then resolved as either current invisibility
+     * (404) or a currently visible non-FAILED conflict (409).
+     */
+    @Transactional
+    public KnowledgeDocumentResponse reprocessOwnedFailed(
+            AuthenticatedUser currentUser,
+            Long documentId
+    ) {
+        Objects.requireNonNull(currentUser, "currentUser must not be null");
+        Objects.requireNonNull(documentId, "documentId must not be null");
+
+        KnowledgeDocument reprocessedDocument = knowledgeDocumentMapper.reprocessFailedVisibleOwned(
+                documentId,
+                currentUser.id(),
+                OffsetDateTime.now()
+        );
+        if (reprocessedDocument != null) {
+            return KnowledgeDocumentResponse.from(reprocessedDocument);
+        }
+
+        KnowledgeDocument visibleDocument = knowledgeDocumentMapper.selectVisibleOwnedById(
+                documentId,
+                currentUser.id()
+        );
+        if (visibleDocument == null) {
+            throw new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Document not found");
+        }
+        throw new BusinessException(ErrorCode.KNOWLEDGE_DOCUMENT_REPROCESS_CONFLICT);
+    }
+
+    /**
      * 中文：分页查看当前用户拥有的知识库中的非软删除文档。禁用知识库仍可查看历史资料，但不能
      * 再接受新文件；这样与现有知识库列表“owner 可管理 DISABLED 项”的语义保持一致。
      *

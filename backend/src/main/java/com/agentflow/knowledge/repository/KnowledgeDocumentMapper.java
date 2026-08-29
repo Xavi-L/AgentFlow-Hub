@@ -2,7 +2,9 @@ package com.agentflow.knowledge.repository;
 
 import com.agentflow.knowledge.model.KnowledgeDocument;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import java.time.OffsetDateTime;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
@@ -43,5 +45,38 @@ public interface KnowledgeDocumentMapper extends BaseMapper<KnowledgeDocument> {
     KnowledgeDocument selectVisibleOwnedById(
             @Param("documentId") Long documentId,
             @Param("userId") Long userId
+    );
+
+    /**
+     * 中文：仅把当前 owner 可见、父知识库也未软删除的 FAILED 文档重新排入 PENDING。PostgreSQL
+     * 的 {@code UPDATE ... RETURNING} 在一条写入中同时检查文档、父知识库、owner 和旧状态，避免
+     * 先读取后写入时把刚变为不可见的资源重新排队。这里使用 {@link Select} 是为了映射 RETURNING
+     * 返回的转换后行，而不是把实体暴露给 HTTP 层。
+     *
+     * <p>English: Requeues only a FAILED document visible to the current owner whose parent
+     * knowledge base is also not soft-deleted. PostgreSQL {@code UPDATE ... RETURNING} checks
+     * document, parent, owner, and prior status in one mutation. {@link Select} maps the
+     * transitioned row returned by that statement; the entity remains an internal value.
+     */
+    @Select("""
+            UPDATE knowledge_document kd
+            SET parse_status = 'PENDING',
+                parse_error = NULL,
+                updated_at = #{updatedAt}
+            FROM knowledge_base kb
+            WHERE kd.id = #{documentId}
+              AND kd.user_id = #{userId}
+              AND kd.deleted_at IS NULL
+              AND kd.parse_status = 'FAILED'
+              AND kb.id = kd.knowledge_base_id
+              AND kb.user_id = kd.user_id
+              AND kb.deleted_at IS NULL
+            RETURNING kd.*
+            """)
+    @Options(useCache = false, flushCache = Options.FlushCachePolicy.TRUE)
+    KnowledgeDocument reprocessFailedVisibleOwned(
+            @Param("documentId") Long documentId,
+            @Param("userId") Long userId,
+            @Param("updatedAt") OffsetDateTime updatedAt
     );
 }
