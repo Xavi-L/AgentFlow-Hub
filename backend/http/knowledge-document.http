@@ -251,6 +251,29 @@ X-Trace-Id: af-manual-v16-feedback-coverage-empty-001
   });
 %}
 
+### V17 read the empty immutable answer-feedback coverage ledger: expected HTTP 200 and an empty page.
+# Run this against the same fresh current-owner/current-KB scope before the first V10 POST. V17
+# starts from knowledge_chat_answer, does not pre-check resources, and does not call V7/V8/V9,
+# retrieval, a model, or any feedback write.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answer-feedbacks/coverage-ledger?page=1&pageSize=20
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v17-feedback-coverage-ledger-empty-001
+
+> {%
+  client.test("V17 returns a normal empty page before V10", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.message === "Knowledge chat answer feedback coverage ledger retrieved",
+      "Expected read-only coverage-ledger message");
+    client.assert(response.body.data.page === 1, "Expected first page");
+    client.assert(response.body.data.pageSize === 20, "Expected default page size");
+    client.assert(response.body.data.total === 0, "Expected no persisted answers");
+    client.assert(response.body.data.hasNext === false, "Expected no next page");
+    client.assert(Array.isArray(response.body.data.items) && response.body.data.items.length === 0,
+      "Expected an empty V17 page");
+  });
+%}
+
 ### V9 one-shot grounded chat: run only when a local OpenAI-compatible server is configured.
 # Set OPENAI_BASE_URL, OPENAI_API_KEY (or leave it empty only for a local no-auth server), and
 # OPENAI_CHAT_MODEL in the AgentFlow process environment. This makes one real model call and is
@@ -347,6 +370,29 @@ X-Trace-Id: af-manual-v16-feedback-coverage-first-answer-001
     client.assert(response.body.data.answerCount
       === response.body.data.submittedCount + response.body.data.unsubmittedCount,
       "Answer count must equal submitted plus unsubmitted counts");
+  });
+%}
+
+### V17 read the first answer's unsubmitted state: expected HTTP 200 with submitted=false.
+# Run this after the V10 POST above. The page is driven by the persisted answer and does not create
+# feedback or invoke the V10/V9 generation path again.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answer-feedbacks/coverage-ledger?page=1&pageSize=20
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v17-feedback-coverage-ledger-unsubmitted-001
+
+> {%
+  client.test("V17 lists the persisted answer as unsubmitted", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.total === 1, "Expected one persisted answer");
+    client.assert(response.body.data.items.length === 1, "Expected one V17 item");
+    const item = response.body.data.items[0];
+    client.assert(Object.keys(item).sort().join(",") === "answerCreatedAt,answerId,submitted",
+      "V17 items must contain exactly three fields");
+    client.assert(item.answerId === client.global.get("agentflowChatAnswerId"),
+      "Expected the persisted V10 answer ID");
+    client.assert(item.submitted === false, "Expected no V12 event yet");
+    client.assert(typeof item.answerCreatedAt === "string", "Expected parent answer creation time");
   });
 %}
 
@@ -520,6 +566,33 @@ X-Trace-Id: af-manual-v16-feedback-coverage-first-helpful-001
   });
 %}
 
+### V17 read the first answer's submitted state: expected HTTP 200 with submitted=true.
+# The V12 event is only used to derive the boolean state. V17 does not return its verdict, ID, or
+# event timestamp and does not modify either immutable row.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answer-feedbacks/coverage-ledger?page=1&pageSize=20
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v17-feedback-coverage-ledger-submitted-001
+
+> {%
+  client.test("V17 marks the first answer as submitted without exposing event details", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.total === 1, "Expected one persisted answer");
+    const item = response.body.data.items[0];
+    client.assert(item.answerId === client.global.get("agentflowChatAnswerId"),
+      "Expected the same immutable answer ID");
+    client.assert(item.submitted === true, "Expected the V12 event to be reflected as submitted");
+    client.assert(Object.keys(item).sort().join(",") === "answerCreatedAt,answerId,submitted",
+      "V17 must not expose verdict, feedbackId, or feedback time");
+    client.assert(!Object.prototype.hasOwnProperty.call(item, "verdict"),
+      "V17 must not expose verdict");
+    client.assert(!Object.prototype.hasOwnProperty.call(item, "feedbackId"),
+      "V17 must not expose feedbackId");
+    client.assert(!Object.prototype.hasOwnProperty.call(item, "createdAt"),
+      "V17 must use answerCreatedAt rather than feedback createdAt");
+  });
+%}
+
 ### V15 read raw counts after the first HELPFUL feedback: expected HTTP 200 / 1-1-0.
 # This is a read-only aggregate over the existing V12 event and its scoped parent answer. It does
 # not retry V12, call V7/V8/V9, retrieve, or call a model.
@@ -653,6 +726,38 @@ X-Trace-Id: af-manual-v16-feedback-coverage-second-not-helpful-001
     client.assert(response.body.data.answerCount
       === response.body.data.submittedCount + response.body.data.unsubmittedCount,
       "Answer count must equal submitted plus unsubmitted counts");
+  });
+%}
+
+### V17 page both immutable answers by answer creation time: expected HTTP 200 and stable newest-first order.
+# Run this after the second V12 submission below. The list is driven by parent-answer created_at/id,
+# not feedback time or verdict, and each item remains limited to answerId, submitted, and answerCreatedAt.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answer-feedbacks/coverage-ledger?page=1&pageSize=20
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v17-feedback-coverage-ledger-two-answers-001
+
+> {%
+  client.test("V17 keeps both answers in answer-created newest-first order", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.total === 2, "Expected two persisted answers");
+    client.assert(response.body.data.items.length === 2, "Expected both coverage-ledger items");
+    response.body.data.items.forEach(function (item) {
+      client.assert(Object.keys(item).sort().join(",") === "answerCreatedAt,answerId,submitted",
+        "Each V17 item must contain exactly three fields");
+      client.assert(item.submitted === true, "Expected both answers to have submitted feedback");
+      client.assert(typeof item.answerCreatedAt === "string", "Expected answer creation time");
+      client.assert(!Object.prototype.hasOwnProperty.call(item, "verdict"),
+        "V17 must not expose verdict");
+      client.assert(!Object.prototype.hasOwnProperty.call(item, "feedbackId"),
+        "V17 must not expose feedbackId");
+    });
+    client.assert(response.body.data.items[0].answerId
+      === client.global.get("agentflowSecondChatAnswerId"),
+      "Expected the second answer first by answer creation time");
+    client.assert(response.body.data.items[1].answerId
+      === client.global.get("agentflowChatAnswerId"),
+      "Expected the first answer second by answer creation time");
   });
 %}
 

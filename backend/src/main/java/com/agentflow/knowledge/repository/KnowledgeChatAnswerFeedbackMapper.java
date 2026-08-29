@@ -2,6 +2,7 @@ package com.agentflow.knowledge.repository;
 
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedback;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackCoverage;
+import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackCoverageItem;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackSummary;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackStatus;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
@@ -14,15 +15,41 @@ import org.apache.ibatis.annotations.Results;
 import org.apache.ibatis.annotations.Select;
 
 /**
- * 中文：V12–V16 不可变回答反馈的数据访问边界。answer_id 的唯一约束和 PostgreSQL 的 ON CONFLICT
+ * 中文：V12–V17 不可变回答反馈的数据访问边界。answer_id 的唯一约束和 PostgreSQL 的 ON CONFLICT
  * 保证并发重试不产生第二条事件；每次读取和写入均把 owner、知识库和 answerId 放在同一 SQL 范围内。
  *
- * <p>English: Data access for V12–V16 immutable answer feedback. The answer_id uniqueness
+ * <p>English: Data access for V12–V17 immutable answer feedback. The answer_id uniqueness
  * constraint plus PostgreSQL ON CONFLICT prevents concurrent retries from creating a second
  * event; every read and write binds owner, knowledge base, and answerId in one SQL scope.</p>
  */
 @Mapper
 public interface KnowledgeChatAnswerFeedbackMapper extends BaseMapper<KnowledgeChatAnswerFeedback> {
+
+    /**
+     * Reads V17 submission-state rows from scoped immutable parent answers. The parent-driven
+     * LEFT JOIN retains answers without feedback; the existing V11 answer-list index supports
+     * the same owner/knowledge-base scope and created-at/id ordering.
+     */
+    @Results(id = "knowledgeChatAnswerFeedbackCoverageItemResult", value = {
+            @Result(property = "answerId", column = "answer_id"),
+            @Result(property = "submitted", column = "submitted"),
+            @Result(property = "answerCreatedAt", column = "answer_created_at")
+    })
+    @Select("""
+            SELECT a.id AS answer_id,
+                   f.id IS NOT NULL AS submitted,
+                   a.created_at AS answer_created_at
+            FROM knowledge_chat_answer a
+            LEFT JOIN knowledge_chat_answer_feedback f ON f.answer_id = a.id
+            WHERE a.knowledge_base_id = #{knowledgeBaseId}
+              AND a.user_id = #{userId}
+            ORDER BY a.created_at DESC, a.id DESC
+            """)
+    Page<KnowledgeChatAnswerFeedbackCoverageItem> selectCoverageLedgerPageOwnedByKnowledgeBase(
+            @Param("page") Page<KnowledgeChatAnswerFeedbackCoverageItem> page,
+            @Param("knowledgeBaseId") Long knowledgeBaseId,
+            @Param("userId") Long userId
+    );
 
     /**
      * Aggregates V16 raw coverage from scoped immutable parent answers. The parent-driven LEFT
