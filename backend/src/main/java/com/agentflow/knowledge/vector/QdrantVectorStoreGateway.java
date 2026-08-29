@@ -7,21 +7,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 /**
- * 中文：V6/V7 的 Qdrant REST 适配器。首次写入时它只会创建或验证一个 plain dense-vector
+ * 中文：V6/V7/V23 的 Qdrant REST 适配器。首次写入时它只会创建或验证一个 plain dense-vector
  * collection；随后使用 V5 已派生的 UUID point ID 进行 {@code wait=true} 的幂等 upsert。V7
- * 通过 Qdrant Query Points API 作 scoped dense retrieval；删除、rerank、named vectors 和
- * sparse vectors 仍留给独立切片。
+ * 通过 Qdrant Query Points API 作 scoped dense retrieval。V23 使用完整文档范围删除 point，
+ * 且不会创建 collection；rerank、named vectors 和 sparse vectors 仍留给独立切片。
  *
- * <p>English: V6/V7 Qdrant REST adapter. On the first write it creates or validates one
+ * <p>English: V6/V7/V23 Qdrant REST adapter. On the first write it creates or validates one
  * plain dense-vector collection, then performs a {@code wait=true} idempotent upsert
  * using V5's derived UUID point ID. V7 uses Qdrant Query Points for scoped dense
- * retrieval; deletion, reranking, named vectors, and sparse vectors remain deferred.
+ * retrieval. V23 deletes points by a complete document scope without creating a collection;
+ * reranking, named vectors, and sparse vectors remain deferred.
  */
 public final class QdrantVectorStoreGateway implements VectorStoreGateway {
     private static final String COSINE_DISTANCE = "Cosine";
@@ -100,6 +102,26 @@ public final class QdrantVectorStoreGateway implements VectorStoreGateway {
         }
     }
 
+    @Override
+    public void deleteByDocumentScope(VectorDocumentScope scope) {
+        VectorDocumentScope safeScope = Objects.requireNonNull(scope, "scope must not be null");
+        if (!ensureExistingCollectionForDeletion()) {
+            return;
+        }
+
+        try {
+            restClient.method(HttpMethod.DELETE)
+                    .uri("/collections/" + collection + "/points?wait=true")
+                    .headers(this::applyApiKeyIfPresent)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("filter", documentScopeFilter(safeScope)))
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientException deletionFailure) {
+            throw new IllegalStateException("Qdrant point deletion failed", deletionFailure);
+        }
+    }
+
     private synchronized void ensureCollection() {
         if (collectionReady) {
             return;
@@ -143,6 +165,30 @@ public final class QdrantVectorStoreGateway implements VectorStoreGateway {
             throw new IllegalStateException("Could not inspect Qdrant collection", requestFailure);
         }
         collectionReady = true;
+    }
+
+    /** A V23 delete never creates a collection; a confirmed absence is an idempotent no-op. */
+    private synchronized boolean ensureExistingCollectionForDeletion() {
+        if (collectionReady) {
+            return true;
+        }
+        try {
+            JsonNode response = restClient.get()
+                    .uri("/collections/" + collection)
+                    .headers(this::applyApiKeyIfPresent)
+                    .retrieve()
+                    .body(JsonNode.class);
+            verifyExistingCollection(response);
+        } catch (RestClientResponseException responseFailure) {
+            if (responseFailure.getStatusCode().value() == 404) {
+                return false;
+            }
+            throw new IllegalStateException("Could not inspect Qdrant collection", responseFailure);
+        } catch (RestClientException requestFailure) {
+            throw new IllegalStateException("Could not inspect Qdrant collection", requestFailure);
+        }
+        collectionReady = true;
+        return true;
     }
 
     private void createCollection() {
@@ -189,6 +235,14 @@ public final class QdrantVectorStoreGateway implements VectorStoreGateway {
         return Map.of("must", List.of(
                 matchFilter("userId", request.userId()),
                 matchFilter("knowledgeBaseId", request.knowledgeBaseId())
+        ));
+    }
+
+    private static Map<String, Object> documentScopeFilter(VectorDocumentScope scope) {
+        return Map.of("must", List.of(
+                matchFilter("userId", scope.userId()),
+                matchFilter("knowledgeBaseId", scope.knowledgeBaseId()),
+                matchFilter("documentId", scope.documentId())
         ));
     }
 

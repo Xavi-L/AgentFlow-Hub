@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 class QdrantVectorStoreGatewayTest {
 
@@ -137,6 +138,76 @@ class QdrantVectorStoreGatewayTest {
         )))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("does not exist for retrieval");
+        server.verify();
+    }
+
+    @Test
+    void shouldDeleteOnlyTheCurrentOwnerKnowledgeBaseAndDocumentAndWaitForCompletion() {
+        QdrantProperties properties = properties();
+        RestClient.Builder builder = RestClient.builder().baseUrl(properties.getBaseUrl());
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        QdrantVectorStoreGateway gateway = new QdrantVectorStoreGateway(properties, builder.build());
+
+        server.expect(requestTo("http://qdrant.test/collections/agentflow_chunks_te_v4_3"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header("api-key", "test-qdrant-key"))
+                .andRespond(withSuccess(collectionResponse(), MediaType.APPLICATION_JSON));
+        server.expect(requestTo("http://qdrant.test/collections/agentflow_chunks_te_v4_3/points?wait=true"))
+                .andExpect(method(HttpMethod.DELETE))
+                .andExpect(header("api-key", "test-qdrant-key"))
+                .andExpect(content().json("""
+                        {
+                          "filter":{"must":[
+                            {"key":"userId","match":{"value":101}},
+                            {"key":"knowledgeBaseId","match":{"value":201}},
+                            {"key":"documentId","match":{"value":301}}
+                          ]}
+                        }
+                        """))
+                .andRespond(withSuccess(
+                        "{\"result\":{\"status\":\"completed\"},\"status\":\"ok\"}",
+                        MediaType.APPLICATION_JSON
+                ));
+
+        gateway.deleteByDocumentScope(new VectorDocumentScope(101L, 201L, 301L));
+
+        server.verify();
+    }
+
+    @Test
+    void shouldTreatAConfirmedAbsentCollectionAsAnIdempotentDeleteNoOp() {
+        QdrantProperties properties = properties();
+        RestClient.Builder builder = RestClient.builder().baseUrl(properties.getBaseUrl());
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        QdrantVectorStoreGateway gateway = new QdrantVectorStoreGateway(properties, builder.build());
+
+        server.expect(requestTo("http://qdrant.test/collections/agentflow_chunks_te_v4_3"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withStatus(HttpStatus.NOT_FOUND));
+
+        gateway.deleteByDocumentScope(new VectorDocumentScope(101L, 201L, 301L));
+
+        server.verify();
+    }
+
+    @Test
+    void shouldPropagateRemoteDeletionFailuresForLaterCompensation() {
+        QdrantProperties properties = properties();
+        RestClient.Builder builder = RestClient.builder().baseUrl(properties.getBaseUrl());
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        QdrantVectorStoreGateway gateway = new QdrantVectorStoreGateway(properties, builder.build());
+
+        server.expect(requestTo("http://qdrant.test/collections/agentflow_chunks_te_v4_3"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(collectionResponse(), MediaType.APPLICATION_JSON));
+        server.expect(requestTo("http://qdrant.test/collections/agentflow_chunks_te_v4_3/points?wait=true"))
+                .andExpect(method(HttpMethod.DELETE))
+                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
+
+        assertThatThrownBy(() -> gateway.deleteByDocumentScope(new VectorDocumentScope(101L, 201L, 301L)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Qdrant point deletion failed")
+                .hasCauseInstanceOf(RestClientResponseException.class);
         server.verify();
     }
 

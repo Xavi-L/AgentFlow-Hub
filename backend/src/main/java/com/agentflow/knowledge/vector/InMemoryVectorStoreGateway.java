@@ -21,6 +21,12 @@ public final class InMemoryVectorStoreGateway implements VectorStoreGateway {
     }
 
     @Override
+    public void deleteByDocumentScope(VectorDocumentScope scope) {
+        VectorDocumentScope safeScope = Objects.requireNonNull(scope, "scope must not be null");
+        records.entrySet().removeIf(entry -> matchesDocumentScope(entry.getValue(), safeScope));
+    }
+
+    @Override
     public List<VectorSearchHit> search(VectorSearchRequest request) {
         VectorSearchRequest safeRequest = Objects.requireNonNull(request, "request must not be null");
         return records.values().stream()
@@ -36,6 +42,12 @@ public final class InMemoryVectorStoreGateway implements VectorStoreGateway {
     private static boolean matchesScope(VectorStoreRecord record, VectorSearchRequest request) {
         return payloadLongEquals(record, "userId", request.userId())
                 && payloadLongEquals(record, "knowledgeBaseId", request.knowledgeBaseId());
+    }
+
+    private static boolean matchesDocumentScope(VectorStoreRecord record, VectorDocumentScope scope) {
+        return payloadLongEquals(record, "userId", scope.userId())
+                && payloadLongEquals(record, "knowledgeBaseId", scope.knowledgeBaseId())
+                && payloadLongEquals(record, "documentId", scope.documentId());
     }
 
     private static VectorSearchHit toSearchHit(VectorStoreRecord record, EmbeddingVector queryVector) {
