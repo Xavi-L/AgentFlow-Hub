@@ -3,6 +3,10 @@
 # First run "Login" from user-auth.http. That file stores the short-lived token in
 # IDEA's local HTTP-client session as agentflowAccessToken; do not paste a real token
 # into this file or commit it.
+#
+# The V20 delete sequence intentionally makes agentflowKnowledgeBaseId unavailable. If
+# knowledge-document.http is needed afterwards, rerun "Create a knowledge base" and stop
+# before the delete sequence so its local session ID still points at an ACTIVE knowledge base.
 
 @baseUrl = http://localhost:8080
 
@@ -119,6 +123,51 @@ X-Trace-Id: af-manual-kb-list-001
     client.assert(response.status === 200, "Expected HTTP 200");
     client.assert(response.body.code === "OK", "Expected code OK");
     client.assert(Array.isArray(response.body.data.items), "Expected items array");
+  });
+%}
+
+### Soft-delete the current owner's knowledge base: expected HTTP 200 / OK with no data payload.
+DELETE {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-kb-delete-001
+
+> {%
+  client.test("knowledge base is soft-deleted", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.message === "Knowledge base deleted", "Expected delete message");
+    client.assert(response.body.data === null, "Expected null data payload");
+  });
+%}
+
+### Deleted knowledge-base detail is invisible: expected HTTP 404 / COMMON_NOT_FOUND.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-kb-detail-after-delete-001
+
+> {%
+  client.test("soft-deleted knowledge base detail is not found", function () {
+    client.assert(response.status === 404, "Expected HTTP 404");
+    client.assert(response.body.code === "COMMON_NOT_FOUND", "Expected COMMON_NOT_FOUND");
+    client.assert(response.body.message === "Knowledge base not found", "Expected hidden deletion reason");
+  });
+%}
+
+### Deleted knowledge base is absent from the current owner's list: expected HTTP 200 without its ID.
+GET {{baseUrl}}/api/v1/knowledge-bases?page=1&pageSize=20
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-kb-list-after-delete-001
+
+> {%
+  client.test("soft-deleted knowledge base is absent from the list", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(Array.isArray(response.body.data.items), "Expected items array");
+    var deletedKnowledgeBaseId = client.global.get("agentflowKnowledgeBaseId");
+    var deletedKnowledgeBaseIsListed = response.body.data.items.some(function (item) {
+      return item.id === deletedKnowledgeBaseId;
+    });
+    client.assert(!deletedKnowledgeBaseIsListed, "Soft-deleted knowledge base must be hidden from the list");
   });
 %}
 

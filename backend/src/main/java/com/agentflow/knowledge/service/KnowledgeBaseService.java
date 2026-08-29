@@ -200,6 +200,35 @@ public class KnowledgeBaseService {
         return KnowledgeBaseResponse.from(knowledgeBase);
     }
 
+    /**
+     * 中文：只软删除当前 owner 尚未删除的知识库；SQL 不按 status 限制，因此 ACTIVE 和 DISABLED
+     * 都允许删除。缺失、其他 owner 或已经删除的行都会使 scoped UPDATE 影响 0 行，并统一为 404。
+     * 这里不读取知识库、不物理删除，也不触碰文档、chunk、向量或外部存储。
+     *
+     * <p>English: Soft-deletes only a current owner's non-deleted knowledge base. SQL does
+     * not restrict status, so both ACTIVE and DISABLED rows can be deleted. Missing,
+     * foreign-owner, and already-deleted rows all produce a zero-row scoped UPDATE and the
+     * same 404. This method does not read the resource, physically delete it, or touch
+     * documents, chunks, vectors, or external storage.
+     */
+    @Transactional
+    public void softDeleteOwned(AuthenticatedUser currentUser, Long knowledgeBaseId) {
+        Objects.requireNonNull(currentUser, "currentUser must not be null");
+        Objects.requireNonNull(knowledgeBaseId, "knowledgeBaseId must not be null");
+
+        int affectedRows = knowledgeBaseMapper.softDeleteOwned(
+                knowledgeBaseId,
+                currentUser.id(),
+                OffsetDateTime.now()
+        );
+        if (affectedRows == 0) {
+            throw new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Knowledge base not found");
+        }
+        if (affectedRows != 1) {
+            throw new IllegalStateException("Expected exactly one soft-deleted knowledge_base row");
+        }
+    }
+
     private static void validateChunkSettings(int chunkSize, int chunkOverlap) {
         if (chunkSize < MIN_CHUNK_SIZE || chunkSize > MAX_CHUNK_SIZE) {
             throw new BusinessException(

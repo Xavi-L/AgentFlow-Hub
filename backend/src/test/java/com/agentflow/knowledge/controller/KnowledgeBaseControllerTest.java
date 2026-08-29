@@ -156,6 +156,28 @@ class KnowledgeBaseControllerTest {
     }
 
     @Test
+    void shouldBindTheCurrentUserToTheSoftDeleteRouteAndReturnTheUnified200Response() throws Exception {
+        KnowledgeBaseService service = Mockito.mock(KnowledgeBaseService.class);
+        AuthenticatedUser currentUser = currentUser();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(currentUser, "test", List.of())
+        );
+
+        mockMvc(service).perform(MockMvcRequestBuilders.delete(
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}", 201L
+                ).header("X-Trace-Id", "af-test-kb-delete"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("OK"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
+                        .value("Knowledge base deleted"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.data")
+                        .isEmpty());
+
+        verify(service).softDeleteOwned(currentUser, 201L);
+    }
+
+    @Test
     void shouldRejectForbiddenMetadataPatchFieldsBeforeCallingTheService() throws Exception {
         KnowledgeBaseService service = Mockito.mock(KnowledgeBaseService.class);
         AuthenticatedUser currentUser = currentUser();

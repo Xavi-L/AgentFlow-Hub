@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -26,6 +27,7 @@ import com.agentflow.knowledge.repository.KnowledgeBaseMapper;
 import com.agentflow.user.security.AuthenticatedUser;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -75,6 +77,9 @@ class KnowledgeBaseServiceTest {
 
     @Captor
     private ArgumentCaptor<Wrapper<KnowledgeBase>> queryCaptor;
+
+    @Captor
+    private ArgumentCaptor<OffsetDateTime> timestampCaptor;
 
     @Test
     void shouldCreateAnOwnedKnowledgeBaseWithDefaults() {
@@ -419,6 +424,109 @@ class KnowledgeBaseServiceTest {
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.any(OffsetDateTime.class)
         );
+        verifyNoMoreInteractions(knowledgeBaseMapper);
+    }
+
+    @Test
+    void shouldSoftDeleteAnOwnedActiveKnowledgeBaseWithOneServerTimestamp() {
+        when(knowledgeBaseMapper.softDeleteOwned(any(), any(), any())).thenReturn(1);
+
+        knowledgeBaseService.softDeleteOwned(currentUser(), 301L);
+
+        verify(knowledgeBaseMapper).softDeleteOwned(
+                eq(301L),
+                eq(101L),
+                timestampCaptor.capture()
+        );
+        assertThat(timestampCaptor.getValue()).isNotNull();
+        verifyNoMoreInteractions(knowledgeBaseMapper);
+    }
+
+    @Test
+    void shouldAllowSoftDeletingDisabledKnowledgeBasesWithoutReadingOrTransitioningStatus() {
+        when(knowledgeBaseMapper.softDeleteOwned(any(), any(), any())).thenReturn(1);
+
+        knowledgeBaseService.softDeleteOwned(currentUser(), 302L);
+
+        verify(knowledgeBaseMapper).softDeleteOwned(
+                eq(302L),
+                eq(101L),
+                org.mockito.ArgumentMatchers.any(OffsetDateTime.class)
+        );
+        verifyNoMoreInteractions(knowledgeBaseMapper);
+    }
+
+    @Test
+    void shouldTreatMissingForeignOrAlreadySoftDeletedKnowledgeBasesAsTheSameNotFoundWhenDeleting() {
+        when(knowledgeBaseMapper.softDeleteOwned(any(), any(), any())).thenReturn(0);
+
+        for (String inaccessibleCase : List.of("missing", "foreign-owner", "already-soft-deleted")) {
+            assertThatThrownBy(() -> knowledgeBaseService.softDeleteOwned(currentUser(), 301L))
+                    .as("%s knowledge base", inaccessibleCase)
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.COMMON_NOT_FOUND))
+                    .hasMessage("Knowledge base not found");
+        }
+
+        verify(knowledgeBaseMapper, times(3)).softDeleteOwned(
+                eq(301L),
+                eq(101L),
+                org.mockito.ArgumentMatchers.any(OffsetDateTime.class)
+        );
+        verifyNoMoreInteractions(knowledgeBaseMapper);
+    }
+
+    @Test
+    void shouldKeepASoftDeletedKnowledgeBaseInvisibleFromExistingDetailAndListScopes() {
+        AtomicBoolean softDeleted = new AtomicBoolean(false);
+        when(knowledgeBaseMapper.softDeleteOwned(any(), any(), any())).thenAnswer(invocation -> {
+            softDeleted.set(true);
+            return 1;
+        });
+        when(knowledgeBaseMapper.selectOne(org.mockito.ArgumentMatchers.<Wrapper<KnowledgeBase>>any()))
+                .thenAnswer(invocation -> softDeleted.get()
+                        ? null
+                        : knowledgeBase(301L, "Visible before deletion", "ACTIVE"));
+        when(knowledgeBaseMapper.selectPage(
+                org.mockito.ArgumentMatchers.<IPage<KnowledgeBase>>any(),
+                org.mockito.ArgumentMatchers.<Wrapper<KnowledgeBase>>any()
+        )).thenAnswer(invocation -> {
+            IPage<KnowledgeBase> databasePage = invocation.getArgument(0);
+            databasePage.setRecords(softDeleted.get()
+                    ? List.of()
+                    : List.of(knowledgeBase(301L, "Visible before deletion", "ACTIVE")));
+            databasePage.setTotal(softDeleted.get() ? 0L : 1L);
+            return databasePage;
+        });
+
+        knowledgeBaseService.softDeleteOwned(currentUser(), 301L);
+
+        assertThatThrownBy(() -> knowledgeBaseService.getOwnedById(currentUser(), 301L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMON_NOT_FOUND));
+        PageResult<KnowledgeBaseResponse> list = knowledgeBaseService.listOwnedBy(
+                currentUser(),
+                new PageRequest(1, 20)
+        );
+
+        assertThat(list.getItems()).isEmpty();
+        assertThat(list.getTotal()).isZero();
+        verify(knowledgeBaseMapper).softDeleteOwned(
+                eq(301L),
+                eq(101L),
+                org.mockito.ArgumentMatchers.any(OffsetDateTime.class)
+        );
+        verify(knowledgeBaseMapper).selectOne(queryCaptor.capture());
+        verify(knowledgeBaseMapper).selectPage(
+                org.mockito.ArgumentMatchers.<IPage<KnowledgeBase>>any(),
+                queryCaptor.capture()
+        );
+        assertThat(queryCaptor.getAllValues().get(0).getSqlSegment())
+                .contains("id", "user_id", "deleted_at");
+        assertThat(queryCaptor.getAllValues().get(1).getSqlSegment())
+                .contains("user_id", "deleted_at");
         verifyNoMoreInteractions(knowledgeBaseMapper);
     }
 

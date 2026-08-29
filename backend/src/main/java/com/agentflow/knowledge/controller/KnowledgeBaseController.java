@@ -12,6 +12,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -103,5 +104,23 @@ public class KnowledgeBaseController {
                 "Knowledge base updated",
                 knowledgeBaseService.updateMetadata(currentUser, knowledgeBaseId, request)
         );
+    }
+
+    /**
+     * 中文：当前 JWT owner 只能软删除自己的知识库。Service 的单条 scoped UPDATE 统一隐藏缺失、跨
+     * owner 和已删除的差异；成功保持项目统一的 HTTP 200 + ApiResponse 外壳。
+     *
+     * <p>English: The current JWT owner can only soft-delete their own knowledge base. The
+     * Service's single scoped UPDATE uniformly hides missing, foreign-owner, and
+     * already-deleted differences; success keeps the project's HTTP 200 + ApiResponse
+     * envelope.
+     */
+    @DeleteMapping("/{knowledgeBaseId}")
+    public ApiResponse<Void> softDelete(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @PathVariable Long knowledgeBaseId
+    ) {
+        knowledgeBaseService.softDeleteOwned(currentUser, knowledgeBaseId);
+        return ApiResponse.success("Knowledge base deleted", null);
     }
 }
