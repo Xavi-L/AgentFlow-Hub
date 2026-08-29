@@ -5,8 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import com.baomidou.mybatisplus.core.conditions.AbstractWrapper;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -161,6 +163,44 @@ class KnowledgeBaseServiceTest {
         assertThat(result.getPageSize()).isEqualTo(2);
         assertThat(result.getTotal()).isEqualTo(3L);
         assertThat(result.isHasNext()).isTrue();
+    }
+
+    @Test
+    void shouldReturnOnlyTheCurrentOwnersNonDeletedKnowledgeBaseDetail() {
+        AuthenticatedUser currentUser = currentUser();
+        when(knowledgeBaseMapper.selectOne(org.mockito.ArgumentMatchers.<Wrapper<KnowledgeBase>>any()))
+                .thenReturn(knowledgeBase(301L, "Disabled but still readable", "DISABLED"));
+
+        KnowledgeBaseResponse response = knowledgeBaseService.getOwnedById(currentUser, 301L);
+
+        verify(knowledgeBaseMapper).selectOne(queryCaptor.capture());
+        assertThat(queryCaptor.getValue().getSqlSegment())
+                .contains("id", "user_id", "deleted_at")
+                .doesNotContain("status");
+        assertThat(((AbstractWrapper<?, ?, ?>) queryCaptor.getValue()).getParamNameValuePairs())
+                .containsValue(301L)
+                .containsValue(currentUser.id());
+        assertThat(response.id()).isEqualTo("301");
+        assertThat(response.name()).isEqualTo("Disabled but still readable");
+        assertThat(response.status()).isEqualTo("DISABLED");
+        verifyNoMoreInteractions(knowledgeBaseMapper);
+    }
+
+    @Test
+    void shouldTreatMissingForeignOrSoftDeletedKnowledgeBaseAsTheSameNotFound() {
+        when(knowledgeBaseMapper.selectOne(org.mockito.ArgumentMatchers.<Wrapper<KnowledgeBase>>any()))
+                .thenReturn(null);
+
+        assertThatThrownBy(() -> knowledgeBaseService.getOwnedById(currentUser(), 999L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMON_NOT_FOUND))
+                .hasMessage("Knowledge base not found");
+
+        verify(knowledgeBaseMapper).selectOne(queryCaptor.capture());
+        assertThat(queryCaptor.getValue().getSqlSegment())
+                .contains("id", "user_id", "deleted_at");
+        verifyNoMoreInteractions(knowledgeBaseMapper);
     }
 
     @Test

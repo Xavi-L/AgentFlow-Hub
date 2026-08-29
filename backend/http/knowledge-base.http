@@ -32,6 +32,22 @@ X-Trace-Id: af-manual-kb-create-001
   client.global.set("agentflowKnowledgeBaseId", response.body.data.id);
 %}
 
+### Read one current-user, non-deleted knowledge base: expected HTTP 200 and the existing metadata response.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-kb-detail-001
+
+> {%
+  client.test("current user's knowledge base detail is returned", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.id === client.global.get("agentflowKnowledgeBaseId"), "Expected created ID");
+    client.assert(response.body.data.name === "支付业务知识库", "Expected created metadata");
+    client.assert(response.body.data.userId === undefined, "Must not expose owner ID");
+    client.assert(response.body.data.deletedAt === undefined, "Must not expose deletion marker");
+  });
+%}
+
 ### Create with only the required name: expected defaults in HTTP 201 response.
 POST {{baseUrl}}/api/v1/knowledge-bases
 Authorization: Bearer {{agentflowAccessToken}}

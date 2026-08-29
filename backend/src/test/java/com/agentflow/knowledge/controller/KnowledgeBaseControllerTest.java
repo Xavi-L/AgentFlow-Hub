@@ -1,21 +1,31 @@
 package com.agentflow.knowledge.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.agentflow.common.api.ApiResponse;
 import com.agentflow.common.api.PageRequest;
 import com.agentflow.common.api.PageResult;
+import com.agentflow.common.error.GlobalExceptionHandler;
+import com.agentflow.common.web.TraceIdFilter;
 import com.agentflow.knowledge.dto.CreateKnowledgeBaseRequest;
 import com.agentflow.knowledge.dto.KnowledgeBaseResponse;
 import com.agentflow.knowledge.service.KnowledgeBaseService;
 import com.agentflow.user.security.AuthenticatedUser;
 import java.time.OffsetDateTime;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 /**
  * 中文：Controller 的轻量测试验证统一响应外壳、201 状态码以及 principal 到 Service 的传递。
@@ -26,6 +36,11 @@ import org.springframework.http.ResponseEntity;
  * so this class avoids rebuilding the full security chain.
  */
 class KnowledgeBaseControllerTest {
+
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
 
     @Test
     void shouldCreateThroughTheUnified201Response() {
@@ -70,6 +85,34 @@ class KnowledgeBaseControllerTest {
         verify(service).listOwnedBy(currentUser, pageRequest);
     }
 
+    @Test
+    void shouldBindTheCurrentUserToTheKnowledgeBaseDetailRoute() throws Exception {
+        KnowledgeBaseService service = Mockito.mock(KnowledgeBaseService.class);
+        AuthenticatedUser currentUser = currentUser();
+        KnowledgeBaseResponse knowledgeBase = response("201", "Payment knowledge base");
+        when(service.getOwnedById(eq(currentUser), eq(201L))).thenReturn(knowledgeBase);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(currentUser, "test", List.of())
+        );
+
+        mockMvc(service).perform(MockMvcRequestBuilders.get(
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}", 201L
+                ).header("X-Trace-Id", "af-test-kb-detail"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("OK"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
+                        .value("Knowledge base retrieved"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.data.id")
+                        .value("201"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.data.userId")
+                        .doesNotExist())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.data.deletedAt")
+                        .doesNotExist());
+
+        verify(service).getOwnedById(currentUser, 201L);
+    }
+
     private static AuthenticatedUser currentUser() {
         return new AuthenticatedUser(101L, "xavier_01", "Xavier", "USER");
     }
@@ -88,5 +131,15 @@ class KnowledgeBaseControllerTest {
                 now,
                 now
         );
+    }
+
+    private static MockMvc mockMvc(KnowledgeBaseService service) {
+        return MockMvcBuilders
+                .standaloneSetup(new KnowledgeBaseController(service))
+                .addPlaceholderValue("agentflow.api.prefix", "/api/v1")
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
+                .addFilters(new TraceIdFilter())
+                .build();
     }
 }

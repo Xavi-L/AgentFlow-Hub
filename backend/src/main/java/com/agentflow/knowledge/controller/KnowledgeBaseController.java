@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -61,5 +62,24 @@ public class KnowledgeBaseController {
             @ModelAttribute PageRequest pageRequest
     ) {
         return ApiResponse.success(knowledgeBaseService.listOwnedBy(currentUser, pageRequest));
+    }
+
+    /**
+     * 中文：读取当前登录用户自己、且尚未软删除的一条知识库元数据。路径 ID 和 JWT principal
+     * 都交由 Service 固定到同一条查询中，不先按 ID 单独查找，避免泄露其他 owner 的资源存在性。
+     *
+     * <p>English: Reads one non-deleted knowledge-base metadata record owned by the current
+     * user. The path ID and JWT principal remain in the same Service query instead of an
+     * ID-only pre-read, preventing disclosure that another owner's resource exists.
+     */
+    @GetMapping("/{knowledgeBaseId}")
+    public ApiResponse<KnowledgeBaseResponse> get(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @PathVariable Long knowledgeBaseId
+    ) {
+        return ApiResponse.success(
+                "Knowledge base retrieved",
+                knowledgeBaseService.getOwnedById(currentUser, knowledgeBaseId)
+        );
     }
 }

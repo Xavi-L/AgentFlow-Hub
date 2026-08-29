@@ -123,6 +123,36 @@ public class KnowledgeBaseService {
         );
     }
 
+    /**
+     * 中文：在一条查询中同时限定知识库 ID、当前 JWT owner 与未软删除状态。没有匹配结果时，
+     * 不存在、其他 owner 的资源和已软删除资源都统一为 404，不能通过详情接口枚举资源。
+     * DISABLED 不是软删除，仍按既有 {@link KnowledgeBaseResponse} 返回其元数据。
+     *
+     * <p>English: Applies the knowledge-base ID, current JWT owner, and non-deleted state
+     * in one query. No match maps missing, foreign-owner, and soft-deleted resources to the
+     * same 404, so this detail endpoint cannot enumerate resources. DISABLED is not a soft
+     * deletion and its existing metadata remains readable through {@link KnowledgeBaseResponse}.
+     */
+    @Transactional(readOnly = true)
+    public KnowledgeBaseResponse getOwnedById(
+            AuthenticatedUser currentUser,
+            Long knowledgeBaseId
+    ) {
+        Objects.requireNonNull(currentUser, "currentUser must not be null");
+        Objects.requireNonNull(knowledgeBaseId, "knowledgeBaseId must not be null");
+
+        KnowledgeBase knowledgeBase = knowledgeBaseMapper.selectOne(
+                Wrappers.<KnowledgeBase>lambdaQuery()
+                        .eq(KnowledgeBase::getId, knowledgeBaseId)
+                        .eq(KnowledgeBase::getUserId, currentUser.id())
+                        .isNull(KnowledgeBase::getDeletedAt)
+        );
+        if (knowledgeBase == null) {
+            throw new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Knowledge base not found");
+        }
+        return KnowledgeBaseResponse.from(knowledgeBase);
+    }
+
     private static void validateChunkSettings(int chunkSize, int chunkOverlap) {
         if (chunkSize < MIN_CHUNK_SIZE || chunkSize > MAX_CHUNK_SIZE) {
             throw new BusinessException(
