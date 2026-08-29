@@ -225,6 +225,32 @@ X-Trace-Id: af-manual-retrieve-context-test-invalid-budget-001
   "maxContextTokens": 0
 }
 
+### V16 read empty immutable answer-feedback coverage: expected HTTP 200 / 0-0-0.
+# Run this against a fresh current-owner/current-KB scope before the first V10 POST. It starts from
+# knowledge_chat_answer, so it counts no persisted answers and does not need a V9 call, a V12 write,
+# a resource-existence pre-check, retrieval, or a model call.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answer-feedbacks/coverage
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v16-feedback-coverage-empty-001
+
+> {%
+  client.test("V16 returns zero answer, submitted, and unsubmitted counts before V10", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.message === "Knowledge chat answer feedback coverage retrieved",
+      "Expected read-only feedback-coverage message");
+    client.assert(response.body.data.answerCount === 0, "Expected zero persisted answers");
+    client.assert(response.body.data.submittedCount === 0, "Expected zero submitted feedback events");
+    client.assert(response.body.data.unsubmittedCount === 0, "Expected zero unsubmitted answers");
+    client.assert(response.body.data.answerCount
+      === response.body.data.submittedCount + response.body.data.unsubmittedCount,
+      "Answer count must equal submitted plus unsubmitted counts");
+    client.assert(Object.keys(response.body.data).sort().join(",")
+      === "answerCount,submittedCount,unsubmittedCount",
+      "V16 data must contain exactly the three raw coverage counts");
+  });
+%}
+
 ### V9 one-shot grounded chat: run only when a local OpenAI-compatible server is configured.
 # Set OPENAI_BASE_URL, OPENAI_API_KEY (or leave it empty only for a local no-auth server), and
 # OPENAI_CHAT_MODEL in the AgentFlow process environment. This makes one real model call and is
@@ -302,6 +328,26 @@ X-Trace-Id: af-manual-v10-chat-audit-001
     });
   });
   client.global.set("agentflowChatAnswerId", response.body.data.answerId);
+%}
+
+### V16 read coverage after the first V10 answer: expected HTTP 200 / 1-0-1.
+# This counts the persisted parent answer even though it has no V12 feedback. It is a read-only
+# parent-answer LEFT JOIN aggregate and does not retry V10, create feedback, retrieve, or call a model.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answer-feedbacks/coverage
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v16-feedback-coverage-first-answer-001
+
+> {%
+  client.test("V16 retains the first unsubmitted V10 answer", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.answerCount === 1, "Expected one persisted answer");
+    client.assert(response.body.data.submittedCount === 0, "Expected zero submitted feedback events");
+    client.assert(response.body.data.unsubmittedCount === 1, "Expected one unsubmitted answer");
+    client.assert(response.body.data.answerCount
+      === response.body.data.submittedCount + response.body.data.unsubmittedCount,
+      "Answer count must equal submitted plus unsubmitted counts");
+  });
 %}
 
 ### V10 read the immutable answer snapshot: expected HTTP 200 without a new retrieval or model call.
@@ -454,6 +500,26 @@ X-Trace-Id: af-manual-v12-answer-feedback-create-001
   client.global.set("agentflowChatAnswerFeedbackCreatedAt", response.body.data.createdAt);
 %}
 
+### V16 read coverage after the first HELPFUL feedback: expected HTTP 200 / 1-1-0.
+# This is the same scoped parent-answer LEFT JOIN aggregate. The first V12 event moves one existing
+# answer from the raw unsubmitted count to the raw submitted count; V16 does not mutate either row.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answer-feedbacks/coverage
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v16-feedback-coverage-first-helpful-001
+
+> {%
+  client.test("V16 counts the first HELPFUL answer as submitted", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.answerCount === 1, "Expected one persisted answer");
+    client.assert(response.body.data.submittedCount === 1, "Expected one submitted answer");
+    client.assert(response.body.data.unsubmittedCount === 0, "Expected zero unsubmitted answers");
+    client.assert(response.body.data.answerCount
+      === response.body.data.submittedCount + response.body.data.unsubmittedCount,
+      "Answer count must equal submitted plus unsubmitted counts");
+  });
+%}
+
 ### V15 read raw counts after the first HELPFUL feedback: expected HTTP 200 / 1-1-0.
 # This is a read-only aggregate over the existing V12 event and its scoped parent answer. It does
 # not retry V12, call V7/V8/V9, retrieve, or call a model.
@@ -503,7 +569,7 @@ X-Trace-Id: af-manual-v14-feedback-ledger-submitted-001
   });
 %}
 
-### V10 create a second independent immutable answer for V15's NOT_HELPFUL count: requires the local model prerequisite.
+### V10 create a second independent immutable answer for V15/V16: requires the local model prerequisite.
 # This intentionally creates a different V10 answerId before submitting NOT_HELPFUL. Do not post
 # an opposite verdict to the first answer: V12 must still reject that as HTTP 409.
 POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat
@@ -519,7 +585,7 @@ X-Trace-Id: af-manual-v15-second-chat-audit-001
 }
 
 > {%
-  client.test("V15 setup creates a second independent immutable answer", function () {
+  client.test("V15/V16 setup creates a second independent immutable answer", function () {
     client.assert(response.status === 200, "Expected HTTP 200");
     client.assert(response.body.code === "OK", "Expected code OK");
     client.assert(typeof response.body.data.answerId === "string" && response.body.data.answerId.length > 0,
@@ -528,6 +594,26 @@ X-Trace-Id: af-manual-v15-second-chat-audit-001
       "Expected a different answerId rather than a second verdict for the first answer");
   });
   client.global.set("agentflowSecondChatAnswerId", response.body.data.answerId);
+%}
+
+### V16 read coverage after the second V10 answer: expected HTTP 200 / 2-1-1.
+# The second persisted parent answer has no feedback yet, so it increases only answerCount and
+# unsubmittedCount. This GET does not derive a verdict, issue a V12 write, or call V7/V8/V9/a model.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answer-feedbacks/coverage
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v16-feedback-coverage-second-answer-001
+
+> {%
+  client.test("V16 retains the second unsubmitted V10 answer", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.answerCount === 2, "Expected two persisted answers");
+    client.assert(response.body.data.submittedCount === 1, "Expected the first submitted answer");
+    client.assert(response.body.data.unsubmittedCount === 1, "Expected the second unsubmitted answer");
+    client.assert(response.body.data.answerCount
+      === response.body.data.submittedCount + response.body.data.unsubmittedCount,
+      "Answer count must equal submitted plus unsubmitted counts");
+  });
 %}
 
 ### V12 submit NOT_HELPFUL for the second independent immutable answer: expected HTTP 200.
@@ -547,6 +633,26 @@ X-Trace-Id: af-manual-v15-second-answer-not-helpful-001
     client.assert(response.body.data.answerId === client.global.get("agentflowSecondChatAnswerId"),
       "Expected feedback for the second immutable answer");
     client.assert(response.body.data.verdict === "NOT_HELPFUL", "Expected second first-submission verdict");
+  });
+%}
+
+### V16 read coverage after the second NOT_HELPFUL feedback: expected HTTP 200 / 2-2-0.
+# The second answer's first immutable V12 feedback moves it from unsubmitted to submitted. This is
+# a raw count only; it does not calculate a rate or make a quality, accuracy, or training conclusion.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/chat-answer-feedbacks/coverage
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v16-feedback-coverage-second-not-helpful-001
+
+> {%
+  client.test("V16 counts both independently submitted answers", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.answerCount === 2, "Expected two persisted answers");
+    client.assert(response.body.data.submittedCount === 2, "Expected two submitted answers");
+    client.assert(response.body.data.unsubmittedCount === 0, "Expected zero unsubmitted answers");
+    client.assert(response.body.data.answerCount
+      === response.body.data.submittedCount + response.body.data.unsubmittedCount,
+      "Answer count must equal submitted plus unsubmitted counts");
   });
 %}
 

@@ -15,11 +15,13 @@ import com.agentflow.common.api.PageRequest;
 import com.agentflow.common.api.PageResult;
 import com.agentflow.common.error.BusinessException;
 import com.agentflow.common.error.ErrorCode;
+import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackCoverageResponse;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackRequest;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackResponse;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackSummaryResponse;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackStatusResponse;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedback;
+import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackCoverage;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackSummary;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackStatus;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackVerdict;
@@ -51,6 +53,116 @@ class KnowledgeChatAnswerFeedbackServiceTest {
     void setUp() {
         knowledgeChatAnswerFeedbackService = new KnowledgeChatAnswerFeedbackService(
                 knowledgeChatAnswerFeedbackMapper
+        );
+    }
+
+    @Test
+    void shouldReadV16CoverageAcrossTheRequiredImmutableAnswerLifecycleWithoutWriting() {
+        when(knowledgeChatAnswerFeedbackMapper.selectCoverageOwnedByKnowledgeBase(201L, 101L))
+                .thenReturn(
+                        coverage(0L, 0L, 0L),
+                        coverage(1L, 0L, 1L),
+                        coverage(1L, 1L, 0L),
+                        coverage(2L, 1L, 1L),
+                        coverage(2L, 2L, 0L)
+                );
+
+        KnowledgeChatAnswerFeedbackCoverageResponse empty = knowledgeChatAnswerFeedbackService
+                .getCoverageOwnedByKnowledgeBase(currentUser(), 201L);
+        KnowledgeChatAnswerFeedbackCoverageResponse afterFirstV10 = knowledgeChatAnswerFeedbackService
+                .getCoverageOwnedByKnowledgeBase(currentUser(), 201L);
+        KnowledgeChatAnswerFeedbackCoverageResponse afterFirstHelpful = knowledgeChatAnswerFeedbackService
+                .getCoverageOwnedByKnowledgeBase(currentUser(), 201L);
+        KnowledgeChatAnswerFeedbackCoverageResponse afterSecondV10 = knowledgeChatAnswerFeedbackService
+                .getCoverageOwnedByKnowledgeBase(currentUser(), 201L);
+        KnowledgeChatAnswerFeedbackCoverageResponse afterSecondNotHelpful =
+                knowledgeChatAnswerFeedbackService.getCoverageOwnedByKnowledgeBase(
+                        currentUser(),
+                        201L
+                );
+
+        assertCoverage(empty, 0L, 0L, 0L);
+        assertCoverage(afterFirstV10, 1L, 0L, 1L);
+        assertCoverage(afterFirstHelpful, 1L, 1L, 0L);
+        assertCoverage(afterSecondV10, 2L, 1L, 1L);
+        assertCoverage(afterSecondNotHelpful, 2L, 2L, 0L);
+        verify(knowledgeChatAnswerFeedbackMapper, times(5))
+                .selectCoverageOwnedByKnowledgeBase(201L, 101L);
+        verify(knowledgeChatAnswerFeedbackMapper, never()).selectSummaryOwnedByKnowledgeBase(
+                anyLong(),
+                anyLong()
+        );
+        verify(knowledgeChatAnswerFeedbackMapper, never()).insertIfAbsent(
+                any(KnowledgeChatAnswerFeedback.class),
+                anyLong(),
+                anyLong()
+        );
+        verify(knowledgeChatAnswerFeedbackMapper, never()).selectOwnedByAnswerId(
+                anyLong(),
+                anyLong(),
+                anyLong()
+        );
+        verify(knowledgeChatAnswerFeedbackMapper, never()).selectStatusOwnedByAnswerId(
+                anyLong(),
+                anyLong(),
+                anyLong()
+        );
+        verify(knowledgeChatAnswerFeedbackMapper, never()).selectPageOwnedByKnowledgeBase(
+                org.mockito.ArgumentMatchers.<Page<KnowledgeChatAnswerFeedback>>any(),
+                anyLong(),
+                anyLong()
+        );
+    }
+
+    @Test
+    void shouldReturnTheSameZeroV16CoverageForEmptyForeignAndWrongKnowledgeBaseScopes() {
+        when(knowledgeChatAnswerFeedbackMapper.selectCoverageOwnedByKnowledgeBase(
+                anyLong(),
+                anyLong()
+        )).thenReturn(coverage(0L, 0L, 0L));
+
+        KnowledgeChatAnswerFeedbackCoverageResponse empty = knowledgeChatAnswerFeedbackService
+                .getCoverageOwnedByKnowledgeBase(currentUser(), 201L);
+        KnowledgeChatAnswerFeedbackCoverageResponse wrongKnowledgeBase =
+                knowledgeChatAnswerFeedbackService.getCoverageOwnedByKnowledgeBase(
+                        currentUser(),
+                        202L
+                );
+        KnowledgeChatAnswerFeedbackCoverageResponse foreignOwner = knowledgeChatAnswerFeedbackService
+                .getCoverageOwnedByKnowledgeBase(
+                        new AuthenticatedUser(102L, "other_owner", "Other", "USER"),
+                        201L
+                );
+
+        assertCoverage(empty, 0L, 0L, 0L);
+        assertCoverage(wrongKnowledgeBase, 0L, 0L, 0L);
+        assertCoverage(foreignOwner, 0L, 0L, 0L);
+        verify(knowledgeChatAnswerFeedbackMapper).selectCoverageOwnedByKnowledgeBase(201L, 101L);
+        verify(knowledgeChatAnswerFeedbackMapper).selectCoverageOwnedByKnowledgeBase(202L, 101L);
+        verify(knowledgeChatAnswerFeedbackMapper).selectCoverageOwnedByKnowledgeBase(201L, 102L);
+        verify(knowledgeChatAnswerFeedbackMapper, never()).selectSummaryOwnedByKnowledgeBase(
+                anyLong(),
+                anyLong()
+        );
+        verify(knowledgeChatAnswerFeedbackMapper, never()).insertIfAbsent(
+                any(KnowledgeChatAnswerFeedback.class),
+                anyLong(),
+                anyLong()
+        );
+        verify(knowledgeChatAnswerFeedbackMapper, never()).selectOwnedByAnswerId(
+                anyLong(),
+                anyLong(),
+                anyLong()
+        );
+        verify(knowledgeChatAnswerFeedbackMapper, never()).selectStatusOwnedByAnswerId(
+                anyLong(),
+                anyLong(),
+                anyLong()
+        );
+        verify(knowledgeChatAnswerFeedbackMapper, never()).selectPageOwnedByKnowledgeBase(
+                org.mockito.ArgumentMatchers.<Page<KnowledgeChatAnswerFeedback>>any(),
+                anyLong(),
+                anyLong()
         );
     }
 
@@ -559,6 +671,31 @@ class KnowledgeChatAnswerFeedbackServiceTest {
         summary.setHelpfulCount(helpfulCount);
         summary.setNotHelpfulCount(notHelpfulCount);
         return summary;
+    }
+
+    private static KnowledgeChatAnswerFeedbackCoverage coverage(
+            Long answerCount,
+            Long submittedCount,
+            Long unsubmittedCount
+    ) {
+        KnowledgeChatAnswerFeedbackCoverage coverage = new KnowledgeChatAnswerFeedbackCoverage();
+        coverage.setAnswerCount(answerCount);
+        coverage.setSubmittedCount(submittedCount);
+        coverage.setUnsubmittedCount(unsubmittedCount);
+        return coverage;
+    }
+
+    private static void assertCoverage(
+            KnowledgeChatAnswerFeedbackCoverageResponse coverage,
+            long answerCount,
+            long submittedCount,
+            long unsubmittedCount
+    ) {
+        assertThat(coverage.answerCount()).isEqualTo(answerCount);
+        assertThat(coverage.submittedCount()).isEqualTo(submittedCount);
+        assertThat(coverage.unsubmittedCount()).isEqualTo(unsubmittedCount);
+        assertThat(coverage.answerCount())
+                .isEqualTo(Math.addExact(coverage.submittedCount(), coverage.unsubmittedCount()));
     }
 
     private static void assertSummary(

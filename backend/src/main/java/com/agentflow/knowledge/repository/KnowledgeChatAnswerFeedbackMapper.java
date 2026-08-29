@@ -1,6 +1,7 @@
 package com.agentflow.knowledge.repository;
 
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedback;
+import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackCoverage;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackSummary;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackStatus;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
@@ -13,15 +14,39 @@ import org.apache.ibatis.annotations.Results;
 import org.apache.ibatis.annotations.Select;
 
 /**
- * 中文：V12–V15 不可变回答反馈的数据访问边界。answer_id 的唯一约束和 PostgreSQL 的 ON CONFLICT
+ * 中文：V12–V16 不可变回答反馈的数据访问边界。answer_id 的唯一约束和 PostgreSQL 的 ON CONFLICT
  * 保证并发重试不产生第二条事件；每次读取和写入均把 owner、知识库和 answerId 放在同一 SQL 范围内。
  *
- * <p>English: Data access for V12–V15 immutable answer feedback. The answer_id uniqueness
+ * <p>English: Data access for V12–V16 immutable answer feedback. The answer_id uniqueness
  * constraint plus PostgreSQL ON CONFLICT prevents concurrent retries from creating a second
  * event; every read and write binds owner, knowledge base, and answerId in one SQL scope.</p>
  */
 @Mapper
 public interface KnowledgeChatAnswerFeedbackMapper extends BaseMapper<KnowledgeChatAnswerFeedback> {
+
+    /**
+     * Aggregates V16 raw coverage from scoped immutable parent answers. The parent-driven LEFT
+     * JOIN deliberately retains answers without feedback; no existence pre-check can distinguish
+     * an empty, foreign-owner, or wrong-knowledge-base scope from its zero aggregate row.
+     */
+    @Results(id = "knowledgeChatAnswerFeedbackCoverageResult", value = {
+            @Result(property = "answerCount", column = "answer_count"),
+            @Result(property = "submittedCount", column = "submitted_count"),
+            @Result(property = "unsubmittedCount", column = "unsubmitted_count")
+    })
+    @Select("""
+            SELECT COUNT(a.id) AS answer_count,
+                   COUNT(f.id) AS submitted_count,
+                   COUNT(a.id) FILTER (WHERE f.id IS NULL) AS unsubmitted_count
+            FROM knowledge_chat_answer a
+            LEFT JOIN knowledge_chat_answer_feedback f ON f.answer_id = a.id
+            WHERE a.knowledge_base_id = #{knowledgeBaseId}
+              AND a.user_id = #{userId}
+            """)
+    KnowledgeChatAnswerFeedbackCoverage selectCoverageOwnedByKnowledgeBase(
+            @Param("knowledgeBaseId") Long knowledgeBaseId,
+            @Param("userId") Long userId
+    );
 
     /**
      * Aggregates the V15 raw event counts from submitted feedback rows scoped through immutable

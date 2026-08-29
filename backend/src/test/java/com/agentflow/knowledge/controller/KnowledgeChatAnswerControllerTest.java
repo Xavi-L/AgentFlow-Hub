@@ -15,6 +15,7 @@ import com.agentflow.common.error.ErrorCode;
 import com.agentflow.common.error.GlobalExceptionHandler;
 import com.agentflow.common.web.TraceIdFilter;
 import com.agentflow.knowledge.dto.ChatTestRequest;
+import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackCoverageResponse;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackRequest;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackResponse;
 import com.agentflow.knowledge.dto.KnowledgeChatAnswerFeedbackSummaryResponse;
@@ -319,6 +320,98 @@ class KnowledgeChatAnswerControllerTest {
         );
         assertThat(pageRequestCaptor.getValue().getPage()).isEqualTo(2);
         assertThat(pageRequestCaptor.getValue().getPageSize()).isEqualTo(5);
+        verifyNoInteractions(answerService);
+    }
+
+    @Test
+    void shouldExposeOnlyThreeNumericV16FeedbackCoverageFields() throws Exception {
+        KnowledgeChatAnswerService answerService = Mockito.mock(KnowledgeChatAnswerService.class);
+        KnowledgeChatAnswerFeedbackService feedbackService = Mockito.mock(
+                KnowledgeChatAnswerFeedbackService.class
+        );
+        AuthenticatedUser currentUser = currentUser();
+        when(feedbackService.getCoverageOwnedByKnowledgeBase(currentUser, 201L))
+                .thenReturn(new KnowledgeChatAnswerFeedbackCoverageResponse(2L, 1L, 1L));
+        authenticate(currentUser);
+
+        mockMvc(answerService, feedbackService).perform(MockMvcRequestBuilders.get(
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}/chat-answer-feedbacks/coverage",
+                        201L
+                )
+                        .header("X-Trace-Id", "af-test-v16-feedback-coverage-001"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("OK"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
+                        .value("Knowledge chat answer feedback coverage retrieved"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data",
+                        org.hamcrest.Matchers.aMapWithSize(3)
+                ))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.answerCount"
+                ).isNumber())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.answerCount"
+                ).value(2))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.submittedCount"
+                ).isNumber())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.submittedCount"
+                ).value(1))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.unsubmittedCount"
+                ).isNumber())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.unsubmittedCount"
+                ).value(1));
+
+        verify(feedbackService).getCoverageOwnedByKnowledgeBase(currentUser, 201L);
+        verifyNoInteractions(answerService);
+    }
+
+    @Test
+    void shouldExposeTheEmptyV16CoverageAsNumericZeroCounts() throws Exception {
+        KnowledgeChatAnswerService answerService = Mockito.mock(KnowledgeChatAnswerService.class);
+        KnowledgeChatAnswerFeedbackService feedbackService = Mockito.mock(
+                KnowledgeChatAnswerFeedbackService.class
+        );
+        AuthenticatedUser currentUser = currentUser();
+        when(feedbackService.getCoverageOwnedByKnowledgeBase(currentUser, 201L))
+                .thenReturn(new KnowledgeChatAnswerFeedbackCoverageResponse(0L, 0L, 0L));
+        authenticate(currentUser);
+
+        mockMvc(answerService, feedbackService).perform(MockMvcRequestBuilders.get(
+                        "/api/v1/knowledge-bases/{knowledgeBaseId}/chat-answer-feedbacks/coverage",
+                        201L
+                )
+                        .header("X-Trace-Id", "af-test-v16-feedback-coverage-empty-001"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data",
+                        org.hamcrest.Matchers.aMapWithSize(3)
+                ))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.answerCount"
+                ).isNumber())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.answerCount"
+                ).value(0))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.submittedCount"
+                ).isNumber())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.submittedCount"
+                ).value(0))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.unsubmittedCount"
+                ).isNumber())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.unsubmittedCount"
+                ).value(0));
+
+        verify(feedbackService).getCoverageOwnedByKnowledgeBase(currentUser, 201L);
         verifyNoInteractions(answerService);
     }
 

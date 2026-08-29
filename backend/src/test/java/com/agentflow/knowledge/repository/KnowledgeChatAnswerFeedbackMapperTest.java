@@ -3,6 +3,7 @@ package com.agentflow.knowledge.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedback;
+import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackCoverage;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackSummary;
 import com.agentflow.knowledge.model.KnowledgeChatAnswerFeedbackStatus;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -15,6 +16,46 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import org.junit.jupiter.api.Test;
 
 class KnowledgeChatAnswerFeedbackMapperTest {
+
+    @Test
+    void shouldRegisterV16ParentAnswerDrivenCoverageWithALeftJoin() {
+        MybatisConfiguration configuration = new MybatisConfiguration();
+
+        configuration.addMapper(KnowledgeChatAnswerFeedbackMapper.class);
+
+        String mapperName = KnowledgeChatAnswerFeedbackMapper.class.getName();
+        String coverageSelectId = mapperName + ".selectCoverageOwnedByKnowledgeBase";
+        assertThat(configuration.hasStatement(coverageSelectId, false)).isTrue();
+        MappedStatement coverageSelect = configuration.getMappedStatement(coverageSelectId);
+        BoundSql coverageSql = coverageSelect.getBoundSql(Map.of(
+                "knowledgeBaseId", 201L,
+                "userId", 101L
+        ));
+        assertThat(coverageSql.getSql()).contains(
+                "SELECT COUNT(a.id) AS answer_count",
+                "COUNT(f.id) AS submitted_count",
+                "COUNT(a.id) FILTER (WHERE f.id IS NULL) AS unsubmitted_count",
+                "FROM knowledge_chat_answer a",
+                "LEFT JOIN knowledge_chat_answer_feedback f ON f.answer_id = a.id",
+                "a.knowledge_base_id",
+                "a.user_id"
+        );
+        assertThat(coverageSql.getSql()).doesNotContain(
+                "INNER JOIN",
+                "FROM knowledge_chat_answer_feedback f",
+                "f.verdict",
+                "GROUP BY",
+                "ORDER BY",
+                "INSERT",
+                "UPDATE",
+                "DELETE"
+        );
+        assertThat(coverageSelect.getResultMaps().getFirst().getType())
+                .isEqualTo(KnowledgeChatAnswerFeedbackCoverage.class);
+        assertThat(coverageSelect.getResultMaps().getFirst().getResultMappings())
+                .extracting(ResultMapping::getProperty)
+                .containsExactly("answerCount", "submittedCount", "unsubmittedCount");
+    }
 
     @Test
     void shouldRegisterTheV15RawEventSummaryThroughAnInnerJoinToScopedParentAnswers() {
