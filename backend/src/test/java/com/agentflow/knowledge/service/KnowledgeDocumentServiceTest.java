@@ -35,6 +35,8 @@ import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.InjectMocks;
@@ -310,6 +312,72 @@ class KnowledgeDocumentServiceTest {
                 any(DocumentFileType.class),
                 org.mockito.ArgumentMatchers.<InputStream>any()
         );
+    }
+
+    @Test
+    void shouldReadOneVisibleOwnedDocumentThroughTheJointVisibilityQuery() {
+        KnowledgeDocument persisted = document(301L, 201L, "refund-rules.md", "MD");
+        persisted.setParseStatus("FAILED");
+        persisted.setStorageBucket("local");
+        persisted.setStorageObjectKey("users/101/knowledge-bases/201/documents/opaque-object.md");
+        persisted.setParseError("Internal parser diagnostic");
+        when(knowledgeDocumentMapper.selectVisibleOwnedById(301L, 101L)).thenReturn(persisted);
+
+        KnowledgeDocumentResponse response = knowledgeDocumentService.getOwnedById(
+                currentUser(),
+                301L
+        );
+
+        assertThat(response.id()).isEqualTo("301");
+        assertThat(response.knowledgeBaseId()).isEqualTo("201");
+        assertThat(response.fileName()).isEqualTo("refund-rules.md");
+        assertThat(response.fileType()).isEqualTo("MD");
+        assertThat(response.fileSize()).isEqualTo(5L);
+        assertThat(response.parseStatus()).isEqualTo("FAILED");
+        assertThat(response.createdAt()).isEqualTo(persisted.getCreatedAt());
+        assertThat(response.updatedAt()).isEqualTo(persisted.getUpdatedAt());
+        verify(knowledgeDocumentMapper).selectVisibleOwnedById(301L, 101L);
+        verify(knowledgeBaseMapper, never()).selectOne(any());
+    }
+
+    @Test
+    void shouldReadAVisibleDocumentWithoutRequiringAnActiveKnowledgeBase() {
+        // The mapper owns parent visibility in its JOIN. No separate status fetch is allowed,
+        // so a matching row from a DISABLED (but not deleted) knowledge base stays readable.
+        when(knowledgeDocumentMapper.selectVisibleOwnedById(301L, 101L)).thenReturn(
+                document(301L, 201L, "historical-rules.txt", "TXT")
+        );
+
+        KnowledgeDocumentResponse response = knowledgeDocumentService.getOwnedById(
+                currentUser(),
+                301L
+        );
+
+        assertThat(response.fileName()).isEqualTo("historical-rules.txt");
+        verify(knowledgeDocumentMapper).selectVisibleOwnedById(301L, 101L);
+        verify(knowledgeBaseMapper, never()).selectOne(any());
+    }
+
+    @ParameterizedTest(name = "{0} maps to the same document-not-found response")
+    @ValueSource(strings = {
+            "missing document",
+            "another owner's document",
+            "soft-deleted document",
+            "document whose parent knowledge base is soft-deleted"
+    })
+    void shouldMapEveryInvisibleDocumentScopeMissToTheSameNotFound(String invisibleCause) {
+        // Each cause becomes the same null result after the mapper's single scoped JOIN.
+        when(knowledgeDocumentMapper.selectVisibleOwnedById(301L, 101L)).thenReturn(null);
+
+        assertThatThrownBy(() -> knowledgeDocumentService.getOwnedById(currentUser(), 301L))
+                .as(invisibleCause)
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMON_NOT_FOUND))
+                .hasMessage("Document not found");
+
+        verify(knowledgeDocumentMapper).selectVisibleOwnedById(301L, 101L);
+        verify(knowledgeBaseMapper, never()).selectOne(any());
     }
 
     @Test

@@ -3,7 +3,7 @@
 # 1. Run "Login" in user-auth.http to create the local agentflowAccessToken variable.
 # 2. Run "Create a knowledge base" in knowledge-base.http. Its successful response now
 #    stores agentflowKnowledgeBaseId in the same local HTTP-client session.
-# 3. Run the upload/process/vectorize/list requests below. Do not paste a real token or
+# 3. Run the upload/detail/process/vectorize/list requests below. Do not paste a real token or
 #    absolute file path into this tracked file.
 
 @baseUrl = http://localhost:8080
@@ -30,6 +30,27 @@ Content-Type: text/markdown
   });
   // The ID is kept only in IDEA's local HTTP-client session for V4 chunk verification.
   client.global.set("agentflowDocumentId", response.body.data.id);
+%}
+
+### V21 read the uploaded document's safe metadata detail: expected HTTP 200.
+GET {{baseUrl}}/api/v1/documents/{{agentflowDocumentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-document-detail-001
+
+> {%
+  client.test("document detail is owner-scoped and exposes only safe metadata", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.message === "Document retrieved", "Expected detail message");
+    client.assert(response.body.data.id === client.global.get("agentflowDocumentId"),
+      "Expected the uploaded document ID");
+    client.assert(response.body.data.knowledgeBaseId === client.global.get("agentflowKnowledgeBaseId"),
+      "Expected the current knowledge base ID");
+    client.assert(response.body.data.parseStatus === "PENDING", "Expected PENDING before processing");
+    client.assert(Object.keys(response.body.data).sort().join(",")
+      === "createdAt,fileName,fileSize,fileType,id,knowledgeBaseId,parseStatus,updatedAt",
+      "V21 must expose exactly the safe document metadata fields");
+  });
 %}
 
 ### Process every currently PENDING document in this knowledge base: expected HTTP 200.

@@ -122,6 +122,35 @@ public class KnowledgeDocumentService {
     }
 
     /**
+     * 中文：读取当前用户可见的一条文档元数据。Mapper 在同一条 JOIN 查询中限定文档 ID、owner、
+     * 文档未软删除和父知识库未软删除；没有匹配行时，不存在、跨 owner、文档已删除和父知识库
+     * 已删除都统一为 Document not found。这里不读取原始文件，也不触发解析、状态转换或清理。
+     *
+     * <p>English: Reads one document metadata record visible to the current user. The mapper
+     * keeps the document ID, owner, non-deleted document, and non-deleted parent knowledge base
+     * in one JOIN query. A miss uniformly maps absent, cross-owner, deleted-document, and
+     * deleted-parent cases to Document not found. This method neither opens the source file nor
+     * triggers parsing, state changes, or cleanup.
+     */
+    @Transactional(readOnly = true)
+    public KnowledgeDocumentResponse getOwnedById(
+            AuthenticatedUser currentUser,
+            Long documentId
+    ) {
+        Objects.requireNonNull(currentUser, "currentUser must not be null");
+        Objects.requireNonNull(documentId, "documentId must not be null");
+
+        KnowledgeDocument document = knowledgeDocumentMapper.selectVisibleOwnedById(
+                documentId,
+                currentUser.id()
+        );
+        if (document == null) {
+            throw new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Document not found");
+        }
+        return KnowledgeDocumentResponse.from(document);
+    }
+
+    /**
      * 中文：分页查看当前用户拥有的知识库中的非软删除文档。禁用知识库仍可查看历史资料，但不能
      * 再接受新文件；这样与现有知识库列表“owner 可管理 DISABLED 项”的语义保持一致。
      *
