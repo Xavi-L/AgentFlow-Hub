@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -110,8 +109,8 @@ public final class QdrantVectorStoreGateway implements VectorStoreGateway {
         }
 
         try {
-            restClient.method(HttpMethod.DELETE)
-                    .uri("/collections/" + collection + "/points?wait=true")
+            restClient.post()
+                    .uri("/collections/" + collection + "/points/delete?wait=true")
                     .headers(this::applyApiKeyIfPresent)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(Map.of("filter", documentScopeFilter(safeScope)))

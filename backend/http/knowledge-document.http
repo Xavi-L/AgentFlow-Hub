@@ -1022,3 +1022,74 @@ Content-Type: application/pdf
 ### No token: expected HTTP 401 / AUTH_UNAUTHENTICATED.
 GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/documents?page=1&pageSize=20
 X-Trace-Id: af-manual-document-no-token-001
+
+### V24 synchronously delete the completed Markdown document: expected HTTP 200 only after vectors, source, and chunks are cleared.
+# Run this last: later V7–V17 checks reuse agentflowDocumentId and its chunks. In the default local
+# vector mode this exercises the in-memory adapter; in remote mode it invokes the configured Qdrant
+# deletion path. Neither mode alone proves production Qdrant/object-storage availability or concurrency.
+DELETE {{baseUrl}}/api/v1/documents/{{agentflowDocumentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-document-v24-delete-001
+
+> {%
+  client.test("V24 deletion completes every synchronous cleanup step", function () {
+    client.assert(response.status === 200, "Expected HTTP 200 only after cleanup completion");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.message === "Document deleted", "Expected V24 success message");
+    client.assert(response.body.data === null, "Expected no deletion-task internals in the response");
+  });
+%}
+
+### V24 read the deleted document: expected HTTP 404 / COMMON_NOT_FOUND.
+GET {{baseUrl}}/api/v1/documents/{{agentflowDocumentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-document-v24-deleted-detail-001
+
+> {%
+  client.test("V24 hides the completed soft-deleted document", function () {
+    client.assert(response.status === 404, "Expected HTTP 404");
+    client.assert(response.body.code === "COMMON_NOT_FOUND", "Expected uniform hidden-resource code");
+    client.assert(response.body.message === "Document not found", "Expected uniform hidden-resource message");
+  });
+%}
+
+### V24 list the original knowledge base after deletion: expected HTTP 200 without the deleted document.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/documents?page=1&pageSize=20
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-document-v24-list-after-delete-001
+
+> {%
+  client.test("V24 removes the soft-deleted document from its owner list", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.items.every(function (item) {
+      return item.id !== client.global.get("agentflowDocumentId");
+    }), "Deleted document must not remain visible in the list");
+  });
+%}
+
+### V24 read chunks for the deleted document: expected HTTP 404 / COMMON_NOT_FOUND.
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/documents/{{agentflowDocumentId}}/chunks?page=1&pageSize=20
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-document-v24-deleted-chunks-001
+
+> {%
+  client.test("V24 prevents chunk access through the deleted parent document", function () {
+    client.assert(response.status === 404, "Expected HTTP 404");
+    client.assert(response.body.code === "COMMON_NOT_FOUND", "Expected uniform hidden-resource code");
+    client.assert(response.body.message === "Document not found", "Expected uniform hidden-resource message");
+  });
+%}
+
+### V24 repeat a fully completed delete: expected HTTP 404, not silent success.
+DELETE {{baseUrl}}/api/v1/documents/{{agentflowDocumentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-document-v24-delete-completed-repeat-001
+
+> {%
+  client.test("V24 reserves repeat deletion for unfinished task recovery only", function () {
+    client.assert(response.status === 404, "Expected HTTP 404 after completed cleanup");
+    client.assert(response.body.code === "COMMON_NOT_FOUND", "Expected uniform hidden-resource code");
+    client.assert(response.body.message === "Document not found", "Expected uniform hidden-resource message");
+  });
+%}

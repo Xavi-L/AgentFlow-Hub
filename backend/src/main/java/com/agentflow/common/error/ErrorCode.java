@@ -52,6 +52,16 @@ public enum ErrorCode {
             "Document is not eligible for reprocessing",
             409
     ),
+    KNOWLEDGE_DOCUMENT_DELETION_CONFLICT(
+            "KNOWLEDGE_DOCUMENT_DELETION_CONFLICT",
+            "Document is not eligible for deletion",
+            409
+    ),
+    KNOWLEDGE_DOCUMENT_DELETION_UNAVAILABLE(
+            "KNOWLEDGE_DOCUMENT_DELETION_UNAVAILABLE",
+            "Document deletion is temporarily unavailable",
+            503
+    ),
     KNOWLEDGE_DOCUMENT_FILE_REQUIRED("KNOWLEDGE_DOCUMENT_FILE_REQUIRED", "A document file is required", 400),
     KNOWLEDGE_DOCUMENT_FILE_EMPTY("KNOWLEDGE_DOCUMENT_FILE_EMPTY", "Document file must not be empty", 400),
     KNOWLEDGE_DOCUMENT_FILE_NAME_INVALID("KNOWLEDGE_DOCUMENT_FILE_NAME_INVALID", "Document file name is invalid", 400),

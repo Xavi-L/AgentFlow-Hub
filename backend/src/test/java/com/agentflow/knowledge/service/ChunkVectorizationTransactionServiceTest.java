@@ -10,6 +10,7 @@ import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.agentflow.knowledge.model.KnowledgeChunk;
 import com.agentflow.knowledge.repository.KnowledgeChunkMapper;
+import com.agentflow.knowledge.repository.KnowledgeDocumentMapper;
 import com.agentflow.knowledge.vector.ChunkVectorIdentityFactory;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
@@ -38,6 +39,9 @@ class ChunkVectorizationTransactionServiceTest {
     @Mock
     private KnowledgeChunkMapper knowledgeChunkMapper;
 
+    @Mock
+    private KnowledgeDocumentMapper knowledgeDocumentMapper;
+
     @InjectMocks
     private ChunkVectorizationTransactionService transactionService;
 
@@ -48,6 +52,11 @@ class ChunkVectorizationTransactionServiceTest {
     void shouldClaimOnlyStillPendingChunkAndRefreshItsContentHash() {
         KnowledgeChunk chunk = chunk();
         String contentHash = ChunkVectorIdentityFactory.contentHash(chunk.getContent());
+        when(knowledgeDocumentMapper.selectVectorizableOwnedForChunkClaimForUpdate(
+                301L,
+                201L,
+                101L
+        )).thenReturn(new com.agentflow.knowledge.model.KnowledgeDocument());
         when(knowledgeChunkMapper.update(org.mockito.ArgumentMatchers.<KnowledgeChunk>isNull(), any())).thenReturn(1);
 
         boolean claimed = transactionService.claimPendingChunk(chunk, contentHash);
@@ -63,6 +72,26 @@ class ChunkVectorizationTransactionServiceTest {
         assertThat(updateCaptor.getValue().getSqlSegment()).contains(
                 "id", "user_id", "knowledge_base_id", "document_id", "vectorization_status"
         );
+    }
+
+    @Test
+    void shouldSkipTheChunkUpdateWhenTheLockedParentIsNoLongerVectorizable() {
+        KnowledgeChunk chunk = chunk();
+        when(knowledgeDocumentMapper.selectVectorizableOwnedForChunkClaimForUpdate(
+                301L,
+                201L,
+                101L
+        )).thenReturn(null);
+
+        boolean claimed = transactionService.claimPendingChunk(
+                chunk,
+                ChunkVectorIdentityFactory.contentHash(chunk.getContent())
+        );
+
+        assertThat(claimed).isFalse();
+        org.mockito.Mockito.verify(knowledgeDocumentMapper)
+                .selectVectorizableOwnedForChunkClaimForUpdate(301L, 201L, 101L);
+        org.mockito.Mockito.verifyNoInteractions(knowledgeChunkMapper);
     }
 
     @Test

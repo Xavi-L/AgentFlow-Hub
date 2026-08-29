@@ -118,6 +118,24 @@ class ChunkVectorizationServiceTest {
     }
 
     @Test
+    void shouldSkipStalePendingCandidateWhenV24ClaimGateRejectsItWithoutExternalIo() {
+        KnowledgeChunk chunk = pendingChunk(401L, 301L, 0, "Refund rules");
+        ChunkVectorIdentity identity = ChunkVectorIdentityFactory.create(chunk);
+        when(knowledgeBaseMapper.selectOne(any())).thenReturn(knowledgeBase());
+        when(knowledgeChunkMapper.selectVectorizationCandidates(201L, 101L)).thenReturn(List.of(chunk));
+        when(transactionService.claimPendingChunk(chunk, identity.contentHash())).thenReturn(false);
+
+        ChunkVectorizationResponse response = chunkVectorizationService.vectorizePending(currentUser(), 201L);
+
+        verify(transactionService).claimPendingChunk(chunk, identity.contentHash());
+        verify(embeddingGateway, never()).embed(any());
+        verify(vectorStoreGateway, never()).upsert(any());
+        verify(transactionService, never()).markCompleted(any(), any());
+        verify(transactionService, never()).markFailed(any(), any());
+        assertThat(response).isEqualTo(new ChunkVectorizationResponse(1, 0, 0, 0, 1));
+    }
+
+    @Test
     void shouldRecordOneEmbeddingFailureAndContinueWithTheNextPendingChunk() {
         KnowledgeChunk failingChunk = pendingChunk(401L, 301L, 0, "Bad provider input");
         KnowledgeChunk completedChunk = pendingChunk(402L, 301L, 1, "Refund rules");

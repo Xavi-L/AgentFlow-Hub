@@ -1,6 +1,7 @@
 package com.agentflow.knowledge.controller;
 
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -9,6 +10,7 @@ import com.agentflow.common.error.ErrorCode;
 import com.agentflow.common.error.GlobalExceptionHandler;
 import com.agentflow.common.web.TraceIdFilter;
 import com.agentflow.knowledge.dto.KnowledgeDocumentResponse;
+import com.agentflow.knowledge.service.KnowledgeDocumentDeletionService;
 import com.agentflow.knowledge.service.KnowledgeDocumentService;
 import com.agentflow.user.security.AuthenticatedUser;
 import java.time.OffsetDateTime;
@@ -209,6 +211,96 @@ class KnowledgeDocumentDetailControllerTest {
     }
 
     @Test
+    void shouldDeleteTheCurrentOwnersDocumentOnlyAfterTheV24ServiceCompletes() throws Exception {
+        KnowledgeDocumentService documentService = Mockito.mock(KnowledgeDocumentService.class);
+        KnowledgeDocumentDeletionService deletionService = Mockito.mock(KnowledgeDocumentDeletionService.class);
+        AuthenticatedUser currentUser = currentUser();
+        authenticateAs(currentUser);
+
+        mockMvc(documentService, deletionService).perform(MockMvcRequestBuilders.delete(
+                        "/api/v1/documents/{documentId}",
+                        301L
+                ).header("X-Trace-Id", "af-test-document-delete"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("OK"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
+                        .value("Document deleted"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.data")
+                        .isEmpty());
+
+        verify(deletionService).deleteOwned(currentUser, 301L);
+        org.mockito.Mockito.verifyNoInteractions(documentService);
+    }
+
+    @Test
+    void shouldMapV24DeletionConflictAndUnavailableErrorsWithoutChangingTheirCode() throws Exception {
+        for (ErrorCode errorCode : List.of(
+                ErrorCode.KNOWLEDGE_DOCUMENT_DELETION_CONFLICT,
+                ErrorCode.KNOWLEDGE_DOCUMENT_DELETION_UNAVAILABLE
+        )) {
+            KnowledgeDocumentService documentService = Mockito.mock(KnowledgeDocumentService.class);
+            KnowledgeDocumentDeletionService deletionService = Mockito.mock(KnowledgeDocumentDeletionService.class);
+            AuthenticatedUser currentUser = currentUser();
+            doThrow(new BusinessException(errorCode)).when(deletionService).deleteOwned(currentUser, 301L);
+            authenticateAs(currentUser);
+
+            int expectedStatus = errorCode.getHttpStatus();
+            mockMvc(documentService, deletionService).perform(MockMvcRequestBuilders.delete(
+                            "/api/v1/documents/{documentId}",
+                            301L
+                    ).header("X-Trace-Id", "af-test-document-delete-" + errorCode.getCode()))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status()
+                            .is(expectedStatus))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                            .value(errorCode.getCode()))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
+                            .value(errorCode.getMessage()));
+
+            verify(deletionService).deleteOwned(currentUser, 301L);
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    void shouldKeepAnInvisibleDocumentAsTheUniform404WhenDeleting() throws Exception {
+        KnowledgeDocumentService documentService = Mockito.mock(KnowledgeDocumentService.class);
+        KnowledgeDocumentDeletionService deletionService = Mockito.mock(KnowledgeDocumentDeletionService.class);
+        AuthenticatedUser currentUser = currentUser();
+        doThrow(new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Document not found"))
+                .when(deletionService).deleteOwned(currentUser, 301L);
+        authenticateAs(currentUser);
+
+        mockMvc(documentService, deletionService).perform(MockMvcRequestBuilders.delete(
+                        "/api/v1/documents/{documentId}",
+                        301L
+                ).header("X-Trace-Id", "af-test-document-delete-not-found"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isNotFound())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("COMMON_NOT_FOUND"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
+                        .value("Document not found"));
+
+        verify(deletionService).deleteOwned(currentUser, 301L);
+    }
+
+    @Test
+    void shouldMapANonNumericDeletePathTo400InsteadOfInvokingDeletion() throws Exception {
+        KnowledgeDocumentService documentService = Mockito.mock(KnowledgeDocumentService.class);
+        KnowledgeDocumentDeletionService deletionService = Mockito.mock(KnowledgeDocumentDeletionService.class);
+        authenticateAs(currentUser());
+
+        mockMvc(documentService, deletionService).perform(MockMvcRequestBuilders.delete(
+                        "/api/v1/documents/not-a-number"
+                ).header("X-Trace-Id", "af-test-document-delete-path"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("COMMON_PARAM_INVALID"));
+
+        org.mockito.Mockito.verifyNoInteractions(documentService, deletionService);
+    }
+
+    @Test
     void shouldMapANonNumericDocumentIdTo400InsteadOf500() throws Exception {
         KnowledgeDocumentService service = Mockito.mock(KnowledgeDocumentService.class);
         authenticateAs(currentUser());
@@ -259,8 +351,15 @@ class KnowledgeDocumentDetailControllerTest {
     }
 
     private static MockMvc mockMvc(KnowledgeDocumentService service) {
+        return mockMvc(service, Mockito.mock(KnowledgeDocumentDeletionService.class));
+    }
+
+    private static MockMvc mockMvc(
+            KnowledgeDocumentService service,
+            KnowledgeDocumentDeletionService deletionService
+    ) {
         return MockMvcBuilders
-                .standaloneSetup(new KnowledgeDocumentDetailController(service))
+                .standaloneSetup(new KnowledgeDocumentDetailController(service, deletionService))
                 .addPlaceholderValue("agentflow.api.prefix", "/api/v1")
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())

@@ -152,8 +152,8 @@ class QdrantVectorStoreGatewayTest {
                 .andExpect(method(HttpMethod.GET))
                 .andExpect(header("api-key", "test-qdrant-key"))
                 .andRespond(withSuccess(collectionResponse(), MediaType.APPLICATION_JSON));
-        server.expect(requestTo("http://qdrant.test/collections/agentflow_chunks_te_v4_3/points?wait=true"))
-                .andExpect(method(HttpMethod.DELETE))
+        server.expect(requestTo("http://qdrant.test/collections/agentflow_chunks_te_v4_3/points/delete?wait=true"))
+                .andExpect(method(HttpMethod.POST))
                 .andExpect(header("api-key", "test-qdrant-key"))
                 .andExpect(content().json("""
                         {
@@ -200,8 +200,8 @@ class QdrantVectorStoreGatewayTest {
         server.expect(requestTo("http://qdrant.test/collections/agentflow_chunks_te_v4_3"))
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withSuccess(collectionResponse(), MediaType.APPLICATION_JSON));
-        server.expect(requestTo("http://qdrant.test/collections/agentflow_chunks_te_v4_3/points?wait=true"))
-                .andExpect(method(HttpMethod.DELETE))
+        server.expect(requestTo("http://qdrant.test/collections/agentflow_chunks_te_v4_3/points/delete?wait=true"))
+                .andExpect(method(HttpMethod.POST))
                 .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
 
         assertThatThrownBy(() -> gateway.deleteByDocumentScope(new VectorDocumentScope(101L, 201L, 301L)))

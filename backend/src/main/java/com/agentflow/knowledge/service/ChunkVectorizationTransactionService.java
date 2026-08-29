@@ -3,6 +3,7 @@ package com.agentflow.knowledge.service;
 import com.agentflow.knowledge.model.ChunkVectorizationStatus;
 import com.agentflow.knowledge.model.KnowledgeChunk;
 import com.agentflow.knowledge.repository.KnowledgeChunkMapper;
+import com.agentflow.knowledge.repository.KnowledgeDocumentMapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import java.time.OffsetDateTime;
 import java.util.Objects;
@@ -11,21 +12,30 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 中文：V5 向量化的短事务边界。外部 embedding/Qdrant 调用永远不持有数据库事务；状态条件更新
- * 只认领仍为 PENDING 的 chunk，成功或失败各自独立提交。
+ * 中文：V5 向量化的短事务边界。外部 embedding/Qdrant 调用永远不持有数据库事务；V24 先锁定
+ * 可见且 COMPLETED 的父文档，再以状态条件更新认领仍为 PENDING 的 chunk，成功或失败各自独立提交。
  *
  * <p>English: Short V5 transaction boundaries. External embedding/vector-store calls
- * never hold a database transaction; conditional updates claim only still-PENDING
- * chunks, while success and failure each commit independently.
+ * never hold a database transaction; V24 first locks a visible, COMPLETED parent document,
+ * then a conditional update claims only still-PENDING chunks, while success and failure each
+ * commit independently.
  */
 @Service
 public class ChunkVectorizationTransactionService {
     private final KnowledgeChunkMapper knowledgeChunkMapper;
+    private final KnowledgeDocumentMapper knowledgeDocumentMapper;
 
-    public ChunkVectorizationTransactionService(KnowledgeChunkMapper knowledgeChunkMapper) {
+    public ChunkVectorizationTransactionService(
+            KnowledgeChunkMapper knowledgeChunkMapper,
+            KnowledgeDocumentMapper knowledgeDocumentMapper
+    ) {
         this.knowledgeChunkMapper = Objects.requireNonNull(
                 knowledgeChunkMapper,
                 "knowledgeChunkMapper must not be null"
+        );
+        this.knowledgeDocumentMapper = Objects.requireNonNull(
+                knowledgeDocumentMapper,
+                "knowledgeDocumentMapper must not be null"
         );
     }
 
@@ -33,6 +43,19 @@ public class ChunkVectorizationTransactionService {
     public boolean claimPendingChunk(KnowledgeChunk chunk, String contentHash) {
         validateChunkScope(chunk);
         validateContentHash(contentHash);
+
+        // V24 deletion admission locks this exact parent document row before it checks
+        // PROCESSING chunks and writes deleted_at. Taking the same lock here closes the
+        // stale-candidate race: a chunk read before deletion cannot become PROCESSING and
+        // later upsert a point after the document's V23 deletion has completed.
+        if (knowledgeDocumentMapper.selectVectorizableOwnedForChunkClaimForUpdate(
+                chunk.getDocumentId(),
+                chunk.getKnowledgeBaseId(),
+                chunk.getUserId()
+        ) == null) {
+            return false;
+        }
+
         int affectedRows = knowledgeChunkMapper.update(
                 null,
                 Wrappers.<KnowledgeChunk>lambdaUpdate()

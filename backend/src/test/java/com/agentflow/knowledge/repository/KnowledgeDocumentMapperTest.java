@@ -87,4 +87,79 @@ class KnowledgeDocumentMapperTest {
                 "DELETE"
         );
     }
+
+    @Test
+    void shouldRegisterV24DeletionAdmissionLockAndVectorClaimLockSeparately() {
+        MybatisConfiguration configuration = new MybatisConfiguration();
+        configuration.addMapper(KnowledgeDocumentMapper.class);
+
+        String admissionStatementId = KnowledgeDocumentMapper.class.getName()
+                + ".selectOwnedWithLiveParentForDeletionForUpdate";
+        BoundSql admissionSql = configuration.getMappedStatement(admissionStatementId).getBoundSql(Map.of(
+                "documentId", 301L,
+                "userId", 101L
+        ));
+        assertThat(admissionSql.getSql()).contains(
+                "FROM knowledge_document kd",
+                "INNER JOIN knowledge_base kb",
+                "kd.id = ?",
+                "kd.user_id = ?",
+                "kb.deleted_at IS NULL",
+                "FOR UPDATE OF kd"
+        );
+        assertThat(admissionSql.getSql()).doesNotContain("kd.deleted_at IS NULL");
+        assertThat(admissionSql.getParameterMappings())
+                .extracting(ParameterMapping::getProperty)
+                .containsExactly("documentId", "userId");
+
+        String claimStatementId = KnowledgeDocumentMapper.class.getName()
+                + ".selectVectorizableOwnedForChunkClaimForUpdate";
+        BoundSql claimSql = configuration.getMappedStatement(claimStatementId).getBoundSql(Map.of(
+                "documentId", 301L,
+                "knowledgeBaseId", 201L,
+                "userId", 101L
+        ));
+        assertThat(claimSql.getSql()).contains(
+                "kd.id = ?",
+                "kd.knowledge_base_id = ?",
+                "kd.user_id = ?",
+                "kd.parse_status = 'COMPLETED'",
+                "kd.deleted_at IS NULL",
+                "kb.deleted_at IS NULL",
+                "FOR UPDATE OF kd"
+        );
+        assertThat(claimSql.getParameterMappings())
+                .extracting(ParameterMapping::getProperty)
+                .containsExactly("documentId", "knowledgeBaseId", "userId");
+    }
+
+    @Test
+    void shouldRegisterV24SoftDeleteAsOneScopedLiveParentMutation() {
+        MybatisConfiguration configuration = new MybatisConfiguration();
+        configuration.addMapper(KnowledgeDocumentMapper.class);
+
+        String statementId = KnowledgeDocumentMapper.class.getName()
+                + ".softDeleteOwnedWithLiveParent";
+        BoundSql sql = configuration.getMappedStatement(statementId).getBoundSql(Map.of(
+                "documentId", 301L,
+                "userId", 101L,
+                "deletedAt", OffsetDateTime.parse("2026-08-30T12:00:00+08:00")
+        ));
+
+        assertThat(sql.getSql()).contains(
+                "UPDATE knowledge_document kd",
+                "SET deleted_at = ?",
+                "updated_at = ?",
+                "FROM knowledge_base kb",
+                "kd.id = ?",
+                "kd.user_id = ?",
+                "kd.deleted_at IS NULL",
+                "kb.id = kd.knowledge_base_id",
+                "kb.user_id = kd.user_id",
+                "kb.deleted_at IS NULL"
+        );
+        assertThat(sql.getParameterMappings())
+                .extracting(ParameterMapping::getProperty)
+                .containsExactly("deletedAt", "deletedAt", "documentId", "userId");
+    }
 }

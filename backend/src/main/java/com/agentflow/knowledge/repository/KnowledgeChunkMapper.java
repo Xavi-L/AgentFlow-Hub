@@ -3,6 +3,7 @@ package com.agentflow.knowledge.repository;
 import com.agentflow.knowledge.model.KnowledgeChunk;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import java.util.List;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Result;
@@ -12,12 +13,14 @@ import org.apache.ibatis.annotations.Select;
 /**
  * 中文：解析后文本块的数据访问边界。V4 使用 BaseMapper 的插入和分页读取能力；V5 额外提供
  * 一个只挑选来源文档已经 COMPLETED 的向量化候选查询。V7/V8 仅通过本 Mapper 回读、验证 Qdrant
- * 命中的 canonical chunk；它不在 PostgreSQL 做相似度计算。
+ * 命中的 canonical chunk；V24 只在删除已获准后探测 PROCESSING 并物理删除该文档的 chunks。
+ * 它不在 PostgreSQL 做相似度计算。
  *
  * <p>English: Data-access boundary for parsed text chunks. V4 uses BaseMapper inserts
  * and paged reads. V5 adds a completed-source candidate query; V7/V8 use this mapper
- * only to re-read and validate canonical chunks after vector-store retrieval, never to
- * run similarity search in PostgreSQL.
+ * only to re-read and validate canonical chunks after vector-store retrieval, while V24
+ * performs only an admitted document's processing probe/scoped physical deletion. It never
+ * runs similarity search in PostgreSQL.
  */
 @Mapper
 public interface KnowledgeChunkMapper extends BaseMapper<KnowledgeChunk> {
@@ -40,6 +43,40 @@ public interface KnowledgeChunkMapper extends BaseMapper<KnowledgeChunk> {
             ORDER BY kc.document_id ASC, kc.chunk_index ASC, kc.id ASC
             """)
     List<KnowledgeChunk> selectVectorizationCandidates(
+            @Param("knowledgeBaseId") Long knowledgeBaseId,
+            @Param("userId") Long userId
+    );
+
+    /**
+     * Used only while V24 holds the matching parent document lock. A true result means a worker
+     * has already committed a vectorization claim and may still be between external upsert and
+     * its terminal database update, so deleting the document would be unsafe.
+     */
+    @Select("""
+            SELECT EXISTS (
+                SELECT 1
+                FROM knowledge_chunk
+                WHERE document_id = #{documentId}
+                  AND knowledge_base_id = #{knowledgeBaseId}
+                  AND user_id = #{userId}
+                  AND vectorization_status = 'PROCESSING'
+            )
+            """)
+    boolean hasProcessingChunkByDocumentScope(
+            @Param("documentId") Long documentId,
+            @Param("knowledgeBaseId") Long knowledgeBaseId,
+            @Param("userId") Long userId
+    );
+
+    /** Physically removes only chunks whose parent document has already passed V24 admission. */
+    @Delete("""
+            DELETE FROM knowledge_chunk
+            WHERE document_id = #{documentId}
+              AND knowledge_base_id = #{knowledgeBaseId}
+              AND user_id = #{userId}
+            """)
+    int deleteByDocumentScope(
+            @Param("documentId") Long documentId,
             @Param("knowledgeBaseId") Long knowledgeBaseId,
             @Param("userId") Long userId
     );

@@ -76,8 +76,9 @@ public class ChunkVectorizationService {
     }
 
     /**
-     * Vectorizes only chunks that are still PENDING. The candidate query also enforces
-     * that each source document is COMPLETED and not deleted before any external call.
+     * Vectorizes only chunks that are still PENDING. The candidate query filters completed,
+     * non-deleted sources, and V24's locked claim gate revalidates that same parent immediately
+     * before a chunk becomes PROCESSING; a stale candidate therefore never reaches external I/O.
      */
     public ChunkVectorizationResponse vectorizePending(
             AuthenticatedUser currentUser,

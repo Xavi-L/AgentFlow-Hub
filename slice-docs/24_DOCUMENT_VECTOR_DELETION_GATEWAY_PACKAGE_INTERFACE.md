@@ -80,7 +80,7 @@ remote adapter 必须使用不创建 collection 的确认路径；若该 Gateway
 GET /collections/{collection}
   404 -> 正常返回（已确认 collection 不存在，幂等 no-op）
   其他失败 -> 向调用方抛出异常
-  存在 -> DELETE /collections/{collection}/points?wait=true
+  存在 -> POST /collections/{collection}/points/delete?wait=true
 ```
 
 存在 collection 时，删除请求沿用已配置的 Qdrant API key，且 body 只能由 `VectorDocumentScope` 构造：
@@ -118,7 +118,7 @@ V23
   -> VectorStoreGateway.deleteByDocumentScope(VectorDocumentScope)
      -> InMemoryVectorStoreGateway: 仅三字段完全匹配才移除本地 point
      -> QdrantVectorStoreGateway: GET collection（不创建）
-          -> DELETE points?wait=true（userId + knowledgeBaseId + documentId filter）
+          -> POST points/delete?wait=true（userId + knowledgeBaseId + documentId filter）
 ~~~
 
 V23 不把该方法接入 `KnowledgeDocumentService`、`DocumentProcessingService`、Controller、Mapper 或 HTTP 脚本；
@@ -136,7 +136,7 @@ V23 不把该方法接入 `KnowledgeDocumentService`、`DocumentProcessingServic
    point 后，只删除完整三元匹配的项；第二次删除保持正常 no-op。
 3. `QdrantVectorStoreGatewayTest.shouldDeleteOnlyTheCurrentOwnerKnowledgeBaseAndDocumentAndWaitForCompletion`
    用 `MockRestServiceServer` 验证 collection 的 GET、
-   `DELETE /collections/{collection}/points?wait=true`、三个 `must` filter 与 `wait=true`。测试中没有
+   `POST /collections/{collection}/points/delete?wait=true`、三个 `must` filter 与 `wait=true`。测试中没有
    collection-create request，额外的 `PUT /collections/{collection}` 必须使 mock 验收失败。
 4. `shouldTreatAConfirmedAbsentCollectionAsAnIdempotentDeleteNoOp` 验证 collection GET 404 后正常返回，且既不
    发送 point delete，也不创建 collection；`shouldPropagateRemoteDeletionFailuresForLaterCompensation` 验证其余
