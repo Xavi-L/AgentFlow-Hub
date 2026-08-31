@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class ToolArgumentValidatorTest {
@@ -109,6 +110,77 @@ class ToolArgumentValidatorTest {
     }
 
     @Test
+    void shouldAcceptRequiredOnlyAndCompleteReportArguments() throws Exception {
+        assertThatCode(() -> validator.validate(
+                reportSchema(),
+                json("{\"title\":\"支付失败报告\",\"summary\":\"订单支付失败。\"}")
+        )).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(
+                reportSchema(),
+                json("""
+                        {
+                          "title":"支付失败报告",
+                          "summary":"订单支付失败。",
+                          "rootCause":"支付网关响应超时。",
+                          "suggestions":["检查网关状态。","确认订单未重复扣款。"]
+                        }
+                        """)
+        )).doesNotThrowAnyException();
+    }
+
+    @Test
+    void shouldRejectEveryInvalidReportStringBeforeExecution() throws Exception {
+        assertReportInvalid(json("{\"summary\":\"订单支付失败。\"}"));
+        assertReportInvalid(json("{\"title\":\"报告\"}"));
+        assertReportInvalid(json("{\"title\":null,\"summary\":\"结论\"}"));
+        assertReportInvalid(json("{\"title\":29,\"summary\":\"结论\"}"));
+        assertReportInvalid(json("{\"title\":\"报告\",\"summary\":\"\"}"));
+        assertReportInvalid(json("{\"title\":\"报告\",\"summary\":\"结论\",\"rootCause\":\"   \"}"));
+        assertReportInvalid(json("{\"title\":\"" + "a".repeat(256) + "\",\"summary\":\"结论\"}"));
+        assertReportInvalid(json("{\"title\":\"报告\",\"summary\":\"" + "a".repeat(4001) + "\"}"));
+        assertReportInvalid(json("{\"title\":\"报告\",\"summary\":\"结论\",\"extra\":true}"));
+    }
+
+    @Test
+    void shouldRejectInvalidSuggestionArraysAndElementsBeforeExecution() throws Exception {
+        assertReportInvalid(json("{\"title\":\"报告\",\"summary\":\"结论\",\"suggestions\":[]}"));
+        assertReportInvalid(json("{\"title\":\"报告\",\"summary\":\"结论\",\"suggestions\":\"检查\"}"));
+        assertReportInvalid(json("{\"title\":\"报告\",\"summary\":\"结论\",\"suggestions\":[1]}"));
+        assertReportInvalid(json("{\"title\":\"报告\",\"summary\":\"结论\",\"suggestions\":[\"\"]}"));
+        assertReportInvalid(json("{\"title\":\"报告\",\"summary\":\"结论\",\"suggestions\":[\"   \"]}"));
+        assertReportInvalid(json(
+                "{\"title\":\"报告\",\"summary\":\"结论\",\"suggestions\":[\""
+                        + "a".repeat(1001)
+                        + "\"]}"
+        ));
+
+        com.fasterxml.jackson.databind.node.ObjectNode tooMany = objectMapper.createObjectNode()
+                .put("title", "报告")
+                .put("summary", "结论");
+        for (int index = 0; index < 21; index++) {
+            tooMany.withArray("suggestions").add("建议" + index);
+        }
+        assertReportInvalid(tooMany);
+    }
+
+    @Test
+    void shouldFailClosedForUnsupportedArrayDefinitions() throws Exception {
+        List<String> unsupportedSchemas = List.of(
+                "{\"type\":\"array\"}",
+                "{\"type\":\"array\",\"items\":[{\"type\":\"string\"}]}",
+                "{\"type\":\"array\",\"items\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}}",
+                "{\"type\":\"array\",\"items\":{\"type\":\"string\"},\"contains\":{\"type\":\"string\"}}",
+                "{\"type\":\"array\",\"items\":{\"type\":\"string\"},\"uniqueItems\":true}",
+                "{\"type\":\"array\",\"items\":{\"type\":\"string\"},\"minItems\":2,\"maxItems\":1}"
+        );
+
+        for (String unsupportedSchema : unsupportedSchemas) {
+            assertThatThrownBy(() -> validator.validate(json(unsupportedSchema), json("[]")))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+    }
+
+    @Test
     void shouldFailClosedForNestedOrNonRequiredOnlyAnyOfDefinitions() throws Exception {
         JsonNode nestedAnyOf = json("""
                 {
@@ -144,7 +216,7 @@ class ToolArgumentValidatorTest {
 
         assertThatThrownBy(() -> validator.validate(unsupported, json("1")))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("unsupported in V28");
+                .hasMessageContaining("unsupported in V29");
     }
 
     private void assertInvalid(JsonNode arguments) throws JsonProcessingException {
@@ -154,6 +226,11 @@ class ToolArgumentValidatorTest {
 
     private void assertPaymentInvalid(JsonNode arguments) throws JsonProcessingException {
         assertThatThrownBy(() -> validator.validate(paymentLogSchema(), arguments))
+                .isInstanceOf(ToolArgumentValidationException.class);
+    }
+
+    private void assertReportInvalid(JsonNode arguments) throws JsonProcessingException {
+        assertThatThrownBy(() -> validator.validate(reportSchema(), arguments))
                 .isInstanceOf(ToolArgumentValidationException.class);
     }
 
@@ -183,6 +260,27 @@ class ToolArgumentValidatorTest {
                     {"required": ["orderNo"]},
                     {"required": ["errorCode"]}
                   ],
+                  "additionalProperties": false
+                }
+                """);
+    }
+
+    private JsonNode reportSchema() throws JsonProcessingException {
+        return json("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "title": {"type": "string", "minLength": 1, "maxLength": 255},
+                    "summary": {"type": "string", "minLength": 1, "maxLength": 4000},
+                    "rootCause": {"type": "string", "minLength": 1, "maxLength": 4000},
+                    "suggestions": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 20,
+                      "items": {"type": "string", "minLength": 1, "maxLength": 1000}
+                    }
+                  },
+                  "required": ["title", "summary"],
                   "additionalProperties": false
                 }
                 """);

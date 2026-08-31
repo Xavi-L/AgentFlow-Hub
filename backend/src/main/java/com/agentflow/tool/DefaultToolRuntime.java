@@ -11,9 +11,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
- * V27 synchronous runtime: resolve a visible database definition, validate arguments, write a
- * durable lifecycle log, route through the explicit built-in allowlist and standardize output.
- * Timeout and retry values remain persisted configuration only in this slice.
+ * Synchronous runtime established in V27: resolve a visible database definition, validate
+ * arguments, write a durable lifecycle log, route through the explicit built-in allowlist and
+ * standardize output. Timeout and retry values remain persisted configuration only.
  */
 @Service
 public class DefaultToolRuntime implements ToolRuntime {

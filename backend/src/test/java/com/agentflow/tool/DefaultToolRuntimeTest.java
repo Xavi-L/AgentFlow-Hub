@@ -107,6 +107,62 @@ class DefaultToolRuntimeTest {
     }
 
     @Test
+    void shouldExecuteReportThroughTheSharedRuntimeAndCompleteOneRunningLog() throws Exception {
+        ToolDefinition reportDefinition = reportDefinition();
+        JsonNode arguments = objectMapper.readTree("""
+                {
+                  "title":"order_1024 支付失败分析报告",
+                  "summary":"订单支付失败。",
+                  "suggestions":["检查网关状态。"]
+                }
+                """);
+        JsonNode data = objectMapper.createObjectNode().put(
+                "markdown",
+                "# order_1024 支付失败分析报告\n\n## 结论\n订单支付失败。"
+        );
+        when(definitionService.findActiveById(reportDefinition.id()))
+                .thenReturn(Optional.of(reportDefinition));
+        when(logService.recordRunning(any(), any(), any())).thenReturn(505L);
+        when(executor.execute(reportDefinition, arguments)).thenReturn(
+                new BuiltinToolHandler.HandlerResult("已生成 Markdown 处理报告。", data)
+        );
+
+        ToolExecutionResult result = runtime.execute(
+                ToolExecutionCommand.standalone(reportDefinition.id(), arguments)
+        );
+
+        assertThat(result.success()).isTrue();
+        assertThat(result.toolCode()).isEqualTo("report_generate");
+        assertThat(result.summary()).isEqualTo("已生成 Markdown 处理报告。");
+        assertThat(result.data()).isEqualTo(data);
+        verify(logService).recordRunning(any(), any(), any());
+        verify(logService).recordSuccess(505L, result);
+        verify(logService, never()).recordFailed(any(), any());
+    }
+
+    @Test
+    void shouldRejectInvalidReportArrayBeforeCreatingARunningLog() throws Exception {
+        ToolDefinition reportDefinition = reportDefinition();
+        JsonNode arguments = objectMapper.readTree("""
+                {"title":"报告","summary":"结论","suggestions":["有效建议",29]}
+                """);
+        ToolExecutionCommand command = ToolExecutionCommand.standalone(reportDefinition.id(), arguments);
+        when(definitionService.findActiveById(reportDefinition.id()))
+                .thenReturn(Optional.of(reportDefinition));
+
+        assertThatThrownBy(() -> runtime.execute(command))
+                .isInstanceOfSatisfying(BusinessException.class, ex -> assertThat(ex.getErrorCode())
+                        .isEqualTo(ErrorCode.TOOL_ARGUMENT_INVALID));
+
+        ArgumentCaptor<ToolExecutionResult> resultCaptor = ArgumentCaptor.forClass(ToolExecutionResult.class);
+        verify(logService).recordRejected(any(), any(), resultCaptor.capture(), any());
+        assertThat(resultCaptor.getValue().toolCode()).isEqualTo("report_generate");
+        assertThat(resultCaptor.getValue().errorCode()).isEqualTo("TOOL_ARGUMENT_INVALID");
+        verify(logService, never()).recordRunning(any(), any(), any());
+        verifyNoInteractions(executor);
+    }
+
+    @Test
     void shouldReturnToolNotFoundWithoutWritingALog() {
         when(definitionService.findActiveById(999L)).thenReturn(Optional.empty());
 
@@ -232,6 +288,41 @@ class DefaultToolRuntimeTest {
                 0,
                 false,
                 "MEDIUM",
+                "ACTIVE"
+        );
+    }
+
+    private ToolDefinition reportDefinition() throws Exception {
+        return new ToolDefinition(
+                290000000000000001L,
+                "report_generate",
+                "Report Generate",
+                "description",
+                "BUILTIN",
+                objectMapper.readTree("""
+                        {
+                          "type":"object",
+                          "properties":{
+                            "title":{"type":"string","minLength":1,"maxLength":255},
+                            "summary":{"type":"string","minLength":1,"maxLength":4000},
+                            "rootCause":{"type":"string","minLength":1,"maxLength":4000},
+                            "suggestions":{
+                              "type":"array",
+                              "minItems":1,
+                              "maxItems":20,
+                              "items":{"type":"string","minLength":1,"maxLength":1000}
+                            }
+                          },
+                          "required":["title","summary"],
+                          "additionalProperties":false
+                        }
+                        """),
+                objectMapper.createObjectNode(),
+                objectMapper.readTree("{\"handler\":\"reportGenerateTool\",\"readonly\":true}"),
+                10000,
+                0,
+                false,
+                "LOW",
                 "ACTIVE"
         );
     }

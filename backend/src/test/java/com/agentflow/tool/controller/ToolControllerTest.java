@@ -32,7 +32,11 @@ class ToolControllerTest {
     void shouldListOnlyTheSafeActiveToolProjection() throws Exception {
         ToolDefinitionService definitionService = Mockito.mock(ToolDefinitionService.class);
         ToolRuntime runtime = Mockito.mock(ToolRuntime.class);
-        when(definitionService.listActive()).thenReturn(List.of(definition(), paymentDefinition()));
+        when(definitionService.listActive()).thenReturn(List.of(
+                definition(),
+                paymentDefinition(),
+                reportDefinition()
+        ));
 
         mockMvc(definitionService, runtime).perform(MockMvcRequestBuilders.get("/api/v1/tools")
                         .header("X-Trace-Id", "af-test-tool-list"))
@@ -42,7 +46,7 @@ class ToolControllerTest {
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
                         .value("Tools retrieved"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.data.length()")
-                        .value(2))
+                        .value(3))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
                         "$.data[0].length()"
                 ).value(12))
@@ -90,6 +94,36 @@ class ToolControllerTest {
                 ).value(2))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
                         "$.data[1].config"
+                ).doesNotExist())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data[2].length()"
+                ).value(12))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data[2].id"
+                ).value("290000000000000001"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data[2].toolCode"
+                ).value("report_generate"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data[2].timeoutMs"
+                ).value(10000))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data[2].permissionLevel"
+                ).value("LOW"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data[2].inputSchema.properties.suggestions.minItems"
+                ).value(1))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data[2].inputSchema.properties.suggestions.maxItems"
+                ).value(20))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data[2].inputSchema.properties.suggestions.items.type"
+                ).value("string"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data[2].outputSchema.properties.markdown.type"
+                ).value("string"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data[2].config"
                 ).doesNotExist());
 
         verify(definitionService).listActive();
@@ -241,6 +275,73 @@ class ToolControllerTest {
     }
 
     @Test
+    void shouldReturnOnlyTheDeterministicMarkdownFromTheSharedRuntimeEndpoint() throws Exception {
+        ToolDefinitionService definitionService = Mockito.mock(ToolDefinitionService.class);
+        ToolRuntime runtime = Mockito.mock(ToolRuntime.class);
+        String markdown = """
+                # order_1024 支付失败分析报告
+
+                ## 结论
+                订单支付失败。
+
+                ## 原因分析
+                支付网关响应超时。
+
+                ## 处理建议
+                1. 检查网关状态。
+                2. 确认订单未重复扣款。""";
+        ToolExecutionResult result = ToolExecutionResult.success(
+                "report_generate",
+                "已生成 Markdown 处理报告。",
+                objectMapper.createObjectNode().put("markdown", markdown),
+                3
+        );
+        when(runtime.execute(org.mockito.ArgumentMatchers.any())).thenReturn(result);
+
+        mockMvc(definitionService, runtime).perform(MockMvcRequestBuilders.post(
+                        "/api/v1/tools/{toolId}/test",
+                        290000000000000001L
+                ).contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "arguments":{
+                                    "title":"order_1024 支付失败分析报告",
+                                    "summary":"订单支付失败。",
+                                    "rootCause":"支付网关响应超时。",
+                                    "suggestions":["检查网关状态。","确认订单未重复扣款。"]
+                                  }
+                                }
+                                """)
+                        .header("X-Trace-Id", "af-test-report-generate-execute"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.toolCode"
+                ).value("report_generate"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.summary"
+                ).value("已生成 Markdown 处理报告。"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.data.length()"
+                ).value(1))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.data.markdown"
+                ).value(markdown))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.data.title"
+                ).doesNotExist());
+
+        ArgumentCaptor<ToolExecutionCommand> captor = ArgumentCaptor.forClass(ToolExecutionCommand.class);
+        verify(runtime).execute(captor.capture());
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().toolId())
+                .isEqualTo(290000000000000001L);
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().taskId()).isNull();
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().stepId()).isNull();
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().arguments().path("suggestions").get(0)
+                .textValue()).isEqualTo("检查网关状态。");
+        verifyNoInteractions(definitionService);
+    }
+
+    @Test
     void shouldRejectMalformedJsonBeforeToolRuntimeSoNoCallLogCanBeInvented() throws Exception {
         ToolDefinitionService definitionService = Mockito.mock(ToolDefinitionService.class);
         ToolRuntime runtime = Mockito.mock(ToolRuntime.class);
@@ -339,6 +440,48 @@ class ToolControllerTest {
                 0,
                 false,
                 "MEDIUM",
+                "ACTIVE"
+        );
+    }
+
+    private ToolDefinition reportDefinition() throws Exception {
+        return new ToolDefinition(
+                290000000000000001L,
+                "report_generate",
+                "Report Generate",
+                "description",
+                "BUILTIN",
+                objectMapper.readTree("""
+                        {
+                          "type":"object",
+                          "properties":{
+                            "title":{"type":"string","minLength":1,"maxLength":255},
+                            "summary":{"type":"string","minLength":1,"maxLength":4000},
+                            "rootCause":{"type":"string","minLength":1,"maxLength":4000},
+                            "suggestions":{
+                              "type":"array",
+                              "minItems":1,
+                              "maxItems":20,
+                              "items":{"type":"string","minLength":1,"maxLength":1000}
+                            }
+                          },
+                          "required":["title","summary"],
+                          "additionalProperties":false
+                        }
+                        """),
+                objectMapper.readTree("""
+                        {
+                          "type":"object",
+                          "properties":{"markdown":{"type":"string"}},
+                          "required":["markdown"],
+                          "additionalProperties":false
+                        }
+                        """),
+                objectMapper.readTree("{\"handler\":\"must-not-leak\",\"readonly\":true}"),
+                10000,
+                0,
+                false,
+                "LOW",
                 "ACTIVE"
         );
     }

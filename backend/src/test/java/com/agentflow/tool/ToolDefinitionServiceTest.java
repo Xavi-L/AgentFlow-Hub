@@ -42,13 +42,13 @@ class ToolDefinitionServiceTest {
     @Test
     void shouldReturnTheDatabaseOrderedActiveListWithoutOwnerInput() {
         ToolDefinitionMapper mapper = Mockito.mock(ToolDefinitionMapper.class);
-        when(mapper.selectAllActive()).thenReturn(List.of(orderRow(), paymentRow()));
+        when(mapper.selectAllActive()).thenReturn(List.of(orderRow(), paymentRow(), reportRow()));
         ToolDefinitionService service = new ToolDefinitionService(mapper, new ObjectMapper());
 
         List<ToolDefinition> definitions = service.listActive();
 
         assertThat(definitions).extracting(ToolDefinition::toolCode)
-                .containsExactly("order_query", "payment_log_query");
+                .containsExactly("order_query", "payment_log_query", "report_generate");
         ToolDefinition paymentDefinition = definitions.get(1);
         assertThat(paymentDefinition.id()).isEqualTo(280000000000000001L);
         assertThat(paymentDefinition.inputSchema().path("anyOf")).hasSize(2);
@@ -56,6 +56,21 @@ class ToolDefinitionServiceTest {
                 .isEqualTo("paymentLogQueryTool");
         assertThat(paymentDefinition.timeoutMs()).isEqualTo(5000);
         assertThat(paymentDefinition.permissionLevel()).isEqualTo("MEDIUM");
+        ToolDefinition reportDefinition = definitions.get(2);
+        assertThat(reportDefinition.id()).isEqualTo(290000000000000001L);
+        assertThat(reportDefinition.inputSchema().path("required").get(0).textValue())
+                .isEqualTo("title");
+        assertThat(reportDefinition.inputSchema().path("required").get(1).textValue())
+                .isEqualTo("summary");
+        assertThat(reportDefinition.inputSchema().path("properties").path("suggestions")
+                .path("items").path("type").textValue()).isEqualTo("string");
+        assertThat(reportDefinition.outputSchema().path("properties").fieldNames()).toIterable()
+                .containsExactly("markdown");
+        assertThat(reportDefinition.config().path("handler").textValue())
+                .isEqualTo("reportGenerateTool");
+        assertThat(reportDefinition.timeoutMs()).isEqualTo(10000);
+        assertThat(reportDefinition.retryCount()).isZero();
+        assertThat(reportDefinition.permissionLevel()).isEqualTo("LOW");
         verify(mapper).selectAllActive();
     }
 
@@ -129,6 +144,48 @@ class ToolDefinitionServiceTest {
         row.setRetryCount(0);
         row.setRequiresConfirmation(false);
         row.setPermissionLevel("MEDIUM");
+        row.setStatus("ACTIVE");
+        return row;
+    }
+
+    private static ToolDefinitionRow reportRow() {
+        ToolDefinitionRow row = new ToolDefinitionRow();
+        row.setId(290000000000000001L);
+        row.setToolCode("report_generate");
+        row.setName("Report Generate");
+        row.setDescription("description");
+        row.setType("BUILTIN");
+        row.setInputSchemaJson("""
+                {
+                  "type":"object",
+                  "properties":{
+                    "title":{"type":"string","minLength":1,"maxLength":255},
+                    "summary":{"type":"string","minLength":1,"maxLength":4000},
+                    "rootCause":{"type":"string","minLength":1,"maxLength":4000},
+                    "suggestions":{
+                      "type":"array",
+                      "minItems":1,
+                      "maxItems":20,
+                      "items":{"type":"string","minLength":1,"maxLength":1000}
+                    }
+                  },
+                  "required":["title","summary"],
+                  "additionalProperties":false
+                }
+                """);
+        row.setOutputSchemaJson("""
+                {
+                  "type":"object",
+                  "properties":{"markdown":{"type":"string"}},
+                  "required":["markdown"],
+                  "additionalProperties":false
+                }
+                """);
+        row.setConfigJson("{\"handler\":\"reportGenerateTool\",\"readonly\":true}");
+        row.setTimeoutMs(10000);
+        row.setRetryCount(0);
+        row.setRequiresConfirmation(false);
+        row.setPermissionLevel("LOW");
         row.setStatus("ACTIVE");
         return row;
     }

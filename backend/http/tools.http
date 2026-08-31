@@ -1,40 +1,57 @@
-# V27/V28 ToolRuntime manual checks for IntelliJ IDEA HTTP Client.
+# V27-V29 ToolRuntime manual checks for IntelliJ IDEA HTTP Client.
 #
 # First run "Login" from user-auth.http. It stores the short-lived token only in
 # IDEA's local HTTP-client session as agentflowAccessToken. These requests use the
-# deterministic order_query/payment_log_query definitions inserted by Flyway V13/V14.
+# deterministic order_query/payment_log_query/report_generate definitions inserted by Flyway
+# V13/V14/V15.
 #
 # This file is prepared acceptance input, not evidence that the requests have run.
 
 @baseUrl = http://localhost:8080
 @orderQueryToolId = 270000000000000001
 @paymentLogQueryToolId = 280000000000000001
+@reportGenerateToolId = 290000000000000001
 
-### V28 list the two visible built-in tools without exposing config.handler or audit fields.
+### V29 list the three visible built-in tools without exposing config.handler or audit fields.
 GET {{baseUrl}}/api/v1/tools
 Authorization: Bearer {{agentflowAccessToken}}
 X-Trace-Id: af-manual-tool-list-001
 
 > {%
-  client.test("the two safe active built-in definitions are returned", function () {
+  client.test("the three safe active built-in definitions are returned", function () {
     client.assert(response.status === 200, "Expected HTTP 200");
     client.assert(response.body.code === "OK", "Expected code OK");
     client.assert(Array.isArray(response.body.data), "Expected a tool array");
-    client.assert(response.body.data.length === 2, "Expected the V13 and V14 tool fixtures");
+    client.assert(response.body.data.length === 3, "Expected the V13-V15 tool fixtures");
     var orderTool = response.body.data.find(function (item) {
       return item.toolCode === "order_query";
     });
     var paymentTool = response.body.data.find(function (item) {
       return item.toolCode === "payment_log_query";
     });
+    var reportTool = response.body.data.find(function (item) {
+      return item.toolCode === "report_generate";
+    });
     client.assert(String(orderTool.id) === "270000000000000001", "Expected fixed order tool ID");
     client.assert(String(paymentTool.id) === "280000000000000001", "Expected fixed payment tool ID");
-    client.assert(orderTool.type === "BUILTIN" && paymentTool.type === "BUILTIN",
+    client.assert(String(reportTool.id) === "290000000000000001", "Expected fixed report tool ID");
+    client.assert(orderTool.type === "BUILTIN" && paymentTool.type === "BUILTIN"
+      && reportTool.type === "BUILTIN",
       "Expected BUILTIN types");
     client.assert(orderTool.permissionLevel === "MEDIUM" && paymentTool.permissionLevel === "MEDIUM",
       "Expected MEDIUM permissions");
+    client.assert(reportTool.permissionLevel === "LOW", "Expected LOW report permission");
     client.assert(orderTool.timeoutMs === 3000, "Expected order timeout configuration");
     client.assert(paymentTool.timeoutMs === 5000, "Expected payment timeout configuration");
+    client.assert(reportTool.timeoutMs === 10000, "Expected report timeout configuration");
+    client.assert(reportTool.inputSchema.properties.suggestions.minItems === 1,
+      "Expected suggestion minItems");
+    client.assert(reportTool.inputSchema.properties.suggestions.maxItems === 20,
+      "Expected suggestion maxItems");
+    client.assert(reportTool.inputSchema.properties.suggestions.items.type === "string",
+      "Expected homogeneous string suggestions");
+    client.assert(Object.keys(reportTool.outputSchema.properties).join(",") === "markdown",
+      "Expected markdown-only report output schema");
     response.body.data.forEach(function (tool) {
       client.assert(tool.retryCount === 0, "Expected zero retries");
       client.assert(tool.requiresConfirmation === false, "Expected no confirmation");
@@ -159,6 +176,202 @@ X-Trace-Id: af-manual-payment-log-empty-001
     client.assert(response.body.data.data.logs.length === 0, "Expected empty logs");
   });
 %}
+
+### V29 complete report: expected byte-for-byte deterministic Markdown and SUCCESS.
+POST {{baseUrl}}/api/v1/tools/{{reportGenerateToolId}}/test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-report-complete-001
+
+{
+  "arguments": {
+    "title": "order_1024 支付失败分析报告",
+    "summary": "订单支付失败。",
+    "rootCause": "支付网关响应超时。",
+    "suggestions": [
+      "检查网关状态。",
+      "确认订单未重复扣款。"
+    ]
+  }
+}
+
+> {%
+  client.test("report_generate returns the exact deterministic Markdown", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.success === true, "Expected successful tool result");
+    client.assert(response.body.data.toolCode === "report_generate", "Expected report tool result");
+    client.assert(response.body.data.summary === "已生成 Markdown 处理报告。", "Expected fixed summary");
+    var expectedMarkdown = "# order_1024 支付失败分析报告\n\n"
+      + "## 结论\n订单支付失败。\n\n"
+      + "## 原因分析\n支付网关响应超时。\n\n"
+      + "## 处理建议\n1. 检查网关状态。\n2. 确认订单未重复扣款。";
+    client.assert(response.body.data.data.markdown === expectedMarkdown, "Expected exact Markdown");
+    client.assert(Object.keys(response.body.data.data).join(",") === "markdown",
+      "Expected markdown as the only data field");
+  });
+%}
+
+### V29 required fields only: expected optional sections omitted and SUCCESS.
+POST {{baseUrl}}/api/v1/tools/{{reportGenerateToolId}}/test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-report-required-only-001
+
+{
+  "arguments": {
+    "title": "支付失败报告",
+    "summary": "订单支付失败。"
+  }
+}
+
+> {%
+  client.test("optional report sections are omitted independently", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    var markdown = response.body.data.data.markdown;
+    client.assert(markdown === "# 支付失败报告\n\n## 结论\n订单支付失败。",
+      "Expected title and conclusion only");
+    client.assert(markdown.indexOf("原因分析") === -1, "Root-cause section must be absent");
+    client.assert(markdown.indexOf("处理建议") === -1, "Suggestion section must be absent");
+  });
+%}
+
+### V29 missing title: expected 400 TOOL_ARGUMENT_INVALID and REJECTED before RUNNING.
+POST {{baseUrl}}/api/v1/tools/{{reportGenerateToolId}}/test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-report-missing-title-001
+
+{
+  "arguments": {
+    "summary": "订单支付失败。"
+  }
+}
+
+### V29 missing summary: expected 400 TOOL_ARGUMENT_INVALID and REJECTED before RUNNING.
+POST {{baseUrl}}/api/v1/tools/{{reportGenerateToolId}}/test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-report-missing-summary-001
+
+{
+  "arguments": {
+    "title": "支付失败报告"
+  }
+}
+
+### V29 blank string: expected 400 TOOL_ARGUMENT_INVALID and REJECTED.
+POST {{baseUrl}}/api/v1/tools/{{reportGenerateToolId}}/test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-report-blank-001
+
+{
+  "arguments": {
+    "title": "   ",
+    "summary": "订单支付失败。"
+  }
+}
+
+### V29 wrong string type: expected 400 TOOL_ARGUMENT_INVALID and REJECTED.
+POST {{baseUrl}}/api/v1/tools/{{reportGenerateToolId}}/test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-report-string-type-001
+
+{
+  "arguments": {
+    "title": "支付失败报告",
+    "summary": 1024
+  }
+}
+
+### V29 overlong title (256 code points): expected 400 TOOL_ARGUMENT_INVALID and REJECTED.
+POST {{baseUrl}}/api/v1/tools/{{reportGenerateToolId}}/test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-report-title-overlong-001
+
+{
+  "arguments": {
+    "title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "summary": "订单支付失败。"
+  }
+}
+
+### V29 empty suggestions: expected 400 TOOL_ARGUMENT_INVALID and REJECTED.
+POST {{baseUrl}}/api/v1/tools/{{reportGenerateToolId}}/test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-report-suggestions-empty-001
+
+{
+  "arguments": {
+    "title": "支付失败报告",
+    "summary": "订单支付失败。",
+    "suggestions": []
+  }
+}
+
+### V29 non-string suggestion: expected 400 TOOL_ARGUMENT_INVALID and REJECTED.
+POST {{baseUrl}}/api/v1/tools/{{reportGenerateToolId}}/test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-report-suggestion-type-001
+
+{
+  "arguments": {
+    "title": "支付失败报告",
+    "summary": "订单支付失败。",
+    "suggestions": ["检查网关状态。", 2]
+  }
+}
+
+### V29 blank suggestion: expected 400 TOOL_ARGUMENT_INVALID and REJECTED.
+POST {{baseUrl}}/api/v1/tools/{{reportGenerateToolId}}/test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-report-suggestion-blank-001
+
+{
+  "arguments": {
+    "title": "支付失败报告",
+    "summary": "订单支付失败。",
+    "suggestions": ["   "]
+  }
+}
+
+### V29 21 suggestions: expected 400 TOOL_ARGUMENT_INVALID and REJECTED.
+POST {{baseUrl}}/api/v1/tools/{{reportGenerateToolId}}/test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-report-suggestions-too-many-001
+
+{
+  "arguments": {
+    "title": "支付失败报告",
+    "summary": "订单支付失败。",
+    "suggestions": [
+      "建议01", "建议02", "建议03", "建议04", "建议05", "建议06", "建议07",
+      "建议08", "建议09", "建议10", "建议11", "建议12", "建议13", "建议14",
+      "建议15", "建议16", "建议17", "建议18", "建议19", "建议20", "建议21"
+    ]
+  }
+}
+
+### V29 additional field: expected 400 TOOL_ARGUMENT_INVALID and REJECTED.
+POST {{baseUrl}}/api/v1/tools/{{reportGenerateToolId}}/test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-report-extra-001
+
+{
+  "arguments": {
+    "title": "支付失败报告",
+    "summary": "订单支付失败。",
+    "orderNo": "order_1024"
+  }
+}
 
 ### V28 no filters: expected 400 TOOL_ARGUMENT_INVALID and REJECTED before RUNNING.
 POST {{baseUrl}}/api/v1/tools/{{paymentLogQueryToolId}}/test

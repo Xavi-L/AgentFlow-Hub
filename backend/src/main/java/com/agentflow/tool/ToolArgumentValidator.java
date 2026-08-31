@@ -8,16 +8,16 @@ import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
- * Deliberately small JSON-Schema validator. In addition to the V27 object/string/integer subset,
- * V28 supports only top-level anyOf branches whose sole keyword is required. It is not a general
- * JSON-Schema composition engine.
+ * Deliberately small JSON-Schema validator. In addition to the V27 object/string/integer subset
+ * and V28 top-level required-only anyOf, V29 supports only homogeneous string arrays described by
+ * one items schema plus minItems/maxItems. It is not a general JSON-Schema engine.
  */
 @Component
 public class ToolArgumentValidator {
 
     public void validate(JsonNode schema, JsonNode arguments) {
         JsonNode schemaObject = requireSchemaObject(schema);
-        validateSupportedAnyOfShape("arguments", schemaObject, true);
+        validateSupportedSchemaShape("arguments", schemaObject, true);
         validateNode("arguments", schemaObject, arguments);
         validateTopLevelAnyOf("arguments", schemaObject, arguments);
     }
@@ -32,23 +32,31 @@ public class ToolArgumentValidator {
             case "object" -> validateObject(path, schema, value);
             case "string" -> validateString(path, schema, value);
             case "integer" -> validateInteger(path, schema, value);
+            case "array" -> validateArray(path, schema, value);
             default -> throw invalidDefinition(
-                    path + " schema type is unsupported in V28: " + typeNode.textValue()
+                    path + " schema type is unsupported in V29: " + typeNode.textValue()
             );
         }
     }
 
-    private void validateSupportedAnyOfShape(String path, JsonNode schema, boolean topLevel) {
+    private void validateSupportedSchemaShape(String path, JsonNode schema, boolean topLevel) {
         JsonNode anyOfNode = schema.get("anyOf");
         if (anyOfNode != null) {
             if (!topLevel) {
-                throw invalidDefinition(path + ".anyOf is supported only at the top level in V28");
+                throw invalidDefinition(path + ".anyOf is supported only at the top level in V29");
             }
             JsonNode typeNode = schema.get("type");
             if (typeNode == null || !typeNode.isTextual() || !"object".equals(typeNode.textValue())) {
-                throw invalidDefinition(path + ".anyOf requires a top-level object schema in V28");
+                throw invalidDefinition(path + ".anyOf requires a top-level object schema in V29");
             }
             validateRequiredOnlyBranches(path, schema, anyOfNode);
+        }
+
+        JsonNode typeNode = schema.get("type");
+        if (typeNode != null && typeNode.isTextual() && "array".equals(typeNode.textValue())) {
+            JsonNode itemSchema = requireHomogeneousStringItemsSchema(path, schema);
+            validateSupportedSchemaShape(path + ".items", itemSchema, false);
+            validateArrayBounds(path, schema);
         }
 
         JsonNode propertiesNode = schema.get("properties");
@@ -61,7 +69,7 @@ public class ToolArgumentValidator {
         Iterator<Map.Entry<String, JsonNode>> properties = propertiesNode.properties().iterator();
         while (properties.hasNext()) {
             Map.Entry<String, JsonNode> property = properties.next();
-            validateSupportedAnyOfShape(
+            validateSupportedSchemaShape(
                     path + ".properties." + property.getKey(),
                     requireSchemaObject(property.getValue()),
                     false
@@ -71,7 +79,7 @@ public class ToolArgumentValidator {
 
     private void validateRequiredOnlyBranches(String path, JsonNode schema, JsonNode anyOfNode) {
         if (!anyOfNode.isArray() || anyOfNode.isEmpty()) {
-            throw invalidDefinition(path + ".anyOf must be a nonempty array in V28");
+            throw invalidDefinition(path + ".anyOf must be a nonempty array in V29");
         }
 
         JsonNode propertiesNode = schema.get("properties");
@@ -83,7 +91,7 @@ public class ToolArgumentValidator {
             JsonNode branch = anyOfNode.get(index);
             String branchPath = path + ".anyOf[" + index + "]";
             if (!branch.isObject() || branch.size() != 1 || !branch.has("required")) {
-                throw invalidDefinition(branchPath + " must contain only required in V28");
+                throw invalidDefinition(branchPath + " must contain only required in V29");
             }
             Set<String> branchRequired = requiredFields(branchPath, branch.get("required"));
             if (branchRequired.isEmpty()) {
@@ -207,6 +215,52 @@ public class ToolArgumentValidator {
         }
     }
 
+    private void validateArray(String path, JsonNode schema, JsonNode value) {
+        if (value == null || !value.isArray()) {
+            throw invalidArguments(path + " must be an array");
+        }
+
+        JsonNode itemSchema = requireHomogeneousStringItemsSchema(path, schema);
+        ArrayBounds bounds = validateArrayBounds(path, schema);
+        if (bounds.minimum() != null && value.size() < bounds.minimum()) {
+            throw invalidArguments(path + " has fewer items than minItems");
+        }
+        if (bounds.maximum() != null && value.size() > bounds.maximum()) {
+            throw invalidArguments(path + " has more items than maxItems");
+        }
+        for (int index = 0; index < value.size(); index++) {
+            validateString(path + "[" + index + "]", itemSchema, value.get(index));
+        }
+    }
+
+    private static JsonNode requireHomogeneousStringItemsSchema(String path, JsonNode schema) {
+        if (schema.has("contains")) {
+            throw invalidDefinition(path + ".contains is unsupported in V29");
+        }
+        if (schema.has("uniqueItems")) {
+            throw invalidDefinition(path + ".uniqueItems is unsupported in V29");
+        }
+
+        JsonNode itemsNode = schema.get("items");
+        if (itemsNode == null || !itemsNode.isObject()) {
+            throw invalidDefinition(path + ".items must be one schema object in V29");
+        }
+        JsonNode itemType = itemsNode.get("type");
+        if (itemType == null || !itemType.isTextual() || !"string".equals(itemType.textValue())) {
+            throw invalidDefinition(path + ".items must declare one homogeneous string schema in V29");
+        }
+        return itemsNode;
+    }
+
+    private static ArrayBounds validateArrayBounds(String path, JsonNode schema) {
+        Long minimum = optionalNonnegativeLong(path, schema, "minItems");
+        Long maximum = optionalNonnegativeLong(path, schema, "maxItems");
+        if (minimum != null && maximum != null && minimum > maximum) {
+            throw invalidDefinition(path + " minItems must not exceed maxItems");
+        }
+        return new ArrayBounds(minimum, maximum);
+    }
+
     private static Set<String> requiredFields(String path, JsonNode requiredNode) {
         Set<String> required = new HashSet<>();
         if (requiredNode == null) {
@@ -256,6 +310,9 @@ public class ToolArgumentValidator {
 
     private static IllegalStateException invalidDefinition(String message) {
         return new IllegalStateException(message);
+    }
+
+    private record ArrayBounds(Long minimum, Long maximum) {
     }
 }
 
