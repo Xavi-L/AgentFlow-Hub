@@ -1,0 +1,324 @@
+package com.agentflow.agent.controller;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.agentflow.agent.dto.AgentAppResponse;
+import com.agentflow.agent.dto.AgentAppSummaryResponse;
+import com.agentflow.agent.dto.CreateAgentAppRequest;
+import com.agentflow.agent.service.AgentAppService;
+import com.agentflow.common.api.ApiResponse;
+import com.agentflow.common.api.PageRequest;
+import com.agentflow.common.api.PageResult;
+import com.agentflow.common.error.GlobalExceptionHandler;
+import com.agentflow.common.web.TraceIdFilter;
+import com.agentflow.user.security.AuthenticatedUser;
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.util.List;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+class AgentAppControllerTest {
+
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void shouldCreateThroughTheUnified201Response() {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        AgentAppController controller = new AgentAppController(service);
+        AuthenticatedUser currentUser = currentUser();
+        CreateAgentAppRequest request = minimalRequest();
+        when(service.create(currentUser, request)).thenReturn(fullResponse());
+
+        ResponseEntity<ApiResponse<AgentAppResponse>> response = controller.create(currentUser, request);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(201);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getCode()).isEqualTo("OK");
+        assertThat(response.getBody().getMessage()).isEqualTo("Agent created");
+        assertThat(response.getBody().getData().id()).isEqualTo("301");
+        verify(service).create(currentUser, request);
+    }
+
+    @Test
+    void shouldBindThePrincipalAndReturnOnlyTheSafeFullCreateResponse() throws Exception {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        AuthenticatedUser currentUser = authenticate();
+        when(service.create(eq(currentUser), any(CreateAgentAppRequest.class))).thenReturn(fullResponse());
+
+        mockMvc(service).perform(post("/api/v1/agents")
+                        .header("X-Trace-Id", "af-test-agent-create")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "name":"Payment diagnosis agent",
+                                  "systemPrompt":"Diagnose payment failures.",
+                                  "modelProvider":"openai-compatible",
+                                  "modelName":"kimi-k2"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.code").value("OK"))
+                .andExpect(jsonPath("$.message").value("Agent created"))
+                .andExpect(jsonPath("$.data.id").value("301"))
+                .andExpect(jsonPath("$.data.temperature").value(0.2))
+                .andExpect(jsonPath("$.data.topP").value(0.8))
+                .andExpect(jsonPath("$.data.maxSteps").value(6))
+                .andExpect(jsonPath("$.data.maxToolCalls").value(4))
+                .andExpect(jsonPath("$.data.maxTokens").value(8000))
+                .andExpect(jsonPath("$.data.timeoutSeconds").value(120))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.userId").doesNotExist())
+                .andExpect(jsonPath("$.data.config").doesNotExist())
+                .andExpect(jsonPath("$.data.currentPromptVersionId").doesNotExist())
+                .andExpect(jsonPath("$.data.deletedAt").doesNotExist());
+
+        ArgumentCaptor<CreateAgentAppRequest> requestCaptor = ArgumentCaptor.forClass(
+                CreateAgentAppRequest.class
+        );
+        verify(service).create(eq(currentUser), requestCaptor.capture());
+        assertThat(requestCaptor.getValue().temperature()).isNull();
+        assertThat(requestCaptor.getValue().maxSteps()).isNull();
+    }
+
+    @Test
+    void shouldReturnOnlyCompactCurrentOwnerListItems() throws Exception {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        AuthenticatedUser currentUser = authenticate();
+        PageResult<AgentAppSummaryResponse> page = PageResult.of(
+                List.of(summaryResponse("401", "ACTIVE"), summaryResponse("400", "DISABLED")),
+                1,
+                20,
+                2
+        );
+        when(service.listOwnedBy(eq(currentUser), any(PageRequest.class))).thenReturn(page);
+
+        mockMvc(service).perform(get("/api/v1/agents?page=1&pageSize=20")
+                        .header("X-Trace-Id", "af-test-agent-list"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("OK"))
+                .andExpect(jsonPath("$.data.items.length()").value(2))
+                .andExpect(jsonPath("$.data.items[0].id").value("401"))
+                .andExpect(jsonPath("$.data.items[1].status").value("DISABLED"))
+                .andExpect(jsonPath("$.data.items[0].systemPrompt").doesNotExist())
+                .andExpect(jsonPath("$.data.items[0].temperature").doesNotExist())
+                .andExpect(jsonPath("$.data.items[0].maxSteps").doesNotExist())
+                .andExpect(jsonPath("$.data.items[0].userId").doesNotExist())
+                .andExpect(jsonPath("$.data.items[0].config").doesNotExist())
+                .andExpect(jsonPath("$.data.items[0].deletedAt").doesNotExist());
+
+        verify(service).listOwnedBy(eq(currentUser), any(PageRequest.class));
+    }
+
+    @Test
+    void shouldRejectEveryServerOwnedOrFutureBindingFieldBeforeCallingTheService() throws Exception {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        authenticate();
+
+        for (String forbiddenField : List.of(
+                "id",
+                "userId",
+                "status",
+                "config",
+                "currentPromptVersionId",
+                "createdAt",
+                "updatedAt",
+                "deletedAt",
+                "knowledgeBaseIds",
+                "toolIds"
+        )) {
+            mockMvc(service).perform(post("/api/v1/agents")
+                            .header("X-Trace-Id", "af-test-agent-forbidden-" + forbiddenField)
+                            .contentType("application/json")
+                            .content("""
+                                    {
+                                      "name":"Agent",
+                                      "systemPrompt":"Prompt",
+                                      "modelProvider":"openai-compatible",
+                                      "modelName":"model",
+                                      "%s":"client-controlled"
+                                    }
+                                    """.formatted(forbiddenField)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("COMMON_REQUEST_BODY_INVALID"));
+        }
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void shouldRejectWrongJsonTypesBeforeCallingTheService() throws Exception {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        authenticate();
+        List<String> invalidBodies = List.of(
+                validBodyWith("\"name\":123"),
+                validBodyWith("\"temperature\":\"0.2\""),
+                validBodyWith("\"topP\":true"),
+                validBodyWith("\"maxSteps\":1.5")
+        );
+
+        for (String invalidBody : invalidBodies) {
+            mockMvc(service).perform(post("/api/v1/agents")
+                            .header("X-Trace-Id", "af-test-agent-wrong-type")
+                            .contentType("application/json")
+                            .content(invalidBody))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("COMMON_REQUEST_BODY_INVALID"));
+        }
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void shouldRejectBlankUnsupportedOutOfRangeAndCrossFieldValuesBeforeCallingTheService()
+            throws Exception {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        authenticate();
+        List<String> invalidBodies = List.of(
+                body(" ", "Prompt", "openai-compatible", "model", ""),
+                body("Agent", " ", "openai-compatible", "model", ""),
+                body("Agent", "Prompt", "other", "model", ""),
+                body("Agent", "Prompt", "openai-compatible", " ", ""),
+                body("Agent", "Prompt", "openai-compatible", "model", ",\"temperature\":2.001"),
+                body("Agent", "Prompt", "openai-compatible", "model", ",\"topP\":0"),
+                body("Agent", "Prompt", "openai-compatible", "model", ",\"maxSteps\":6,\"maxToolCalls\":7"),
+                body("Agent", "Prompt", "openai-compatible", "model", ",\"maxTokens\":255"),
+                body("Agent", "Prompt", "openai-compatible", "model", ",\"timeoutSeconds\":601")
+        );
+
+        for (String invalidBody : invalidBodies) {
+            mockMvc(service).perform(post("/api/v1/agents")
+                            .header("X-Trace-Id", "af-test-agent-invalid")
+                            .contentType("application/json")
+                            .content(invalidBody))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("COMMON_PARAM_INVALID"));
+        }
+
+        verifyNoInteractions(service);
+    }
+
+    private static String validBodyWith(String replacementField) {
+        String nameField = replacementField.startsWith("\"name\"")
+                ? replacementField
+                : "\"name\":\"Agent\"," + replacementField;
+        return """
+                {
+                  %s,
+                  "systemPrompt":"Prompt",
+                  "modelProvider":"openai-compatible",
+                  "modelName":"model"
+                }
+                """.formatted(nameField);
+    }
+
+    private static String body(
+            String name,
+            String systemPrompt,
+            String modelProvider,
+            String modelName,
+            String extraFields
+    ) {
+        return """
+                {
+                  "name":"%s",
+                  "systemPrompt":"%s",
+                  "modelProvider":"%s",
+                  "modelName":"%s"%s
+                }
+                """.formatted(name, systemPrompt, modelProvider, modelName, extraFields);
+    }
+
+    private static CreateAgentAppRequest minimalRequest() {
+        return new CreateAgentAppRequest(
+                "Payment diagnosis agent",
+                null,
+                "Diagnose payment failures.",
+                "openai-compatible",
+                "kimi-k2",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
+    private static AgentAppResponse fullResponse() {
+        OffsetDateTime now = OffsetDateTime.parse("2026-08-31T10:00:00+08:00");
+        return new AgentAppResponse(
+                "301",
+                "Payment diagnosis agent",
+                null,
+                "Diagnose payment failures.",
+                "openai-compatible",
+                "kimi-k2",
+                new BigDecimal("0.2"),
+                new BigDecimal("0.8"),
+                6,
+                4,
+                8_000,
+                120,
+                "ACTIVE",
+                now,
+                now
+        );
+    }
+
+    private static AgentAppSummaryResponse summaryResponse(String id, String status) {
+        OffsetDateTime now = OffsetDateTime.parse("2026-08-31T10:00:00+08:00");
+        return new AgentAppSummaryResponse(
+                id,
+                "Agent " + id,
+                "Summary",
+                "openai-compatible",
+                "kimi-k2",
+                status,
+                now,
+                now
+        );
+    }
+
+    private static AuthenticatedUser authenticate() {
+        AuthenticatedUser currentUser = currentUser();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(currentUser, "test", List.of())
+        );
+        return currentUser;
+    }
+
+    private static AuthenticatedUser currentUser() {
+        return new AuthenticatedUser(101L, "xavier_01", "Xavier", "USER");
+    }
+
+    private static MockMvc mockMvc(AgentAppService service) {
+        return MockMvcBuilders
+                .standaloneSetup(new AgentAppController(service))
+                .addPlaceholderValue("agentflow.api.prefix", "/api/v1")
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
+                .addFilters(new TraceIdFilter())
+                .build();
+    }
+}

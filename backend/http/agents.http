@@ -1,0 +1,213 @@
+# V30 Agent root-resource manual checks for IntelliJ IDEA HTTP Client.
+#
+# First register/login a disposable test user through user-auth.http. The token stays in
+# IDEA's local session as agentflowAccessToken; never paste a real token into this file.
+#
+# This file is prepared acceptance input, not evidence that the requests have run.
+
+@baseUrl = http://localhost:8080
+
+### Create with only required fields: expected HTTP 201 and frozen V30 defaults.
+POST {{baseUrl}}/api/v1/agents
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-agent-defaults-001
+
+{
+  "name": "支付问题诊断助手",
+  "systemPrompt": "你是企业内部研发运营助手，负责分析支付问题。",
+  "modelProvider": "openai-compatible",
+  "modelName": "kimi-k2"
+}
+
+> {%
+  client.test("current user creates an ACTIVE Agent with frozen defaults", function () {
+    client.assert(response.status === 201, "Expected HTTP 201");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    var agent = response.body.data;
+    client.assert(typeof agent.id === "string", "BIGINT ID must be a string");
+    client.assert(agent.temperature === 0.2, "Expected temperature 0.2");
+    client.assert(agent.topP === 0.8, "Expected topP 0.8");
+    client.assert(agent.maxSteps === 6, "Expected maxSteps 6");
+    client.assert(agent.maxToolCalls === 4, "Expected maxToolCalls 4");
+    client.assert(agent.maxTokens === 8000, "Expected maxTokens 8000");
+    client.assert(agent.timeoutSeconds === 120, "Expected timeoutSeconds 120");
+    client.assert(agent.status === "ACTIVE", "Expected ACTIVE status");
+    client.assert(agent.userId === undefined, "Owner ID must not be returned");
+    client.assert(agent.config === undefined, "Internal config must not be returned");
+    client.assert(agent.currentPromptVersionId === undefined, "Prompt version is outside V30");
+    client.assert(agent.deletedAt === undefined, "Deletion marker must not be returned");
+    client.global.set("agentflowAgentId", agent.id);
+  });
+%}
+
+### Create explicit bounded configuration: expected exact public configuration in HTTP 201.
+POST {{baseUrl}}/api/v1/agents
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-agent-explicit-001
+
+{
+  "name": "支付问题诊断助手（显式配置）",
+  "description": "用于验证 V30 公开配置。",
+  "systemPrompt": "只分析输入中已有的支付事实。",
+  "modelProvider": "openai-compatible",
+  "modelName": "qwen3",
+  "temperature": 0,
+  "topP": 1,
+  "maxSteps": 20,
+  "maxToolCalls": 20,
+  "maxTokens": 100000,
+  "timeoutSeconds": 600
+}
+
+> {%
+  client.test("explicit Agent configuration is returned without internal fields", function () {
+    client.assert(response.status === 201, "Expected HTTP 201");
+    var agent = response.body.data;
+    client.assert(agent.temperature === 0, "Expected lower temperature boundary");
+    client.assert(agent.topP === 1, "Expected upper topP boundary");
+    client.assert(agent.maxSteps === 20 && agent.maxToolCalls === 20, "Expected equal step/tool bounds");
+    client.assert(agent.maxTokens === 100000, "Expected max token boundary");
+    client.assert(agent.timeoutSeconds === 600, "Expected timeout boundary");
+  });
+%}
+
+### Whitespace-only description becomes null.
+POST {{baseUrl}}/api/v1/agents
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-agent-blank-description-001
+
+{
+  "name": "空描述 Agent",
+  "description": "   ",
+  "systemPrompt": "验证描述归一化。",
+  "modelProvider": "openai-compatible",
+  "modelName": "kimi-k2"
+}
+
+> {%
+  client.test("blank description is normalized to null", function () {
+    client.assert(response.status === 201, "Expected HTTP 201");
+    client.assert(
+      response.body.data.description === null || response.body.data.description === undefined,
+      "Expected no non-null description"
+    );
+  });
+%}
+
+### List current owner's non-deleted Agents: summaries must omit the prompt and budgets.
+GET {{baseUrl}}/api/v1/agents?page=1&pageSize=20
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-list-001
+
+> {%
+  client.test("current owner receives compact paged Agent summaries", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(Array.isArray(response.body.data.items), "Expected items array");
+    var createdId = client.global.get("agentflowAgentId");
+    var created = response.body.data.items.find(function (item) {
+      return item.id === createdId;
+    });
+    client.assert(created !== undefined, "Expected the current user's created Agent");
+    client.assert(created.systemPrompt === undefined, "List must omit systemPrompt");
+    client.assert(created.temperature === undefined, "List must omit temperature");
+    client.assert(created.topP === undefined, "List must omit topP");
+    client.assert(created.maxSteps === undefined, "List must omit execution budgets");
+    client.assert(created.userId === undefined, "List must omit owner ID");
+    client.assert(created.config === undefined, "List must omit internal config");
+    client.assert(created.deletedAt === undefined, "List must omit deletion marker");
+  });
+%}
+
+### Client cannot forge owner: expected 400 / COMMON_REQUEST_BODY_INVALID.
+POST {{baseUrl}}/api/v1/agents
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-agent-forged-owner-001
+
+{
+  "name": "Forged owner",
+  "systemPrompt": "Must be rejected.",
+  "modelProvider": "openai-compatible",
+  "modelName": "kimi-k2",
+  "userId": "999"
+}
+
+### Client cannot set status/config: expected 400 / COMMON_REQUEST_BODY_INVALID.
+POST {{baseUrl}}/api/v1/agents
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-agent-server-fields-001
+
+{
+  "name": "Forged state",
+  "systemPrompt": "Must be rejected.",
+  "modelProvider": "openai-compatible",
+  "modelName": "kimi-k2",
+  "status": "DISABLED",
+  "config": {}
+}
+
+### Future binding input is outside V30: expected 400 / COMMON_REQUEST_BODY_INVALID.
+POST {{baseUrl}}/api/v1/agents
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-agent-future-binding-001
+
+{
+  "name": "Premature bindings",
+  "systemPrompt": "Must be rejected.",
+  "modelProvider": "openai-compatible",
+  "modelName": "kimi-k2",
+  "knowledgeBaseIds": ["10"],
+  "toolIds": ["270000000000000001"]
+}
+
+### Wrong JSON type: expected 400 / COMMON_REQUEST_BODY_INVALID.
+POST {{baseUrl}}/api/v1/agents
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-agent-wrong-type-001
+
+{
+  "name": "Wrong type",
+  "systemPrompt": "Must be rejected.",
+  "modelProvider": "openai-compatible",
+  "modelName": "kimi-k2",
+  "maxSteps": 6.5
+}
+
+### Cross-field budget violation: expected 400 / COMMON_PARAM_INVALID.
+POST {{baseUrl}}/api/v1/agents
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-agent-invalid-budget-001
+
+{
+  "name": "Invalid budget",
+  "systemPrompt": "Must be rejected.",
+  "modelProvider": "openai-compatible",
+  "modelName": "kimi-k2",
+  "maxSteps": 6,
+  "maxToolCalls": 7
+}
+
+### Unsupported V0.1 provider: expected 400 / COMMON_PARAM_INVALID.
+POST {{baseUrl}}/api/v1/agents
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-agent-provider-001
+
+{
+  "name": "Unsupported provider",
+  "systemPrompt": "Must be rejected.",
+  "modelProvider": "other-provider",
+  "modelName": "model"
+}
+
+### Authentication remains required: expected 401 / AUTH_UNAUTHENTICATED.
+GET {{baseUrl}}/api/v1/agents?page=1&pageSize=20
+X-Trace-Id: af-manual-agent-no-auth-001
