@@ -1,0 +1,171 @@
+# V27 ToolRuntime manual checks for IntelliJ IDEA HTTP Client.
+#
+# First run "Login" from user-auth.http. It stores the short-lived token only in
+# IDEA's local HTTP-client session as agentflowAccessToken. These requests use the
+# one deterministic order_query definition inserted by Flyway V13.
+#
+# This file is prepared acceptance input, not evidence that the requests have run.
+
+@baseUrl = http://localhost:8080
+@orderQueryToolId = 270000000000000001
+
+### V27 list the one visible built-in tool without exposing config.handler or audit fields.
+GET {{baseUrl}}/api/v1/tools
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-tool-list-001
+
+> {%
+  client.test("only the safe active order_query definition is returned", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(Array.isArray(response.body.data), "Expected a tool array");
+    client.assert(response.body.data.length === 1, "Expected the one V13 tool fixture");
+    var tool = response.body.data[0];
+    client.assert(String(tool.id) === "270000000000000001", "Expected fixed tool ID");
+    client.assert(tool.toolCode === "order_query", "Expected order_query");
+    client.assert(tool.type === "BUILTIN", "Expected BUILTIN type");
+    client.assert(tool.permissionLevel === "MEDIUM", "Expected MEDIUM permission");
+    client.assert(tool.timeoutMs === 3000, "Expected persisted timeout configuration");
+    client.assert(tool.retryCount === 0, "Expected zero retries");
+    client.assert(tool.requiresConfirmation === false, "Expected no confirmation");
+    client.assert(tool.status === "ACTIVE", "Expected ACTIVE status");
+    client.assert(tool.config === undefined, "Internal config must not be returned");
+    client.assert(tool.handler === undefined, "Internal handler must not be returned");
+    client.assert(tool.createdAt === undefined, "Audit time must not be returned");
+    client.assert(tool.updatedAt === undefined, "Audit time must not be returned");
+    client.assert(tool.deletedAt === undefined, "Soft-delete time must not be returned");
+  });
+%}
+
+### V27 successful order_query through ToolRuntime: expected the six safe V26 order fields.
+POST {{baseUrl}}/api/v1/tools/{{orderQueryToolId}}/test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-order-query-success-001
+
+{
+  "arguments": {
+    "orderNo": "order_1024"
+  }
+}
+
+> {%
+  client.test("order_query returns the PostgreSQL-backed V26 order", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.success === true, "Expected successful tool result");
+    client.assert(response.body.data.toolCode === "order_query", "Expected order_query result");
+    var order = response.body.data.data;
+    client.assert(order.orderNo === "order_1024", "Expected fixture order");
+    client.assert(Number(order.amount) === 199, "Expected amount 199.00");
+    client.assert(order.currency === "CNY", "Expected CNY");
+    client.assert(order.status === "CREATED", "Expected CREATED order status");
+    client.assert(order.paymentStatus === "PAY_FAILED", "Expected PAY_FAILED");
+    client.assert(order.errorCode === "E_PAY_TIMEOUT", "Expected timeout error");
+    client.assert(Object.keys(order).sort().join(",")
+      === "amount,currency,errorCode,orderNo,paymentStatus,status",
+      "Tool data must expose exactly the six V26 fields");
+  });
+%}
+
+### V27 missing required argument: expected 400 TOOL_ARGUMENT_INVALID and a REJECTED log.
+POST {{baseUrl}}/api/v1/tools/{{orderQueryToolId}}/test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-order-query-missing-argument-001
+
+{
+  "arguments": {}
+}
+
+> {%
+  client.test("missing orderNo is rejected by the persisted input schema", function () {
+    client.assert(response.status === 400, "Expected HTTP 400");
+    client.assert(response.body.code === "TOOL_ARGUMENT_INVALID", "Expected tool argument code");
+  });
+%}
+
+### V27 wrong argument type: expected 400 TOOL_ARGUMENT_INVALID and a REJECTED log.
+POST {{baseUrl}}/api/v1/tools/{{orderQueryToolId}}/test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-order-query-wrong-type-001
+
+{
+  "arguments": {
+    "orderNo": 1024
+  }
+}
+
+### V27 whitespace-only argument: expected 400 TOOL_ARGUMENT_INVALID and a REJECTED log.
+POST {{baseUrl}}/api/v1/tools/{{orderQueryToolId}}/test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-order-query-blank-001
+
+{
+  "arguments": {
+    "orderNo": "   "
+  }
+}
+
+### V27 additional argument: expected 400 TOOL_ARGUMENT_INVALID and a REJECTED log.
+POST {{baseUrl}}/api/v1/tools/{{orderQueryToolId}}/test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-order-query-extra-field-001
+
+{
+  "arguments": {
+    "orderNo": "order_1024",
+    "userNo": "must-not-be-accepted"
+  }
+}
+
+### V27 order does not exist: expected 404 COMMON_NOT_FOUND and a FAILED log.
+POST {{baseUrl}}/api/v1/tools/{{orderQueryToolId}}/test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-order-query-order-missing-001
+
+{
+  "arguments": {
+    "orderNo": "order_missing"
+  }
+}
+
+### V27 tool does not exist: expected 404 TOOL_NOT_FOUND and no call log.
+POST {{baseUrl}}/api/v1/tools/999999/test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-tool-missing-001
+
+{
+  "arguments": {
+    "orderNo": "order_1024"
+  }
+}
+
+### V27 malformed JSON: expected 400 COMMON_REQUEST_BODY_INVALID and no call log.
+POST {{baseUrl}}/api/v1/tools/{{orderQueryToolId}}/test
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-tool-malformed-body-001
+
+{
+  "arguments":
+
+### V27 tool discovery still requires login: expected HTTP 401 and no call log.
+GET {{baseUrl}}/api/v1/tools
+X-Trace-Id: af-manual-tool-list-no-token-001
+
+### V27 tool testing still requires login: expected HTTP 401 and no call log.
+POST {{baseUrl}}/api/v1/tools/{{orderQueryToolId}}/test
+Content-Type: application/json
+X-Trace-Id: af-manual-tool-test-no-token-001
+
+{
+  "arguments": {
+    "orderNo": "order_1024"
+  }
+}

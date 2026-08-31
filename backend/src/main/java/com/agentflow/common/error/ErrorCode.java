@@ -67,6 +67,9 @@ public enum ErrorCode {
             "Document deletion is temporarily unavailable",
             503
     ),
+    TOOL_ARGUMENT_INVALID("TOOL_ARGUMENT_INVALID", "Tool arguments are invalid", 400),
+    TOOL_NOT_FOUND("TOOL_NOT_FOUND", "Tool is not found", 404),
+    TOOL_EXECUTION_FAILED("TOOL_EXECUTION_FAILED", "Tool execution failed", 500),
     KNOWLEDGE_DOCUMENT_FILE_REQUIRED("KNOWLEDGE_DOCUMENT_FILE_REQUIRED", "A document file is required", 400),
     KNOWLEDGE_DOCUMENT_FILE_EMPTY("KNOWLEDGE_DOCUMENT_FILE_EMPTY", "Document file must not be empty", 400),
     KNOWLEDGE_DOCUMENT_FILE_NAME_INVALID("KNOWLEDGE_DOCUMENT_FILE_NAME_INVALID", "Document file name is invalid", 400),
