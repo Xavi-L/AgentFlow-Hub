@@ -16,46 +16,77 @@ class BuiltinToolExecutorTest {
 
     @Test
     void shouldRouteOnlyTheExplicitOrderCodeAndHandlerPair() throws Exception {
-        OrderQueryToolHandler handler = Mockito.mock(OrderQueryToolHandler.class);
+        OrderQueryToolHandler orderHandler = Mockito.mock(OrderQueryToolHandler.class);
+        PaymentLogQueryToolHandler paymentHandler = Mockito.mock(PaymentLogQueryToolHandler.class);
         JsonNode arguments = objectMapper.readTree("{\"orderNo\":\"order_1024\"}");
         BuiltinToolHandler.HandlerResult expected = new BuiltinToolHandler.HandlerResult(
                 "summary",
                 objectMapper.readTree("{\"orderNo\":\"order_1024\"}")
         );
-        when(handler.execute(arguments)).thenReturn(expected);
+        when(orderHandler.execute(arguments)).thenReturn(expected);
 
-        BuiltinToolHandler.HandlerResult result = new BuiltinToolExecutor(handler).execute(
+        BuiltinToolHandler.HandlerResult result = new BuiltinToolExecutor(
+                orderHandler,
+                paymentHandler
+        ).execute(
                 definition("order_query", "orderQueryTool"),
                 arguments
         );
 
         assertThat(result).isSameAs(expected);
-        verify(handler).execute(arguments);
+        verify(orderHandler).execute(arguments);
+        verifyNoInteractions(paymentHandler);
+    }
+
+    @Test
+    void shouldRouteOnlyTheExplicitPaymentLogCodeAndHandlerPair() throws Exception {
+        OrderQueryToolHandler orderHandler = Mockito.mock(OrderQueryToolHandler.class);
+        PaymentLogQueryToolHandler paymentHandler = Mockito.mock(PaymentLogQueryToolHandler.class);
+        JsonNode arguments = objectMapper.readTree("{\"errorCode\":\"E_PAY_TIMEOUT\"}");
+        BuiltinToolHandler.HandlerResult expected = new BuiltinToolHandler.HandlerResult(
+                "summary",
+                objectMapper.readTree("{\"logs\":[]}")
+        );
+        when(paymentHandler.execute(arguments)).thenReturn(expected);
+
+        BuiltinToolHandler.HandlerResult result = new BuiltinToolExecutor(
+                orderHandler,
+                paymentHandler
+        ).execute(
+                definition("payment_log_query", "paymentLogQueryTool"),
+                arguments
+        );
+
+        assertThat(result).isSameAs(expected);
+        verify(paymentHandler).execute(arguments);
+        verifyNoInteractions(orderHandler);
     }
 
     @Test
     void shouldRejectAnUnknownDatabaseHandlerWithoutDynamicBeanOrClassExecution() throws Exception {
-        OrderQueryToolHandler handler = Mockito.mock(OrderQueryToolHandler.class);
+        OrderQueryToolHandler orderHandler = Mockito.mock(OrderQueryToolHandler.class);
+        PaymentLogQueryToolHandler paymentHandler = Mockito.mock(PaymentLogQueryToolHandler.class);
 
-        assertThatThrownBy(() -> new BuiltinToolExecutor(handler).execute(
+        assertThatThrownBy(() -> new BuiltinToolExecutor(orderHandler, paymentHandler).execute(
                 definition("order_query", "java.lang.Runtime"),
                 objectMapper.createObjectNode()
         )).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("allowlist");
 
-        verifyNoInteractions(handler);
+        verifyNoInteractions(orderHandler, paymentHandler);
     }
 
     @Test
     void shouldRejectEvenAnAllowedHandlerWhenTheToolCodeIsNotAllowlisted() throws Exception {
-        OrderQueryToolHandler handler = Mockito.mock(OrderQueryToolHandler.class);
+        OrderQueryToolHandler orderHandler = Mockito.mock(OrderQueryToolHandler.class);
+        PaymentLogQueryToolHandler paymentHandler = Mockito.mock(PaymentLogQueryToolHandler.class);
 
-        assertThatThrownBy(() -> new BuiltinToolExecutor(handler).execute(
+        assertThatThrownBy(() -> new BuiltinToolExecutor(orderHandler, paymentHandler).execute(
                 definition("payment_log_query", "orderQueryTool"),
                 objectMapper.createObjectNode()
         )).isInstanceOf(IllegalStateException.class);
 
-        verifyNoInteractions(handler);
+        verifyNoInteractions(orderHandler, paymentHandler);
     }
 
     private ToolDefinition definition(String code, String handler) throws Exception {

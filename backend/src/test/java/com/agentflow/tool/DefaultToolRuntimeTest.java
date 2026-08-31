@@ -87,6 +87,26 @@ class DefaultToolRuntimeTest {
     }
 
     @Test
+    void shouldRejectPaymentLimitOnlyBeforeCreatingARunningLog() throws Exception {
+        ToolDefinition paymentDefinition = paymentDefinition();
+        JsonNode arguments = objectMapper.readTree("{\"limit\":10}");
+        ToolExecutionCommand command = ToolExecutionCommand.standalone(paymentDefinition.id(), arguments);
+        when(definitionService.findActiveById(paymentDefinition.id()))
+                .thenReturn(Optional.of(paymentDefinition));
+
+        assertThatThrownBy(() -> runtime.execute(command))
+                .isInstanceOfSatisfying(BusinessException.class, ex -> assertThat(ex.getErrorCode())
+                        .isEqualTo(ErrorCode.TOOL_ARGUMENT_INVALID));
+
+        ArgumentCaptor<ToolExecutionResult> resultCaptor = ArgumentCaptor.forClass(ToolExecutionResult.class);
+        verify(logService).recordRejected(any(), any(), resultCaptor.capture(), any());
+        assertThat(resultCaptor.getValue().toolCode()).isEqualTo("payment_log_query");
+        assertThat(resultCaptor.getValue().errorCode()).isEqualTo("TOOL_ARGUMENT_INVALID");
+        verify(logService, never()).recordRunning(any(), any(), any());
+        verifyNoInteractions(executor);
+    }
+
+    @Test
     void shouldReturnToolNotFoundWithoutWritingALog() {
         when(definitionService.findActiveById(999L)).thenReturn(Optional.empty());
 
@@ -177,6 +197,38 @@ class DefaultToolRuntimeTest {
                 objectMapper.createObjectNode(),
                 objectMapper.readTree("{\"handler\":\"orderQueryTool\",\"readonly\":true}"),
                 3000,
+                0,
+                false,
+                "MEDIUM",
+                "ACTIVE"
+        );
+    }
+
+    private ToolDefinition paymentDefinition() throws Exception {
+        return new ToolDefinition(
+                280000000000000001L,
+                "payment_log_query",
+                "Payment Log Query",
+                "description",
+                "BUILTIN",
+                objectMapper.readTree("""
+                        {
+                          "type": "object",
+                          "properties": {
+                            "orderNo": {"type": "string", "minLength": 1, "maxLength": 64},
+                            "errorCode": {"type": "string", "minLength": 1, "maxLength": 64},
+                            "limit": {"type": "integer", "minimum": 1, "maximum": 20, "default": 10}
+                          },
+                          "anyOf": [
+                            {"required": ["orderNo"]},
+                            {"required": ["errorCode"]}
+                          ],
+                          "additionalProperties": false
+                        }
+                        """),
+                objectMapper.createObjectNode(),
+                objectMapper.readTree("{\"handler\":\"paymentLogQueryTool\",\"readonly\":true}"),
+                5000,
                 0,
                 false,
                 "MEDIUM",

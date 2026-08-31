@@ -77,16 +77,83 @@ class ToolArgumentValidatorTest {
     }
 
     @Test
+    void shouldAcceptEitherOrBothTopLevelRequiredOnlyAnyOfBranches() throws Exception {
+        assertThatCode(() -> validator.validate(
+                paymentLogSchema(),
+                json("{\"orderNo\":\"order_1024\"}")
+        )).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(
+                paymentLogSchema(),
+                json("{\"errorCode\":\"E_PAY_TIMEOUT\",\"limit\":20}")
+        )).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(
+                paymentLogSchema(),
+                json("{\"orderNo\":\"order_1024\",\"errorCode\":\"E_PAY_TIMEOUT\",\"limit\":1}")
+        )).doesNotThrowAnyException();
+    }
+
+    @Test
+    void shouldRejectPaymentLogArgumentsWhenNeitherAnyOfBranchMatches() throws Exception {
+        assertPaymentInvalid(json("{}"));
+        assertPaymentInvalid(json("{\"limit\":10}"));
+    }
+
+    @Test
+    void shouldStillValidateEveryProvidedPaymentLogPropertyBeforeExecution() throws Exception {
+        assertPaymentInvalid(json("{\"orderNo\":\"   \"}"));
+        assertPaymentInvalid(json("{\"errorCode\":1024}"));
+        assertPaymentInvalid(json("{\"errorCode\":\"E_PAY_TIMEOUT\",\"limit\":0}"));
+        assertPaymentInvalid(json("{\"errorCode\":\"E_PAY_TIMEOUT\",\"limit\":21}"));
+        assertPaymentInvalid(json("{\"errorCode\":\"E_PAY_TIMEOUT\",\"extra\":true}"));
+        assertPaymentInvalid(json("{\"orderNo\":\"" + "a".repeat(65) + "\"}"));
+    }
+
+    @Test
+    void shouldFailClosedForNestedOrNonRequiredOnlyAnyOfDefinitions() throws Exception {
+        JsonNode nestedAnyOf = json("""
+                {
+                  "type":"object",
+                  "properties":{
+                    "filter":{
+                      "type":"object",
+                      "properties":{"orderNo":{"type":"string"}},
+                      "anyOf":[{"required":["orderNo"]}]
+                    }
+                  }
+                }
+                """);
+        JsonNode expandedBranch = json("""
+                {
+                  "type":"object",
+                  "properties":{"orderNo":{"type":"string"}},
+                  "anyOf":[{"required":["orderNo"],"type":"object"}]
+                }
+                """);
+
+        assertThatThrownBy(() -> validator.validate(nestedAnyOf, json("{}")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("top level");
+        assertThatThrownBy(() -> validator.validate(expandedBranch, json("{}")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("only required");
+    }
+
+    @Test
     void shouldFailClosedForUnsupportedTypesInsteadOfSilentlyAcceptingThem() throws Exception {
         JsonNode unsupported = json("{\"type\":\"number\"}");
 
         assertThatThrownBy(() -> validator.validate(unsupported, json("1")))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("unsupported in V27");
+                .hasMessageContaining("unsupported in V28");
     }
 
     private void assertInvalid(JsonNode arguments) throws JsonProcessingException {
         assertThatThrownBy(() -> validator.validate(orderSchema(), arguments))
+                .isInstanceOf(ToolArgumentValidationException.class);
+    }
+
+    private void assertPaymentInvalid(JsonNode arguments) throws JsonProcessingException {
+        assertThatThrownBy(() -> validator.validate(paymentLogSchema(), arguments))
                 .isInstanceOf(ToolArgumentValidationException.class);
     }
 
@@ -98,6 +165,24 @@ class ToolArgumentValidatorTest {
                     "orderNo": {"type": "string", "minLength": 1, "maxLength": 64}
                   },
                   "required": ["orderNo"],
+                  "additionalProperties": false
+                }
+                """);
+    }
+
+    private JsonNode paymentLogSchema() throws JsonProcessingException {
+        return json("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "orderNo": {"type": "string", "minLength": 1, "maxLength": 64},
+                    "errorCode": {"type": "string", "minLength": 1, "maxLength": 64},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 20, "default": 10}
+                  },
+                  "anyOf": [
+                    {"required": ["orderNo"]},
+                    {"required": ["errorCode"]}
+                  ],
                   "additionalProperties": false
                 }
                 """);

@@ -32,7 +32,7 @@ class ToolControllerTest {
     void shouldListOnlyTheSafeActiveToolProjection() throws Exception {
         ToolDefinitionService definitionService = Mockito.mock(ToolDefinitionService.class);
         ToolRuntime runtime = Mockito.mock(ToolRuntime.class);
-        when(definitionService.listActive()).thenReturn(List.of(definition()));
+        when(definitionService.listActive()).thenReturn(List.of(definition(), paymentDefinition()));
 
         mockMvc(definitionService, runtime).perform(MockMvcRequestBuilders.get("/api/v1/tools")
                         .header("X-Trace-Id", "af-test-tool-list"))
@@ -42,7 +42,7 @@ class ToolControllerTest {
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
                         .value("Tools retrieved"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.data.length()")
-                        .value(1))
+                        .value(2))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
                         "$.data[0].length()"
                 ).value(12))
@@ -72,6 +72,24 @@ class ToolControllerTest {
                 ).doesNotExist())
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
                         "$.data[0].deletedAt"
+                ).doesNotExist())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data[1].id"
+                ).value("280000000000000001"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data[1].toolCode"
+                ).value("payment_log_query"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data[1].timeoutMs"
+                ).value(5000))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data[1].permissionLevel"
+                ).value("MEDIUM"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data[1].inputSchema.anyOf.length()"
+                ).value(2))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data[1].config"
                 ).doesNotExist());
 
         verify(definitionService).listActive();
@@ -163,6 +181,66 @@ class ToolControllerTest {
     }
 
     @Test
+    void shouldReturnTheSafePaymentLogToolDataFromTheSharedRuntimeEndpoint() throws Exception {
+        ToolDefinitionService definitionService = Mockito.mock(ToolDefinitionService.class);
+        ToolRuntime runtime = Mockito.mock(ToolRuntime.class);
+        ToolExecutionResult result = ToolExecutionResult.success(
+                "payment_log_query",
+                "Found 1 payment log matching the supplied filters.",
+                objectMapper.readTree("""
+                        {
+                          "logs":[{
+                            "orderNo":"order_1024",
+                            "traceId":"pay-trace-1024",
+                            "level":"ERROR",
+                            "errorCode":"E_PAY_TIMEOUT",
+                            "message":"Payment gateway response timeout after 3000ms",
+                            "occurredAt":"2026-05-01T12:00:00+08:00"
+                          }]
+                        }
+                        """),
+                7
+        );
+        when(runtime.execute(org.mockito.ArgumentMatchers.any())).thenReturn(result);
+
+        mockMvc(definitionService, runtime).perform(MockMvcRequestBuilders.post(
+                        "/api/v1/tools/{toolId}/test",
+                        280000000000000001L
+                ).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"arguments\":{\"errorCode\":\"E_PAY_TIMEOUT\"}}")
+                        .header("X-Trace-Id", "af-test-payment-log-execute"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.toolCode"
+                ).value("payment_log_query"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.data.logs.length()"
+                ).value(1))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.data.logs[0].length()"
+                ).value(6))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.data.logs[0].orderNo"
+                ).value("order_1024"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.data.logs[0].id"
+                ).doesNotExist())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$.data.data.logs[0].createdAt"
+                ).doesNotExist());
+
+        ArgumentCaptor<ToolExecutionCommand> captor = ArgumentCaptor.forClass(ToolExecutionCommand.class);
+        verify(runtime).execute(captor.capture());
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().toolId())
+                .isEqualTo(280000000000000001L);
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().taskId()).isNull();
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().stepId()).isNull();
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().arguments().path("errorCode").textValue())
+                .isEqualTo("E_PAY_TIMEOUT");
+        verifyNoInteractions(definitionService);
+    }
+
+    @Test
     void shouldRejectMalformedJsonBeforeToolRuntimeSoNoCallLogCanBeInvented() throws Exception {
         ToolDefinitionService definitionService = Mockito.mock(ToolDefinitionService.class);
         ToolRuntime runtime = Mockito.mock(ToolRuntime.class);
@@ -221,6 +299,43 @@ class ToolControllerTest {
                         """),
                 objectMapper.readTree("{\"handler\":\"must-not-leak\",\"readonly\":true}"),
                 3000,
+                0,
+                false,
+                "MEDIUM",
+                "ACTIVE"
+        );
+    }
+
+    private ToolDefinition paymentDefinition() throws Exception {
+        return new ToolDefinition(
+                280000000000000001L,
+                "payment_log_query",
+                "Payment Log Query",
+                "description",
+                "BUILTIN",
+                objectMapper.readTree("""
+                        {
+                          "type":"object",
+                          "properties":{
+                            "orderNo":{"type":"string","minLength":1,"maxLength":64},
+                            "errorCode":{"type":"string","minLength":1,"maxLength":64},
+                            "limit":{"type":"integer","minimum":1,"maximum":20,"default":10}
+                          },
+                          "anyOf":[
+                            {"required":["orderNo"]},
+                            {"required":["errorCode"]}
+                          ],
+                          "additionalProperties":false
+                        }
+                        """),
+                objectMapper.readTree("""
+                        {
+                          "type":"object",
+                          "properties":{"logs":{"type":"array"}}
+                        }
+                        """),
+                objectMapper.readTree("{\"handler\":\"must-not-leak\",\"readonly\":true}"),
+                5000,
                 0,
                 false,
                 "MEDIUM",
