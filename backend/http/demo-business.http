@@ -1,0 +1,218 @@
+# V26 Demo Business API manual checks for IntelliJ IDEA HTTP Client.
+#
+# First run "Login" from user-auth.http. It stores the short-lived token only in
+# IDEA's local HTTP-client session as agentflowAccessToken. These requests are
+# read-only and rely on the deterministic fixture inserted by Flyway V12.
+#
+# This file is prepared acceptance input, not evidence that the requests have run.
+
+@baseUrl = http://localhost:8080
+
+### V26 read the deterministic demo order: expected HTTP 200 and exactly six safe fields.
+GET {{baseUrl}}/api/v1/demo/orders/order_1024
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-demo-order-001
+
+> {%
+  client.test("deterministic demo order is returned through the safe DTO", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.message === "Demo order retrieved", "Expected order message");
+    client.assert(response.body.data.orderNo === "order_1024", "Expected fixture order number");
+    client.assert(Number(response.body.data.amount) === 199, "Expected amount 199.00");
+    client.assert(response.body.data.currency === "CNY", "Expected CNY currency");
+    client.assert(response.body.data.status === "CREATED", "Expected CREATED order status");
+    client.assert(response.body.data.paymentStatus === "PAY_FAILED", "Expected PAY_FAILED payment status");
+    client.assert(response.body.data.errorCode === "E_PAY_TIMEOUT", "Expected timeout error code");
+    client.assert(Object.keys(response.body.data).sort().join(",")
+      === "amount,currency,errorCode,orderNo,paymentStatus,status",
+      "Order response must expose exactly the six V26 fields");
+  });
+%}
+
+### V26 missing order: expected HTTP 404 and the default COMMON_NOT_FOUND message.
+GET {{baseUrl}}/api/v1/demo/orders/order_missing
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-demo-order-missing-001
+
+> {%
+  client.test("missing demo order uses the stable common 404", function () {
+    client.assert(response.status === 404, "Expected HTTP 404");
+    client.assert(response.body.code === "COMMON_NOT_FOUND", "Expected COMMON_NOT_FOUND");
+    client.assert(response.body.message === "Resource not found", "Expected default not-found message");
+    client.assert(response.body.data === null, "Expected null error data");
+  });
+%}
+
+### V26 query payment logs by order number with the default limit: expected the timeout fixture.
+GET {{baseUrl}}/api/v1/demo/payment-logs?orderNo=order_1024
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-demo-payment-by-order-001
+
+> {%
+  client.test("payment logs are queried by order number", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.message === "Demo payment logs retrieved", "Expected log message");
+    client.assert(Array.isArray(response.body.data), "Expected a log array");
+    client.assert(response.body.data.length === 1, "Expected the one minimal V12 log fixture");
+    var log = response.body.data[0];
+    client.assert(log.orderNo === "order_1024", "Expected fixture order number");
+    client.assert(log.traceId === "pay-trace-1024", "Expected fixture trace ID");
+    client.assert(log.level === "ERROR", "Expected ERROR level");
+    client.assert(log.errorCode === "E_PAY_TIMEOUT", "Expected timeout error code");
+    client.assert(log.message === "Payment gateway response timeout after 3000ms", "Expected timeout message");
+    client.assert(log.occurredAt === "2026-05-01T12:00:00+08:00", "Expected fixed event time");
+    client.assert(Object.keys(log).sort().join(",")
+      === "errorCode,level,message,occurredAt,orderNo,traceId",
+      "Payment log must expose exactly the six V26 fields");
+  });
+%}
+
+### V26 query payment logs by error code with an explicit upper-safe limit.
+GET {{baseUrl}}/api/v1/demo/payment-logs?errorCode=E_PAY_TIMEOUT&limit=20
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-demo-payment-by-error-001
+
+> {%
+  client.test("payment logs are queried by error code", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(Array.isArray(response.body.data), "Expected a log array");
+    client.assert(response.body.data.length === 1, "Expected the timeout fixture");
+    client.assert(response.body.data[0].errorCode === "E_PAY_TIMEOUT", "Expected requested error code");
+  });
+%}
+
+### V26 query with the inclusive lower-safe limit: expected the first stable fixture row.
+GET {{baseUrl}}/api/v1/demo/payment-logs?orderNo=order_1024&limit=1
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-demo-payment-limit-one-001
+
+> {%
+  client.test("limit one is accepted", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(Array.isArray(response.body.data), "Expected a log array");
+    client.assert(response.body.data.length === 1, "Expected the first stable fixture row");
+    client.assert(response.body.data[0].orderNo === "order_1024", "Expected fixture order number");
+  });
+%}
+
+### V26 trim both filters and combine them with AND: expected the same one fixture.
+GET {{baseUrl}}/api/v1/demo/payment-logs?orderNo=%20order_1024%20&errorCode=%20E_PAY_TIMEOUT%20&limit=10
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-demo-payment-trim-and-001
+
+> {%
+  client.test("trimmed filters are combined with AND", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(Array.isArray(response.body.data), "Expected a log array");
+    client.assert(response.body.data.length === 1, "Expected both normalized filters to match");
+  });
+%}
+
+### V26 prove both supplied filters use AND: expected HTTP 200 with an empty list.
+GET {{baseUrl}}/api/v1/demo/payment-logs?orderNo=order_1024&errorCode=E_NOT_PRESENT&limit=10
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-demo-payment-and-empty-001
+
+> {%
+  client.test("nonmatching AND filters return an empty list", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(Array.isArray(response.body.data), "Expected a log array");
+    client.assert(response.body.data.length === 0, "AND must not broaden into an OR match");
+  });
+%}
+
+### V26 no matching logs are not a 404: expected HTTP 200 and an empty list.
+GET {{baseUrl}}/api/v1/demo/payment-logs?errorCode=E_NOT_PRESENT
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-demo-payment-no-match-001
+
+> {%
+  client.test("no matching payment logs return a successful empty list", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(Array.isArray(response.body.data), "Expected a log array");
+    client.assert(response.body.data.length === 0, "Expected no matching logs");
+  });
+%}
+
+### V26 missing both filters: expected HTTP 400 and default COMMON_PARAM_INVALID message.
+GET {{baseUrl}}/api/v1/demo/payment-logs
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-demo-payment-no-filter-001
+
+> {%
+  client.test("payment log query requires at least one filter", function () {
+    client.assert(response.status === 400, "Expected HTTP 400");
+    client.assert(response.body.code === "COMMON_PARAM_INVALID", "Expected COMMON_PARAM_INVALID");
+    client.assert(response.body.message === "Request parameter is invalid", "Expected default invalid-param message");
+  });
+%}
+
+### V26 blank filters become missing after trim: expected HTTP 400.
+GET {{baseUrl}}/api/v1/demo/payment-logs?orderNo=%20%20&errorCode=%20&limit=10
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-demo-payment-blank-filter-001
+
+> {%
+  client.test("blank filters do not authorize an unbounded query", function () {
+    client.assert(response.status === 400, "Expected HTTP 400");
+    client.assert(response.body.code === "COMMON_PARAM_INVALID", "Expected COMMON_PARAM_INVALID");
+    client.assert(response.body.message === "Request parameter is invalid", "Expected default invalid-param message");
+  });
+%}
+
+### V26 limit below the allowed range: expected HTTP 400.
+GET {{baseUrl}}/api/v1/demo/payment-logs?orderNo=order_1024&limit=0
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-demo-payment-limit-zero-001
+
+> {%
+  client.test("zero limit is rejected", function () {
+    client.assert(response.status === 400, "Expected HTTP 400");
+    client.assert(response.body.code === "COMMON_PARAM_INVALID", "Expected COMMON_PARAM_INVALID");
+    client.assert(response.body.message === "Request parameter is invalid", "Expected default invalid-param message");
+  });
+%}
+
+### V26 limit above the allowed range: expected HTTP 400.
+GET {{baseUrl}}/api/v1/demo/payment-logs?errorCode=E_PAY_TIMEOUT&limit=21
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-demo-payment-limit-too-large-001
+
+> {%
+  client.test("limit above twenty is rejected", function () {
+    client.assert(response.status === 400, "Expected HTTP 400");
+    client.assert(response.body.code === "COMMON_PARAM_INVALID", "Expected COMMON_PARAM_INVALID");
+    client.assert(response.body.message === "Request parameter is invalid", "Expected default invalid-param message");
+  });
+%}
+
+### V26 nonnumeric limit cannot bind to Integer: expected HTTP 400.
+GET {{baseUrl}}/api/v1/demo/payment-logs?orderNo=order_1024&limit=not-a-number
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-demo-payment-limit-type-001
+
+> {%
+  client.test("nonnumeric limit is rejected", function () {
+    client.assert(response.status === 400, "Expected HTTP 400");
+    client.assert(response.body.code === "COMMON_PARAM_INVALID", "Expected COMMON_PARAM_INVALID");
+    client.assert(response.body.message === "Request parameter is invalid", "Expected default invalid-param message");
+  });
+%}
+
+### V26 Demo Business API still requires login: expected HTTP 401.
+GET {{baseUrl}}/api/v1/demo/orders/order_1024
+X-Trace-Id: af-manual-demo-order-no-token-001
+
+> {%
+  client.test("demo business data is not public", function () {
+    client.assert(response.status === 401, "Expected HTTP 401");
+    client.assert(response.body.code === "AUTH_UNAUTHENTICATED", "Expected AUTH_UNAUTHENTICATED");
+  });
+%}
