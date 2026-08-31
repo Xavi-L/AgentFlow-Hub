@@ -52,6 +52,11 @@ public enum ErrorCode {
             "Document is not eligible for reprocessing",
             409
     ),
+    KNOWLEDGE_DOCUMENT_REPROCESS_UNAVAILABLE(
+            "KNOWLEDGE_DOCUMENT_REPROCESS_UNAVAILABLE",
+            "Document reprocessing is temporarily unavailable",
+            503
+    ),
     KNOWLEDGE_DOCUMENT_DELETION_CONFLICT(
             "KNOWLEDGE_DOCUMENT_DELETION_CONFLICT",
             "Document is not eligible for deletion",

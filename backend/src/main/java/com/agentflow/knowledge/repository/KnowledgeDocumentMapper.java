@@ -49,6 +49,22 @@ public interface KnowledgeDocumentMapper extends BaseMapper<KnowledgeDocument> {
             @Param("userId") Long userId
     );
 
+    /** V25 chunk-list document lock, taken after its parent knowledge-base lock. */
+    @Select("""
+            SELECT *
+            FROM knowledge_document
+            WHERE id = #{documentId}
+              AND knowledge_base_id = #{knowledgeBaseId}
+              AND user_id = #{userId}
+              AND deleted_at IS NULL
+            FOR SHARE
+            """)
+    KnowledgeDocument selectVisibleOwnedInKnowledgeBaseForShare(
+            @Param("documentId") Long documentId,
+            @Param("knowledgeBaseId") Long knowledgeBaseId,
+            @Param("userId") Long userId
+    );
+
     /**
      * 中文：V24 删除准入先锁住当前 owner、父知识库仍可见的 document 行。这里故意不限制
      * {@code kd.deleted_at}，因为同一 owner 的未完成删除任务必须从已经软删除的文档快照恢复；
@@ -73,6 +89,42 @@ public interface KnowledgeDocumentMapper extends BaseMapper<KnowledgeDocument> {
     @Options(useCache = false, flushCache = Options.FlushCachePolicy.TRUE)
     KnowledgeDocument selectOwnedWithLiveParentForDeletionForUpdate(
             @Param("documentId") Long documentId,
+            @Param("userId") Long userId
+    );
+
+    /** Locks a visible document for V25 admission/resume on the same row used by V5/V24. */
+    @Select("""
+            SELECT kd.*
+            FROM knowledge_document kd
+            INNER JOIN knowledge_base kb
+                ON kb.id = kd.knowledge_base_id
+                AND kb.user_id = kd.user_id
+            WHERE kd.id = #{documentId}
+              AND kd.user_id = #{userId}
+              AND kd.deleted_at IS NULL
+              AND kb.deleted_at IS NULL
+            FOR UPDATE OF kd
+            """)
+    @Options(useCache = false, flushCache = Options.FlushCachePolicy.TRUE)
+    KnowledgeDocument selectVisibleOwnedForReprocessForUpdate(
+            @Param("documentId") Long documentId,
+            @Param("userId") Long userId
+    );
+
+    /** Locks an already-admitted document without requiring its parent to remain visible. */
+    @Select("""
+            SELECT *
+            FROM knowledge_document
+            WHERE id = #{documentId}
+              AND knowledge_base_id = #{knowledgeBaseId}
+              AND user_id = #{userId}
+              AND deleted_at IS NULL
+            FOR UPDATE
+            """)
+    @Options(useCache = false, flushCache = Options.FlushCachePolicy.TRUE)
+    KnowledgeDocument selectReprocessScopeForUpdate(
+            @Param("documentId") Long documentId,
+            @Param("knowledgeBaseId") Long knowledgeBaseId,
             @Param("userId") Long userId
     );
 
@@ -101,6 +153,56 @@ public interface KnowledgeDocumentMapper extends BaseMapper<KnowledgeDocument> {
             @Param("documentId") Long documentId,
             @Param("knowledgeBaseId") Long knowledgeBaseId,
             @Param("userId") Long userId
+    );
+
+    @Select("""
+            UPDATE knowledge_document kd
+            SET parse_status = 'REPROCESSING',
+                parse_error = NULL,
+                vector_generation = kd.vector_generation + 1,
+                updated_at = #{updatedAt}
+            FROM knowledge_base kb
+            WHERE kd.id = #{documentId}
+              AND kd.knowledge_base_id = #{knowledgeBaseId}
+              AND kd.user_id = #{userId}
+              AND kd.deleted_at IS NULL
+              AND kd.parse_status = 'COMPLETED'
+              AND kd.vector_generation = #{sourceVectorGeneration}
+              AND kd.vector_generation < 9223372036854775807
+              AND kb.id = kd.knowledge_base_id
+              AND kb.user_id = kd.user_id
+              AND kb.deleted_at IS NULL
+            RETURNING kd.*
+            """)
+    @Options(useCache = false, flushCache = Options.FlushCachePolicy.TRUE)
+    KnowledgeDocument transitionCompletedToReprocessing(
+            @Param("documentId") Long documentId,
+            @Param("knowledgeBaseId") Long knowledgeBaseId,
+            @Param("userId") Long userId,
+            @Param("sourceVectorGeneration") Long sourceVectorGeneration,
+            @Param("updatedAt") OffsetDateTime updatedAt
+    );
+
+    @Select("""
+            UPDATE knowledge_document
+            SET parse_status = 'PENDING',
+                parse_error = NULL,
+                updated_at = #{updatedAt}
+            WHERE id = #{documentId}
+              AND knowledge_base_id = #{knowledgeBaseId}
+              AND user_id = #{userId}
+              AND deleted_at IS NULL
+              AND parse_status = 'REPROCESSING'
+              AND vector_generation = #{expectedVectorGeneration}
+            RETURNING *
+            """)
+    @Options(useCache = false, flushCache = Options.FlushCachePolicy.TRUE)
+    KnowledgeDocument transitionReprocessingToPending(
+            @Param("documentId") Long documentId,
+            @Param("knowledgeBaseId") Long knowledgeBaseId,
+            @Param("userId") Long userId,
+            @Param("expectedVectorGeneration") Long expectedVectorGeneration,
+            @Param("updatedAt") OffsetDateTime updatedAt
     );
 
     /**

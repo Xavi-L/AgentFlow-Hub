@@ -11,9 +11,10 @@ import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.client.ResourceAccessException;
 
 /**
- * 中文：V6/V7/V23 的 Qdrant REST 适配器。首次写入时它只会创建或验证一个 plain dense-vector
+ * 中文：V6/V7/V23/V25 的 Qdrant REST 适配器。首次写入时它只会创建或验证一个 plain dense-vector
  * collection；随后使用 V5 已派生的 UUID point ID 进行 {@code wait=true} 的幂等 upsert。V7
  * 通过 Qdrant Query Points API 作 scoped dense retrieval。V23 使用完整文档范围删除 point，
  * 且不会创建 collection；rerank、named vectors 和 sparse vectors 仍留给独立切片。
@@ -21,7 +22,8 @@ import org.springframework.web.client.RestClientResponseException;
  * <p>English: V6/V7/V23 Qdrant REST adapter. On the first write it creates or validates one
  * plain dense-vector collection, then performs a {@code wait=true} idempotent upsert
  * using V5's derived UUID point ID. V7 uses Qdrant Query Points for scoped dense
- * retrieval. V23 deletes points by a complete document scope without creating a collection;
+ * retrieval. V23 deletes points by a complete document scope and V25 can additionally fence
+ * deletion to one vector generation, both without creating a collection;
  * reranking, named vectors, and sparse vectors remain deferred.
  */
 public final class QdrantVectorStoreGateway implements VectorStoreGateway {
@@ -64,6 +66,8 @@ public final class QdrantVectorStoreGateway implements VectorStoreGateway {
                     .body(Map.of("points", List.of(point)))
                     .retrieve()
                     .toBodilessEntity();
+        } catch (ResourceAccessException outcomeUnknown) {
+            throw new VectorStoreOutcomeUnknownException("Qdrant point upsert outcome is unknown", outcomeUnknown);
         } catch (RestClientException upsertFailure) {
             throw new IllegalStateException("Qdrant point upsert failed", upsertFailure);
         }
@@ -238,11 +242,25 @@ public final class QdrantVectorStoreGateway implements VectorStoreGateway {
     }
 
     private static Map<String, Object> documentScopeFilter(VectorDocumentScope scope) {
-        return Map.of("must", List.of(
+        List<Map<String, Object>> must = new ArrayList<>(List.of(
                 matchFilter("userId", scope.userId()),
                 matchFilter("knowledgeBaseId", scope.knowledgeBaseId()),
                 matchFilter("documentId", scope.documentId())
         ));
+        if (!scope.generationFenced()) {
+            return Map.of("must", must);
+        }
+        if (!scope.includeLegacyMissingGeneration()) {
+            must.add(matchFilter("vectorGeneration", scope.vectorGeneration()));
+            return Map.of("must", must);
+        }
+        Map<String, Object> filter = new LinkedHashMap<>();
+        filter.put("must", must);
+        filter.put("should", List.of(
+                matchFilter("vectorGeneration", scope.vectorGeneration()),
+                Map.of("is_empty", Map.of("key", "vectorGeneration"))
+        ));
+        return filter;
     }
 
     private static Map<String, Object> matchFilter(String key, long value) {

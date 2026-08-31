@@ -56,7 +56,7 @@ class ChunkVectorizationTransactionServiceTest {
                 301L,
                 201L,
                 101L
-        )).thenReturn(new com.agentflow.knowledge.model.KnowledgeDocument());
+        )).thenReturn(documentWithGeneration(0L));
         when(knowledgeChunkMapper.update(org.mockito.ArgumentMatchers.<KnowledgeChunk>isNull(), any())).thenReturn(1);
 
         boolean claimed = transactionService.claimPendingChunk(chunk, contentHash);
@@ -127,14 +127,40 @@ class ChunkVectorizationTransactionServiceTest {
         );
     }
 
+    @Test
+    void shouldKeepProcessingStatusWhenTheExternalOutcomeIsUnknown() {
+        when(knowledgeChunkMapper.update(org.mockito.ArgumentMatchers.<KnowledgeChunk>isNull(), any())).thenReturn(1);
+
+        transactionService.markOutcomeUnknown(chunk(), "Vector store upsert failed");
+
+        verify(knowledgeChunkMapper).update(
+                org.mockito.ArgumentMatchers.<KnowledgeChunk>isNull(),
+                updateCaptor.capture()
+        );
+        assertThat(updateCaptor.getValue().getSqlSet()).contains("vectorization_error", "updated_at")
+                .doesNotContain("vectorization_status", "vector_id");
+        assertThat(updateCaptor.getValue().getSqlSegment()).contains(
+                "id", "user_id", "knowledge_base_id", "document_id", "vector_generation",
+                "vectorization_status"
+        );
+    }
+
     private static KnowledgeChunk chunk() {
         KnowledgeChunk chunk = new KnowledgeChunk();
         chunk.setId(401L);
         chunk.setUserId(101L);
         chunk.setKnowledgeBaseId(201L);
         chunk.setDocumentId(301L);
+        chunk.setVectorGeneration(0L);
         chunk.setChunkIndex(0);
         chunk.setContent("Refund rules");
         return chunk;
+    }
+
+    private static com.agentflow.knowledge.model.KnowledgeDocument documentWithGeneration(long generation) {
+        com.agentflow.knowledge.model.KnowledgeDocument document =
+                new com.agentflow.knowledge.model.KnowledgeDocument();
+        document.setVectorGeneration(generation);
+        return document;
     }
 }

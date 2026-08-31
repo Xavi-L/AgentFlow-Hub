@@ -50,6 +50,9 @@ public class KnowledgeDocument {
     @TableField("parse_error")
     private String parseError;
 
+    @TableField("vector_generation")
+    private Long vectorGeneration;
+
     @TableField("created_at")
     private OffsetDateTime createdAt;
 
@@ -145,6 +148,14 @@ public class KnowledgeDocument {
 
     public void setParseError(String parseError) {
         this.parseError = parseError;
+    }
+
+    public Long getVectorGeneration() {
+        return vectorGeneration;
+    }
+
+    public void setVectorGeneration(Long vectorGeneration) {
+        this.vectorGeneration = vectorGeneration;
     }
 
     public OffsetDateTime getCreatedAt() {

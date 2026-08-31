@@ -15,6 +15,7 @@ import com.agentflow.knowledge.vector.EmbeddingRequest;
 import com.agentflow.knowledge.vector.EmbeddingVector;
 import com.agentflow.knowledge.vector.VectorStoreGateway;
 import com.agentflow.knowledge.vector.VectorStoreRecord;
+import com.agentflow.knowledge.vector.VectorStoreOutcomeUnknownException;
 import com.agentflow.user.security.AuthenticatedUser;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import java.util.LinkedHashMap;
@@ -129,6 +130,11 @@ public class ChunkVectorizationService {
                         embedding,
                         payloadFor(chunk, knowledgeBase, identity)
                 ));
+            } catch (VectorStoreOutcomeUnknownException outcomeUnknown) {
+                log.warn("Vector-store upsert outcome unknown for chunkId={}", chunk.getId(), outcomeUnknown);
+                transactionService.markOutcomeUnknown(chunk, VECTOR_STORE_FAILURE);
+                failed++;
+                continue;
             } catch (RuntimeException vectorStoreFailure) {
                 log.warn("Vector-store upsert failed for chunkId={}", chunk.getId(), vectorStoreFailure);
                 transactionService.markFailed(chunk, VECTOR_STORE_FAILURE);
@@ -143,7 +149,7 @@ public class ChunkVectorizationService {
                 // The stable vectorId means a later, explicitly designed retry can safely
                 // upsert this same point after a database-side completion failure.
                 log.warn("Could not mark vectorization complete for chunkId={}", chunk.getId(), statusUpdateFailure);
-                transactionService.markFailed(chunk, STATUS_UPDATE_FAILURE);
+                transactionService.markOutcomeUnknown(chunk, STATUS_UPDATE_FAILURE);
                 failed++;
             }
         }
@@ -161,6 +167,7 @@ public class ChunkVectorizationService {
         payload.put("knowledgeBaseId", requirePositive(chunk.getKnowledgeBaseId(), "knowledgeBaseId"));
         payload.put("userId", requirePositive(chunk.getUserId(), "userId"));
         payload.put("chunkIndex", Objects.requireNonNull(chunk.getChunkIndex(), "chunkIndex must not be null"));
+        payload.put("vectorGeneration", requireGeneration(chunk.getVectorGeneration()));
         payload.put("contentHash", identity.contentHash());
         payload.put("embeddingProvider", requireNonBlank(knowledgeBase.getEmbeddingProvider(), "embeddingProvider"));
         payload.put("embeddingModel", requireNonBlank(knowledgeBase.getEmbeddingModel(), "embeddingModel"));
@@ -207,6 +214,13 @@ public class ChunkVectorizationService {
     private static String requireNonBlank(String value, String fieldName) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(fieldName + " must not be blank");
+        }
+        return value;
+    }
+
+    private static Long requireGeneration(Long value) {
+        if (value == null || value < 0) {
+            throw new IllegalArgumentException("vectorGeneration must not be negative");
         }
         return value;
     }

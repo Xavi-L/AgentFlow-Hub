@@ -18,6 +18,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.client.ResourceAccessException;
 
 class QdrantVectorStoreGatewayTest {
 
@@ -191,6 +192,59 @@ class QdrantVectorStoreGatewayTest {
     }
 
     @Test
+    void shouldFenceReprocessDeletionToOneExactGeneration() {
+        QdrantProperties properties = properties();
+        RestClient.Builder builder = RestClient.builder().baseUrl(properties.getBaseUrl());
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        QdrantVectorStoreGateway gateway = new QdrantVectorStoreGateway(properties, builder.build());
+
+        server.expect(requestTo("http://qdrant.test/collections/agentflow_chunks_te_v4_3"))
+                .andRespond(withSuccess(collectionResponse(), MediaType.APPLICATION_JSON));
+        server.expect(requestTo("http://qdrant.test/collections/agentflow_chunks_te_v4_3/points/delete?wait=true"))
+                .andExpect(content().json("""
+                        {"filter":{"must":[
+                          {"key":"userId","match":{"value":101}},
+                          {"key":"knowledgeBaseId","match":{"value":201}},
+                          {"key":"documentId","match":{"value":301}},
+                          {"key":"vectorGeneration","match":{"value":7}}
+                        ]}}
+                        """))
+                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        gateway.deleteByDocumentScope(VectorDocumentScope.forGenerationCleanup(101L, 201L, 301L, 7L));
+        server.verify();
+    }
+
+    @Test
+    void shouldIncludeLegacyMissingGenerationOnlyForGenerationZero() {
+        QdrantProperties properties = properties();
+        RestClient.Builder builder = RestClient.builder().baseUrl(properties.getBaseUrl());
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        QdrantVectorStoreGateway gateway = new QdrantVectorStoreGateway(properties, builder.build());
+
+        server.expect(requestTo("http://qdrant.test/collections/agentflow_chunks_te_v4_3"))
+                .andRespond(withSuccess(collectionResponse(), MediaType.APPLICATION_JSON));
+        server.expect(requestTo("http://qdrant.test/collections/agentflow_chunks_te_v4_3/points/delete?wait=true"))
+                .andExpect(content().json("""
+                        {"filter":{
+                          "must":[
+                            {"key":"userId","match":{"value":101}},
+                            {"key":"knowledgeBaseId","match":{"value":201}},
+                            {"key":"documentId","match":{"value":301}}
+                          ],
+                          "should":[
+                            {"key":"vectorGeneration","match":{"value":0}},
+                            {"is_empty":{"key":"vectorGeneration"}}
+                          ]
+                        }}
+                        """))
+                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        gateway.deleteByDocumentScope(VectorDocumentScope.forGenerationCleanup(101L, 201L, 301L, 0L));
+        server.verify();
+    }
+
+    @Test
     void shouldPropagateRemoteDeletionFailuresForLaterCompensation() {
         QdrantProperties properties = properties();
         RestClient.Builder builder = RestClient.builder().baseUrl(properties.getBaseUrl());
@@ -208,6 +262,27 @@ class QdrantVectorStoreGatewayTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Qdrant point deletion failed")
                 .hasCauseInstanceOf(RestClientResponseException.class);
+        server.verify();
+    }
+
+    @Test
+    void shouldClassifyAnUpsertTransportTimeoutAsOutcomeUnknown() {
+        QdrantProperties properties = properties();
+        RestClient.Builder builder = RestClient.builder().baseUrl(properties.getBaseUrl());
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        QdrantVectorStoreGateway gateway = new QdrantVectorStoreGateway(properties, builder.build());
+
+        server.expect(requestTo("http://qdrant.test/collections/agentflow_chunks_te_v4_3"))
+                .andRespond(withSuccess(collectionResponse(), MediaType.APPLICATION_JSON));
+        server.expect(requestTo("http://qdrant.test/collections/agentflow_chunks_te_v4_3/points?wait=true"))
+                .andRespond(request -> {
+                    throw new ResourceAccessException("read timed out");
+                });
+
+        assertThatThrownBy(() -> gateway.upsert(record()))
+                .isInstanceOf(VectorStoreOutcomeUnknownException.class)
+                .hasMessageContaining("outcome is unknown")
+                .hasCauseInstanceOf(ResourceAccessException.class);
         server.verify();
     }
 

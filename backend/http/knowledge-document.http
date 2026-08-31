@@ -1023,6 +1023,212 @@ Content-Type: application/pdf
 GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowKnowledgeBaseId}}/documents?page=1&pageSize=20
 X-Trace-Id: af-manual-document-no-token-001
 
+### V25 create a dedicated knowledge base
+POST {{baseUrl}}/api/v1/knowledge-bases
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-v25-kb-create-001
+
+{
+  "name": "V25 文档重解析验收知识库",
+  "description": "只用于验证完成文档清理与安全重新入队",
+  "embeddingProvider": "dashscope",
+  "embeddingModel": "text-embedding-v4",
+  "chunkSize": 800,
+  "chunkOverlap": 120
+}
+
+> {%
+  client.test("V25 dedicated knowledge base is created", function () {
+    client.assert(response.status === 201, "Expected HTTP 201");
+    client.assert(response.body.data.status === "ACTIVE", "Expected ACTIVE knowledge base");
+  });
+  client.global.set("agentflowV25KnowledgeBaseId", response.body.data.id);
+%}
+
+### V25 upload the tracked Markdown fixture
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowV25KnowledgeBaseId}}/documents
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: multipart/form-data; boundary=AgentFlowV25DocumentBoundary
+X-Trace-Id: af-manual-v25-upload-001
+
+--AgentFlowV25DocumentBoundary
+Content-Disposition: form-data; name="file"; filename="v25-refund-rules.md"
+Content-Type: text/markdown
+
+< ./fixtures/refund-rules.md
+--AgentFlowV25DocumentBoundary--
+
+> {%
+  client.test("V25 source is accepted without a new upload API", function () {
+    client.assert(response.status === 201, "Expected HTTP 201");
+    client.assert(response.body.data.parseStatus === "PENDING", "Expected PENDING");
+  });
+  client.global.set("agentflowV25DocumentId", response.body.data.id);
+%}
+
+### V25 process the dedicated pending document
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowV25KnowledgeBaseId}}/documents/process-pending
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v25-process-first-001
+
+> {%
+  client.test("V25 setup parses exactly the dedicated document", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.data.claimed === 1, "Expected one parser claim");
+    client.assert(response.body.data.completed === 1, "Expected one parser completion");
+  });
+%}
+
+### V25 read the completed document before cleanup
+GET {{baseUrl}}/api/v1/documents/{{agentflowV25DocumentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v25-detail-before-001
+
+> {%
+  client.test("V25 setup document is actually completed", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.data.parseStatus === "COMPLETED", "Expected COMPLETED");
+  });
+%}
+
+### V25 vectorize the dedicated document chunks
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowV25KnowledgeBaseId}}/chunks/vectorize-pending
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v25-vectorize-first-001
+
+> {%
+  client.test("V25 setup vectorizes the old chunks", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.data.completed >= 1, "Expected completed vectorization");
+    client.assert(response.body.data.claimed === response.body.data.completed,
+      "Every dedicated claim should complete");
+  });
+%}
+
+### V25 read vectorized chunks before cleanup
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowV25KnowledgeBaseId}}/documents/{{agentflowV25DocumentId}}/chunks?page=1&pageSize=20
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v25-chunks-before-001
+
+> {%
+  client.test("V25 setup exposes completed PostgreSQL chunk state", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.data.items.length >= 1, "Expected old chunks");
+    client.assert(response.body.data.items.every(function (item) {
+      return item.vectorizationStatus === "COMPLETED" && typeof item.vectorId === "string";
+    }), "Expected completed vector IDs");
+  });
+%}
+
+### V25 reprocess the completed document
+POST {{baseUrl}}/api/v1/documents/{{agentflowV25DocumentId}}/reprocess
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v25-reprocess-001
+
+> {%
+  client.test("V25 clears old derived data and safely requeues", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.message === "Document reprocessing requested", "Expected fixed message");
+    client.assert(response.body.data.parseStatus === "PENDING", "Expected safely requeued PENDING");
+    client.assert(Object.keys(response.body.data).sort().join(",")
+      === "createdAt,fileName,fileSize,fileType,id,knowledgeBaseId,parseStatus,updatedAt",
+      "Expected exactly the safe eight-field DTO");
+  });
+%}
+
+### V25 repeat reprocess after successful cleanup
+POST {{baseUrl}}/api/v1/documents/{{agentflowV25DocumentId}}/reprocess
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v25-reprocess-repeat-001
+
+> {%
+  client.test("V25 does not re-admit a merely pending document", function () {
+    client.assert(response.status === 409, "Expected HTTP 409");
+    client.assert(response.body.code === "KNOWLEDGE_DOCUMENT_REPROCESS_CONFLICT", "Expected V25 conflict");
+  });
+%}
+
+### V25 read chunks after cleanup
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowV25KnowledgeBaseId}}/documents/{{agentflowV25DocumentId}}/chunks?page=1&pageSize=20
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v25-chunks-empty-001
+
+> {%
+  client.test("V25 pending document exposes a canonical empty chunk page", function () {
+    client.assert(response.status === 200, "Expected HTTP 200, not 404");
+    client.assert(response.body.data.total === 0, "Expected total 0");
+    client.assert(response.body.data.items.length === 0, "Expected no old chunks");
+  });
+%}
+
+### V25 explicitly process the requeued document
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowV25KnowledgeBaseId}}/documents/process-pending
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v25-process-second-001
+
+> {%
+  client.test("V25 keeps reparsing explicit and separate", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.data.claimed === 1, "Expected one explicit parser claim");
+    client.assert(response.body.data.completed === 1, "Expected one parser completion");
+  });
+%}
+
+### V25 read the reprocessed document
+GET {{baseUrl}}/api/v1/documents/{{agentflowV25DocumentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v25-detail-after-001
+
+> {%
+  client.test("V25 document completes only after the explicit parser call", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.data.parseStatus === "COMPLETED", "Expected COMPLETED");
+  });
+%}
+
+### V25 read recreated chunks before vectorization
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowV25KnowledgeBaseId}}/documents/{{agentflowV25DocumentId}}/chunks?page=1&pageSize=20
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v25-chunks-recreated-pending-001
+
+> {%
+  client.test("V25 parser recreates pending chunks", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.data.items.length >= 1, "Expected recreated chunks");
+    client.assert(response.body.data.items.every(function (item) {
+      return item.vectorizationStatus === "PENDING";
+    }), "Expected explicit vectorization still pending");
+  });
+%}
+
+### V25 explicitly vectorize recreated chunks
+POST {{baseUrl}}/api/v1/knowledge-bases/{{agentflowV25KnowledgeBaseId}}/chunks/vectorize-pending
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v25-vectorize-second-001
+
+> {%
+  client.test("V25 keeps re-vectorization explicit and separate", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.data.completed >= 1, "Expected completed vectorization");
+  });
+%}
+
+### V25 read recreated chunks after vectorization
+GET {{baseUrl}}/api/v1/knowledge-bases/{{agentflowV25KnowledgeBaseId}}/documents/{{agentflowV25DocumentId}}/chunks?page=1&pageSize=20
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-v25-chunks-recreated-completed-001
+
+> {%
+  client.test("V25 recreated chunks complete only after explicit vectorization", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.data.items.length >= 1, "Expected recreated chunks");
+    client.assert(response.body.data.items.every(function (item) {
+      return item.vectorizationStatus === "COMPLETED" && typeof item.vectorId === "string";
+    }), "Expected completed recreated vector IDs");
+  });
+%}
+
 ### V24 synchronously delete the completed Markdown document: expected HTTP 200 only after vectors, source, and chunks are cleared.
 # Run this last: later V7–V17 checks reuse agentflowDocumentId and its chunks. In the default local
 # vector mode this exercises the in-memory adapter; in remote mode it invokes the configured Qdrant

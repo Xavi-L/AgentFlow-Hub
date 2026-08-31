@@ -68,6 +68,9 @@ public class KnowledgeChunk {
     @TableField("vector_id")
     private String vectorId;
 
+    @TableField("vector_generation")
+    private Long vectorGeneration;
+
     @TableField("created_at")
     private OffsetDateTime createdAt;
 
@@ -184,6 +187,14 @@ public class KnowledgeChunk {
 
     public void setVectorId(String vectorId) {
         this.vectorId = vectorId;
+    }
+
+    public Long getVectorGeneration() {
+        return vectorGeneration;
+    }
+
+    public void setVectorGeneration(Long vectorGeneration) {
+        this.vectorGeneration = vectorGeneration;
     }
 
     public OffsetDateTime getCreatedAt() {

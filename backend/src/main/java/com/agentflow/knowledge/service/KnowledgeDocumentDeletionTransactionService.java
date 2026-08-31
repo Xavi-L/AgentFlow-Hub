@@ -97,6 +97,7 @@ public class KnowledgeDocumentDeletionTransactionService {
         }
 
         if (DocumentParseStatus.PROCESSING.name().equals(document.getParseStatus())
+                || DocumentParseStatus.REPROCESSING.name().equals(document.getParseStatus())
                 || knowledgeChunkMapper.hasProcessingChunkByDocumentScope(
                         document.getId(),
                         document.getKnowledgeBaseId(),

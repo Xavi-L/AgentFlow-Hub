@@ -48,11 +48,13 @@ public class ChunkVectorizationTransactionService {
         // PROCESSING chunks and writes deleted_at. Taking the same lock here closes the
         // stale-candidate race: a chunk read before deletion cannot become PROCESSING and
         // later upsert a point after the document's V23 deletion has completed.
-        if (knowledgeDocumentMapper.selectVectorizableOwnedForChunkClaimForUpdate(
+        com.agentflow.knowledge.model.KnowledgeDocument parent =
+                knowledgeDocumentMapper.selectVectorizableOwnedForChunkClaimForUpdate(
                 chunk.getDocumentId(),
                 chunk.getKnowledgeBaseId(),
                 chunk.getUserId()
-        ) == null) {
+        );
+        if (parent == null || !Objects.equals(parent.getVectorGeneration(), chunk.getVectorGeneration())) {
             return false;
         }
 
@@ -68,6 +70,7 @@ public class ChunkVectorizationTransactionService {
                         .eq(KnowledgeChunk::getUserId, chunk.getUserId())
                         .eq(KnowledgeChunk::getKnowledgeBaseId, chunk.getKnowledgeBaseId())
                         .eq(KnowledgeChunk::getDocumentId, chunk.getDocumentId())
+                        .eq(KnowledgeChunk::getVectorGeneration, chunk.getVectorGeneration())
                         .eq(KnowledgeChunk::getVectorizationStatus, ChunkVectorizationStatus.PENDING.name())
         );
         return affectedRows == 1;
@@ -117,6 +120,31 @@ public class ChunkVectorizationTransactionService {
         );
         if (affectedRows != 1) {
             throw new IllegalStateException("Expected exactly one failed knowledge_chunk row");
+        }
+    }
+
+    /** Keeps PROCESSING as a safety barrier when an external upsert or its receipt is uncertain. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markOutcomeUnknown(KnowledgeChunk chunk, String vectorizationError) {
+        validateChunkScope(chunk);
+        String safeError = Objects.requireNonNull(vectorizationError, "vectorizationError must not be null");
+        if (safeError.isBlank()) {
+            throw new IllegalArgumentException("vectorizationError must not be blank");
+        }
+        int affectedRows = knowledgeChunkMapper.update(
+                null,
+                Wrappers.<KnowledgeChunk>lambdaUpdate()
+                        .set(KnowledgeChunk::getVectorizationError, safeError)
+                        .set(KnowledgeChunk::getUpdatedAt, OffsetDateTime.now())
+                        .eq(KnowledgeChunk::getId, chunk.getId())
+                        .eq(KnowledgeChunk::getUserId, chunk.getUserId())
+                        .eq(KnowledgeChunk::getKnowledgeBaseId, chunk.getKnowledgeBaseId())
+                        .eq(KnowledgeChunk::getDocumentId, chunk.getDocumentId())
+                        .eq(KnowledgeChunk::getVectorGeneration, chunk.getVectorGeneration())
+                        .eq(KnowledgeChunk::getVectorizationStatus, ChunkVectorizationStatus.PROCESSING.name())
+        );
+        if (affectedRows != 1) {
+            throw new IllegalStateException("Expected exactly one uncertain knowledge_chunk row");
         }
     }
 

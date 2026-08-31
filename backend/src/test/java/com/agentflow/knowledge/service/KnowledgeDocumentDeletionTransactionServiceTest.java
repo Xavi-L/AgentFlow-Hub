@@ -97,10 +97,11 @@ class KnowledgeDocumentDeletionTransactionServiceTest {
         verify(deletionTaskMapper).insert(any(KnowledgeDocumentDeletionTask.class));
     }
 
-    @Test
-    void shouldRejectAProcessingDocumentWithoutSoftDeletingOrCreatingATask() {
+    @ParameterizedTest(name = "{0} document conflicts with V24 deletion")
+    @ValueSource(strings = {"PROCESSING", "REPROCESSING"})
+    void shouldRejectAWorkerOwnedDocumentWithoutSoftDeletingOrCreatingATask(String parseStatus) {
         when(knowledgeDocumentMapper.selectOwnedWithLiveParentForDeletionForUpdate(301L, 101L))
-                .thenReturn(visibleDocument("PROCESSING", false));
+                .thenReturn(visibleDocument(parseStatus, false));
 
         assertThatThrownBy(() -> transactionService.admitOrResumeOwned(currentUser(), 301L))
                 .isInstanceOf(BusinessException.class)

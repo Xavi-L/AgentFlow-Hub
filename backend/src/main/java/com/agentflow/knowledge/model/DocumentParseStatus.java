@@ -12,5 +12,6 @@ public enum DocumentParseStatus {
     PENDING,
     PROCESSING,
     COMPLETED,
-    FAILED
+    FAILED,
+    REPROCESSING
 }

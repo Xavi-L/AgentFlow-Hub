@@ -144,7 +144,7 @@ public class DocumentProcessingService {
      * A PENDING/FAILED document simply returns an empty chunk page; parse errors remain
      * an internal operational detail and are not returned to HTTP clients.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public PageResult<KnowledgeChunkResponse> listOwnedDocumentChunks(
             AuthenticatedUser currentUser,
             Long knowledgeBaseId,
@@ -155,17 +155,36 @@ public class DocumentProcessingService {
         Objects.requireNonNull(pageRequest, "pageRequest must not be null");
         validatePositiveId(knowledgeBaseId, "knowledgeBaseId");
         validatePositiveId(documentId, "documentId");
-        requireOwnedKnowledgeBase(currentUser, knowledgeBaseId);
-        requireOwnedDocument(currentUser, knowledgeBaseId, documentId);
+        KnowledgeBase knowledgeBase = knowledgeBaseMapper.selectVisibleOwnedForShare(
+                knowledgeBaseId,
+                currentUser.id()
+        );
+        if (knowledgeBase == null) {
+            throw new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Knowledge base not found");
+        }
+        KnowledgeDocument document = knowledgeDocumentMapper.selectVisibleOwnedInKnowledgeBaseForShare(
+                documentId,
+                knowledgeBaseId,
+                currentUser.id()
+        );
+        if (document == null) {
+            throw new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Document not found");
+        }
+        if (!DocumentParseStatus.COMPLETED.name().equals(document.getParseStatus())) {
+            return PageResult.of(
+                    List.of(),
+                    pageRequest.getPage(),
+                    pageRequest.getPageSize(),
+                    0
+            );
+        }
 
         Page<KnowledgeChunk> databasePage = new Page<>(pageRequest.getPage(), pageRequest.getPageSize());
-        knowledgeChunkMapper.selectPage(
+        knowledgeChunkMapper.selectVisibleCompletedDocumentPage(
                 databasePage,
-                Wrappers.<KnowledgeChunk>lambdaQuery()
-                        .eq(KnowledgeChunk::getKnowledgeBaseId, knowledgeBaseId)
-                        .eq(KnowledgeChunk::getUserId, currentUser.id())
-                        .eq(KnowledgeChunk::getDocumentId, documentId)
-                        .orderByAsc(KnowledgeChunk::getChunkIndex)
+                documentId,
+                knowledgeBaseId,
+                currentUser.id()
         );
         return PageResult.of(
                 databasePage.getRecords().stream().map(KnowledgeChunkResponse::from).toList(),

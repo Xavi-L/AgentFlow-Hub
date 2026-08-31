@@ -2,6 +2,7 @@ package com.agentflow.knowledge.repository;
 
 import com.agentflow.knowledge.model.KnowledgeChunk;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import java.util.List;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Param;
@@ -26,6 +27,36 @@ import org.apache.ibatis.annotations.Select;
 public interface KnowledgeChunkMapper extends BaseMapper<KnowledgeChunk> {
 
     /**
+     * Pages only the canonical generation of a currently COMPLETED document. The caller holds
+     * shared parent/document locks across MyBatis-Plus's count and data statements.
+     */
+    @Select("""
+            SELECT kc.*
+            FROM knowledge_chunk kc
+            INNER JOIN knowledge_document kd
+                ON kd.id = kc.document_id
+                AND kd.knowledge_base_id = kc.knowledge_base_id
+                AND kd.user_id = kc.user_id
+            INNER JOIN knowledge_base kb
+                ON kb.id = kd.knowledge_base_id
+                AND kb.user_id = kd.user_id
+            WHERE kc.document_id = #{documentId}
+              AND kc.knowledge_base_id = #{knowledgeBaseId}
+              AND kc.user_id = #{userId}
+              AND kc.vector_generation = kd.vector_generation
+              AND kd.parse_status = 'COMPLETED'
+              AND kd.deleted_at IS NULL
+              AND kb.deleted_at IS NULL
+            ORDER BY kc.chunk_index ASC, kc.id ASC
+            """)
+    Page<KnowledgeChunk> selectVisibleCompletedDocumentPage(
+            Page<KnowledgeChunk> page,
+            @Param("documentId") Long documentId,
+            @Param("knowledgeBaseId") Long knowledgeBaseId,
+            @Param("userId") Long userId
+    );
+
+    /**
      * The explicit V5 trigger may inspect completed/failed chunks to report them as
      * skipped, but it receives rows only from completed, non-deleted source documents.
      */
@@ -36,10 +67,15 @@ public interface KnowledgeChunkMapper extends BaseMapper<KnowledgeChunk> {
                 ON kd.id = kc.document_id
                 AND kd.knowledge_base_id = kc.knowledge_base_id
                 AND kd.user_id = kc.user_id
+            INNER JOIN knowledge_base kb
+                ON kb.id = kd.knowledge_base_id
+                AND kb.user_id = kd.user_id
             WHERE kc.knowledge_base_id = #{knowledgeBaseId}
               AND kc.user_id = #{userId}
               AND kd.parse_status = 'COMPLETED'
+              AND kc.vector_generation = kd.vector_generation
               AND kd.deleted_at IS NULL
+              AND kb.deleted_at IS NULL
             ORDER BY kc.document_id ASC, kc.chunk_index ASC, kc.id ASC
             """)
     List<KnowledgeChunk> selectVectorizationCandidates(
@@ -102,6 +138,7 @@ public interface KnowledgeChunkMapper extends BaseMapper<KnowledgeChunk> {
               AND kc.user_id = #{userId}
               AND kc.vectorization_status = 'COMPLETED'
               AND kd.parse_status = 'COMPLETED'
+              AND kc.vector_generation = kd.vector_generation
               AND kd.deleted_at IS NULL
               AND kc.id IN
               <foreach collection="chunkIds" item="chunkId" open="(" separator="," close=")">

@@ -45,9 +45,17 @@ public final class InMemoryVectorStoreGateway implements VectorStoreGateway {
     }
 
     private static boolean matchesDocumentScope(VectorStoreRecord record, VectorDocumentScope scope) {
-        return payloadLongEquals(record, "userId", scope.userId())
+        boolean scoped = payloadLongEquals(record, "userId", scope.userId())
                 && payloadLongEquals(record, "knowledgeBaseId", scope.knowledgeBaseId())
                 && payloadLongEquals(record, "documentId", scope.documentId());
+        if (!scoped || !scope.generationFenced()) {
+            return scoped;
+        }
+        Object generation = record.payload().get("vectorGeneration");
+        if (generation instanceof Number number) {
+            return number.longValue() == scope.vectorGeneration();
+        }
+        return scope.includeLegacyMissingGeneration() && generation == null;
     }
 
     private static VectorSearchHit toSearchHit(VectorStoreRecord record, EmbeddingVector queryVector) {

@@ -88,6 +88,7 @@ public class DocumentProcessingTransactionService {
             chunk.setUserId(document.getUserId());
             chunk.setKnowledgeBaseId(document.getKnowledgeBaseId());
             chunk.setDocumentId(document.getId());
+            chunk.setVectorGeneration(requireVectorGeneration(document));
             chunk.setChunkIndex(chunkDraft.chunkIndex());
             chunk.setContent(chunkDraft.content());
             chunk.setTitlePath(chunkDraft.titlePath());
@@ -150,5 +151,13 @@ public class DocumentProcessingTransactionService {
                 || document.getKnowledgeBaseId() == null) {
             throw new IllegalArgumentException("Document id, userId, and knowledgeBaseId are required");
         }
+    }
+
+    private static long requireVectorGeneration(KnowledgeDocument document) {
+        Long generation = document.getVectorGeneration();
+        if (generation == null || generation < 0) {
+            throw new IllegalStateException("Document vector generation is unavailable");
+        }
+        return generation;
     }
 }

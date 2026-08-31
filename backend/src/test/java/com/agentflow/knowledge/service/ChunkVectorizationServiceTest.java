@@ -25,6 +25,7 @@ import com.agentflow.knowledge.vector.EmbeddingRequest;
 import com.agentflow.knowledge.vector.EmbeddingVector;
 import com.agentflow.knowledge.vector.VectorStoreGateway;
 import com.agentflow.knowledge.vector.VectorStoreRecord;
+import com.agentflow.knowledge.vector.VectorStoreOutcomeUnknownException;
 import com.agentflow.user.security.AuthenticatedUser;
 import java.util.List;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -93,6 +94,7 @@ class ChunkVectorizationServiceTest {
                 .containsEntry("knowledgeBaseId", 201L)
                 .containsEntry("userId", 101L)
                 .containsEntry("chunkIndex", 0)
+                .containsEntry("vectorGeneration", 0L)
                 .containsEntry("contentHash", identity.contentHash())
                 .containsEntry("embeddingProvider", "dashscope")
                 .containsEntry("embeddingModel", "text-embedding-v4")
@@ -169,6 +171,24 @@ class ChunkVectorizationServiceTest {
         verify(knowledgeChunkMapper, never()).selectVectorizationCandidates(any(), any());
     }
 
+    @Test
+    void shouldKeepProcessingBarrierWhenVectorUpsertOutcomeIsUnknown() {
+        KnowledgeChunk chunk = pendingChunk(401L, 301L, 0, "Refund rules");
+        ChunkVectorIdentity identity = ChunkVectorIdentityFactory.create(chunk);
+        when(knowledgeBaseMapper.selectOne(any())).thenReturn(knowledgeBase());
+        when(knowledgeChunkMapper.selectVectorizationCandidates(201L, 101L)).thenReturn(List.of(chunk));
+        when(transactionService.claimPendingChunk(chunk, identity.contentHash())).thenReturn(true);
+        when(embeddingGateway.embed(any())).thenReturn(new EmbeddingVector(List.of(0.1f, 0.2f, 0.3f)));
+        org.mockito.Mockito.doThrow(new VectorStoreOutcomeUnknownException("timeout", new RuntimeException()))
+                .when(vectorStoreGateway).upsert(any());
+
+        ChunkVectorizationResponse response = chunkVectorizationService.vectorizePending(currentUser(), 201L);
+
+        verify(transactionService).markOutcomeUnknown(chunk, "Vector store upsert failed");
+        verify(transactionService, never()).markFailed(chunk, "Vector store upsert failed");
+        assertThat(response).isEqualTo(new ChunkVectorizationResponse(1, 1, 0, 1, 0));
+    }
+
     private static void initializeLambdaCache(Class<?> mapperType, Class<?> entityType) {
         MapperBuilderAssistant assistant = new MapperBuilderAssistant(
                 new MybatisConfiguration(),
@@ -197,6 +217,7 @@ class ChunkVectorizationServiceTest {
         chunk.setUserId(101L);
         chunk.setKnowledgeBaseId(201L);
         chunk.setDocumentId(documentId);
+        chunk.setVectorGeneration(0L);
         chunk.setChunkIndex(chunkIndex);
         chunk.setContent(content);
         chunk.setTitlePath("Payment / Refund");

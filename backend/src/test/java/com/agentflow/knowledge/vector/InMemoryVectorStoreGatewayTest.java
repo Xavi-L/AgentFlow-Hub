@@ -79,6 +79,24 @@ class InMemoryVectorStoreGatewayTest {
                 .hasMessage("documentId must be positive");
     }
 
+    @Test
+    void shouldDeleteOnlyTheRequestedGenerationAndKeepLaterVectors() {
+        InMemoryVectorStoreGateway gateway = new InMemoryVectorStoreGateway();
+        gateway.upsert(recordWithGeneration(
+                "6f221541-64ae-8c32-9f22-c44f515cd6a0", 401L, 0L
+        ));
+        gateway.upsert(recordWithGeneration(
+                "f7dcc320-8d47-8d9a-8407-a58b99f9812b", 402L, 1L
+        ));
+        gateway.upsert(record(
+                "fdafcd5a-e66a-8e7e-8a02-0ea311d084a1", 403L, 101L, 201L, 301L, List.of(1.0f, 0.0f)
+        ));
+
+        gateway.deleteByDocumentScope(VectorDocumentScope.forGenerationCleanup(101L, 201L, 301L, 0L));
+
+        assertThat(searchChunkIds(gateway, 101L, 201L)).containsExactly(402L);
+    }
+
     private static List<Long> searchChunkIds(InMemoryVectorStoreGateway gateway, long userId, long knowledgeBaseId) {
         return gateway.search(new VectorSearchRequest(
                 new EmbeddingVector(List.of(1.0f, 0.0f)), userId, knowledgeBaseId, 10
@@ -101,6 +119,20 @@ class InMemoryVectorStoreGatewayTest {
                         "userId", userId,
                         "knowledgeBaseId", knowledgeBaseId,
                         "documentId", documentId
+                )
+        );
+    }
+
+    private static VectorStoreRecord recordWithGeneration(String vectorId, long chunkId, long generation) {
+        return new VectorStoreRecord(
+                vectorId,
+                new EmbeddingVector(List.of(1.0f, 0.0f)),
+                Map.of(
+                        "chunkId", chunkId,
+                        "userId", 101L,
+                        "knowledgeBaseId", 201L,
+                        "documentId", 301L,
+                        "vectorGeneration", generation
                 )
         );
     }

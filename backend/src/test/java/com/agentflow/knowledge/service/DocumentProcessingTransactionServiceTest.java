@@ -104,6 +104,8 @@ class DocumentProcessingTransactionServiceTest {
                 .containsExactly(0, 1);
         assertThat(chunkCaptor.getAllValues()).extracting(KnowledgeChunk::getVectorizationStatus)
                 .containsOnly(ChunkVectorizationStatus.PENDING.name());
+        assertThat(chunkCaptor.getAllValues()).extracting(KnowledgeChunk::getVectorGeneration)
+                .containsOnly(0L);
         assertThat(chunkCaptor.getAllValues()).extracting(KnowledgeChunk::getContentHash)
                 .containsExactly(
                         ChunkVectorIdentityFactory.contentHash("first chunk"),
@@ -167,6 +169,7 @@ class DocumentProcessingTransactionServiceTest {
         document.setFileName("refund-rules.md");
         document.setFileType("MD");
         document.setParseStatus("PENDING");
+        document.setVectorGeneration(0L);
         document.setCreatedAt(OffsetDateTime.parse("2026-08-14T12:00:00+08:00"));
         return document;
     }

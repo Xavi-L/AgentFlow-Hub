@@ -3,6 +3,7 @@ package com.agentflow.knowledge.controller;
 import com.agentflow.common.api.ApiResponse;
 import com.agentflow.knowledge.dto.KnowledgeDocumentResponse;
 import com.agentflow.knowledge.service.KnowledgeDocumentDeletionService;
+import com.agentflow.knowledge.service.KnowledgeDocumentReprocessService;
 import com.agentflow.knowledge.service.KnowledgeDocumentService;
 import com.agentflow.user.security.AuthenticatedUser;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -14,11 +15,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 中文：单文档安全元数据详情、失败重试与 V24 删除的顶层 HTTP 入口。它只从 SecurityContext
+ * 中文：单文档安全元数据详情、V22/V25 重解析与 V24 删除的顶层 HTTP 入口。它只从 SecurityContext
  * 读取当前用户；详情与重试成功都只返回既有 {@link KnowledgeDocumentResponse} 的安全字段，删除
  * 只返回空的统一成功外壳。文件内容、存储定位信息和解析错误都不在此路由中公开。
  *
- * <p>English: Top-level HTTP entry point for one document's safe metadata detail, failed
+ * <p>English: Top-level HTTP entry point for one document's safe metadata detail, V22/V25
  * reprocess request, and V24 deletion. It reads the current user only from SecurityContext;
  * detail/reprocess return only established safe {@link KnowledgeDocumentResponse} fields and
  * deletion returns an empty envelope. File content, storage locators, and parser errors are not
@@ -29,13 +30,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class KnowledgeDocumentDetailController {
     private final KnowledgeDocumentService knowledgeDocumentService;
     private final KnowledgeDocumentDeletionService knowledgeDocumentDeletionService;
+    private final KnowledgeDocumentReprocessService knowledgeDocumentReprocessService;
 
     public KnowledgeDocumentDetailController(
             KnowledgeDocumentService knowledgeDocumentService,
-            KnowledgeDocumentDeletionService knowledgeDocumentDeletionService
+            KnowledgeDocumentDeletionService knowledgeDocumentDeletionService,
+            KnowledgeDocumentReprocessService knowledgeDocumentReprocessService
     ) {
         this.knowledgeDocumentService = knowledgeDocumentService;
         this.knowledgeDocumentDeletionService = knowledgeDocumentDeletionService;
+        this.knowledgeDocumentReprocessService = knowledgeDocumentReprocessService;
     }
 
     /**
@@ -55,12 +59,11 @@ public class KnowledgeDocumentDetailController {
     }
 
     /**
-     * 中文：请求将当前 owner 可见的 FAILED 文档重新排入 PENDING。此入口没有请求体，也不会直接
-     * 启动解析；既有 process-pending 流程稍后消费该 PENDING 文档。
+     * 中文：请求将当前 owner 可见的 FAILED 文档直接重新入队，或清理 COMPLETED 文档的旧派生物后
+     * 安全重新入队。此入口没有请求体，也不会直接启动解析。
      *
-     * <p>English: Requests requeueing a visible FAILED document of the current owner as
-     * PENDING. This route has no request body and does not start parsing directly; the existing
-     * process-pending flow consumes the PENDING document later.
+     * <p>English: Requeues a visible FAILED document directly, or first clears a COMPLETED
+     * document's old derived data. It has no request body and does not start parsing directly.
      */
     @PostMapping("/{documentId}/reprocess")
     public ApiResponse<KnowledgeDocumentResponse> reprocess(
@@ -69,7 +72,7 @@ public class KnowledgeDocumentDetailController {
     ) {
         return ApiResponse.success(
                 "Document reprocessing requested",
-                knowledgeDocumentService.reprocessOwnedFailed(currentUser, documentId)
+                knowledgeDocumentReprocessService.reprocessOwned(currentUser, documentId)
         );
     }
 

@@ -12,6 +12,7 @@ import com.agentflow.common.web.TraceIdFilter;
 import com.agentflow.knowledge.dto.KnowledgeDocumentResponse;
 import com.agentflow.knowledge.service.KnowledgeDocumentDeletionService;
 import com.agentflow.knowledge.service.KnowledgeDocumentService;
+import com.agentflow.knowledge.service.KnowledgeDocumentReprocessService;
 import com.agentflow.user.security.AuthenticatedUser;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -119,9 +120,9 @@ class KnowledgeDocumentDetailControllerTest {
 
     @Test
     void shouldRequestFailedDocumentReprocessingWithOnlyTheSafeDocumentDto() throws Exception {
-        KnowledgeDocumentService service = Mockito.mock(KnowledgeDocumentService.class);
+        KnowledgeDocumentReprocessService service = Mockito.mock(KnowledgeDocumentReprocessService.class);
         AuthenticatedUser currentUser = currentUser();
-        when(service.reprocessOwnedFailed(eq(currentUser), eq(301L))).thenReturn(reprocessedResponse());
+        when(service.reprocessOwned(eq(currentUser), eq(301L))).thenReturn(reprocessedResponse());
         authenticateAs(currentUser);
 
         mockMvc(service).perform(MockMvcRequestBuilders.post(
@@ -163,14 +164,14 @@ class KnowledgeDocumentDetailControllerTest {
                         "$.data.chunkCount"
                 ).doesNotExist());
 
-        verify(service).reprocessOwnedFailed(currentUser, 301L);
+        verify(service).reprocessOwned(currentUser, 301L);
     }
 
     @Test
     void shouldKeepAnInvisibleDocumentAsTheUniform404WhenReprocessing() throws Exception {
-        KnowledgeDocumentService service = Mockito.mock(KnowledgeDocumentService.class);
+        KnowledgeDocumentReprocessService service = Mockito.mock(KnowledgeDocumentReprocessService.class);
         AuthenticatedUser currentUser = currentUser();
-        when(service.reprocessOwnedFailed(eq(currentUser), eq(301L))).thenThrow(
+        when(service.reprocessOwned(eq(currentUser), eq(301L))).thenThrow(
                 new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Document not found")
         );
         authenticateAs(currentUser);
@@ -185,29 +186,35 @@ class KnowledgeDocumentDetailControllerTest {
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
                         .value("Document not found"));
 
-        verify(service).reprocessOwnedFailed(currentUser, 301L);
+        verify(service).reprocessOwned(currentUser, 301L);
     }
 
     @Test
-    void shouldExposeAVisibleNonFailedDocumentAsTheV22ConflictContract() throws Exception {
-        KnowledgeDocumentService service = Mockito.mock(KnowledgeDocumentService.class);
-        AuthenticatedUser currentUser = currentUser();
-        when(service.reprocessOwnedFailed(eq(currentUser), eq(301L))).thenThrow(
-                new BusinessException(ErrorCode.KNOWLEDGE_DOCUMENT_REPROCESS_CONFLICT)
-        );
-        authenticateAs(currentUser);
+    void shouldExposeReprocessConflictAndUnavailableWithoutChangingTheirContract() throws Exception {
+        for (ErrorCode errorCode : List.of(
+                ErrorCode.KNOWLEDGE_DOCUMENT_REPROCESS_CONFLICT,
+                ErrorCode.KNOWLEDGE_DOCUMENT_REPROCESS_UNAVAILABLE
+        )) {
+            KnowledgeDocumentReprocessService service = Mockito.mock(KnowledgeDocumentReprocessService.class);
+            AuthenticatedUser currentUser = currentUser();
+            when(service.reprocessOwned(eq(currentUser), eq(301L)))
+                    .thenThrow(new BusinessException(errorCode));
+            authenticateAs(currentUser);
 
-        mockMvc(service).perform(MockMvcRequestBuilders.post(
-                        "/api/v1/documents/{documentId}/reprocess",
-                        301L
-                ).header("X-Trace-Id", "af-test-document-reprocess-conflict"))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isConflict())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
-                        .value("KNOWLEDGE_DOCUMENT_REPROCESS_CONFLICT"))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
-                        .value("Document is not eligible for reprocessing"));
+            mockMvc(service).perform(MockMvcRequestBuilders.post(
+                            "/api/v1/documents/{documentId}/reprocess",
+                            301L
+                    ).header("X-Trace-Id", "af-test-document-reprocess-" + errorCode.getCode()))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status()
+                            .is(errorCode.getHttpStatus()))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                            .value(errorCode.getCode()))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
+                            .value(errorCode.getMessage()));
 
-        verify(service).reprocessOwnedFailed(currentUser, 301L);
+            verify(service).reprocessOwned(currentUser, 301L);
+            SecurityContextHolder.clearContext();
+        }
     }
 
     @Test
@@ -351,15 +358,35 @@ class KnowledgeDocumentDetailControllerTest {
     }
 
     private static MockMvc mockMvc(KnowledgeDocumentService service) {
-        return mockMvc(service, Mockito.mock(KnowledgeDocumentDeletionService.class));
+        return mockMvc(
+                service,
+                Mockito.mock(KnowledgeDocumentDeletionService.class),
+                Mockito.mock(KnowledgeDocumentReprocessService.class)
+        );
+    }
+
+    private static MockMvc mockMvc(KnowledgeDocumentReprocessService service) {
+        return mockMvc(
+                Mockito.mock(KnowledgeDocumentService.class),
+                Mockito.mock(KnowledgeDocumentDeletionService.class),
+                service
+        );
     }
 
     private static MockMvc mockMvc(
             KnowledgeDocumentService service,
             KnowledgeDocumentDeletionService deletionService
     ) {
+        return mockMvc(service, deletionService, Mockito.mock(KnowledgeDocumentReprocessService.class));
+    }
+
+    private static MockMvc mockMvc(
+            KnowledgeDocumentService service,
+            KnowledgeDocumentDeletionService deletionService,
+            KnowledgeDocumentReprocessService reprocessService
+    ) {
         return MockMvcBuilders
-                .standaloneSetup(new KnowledgeDocumentDetailController(service, deletionService))
+                .standaloneSetup(new KnowledgeDocumentDetailController(service, deletionService, reprocessService))
                 .addPlaceholderValue("agentflow.api.prefix", "/api/v1")
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())

@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import java.time.OffsetDateTime;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 /**
@@ -17,6 +18,20 @@ import org.apache.ibatis.annotations.Update;
  */
 @Mapper
 public interface KnowledgeBaseMapper extends BaseMapper<KnowledgeBase> {
+
+    /** V25 chunk-list visibility lock, acquired before the child document lock. */
+    @Select("""
+            SELECT *
+            FROM knowledge_base
+            WHERE id = #{knowledgeBaseId}
+              AND user_id = #{userId}
+              AND deleted_at IS NULL
+            FOR SHARE
+            """)
+    KnowledgeBase selectVisibleOwnedForShare(
+            @Param("knowledgeBaseId") Long knowledgeBaseId,
+            @Param("userId") Long userId
+    );
 
     @Update("""
             UPDATE knowledge_base
