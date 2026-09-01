@@ -26,10 +26,11 @@ import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Business boundary for V30-V33 current-owner Agent root-resource operations. */
+/** Business boundary for V30-V34 current-owner Agent root-resource operations. */
 @Service
 public class AgentAppService {
     private static final String ACTIVE_STATUS = "ACTIVE";
+    private static final String DISABLED_STATUS = "DISABLED";
     private static final String SUPPORTED_MODEL_PROVIDER = "openai-compatible";
 
     private final AgentAppMapper agentAppMapper;
@@ -211,6 +212,24 @@ public class AgentAppService {
         return AgentAppResponse.from(current);
     }
 
+    /** Enables one current-owner, live Agent; an already ACTIVE row is an idempotent no-op. */
+    @Transactional
+    public AgentAppResponse enableOwned(
+            AuthenticatedUser currentUser,
+            Long agentId
+    ) {
+        return changeOwnedStatus(currentUser, agentId, ACTIVE_STATUS);
+    }
+
+    /** Disables one current-owner, live Agent; an already DISABLED row is an idempotent no-op. */
+    @Transactional
+    public AgentAppResponse disableOwned(
+            AuthenticatedUser currentUser,
+            Long agentId
+    ) {
+        return changeOwnedStatus(currentUser, agentId, DISABLED_STATUS);
+    }
+
     /**
      * Soft-deletes one current-owner, live Agent with a single atomic scoped write. Missing,
      * foreign-owner, already-deleted, and repeated-delete cases all affect zero rows and share
@@ -258,6 +277,48 @@ public class AgentAppService {
                 pageRequest.getPageSize(),
                 databasePage.getTotal()
         );
+    }
+
+    /**
+     * Serializes status actions with PATCH, DELETE, and competing status actions by reusing the
+     * owner/live row lock. A real transition writes only status and updated_at; a no-op preserves
+     * the locked row's timestamp.
+     */
+    private AgentAppResponse changeOwnedStatus(
+            AuthenticatedUser currentUser,
+            Long agentId,
+            String targetStatus
+    ) {
+        Objects.requireNonNull(currentUser, "currentUser must not be null");
+        validateAgentId(agentId);
+
+        AgentApp current = agentAppMapper.selectVisibleOwnedByIdForUpdate(
+                agentId,
+                currentUser.id()
+        );
+        if (current == null) {
+            throw new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Agent not found");
+        }
+        if (targetStatus.equals(current.getStatus())) {
+            return AgentAppResponse.from(current);
+        }
+
+        String expectedStatus = current.getStatus();
+        OffsetDateTime updatedAt = OffsetDateTime.now();
+        int affectedRows = agentAppMapper.updateStatusOwned(
+                agentId,
+                currentUser.id(),
+                expectedStatus,
+                targetStatus,
+                updatedAt
+        );
+        if (affectedRows != 1) {
+            throw new IllegalStateException("Expected exactly one status-updated agent_app row");
+        }
+
+        current.setStatus(targetStatus);
+        current.setUpdatedAt(updatedAt);
+        return AgentAppResponse.from(current);
     }
 
     private static String normalizeRequired(String value, String fieldName, int maxLength) {

@@ -50,6 +50,9 @@ class AgentAppServiceTest {
     @Captor
     private ArgumentCaptor<OffsetDateTime> deletedAtCaptor;
 
+    @Captor
+    private ArgumentCaptor<OffsetDateTime> statusUpdatedAtCaptor;
+
     @Test
     void shouldCreateAnOwnedActiveAgentWithTheFrozenV30Defaults() {
         AuthenticatedUser currentUser = currentUser();
@@ -559,6 +562,157 @@ class AgentAppServiceTest {
     }
 
     @Test
+    void shouldApplyBothLockedStatusTransitionsAndReturnTheCompleteUpdatedState() {
+        AgentApp active = detailRow(301L, "ACTIVE");
+        AgentApp disabled = detailRow(301L, "DISABLED");
+        OffsetDateTime activeUpdatedAt = active.getUpdatedAt();
+        OffsetDateTime disabledUpdatedAt = disabled.getUpdatedAt();
+        when(agentAppMapper.selectVisibleOwnedByIdForUpdate(301L, 101L))
+                .thenReturn(active, disabled);
+        when(agentAppMapper.updateStatusOwned(
+                eq(301L),
+                eq(101L),
+                eq("ACTIVE"),
+                eq("DISABLED"),
+                any(OffsetDateTime.class)
+        )).thenReturn(1);
+        when(agentAppMapper.updateStatusOwned(
+                eq(301L),
+                eq(101L),
+                eq("DISABLED"),
+                eq("ACTIVE"),
+                any(OffsetDateTime.class)
+        )).thenReturn(1);
+
+        AgentAppResponse disabledResponse = agentAppService.disableOwned(currentUser(), 301L);
+        AgentAppResponse enabledResponse = agentAppService.enableOwned(currentUser(), 301L);
+
+        verify(agentAppMapper, org.mockito.Mockito.times(2))
+                .selectVisibleOwnedByIdForUpdate(301L, 101L);
+        verify(agentAppMapper).updateStatusOwned(
+                eq(301L),
+                eq(101L),
+                eq("ACTIVE"),
+                eq("DISABLED"),
+                statusUpdatedAtCaptor.capture()
+        );
+        verify(agentAppMapper).updateStatusOwned(
+                eq(301L),
+                eq(101L),
+                eq("DISABLED"),
+                eq("ACTIVE"),
+                statusUpdatedAtCaptor.capture()
+        );
+        List<OffsetDateTime> updateTimes = statusUpdatedAtCaptor.getAllValues();
+        assertThat(disabledResponse.status()).isEqualTo("DISABLED");
+        assertThat(disabledResponse.updatedAt()).isEqualTo(updateTimes.get(0));
+        assertThat(disabledResponse.updatedAt()).isNotEqualTo(activeUpdatedAt);
+        assertThat(enabledResponse.status()).isEqualTo("ACTIVE");
+        assertThat(enabledResponse.updatedAt()).isEqualTo(updateTimes.get(1));
+        assertThat(enabledResponse.updatedAt()).isNotEqualTo(disabledUpdatedAt);
+        assertThat(disabledResponse.name()).isEqualTo("Payment diagnosis agent");
+        assertThat(enabledResponse.systemPrompt()).isEqualTo("Use only supplied payment facts.");
+        assertThat(active.getUserId()).isEqualTo(101L);
+        assertThat(active.getConfig()).isEqualTo("{\"internal\":true}");
+        assertThat(active.getCreatedAt()).isEqualTo(disabled.getCreatedAt());
+        assertThat(active.getDeletedAt()).isNull();
+        verifyNoMoreInteractions(agentAppMapper);
+    }
+
+    @Test
+    void shouldTreatRepeatedStatusActionsAsIdempotentWithoutRefreshingUpdatedAt() {
+        AgentApp active = detailRow(301L, "ACTIVE");
+        AgentApp disabled = detailRow(301L, "DISABLED");
+        OffsetDateTime activeUpdatedAt = active.getUpdatedAt();
+        OffsetDateTime disabledUpdatedAt = disabled.getUpdatedAt();
+        when(agentAppMapper.selectVisibleOwnedByIdForUpdate(301L, 101L))
+                .thenReturn(active, disabled);
+
+        AgentAppResponse enabled = agentAppService.enableOwned(currentUser(), 301L);
+        AgentAppResponse disabledAgain = agentAppService.disableOwned(currentUser(), 301L);
+
+        assertThat(enabled.status()).isEqualTo("ACTIVE");
+        assertThat(enabled.updatedAt()).isEqualTo(activeUpdatedAt);
+        assertThat(disabledAgain.status()).isEqualTo("DISABLED");
+        assertThat(disabledAgain.updatedAt()).isEqualTo(disabledUpdatedAt);
+        verify(agentAppMapper, org.mockito.Mockito.times(2))
+                .selectVisibleOwnedByIdForUpdate(301L, 101L);
+        verify(agentAppMapper, never()).updateStatusOwned(any(), any(), any(), any(), any());
+        verifyNoMoreInteractions(agentAppMapper);
+    }
+
+    @Test
+    void shouldMapEveryInvisibleStatusActionScopeToTheSameNotFoundContract() {
+        when(agentAppMapper.selectVisibleOwnedByIdForUpdate(999L, 101L)).thenReturn(null);
+
+        for (String invisibleCase : List.of("missing", "foreign-owner", "soft-deleted")) {
+            assertThatThrownBy(() -> agentAppService.enableOwned(currentUser(), 999L))
+                    .as(invisibleCase + " enable")
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessage("Agent not found")
+                    .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                            .isEqualTo(ErrorCode.COMMON_NOT_FOUND));
+            assertThatThrownBy(() -> agentAppService.disableOwned(currentUser(), 999L))
+                    .as(invisibleCase + " disable")
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessage("Agent not found")
+                    .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                            .isEqualTo(ErrorCode.COMMON_NOT_FOUND));
+        }
+
+        verify(agentAppMapper, org.mockito.Mockito.times(6))
+                .selectVisibleOwnedByIdForUpdate(999L, 101L);
+        verifyNoMoreInteractions(agentAppMapper);
+    }
+
+    @Test
+    void shouldRejectMissingOrNonPositiveStatusActionIdsBeforeMapperAccess() {
+        for (Long invalidId : java.util.Arrays.asList(null, 0L, -1L)) {
+            assertThatThrownBy(() -> agentAppService.enableOwned(currentUser(), invalidId))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessage("agentId must be a positive integer")
+                    .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                            .isEqualTo(ErrorCode.COMMON_PARAM_INVALID));
+            assertThatThrownBy(() -> agentAppService.disableOwned(currentUser(), invalidId))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessage("agentId must be a positive integer")
+                    .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                            .isEqualTo(ErrorCode.COMMON_PARAM_INVALID));
+        }
+
+        verifyNoInteractions(agentAppMapper);
+    }
+
+    @Test
+    void shouldTreatEveryUnexpectedLockedStatusUpdateCountAsAnInternalConsistencyFailure() {
+        when(agentAppMapper.selectVisibleOwnedByIdForUpdate(301L, 101L))
+                .thenReturn(detailRow(301L, "ACTIVE"), detailRow(301L, "DISABLED"));
+        when(agentAppMapper.updateStatusOwned(
+                eq(301L), eq(101L), eq("ACTIVE"), eq("DISABLED"), any(OffsetDateTime.class)
+        )).thenReturn(0);
+        when(agentAppMapper.updateStatusOwned(
+                eq(301L), eq(101L), eq("DISABLED"), eq("ACTIVE"), any(OffsetDateTime.class)
+        )).thenReturn(2);
+
+        assertThatThrownBy(() -> agentAppService.disableOwned(currentUser(), 301L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Expected exactly one status-updated agent_app row");
+        assertThatThrownBy(() -> agentAppService.enableOwned(currentUser(), 301L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Expected exactly one status-updated agent_app row");
+
+        verify(agentAppMapper, org.mockito.Mockito.times(2))
+                .selectVisibleOwnedByIdForUpdate(301L, 101L);
+        verify(agentAppMapper).updateStatusOwned(
+                eq(301L), eq(101L), eq("ACTIVE"), eq("DISABLED"), any(OffsetDateTime.class)
+        );
+        verify(agentAppMapper).updateStatusOwned(
+                eq(301L), eq(101L), eq("DISABLED"), eq("ACTIVE"), any(OffsetDateTime.class)
+        );
+        verifyNoMoreInteractions(agentAppMapper);
+    }
+
+    @Test
     void shouldSoftDeleteOneOwnedLiveAgentWithOneServerTimestampAndNoPriorRead() {
         when(agentAppMapper.softDeleteOwned(eq(301L), eq(101L), any(OffsetDateTime.class)))
                 .thenReturn(1);
@@ -662,6 +816,12 @@ class AgentAppServiceTest {
                 )
         )).isInstanceOf(BusinessException.class)
                 .hasMessage("Agent not found");
+        assertThatThrownBy(() -> agentAppService.enableOwned(currentUser(), 301L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Agent not found");
+        assertThatThrownBy(() -> agentAppService.disableOwned(currentUser(), 301L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Agent not found");
         PageResult<AgentAppSummaryResponse> page = agentAppService.listOwnedBy(
                 currentUser(),
                 new PageRequest(1, 20)
@@ -671,7 +831,8 @@ class AgentAppServiceTest {
 
         verify(agentAppMapper).softDeleteOwned(eq(301L), eq(101L), any(OffsetDateTime.class));
         verify(agentAppMapper).selectVisibleOwnedById(301L, 101L);
-        verify(agentAppMapper).selectVisibleOwnedByIdForUpdate(301L, 101L);
+        verify(agentAppMapper, org.mockito.Mockito.times(3))
+                .selectVisibleOwnedByIdForUpdate(301L, 101L);
         verify(agentAppMapper).selectVisibleOwnedPage(any(), eq(101L));
         verifyNoMoreInteractions(agentAppMapper);
     }

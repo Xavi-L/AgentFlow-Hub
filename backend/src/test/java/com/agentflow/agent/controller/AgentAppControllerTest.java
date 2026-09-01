@@ -112,6 +112,27 @@ class AgentAppControllerTest {
     }
 
     @Test
+    void shouldEnableAndDisableThroughTheUnified200Responses() {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        AgentAppController controller = new AgentAppController(service);
+        AuthenticatedUser currentUser = currentUser();
+        when(service.enableOwned(currentUser, 301L)).thenReturn(fullResponse("ACTIVE"));
+        when(service.disableOwned(currentUser, 301L)).thenReturn(fullResponse("DISABLED"));
+
+        ApiResponse<AgentAppResponse> enabled = controller.enable(currentUser, 301L);
+        ApiResponse<AgentAppResponse> disabled = controller.disable(currentUser, 301L);
+
+        assertThat(enabled.getCode()).isEqualTo("OK");
+        assertThat(enabled.getMessage()).isEqualTo("Agent enabled");
+        assertThat(enabled.getData().status()).isEqualTo("ACTIVE");
+        assertThat(disabled.getCode()).isEqualTo("OK");
+        assertThat(disabled.getMessage()).isEqualTo("Agent disabled");
+        assertThat(disabled.getData().status()).isEqualTo("DISABLED");
+        verify(service).enableOwned(currentUser, 301L);
+        verify(service).disableOwned(currentUser, 301L);
+    }
+
+    @Test
     void shouldSoftDeleteThroughTheUnified200Response() {
         AgentAppService service = Mockito.mock(AgentAppService.class);
         AgentAppController controller = new AgentAppController(service);
@@ -282,6 +303,56 @@ class AgentAppControllerTest {
     }
 
     @Test
+    void shouldBindBodylessEnableAndDisableRoutesAndReturnTheCompleteSafeState() throws Exception {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        AuthenticatedUser currentUser = authenticate();
+        when(service.disableOwned(currentUser, 301L)).thenReturn(fullResponse("DISABLED"));
+        when(service.enableOwned(currentUser, 301L)).thenReturn(fullResponse("ACTIVE"));
+
+        mockMvc(service).perform(post("/api/v1/agents/301/disable")
+                        .header("X-Trace-Id", "af-test-agent-disable"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("OK"))
+                .andExpect(jsonPath("$.message").value("Agent disabled"))
+                .andExpect(jsonPath("$.data.id").value("301"))
+                .andExpect(jsonPath("$.data.name").value("Payment diagnosis agent"))
+                .andExpect(jsonPath("$.data.description").value("Analyze payment failures."))
+                .andExpect(jsonPath("$.data.systemPrompt").value("Diagnose payment failures."))
+                .andExpect(jsonPath("$.data.modelProvider").value("openai-compatible"))
+                .andExpect(jsonPath("$.data.modelName").value("kimi-k2"))
+                .andExpect(jsonPath("$.data.temperature").value(0.2))
+                .andExpect(jsonPath("$.data.topP").value(0.8))
+                .andExpect(jsonPath("$.data.maxSteps").value(6))
+                .andExpect(jsonPath("$.data.maxToolCalls").value(4))
+                .andExpect(jsonPath("$.data.maxTokens").value(8000))
+                .andExpect(jsonPath("$.data.timeoutSeconds").value(120))
+                .andExpect(jsonPath("$.data.status").value("DISABLED"))
+                .andExpect(jsonPath("$.data.createdAt").exists())
+                .andExpect(jsonPath("$.data.updatedAt").exists())
+                .andExpect(jsonPath("$.data.userId").doesNotExist())
+                .andExpect(jsonPath("$.data.config").doesNotExist())
+                .andExpect(jsonPath("$.data.deletedAt").doesNotExist())
+                .andExpect(jsonPath("$.data.currentPromptVersionId").doesNotExist())
+                .andExpect(jsonPath("$.data.knowledgeBaseIds").doesNotExist())
+                .andExpect(jsonPath("$.data.toolIds").doesNotExist())
+                .andExpect(jsonPath("$.traceId").value("af-test-agent-disable"));
+
+        mockMvc(service).perform(post("/api/v1/agents/301/enable")
+                        .header("X-Trace-Id", "af-test-agent-enable"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("OK"))
+                .andExpect(jsonPath("$.message").value("Agent enabled"))
+                .andExpect(jsonPath("$.data.id").value("301"))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.userId").doesNotExist())
+                .andExpect(jsonPath("$.data.config").doesNotExist())
+                .andExpect(jsonPath("$.data.deletedAt").doesNotExist());
+
+        verify(service).disableOwned(currentUser, 301L);
+        verify(service).enableOwned(currentUser, 301L);
+    }
+
+    @Test
     void shouldBindThePrincipalToTheBodylessSoftDeleteRouteAndReturnNullData() throws Exception {
         AgentAppService service = Mockito.mock(AgentAppService.class);
         AuthenticatedUser currentUser = authenticate();
@@ -312,6 +383,29 @@ class AgentAppControllerTest {
                 .andExpect(jsonPath("$.message").value("Agent not found"));
 
         verify(service).softDeleteOwned(currentUser, 999L);
+    }
+
+    @Test
+    void shouldReturnTheUniformNotFoundResponseForInvisibleStatusActions() throws Exception {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        AuthenticatedUser currentUser = authenticate();
+        when(service.enableOwned(currentUser, 999L)).thenThrow(
+                new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Agent not found")
+        );
+        when(service.disableOwned(currentUser, 999L)).thenThrow(
+                new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Agent not found")
+        );
+
+        for (String action : List.of("enable", "disable")) {
+            mockMvc(service).perform(post("/api/v1/agents/999/" + action)
+                            .header("X-Trace-Id", "af-test-agent-status-missing-" + action))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value("COMMON_NOT_FOUND"))
+                    .andExpect(jsonPath("$.message").value("Agent not found"));
+        }
+
+        verify(service).enableOwned(currentUser, 999L);
+        verify(service).disableOwned(currentUser, 999L);
     }
 
     @Test
@@ -392,6 +486,24 @@ class AgentAppControllerTest {
                             .header("X-Trace-Id", "af-test-agent-delete-invalid-binding"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("COMMON_PARAM_INVALID"));
+        }
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void shouldRejectNonNumericAndOutOfLongRangeStatusActionIdsBeforeCallingTheService()
+            throws Exception {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        authenticate();
+
+        for (String action : List.of("enable", "disable")) {
+            for (String invalidId : List.of("not-a-number", "9223372036854775808")) {
+                mockMvc(service).perform(post("/api/v1/agents/" + invalidId + "/" + action)
+                                .header("X-Trace-Id", "af-test-agent-status-invalid-binding"))
+                        .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.code").value("COMMON_PARAM_INVALID"));
+            }
         }
 
         verifyNoInteractions(service);
@@ -502,6 +614,24 @@ class AgentAppControllerTest {
                             .header("X-Trace-Id", "af-test-agent-delete-non-positive"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("COMMON_PARAM_INVALID"));
+        }
+
+        verifyNoInteractions(mapper);
+    }
+
+    @Test
+    void shouldRejectNonPositiveStatusActionIdsBeforeAccessingTheMapper() throws Exception {
+        AgentAppMapper mapper = Mockito.mock(AgentAppMapper.class);
+        AgentAppService service = new AgentAppService(mapper);
+        authenticate();
+
+        for (String action : List.of("enable", "disable")) {
+            for (String invalidId : List.of("0", "-1")) {
+                mockMvc(service).perform(post("/api/v1/agents/" + invalidId + "/" + action)
+                                .header("X-Trace-Id", "af-test-agent-status-non-positive"))
+                        .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.code").value("COMMON_PARAM_INVALID"));
+            }
         }
 
         verifyNoInteractions(mapper);
@@ -643,6 +773,10 @@ class AgentAppControllerTest {
     }
 
     private static AgentAppResponse fullResponse() {
+        return fullResponse("ACTIVE");
+    }
+
+    private static AgentAppResponse fullResponse(String status) {
         OffsetDateTime now = OffsetDateTime.parse("2026-08-31T10:00:00+08:00");
         return new AgentAppResponse(
                 "301",
@@ -657,7 +791,7 @@ class AgentAppControllerTest {
                 4,
                 8_000,
                 120,
-                "ACTIVE",
+                status,
                 now,
                 now
         );

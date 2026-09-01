@@ -1,4 +1,4 @@
-# V30-V33 Agent root-resource manual checks for IntelliJ IDEA HTTP Client.
+# V30-V34 Agent root-resource manual checks for IntelliJ IDEA HTTP Client.
 #
 # First register/login a disposable test user through user-auth.http. The token stays in
 # IDEA's local session as agentflowAccessToken; never paste a real token into this file.
@@ -641,6 +641,267 @@ X-Trace-Id: af-manual-agent-delete-no-auth-001
 
 > {%
   client.test("Agent soft delete requires authentication", function () {
+    client.assert(response.status === 401, "Expected HTTP 401");
+    client.assert(response.body.code === "AUTH_UNAUTHENTICATED", "Expected AUTH_UNAUTHENTICATED");
+  });
+%}
+
+### V34 flow setup: create a dedicated Agent for bodyless status actions.
+POST {{baseUrl}}/api/v1/agents
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-agent-status-create-001
+
+{
+  "name": "V34 启停 Agent",
+  "description": "验证启停、幂等、既有管理路径和删除边界。",
+  "systemPrompt": "只用于 V34 启停验收。",
+  "modelProvider": "openai-compatible",
+  "modelName": "kimi-k2",
+  "temperature": 0.4,
+  "topP": 0.9,
+  "maxSteps": 8,
+  "maxToolCalls": 5,
+  "maxTokens": 9000,
+  "timeoutSeconds": 180
+}
+
+> {%
+  client.test("V34 flow creates one ACTIVE current-owner Agent", function () {
+    client.assert(response.status === 201, "Expected HTTP 201");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.data.status === "ACTIVE", "Expected initial ACTIVE status");
+    client.global.set("agentflowStatusAgentId", response.body.data.id);
+    client.global.set("agentflowStatusCreatedAt", response.body.data.createdAt);
+    client.global.set("agentflowStatusUpdatedAt", response.body.data.updatedAt);
+  });
+%}
+
+### V34 disable: no request body, full public DTO, DISABLED, and refreshed updatedAt.
+POST {{baseUrl}}/api/v1/agents/{{agentflowStatusAgentId}}/disable
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-disable-001
+
+> {%
+  client.test("current owner disables one live Agent", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.message === "Agent disabled", "Expected disable message");
+    var agent = response.body.data;
+    client.assert(agent.id === client.global.get("agentflowStatusAgentId"), "Expected same Agent ID");
+    client.assert(agent.name === "V34 启停 Agent", "Expected preserved name");
+    client.assert(agent.description === "验证启停、幂等、既有管理路径和删除边界。", "Expected preserved description");
+    client.assert(agent.systemPrompt === "只用于 V34 启停验收。", "Expected preserved prompt");
+    client.assert(agent.modelProvider === "openai-compatible" && agent.modelName === "kimi-k2", "Expected preserved model");
+    client.assert(agent.temperature === 0.4 && agent.topP === 0.9, "Expected preserved sampling config");
+    client.assert(agent.maxSteps === 8 && agent.maxToolCalls === 5, "Expected preserved execution budgets");
+    client.assert(agent.maxTokens === 9000 && agent.timeoutSeconds === 180, "Expected preserved token/time budgets");
+    client.assert(agent.status === "DISABLED", "Expected DISABLED status");
+    client.assert(agent.createdAt === client.global.get("agentflowStatusCreatedAt"), "createdAt must not change");
+    client.assert(agent.updatedAt !== client.global.get("agentflowStatusUpdatedAt"), "Real transition must refresh updatedAt");
+    client.assert(agent.userId === undefined, "Owner ID must not be returned");
+    client.assert(agent.config === undefined, "Internal config must not be returned");
+    client.assert(agent.deletedAt === undefined, "Deletion marker must not be returned");
+    client.global.set("agentflowStatusUpdatedAt", agent.updatedAt);
+  });
+%}
+
+### V34 repeated disable: idempotent 200 and no updatedAt refresh.
+POST {{baseUrl}}/api/v1/agents/{{agentflowStatusAgentId}}/disable
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-disable-repeat-001
+
+> {%
+  client.test("repeated disable is an idempotent no-op", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.message === "Agent disabled", "Expected idempotent disable message");
+    client.assert(response.body.data.status === "DISABLED", "Expected DISABLED status");
+    client.assert(
+      response.body.data.updatedAt === client.global.get("agentflowStatusUpdatedAt"),
+      "Repeated disable must preserve updatedAt"
+    );
+  });
+%}
+
+### V34 detail while DISABLED: disabled is still a visible live resource.
+GET {{baseUrl}}/api/v1/agents/{{agentflowStatusAgentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-disabled-detail-001
+
+> {%
+  client.test("DISABLED Agent remains visible in detail", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.data.status === "DISABLED", "Expected DISABLED detail state");
+    client.assert(response.body.data.updatedAt === client.global.get("agentflowStatusUpdatedAt"), "Expected stable disabled timestamp");
+  });
+%}
+
+### V34 PATCH while DISABLED: configuration management remains available.
+PATCH {{baseUrl}}/api/v1/agents/{{agentflowStatusAgentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-agent-disabled-patch-001
+
+{
+  "name": "V34 已禁用但可管理 Agent",
+  "temperature": 0.5
+}
+
+> {%
+  client.test("DISABLED Agent remains configuration-manageable", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.message === "Agent updated", "Expected PATCH message");
+    client.assert(response.body.data.name === "V34 已禁用但可管理 Agent", "Expected updated name");
+    client.assert(response.body.data.temperature === 0.5, "Expected updated temperature");
+    client.assert(response.body.data.status === "DISABLED", "PATCH must preserve DISABLED status");
+    client.assert(response.body.data.updatedAt !== client.global.get("agentflowStatusUpdatedAt"), "PATCH must refresh updatedAt");
+    client.global.set("agentflowStatusUpdatedAt", response.body.data.updatedAt);
+  });
+%}
+
+### V34 list while DISABLED: summary remains visible with the updated configuration name.
+GET {{baseUrl}}/api/v1/agents?page=1&pageSize=20
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-disabled-list-001
+
+> {%
+  client.test("DISABLED Agent remains visible in the current-owner list", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    var id = client.global.get("agentflowStatusAgentId");
+    var agent = response.body.data.items.find(function (item) { return item.id === id; });
+    client.assert(agent !== undefined, "Expected disabled Agent in list");
+    client.assert(agent.name === "V34 已禁用但可管理 Agent", "Expected patched summary name");
+    client.assert(agent.status === "DISABLED", "Expected DISABLED list status");
+  });
+%}
+
+### V34 enable: no request body, ACTIVE, and refreshed updatedAt.
+POST {{baseUrl}}/api/v1/agents/{{agentflowStatusAgentId}}/enable
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-enable-001
+
+> {%
+  client.test("current owner enables one live Agent", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.message === "Agent enabled", "Expected enable message");
+    client.assert(response.body.data.status === "ACTIVE", "Expected ACTIVE status");
+    client.assert(response.body.data.name === "V34 已禁用但可管理 Agent", "Expected preserved patched name");
+    client.assert(response.body.data.temperature === 0.5, "Expected preserved patched temperature");
+    client.assert(response.body.data.updatedAt !== client.global.get("agentflowStatusUpdatedAt"), "Real transition must refresh updatedAt");
+    client.global.set("agentflowStatusUpdatedAt", response.body.data.updatedAt);
+  });
+%}
+
+### V34 repeated enable: idempotent 200 and no updatedAt refresh.
+POST {{baseUrl}}/api/v1/agents/{{agentflowStatusAgentId}}/enable
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-enable-repeat-001
+
+> {%
+  client.test("repeated enable is an idempotent no-op", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.message === "Agent enabled", "Expected idempotent enable message");
+    client.assert(response.body.data.status === "ACTIVE", "Expected ACTIVE status");
+    client.assert(
+      response.body.data.updatedAt === client.global.get("agentflowStatusUpdatedAt"),
+      "Repeated enable must preserve updatedAt"
+    );
+  });
+%}
+
+### V34 flow delete: the existing V33 lifecycle action makes the Agent invisible.
+DELETE {{baseUrl}}/api/v1/agents/{{agentflowStatusAgentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-status-delete-001
+
+> {%
+  client.test("V34 flow soft-deletes the Agent", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.message === "Agent deleted", "Expected delete message");
+  });
+%}
+
+### V34 enable after deletion: must not recover a soft-deleted Agent.
+POST {{baseUrl}}/api/v1/agents/{{agentflowStatusAgentId}}/enable
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-enable-after-delete-001
+
+> {%
+  client.test("enable cannot recover a soft-deleted Agent", function () {
+    client.assert(response.status === 404, "Expected HTTP 404");
+    client.assert(response.body.code === "COMMON_NOT_FOUND", "Expected COMMON_NOT_FOUND");
+    client.assert(response.body.message === "Agent not found", "Expected uniform not-found message");
+  });
+%}
+
+### V34 disable after deletion: shares the same invisible-resource contract.
+POST {{baseUrl}}/api/v1/agents/{{agentflowStatusAgentId}}/disable
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-disable-after-delete-001
+
+> {%
+  client.test("disable cannot target a soft-deleted Agent", function () {
+    client.assert(response.status === 404, "Expected HTTP 404");
+    client.assert(response.body.code === "COMMON_NOT_FOUND", "Expected COMMON_NOT_FOUND");
+    client.assert(response.body.message === "Agent not found", "Expected uniform not-found message");
+  });
+%}
+
+### V34 non-numeric action ID: expected 400 / COMMON_PARAM_INVALID.
+POST {{baseUrl}}/api/v1/agents/not-a-number/enable
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-enable-nonnumeric-001
+
+> {%
+  client.test("non-numeric status-action ID is invalid", function () {
+    client.assert(response.status === 400, "Expected HTTP 400");
+    client.assert(response.body.code === "COMMON_PARAM_INVALID", "Expected COMMON_PARAM_INVALID");
+  });
+%}
+
+### V34 Long overflow action ID: expected 400 / COMMON_PARAM_INVALID.
+POST {{baseUrl}}/api/v1/agents/9223372036854775808/disable
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-disable-overflow-001
+
+> {%
+  client.test("out-of-Long-range status-action ID is invalid", function () {
+    client.assert(response.status === 400, "Expected HTTP 400");
+    client.assert(response.body.code === "COMMON_PARAM_INVALID", "Expected COMMON_PARAM_INVALID");
+  });
+%}
+
+### V34 zero action ID: expected 400 / COMMON_PARAM_INVALID before Mapper access.
+POST {{baseUrl}}/api/v1/agents/0/enable
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-enable-zero-001
+
+> {%
+  client.test("zero status-action ID is invalid", function () {
+    client.assert(response.status === 400, "Expected HTTP 400");
+    client.assert(response.body.code === "COMMON_PARAM_INVALID", "Expected COMMON_PARAM_INVALID");
+  });
+%}
+
+### V34 negative action ID: expected 400 / COMMON_PARAM_INVALID before Mapper access.
+POST {{baseUrl}}/api/v1/agents/-1/disable
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-disable-negative-001
+
+> {%
+  client.test("negative status-action ID is invalid", function () {
+    client.assert(response.status === 400, "Expected HTTP 400");
+    client.assert(response.body.code === "COMMON_PARAM_INVALID", "Expected COMMON_PARAM_INVALID");
+  });
+%}
+
+### V34 action authentication remains required: expected 401 / AUTH_UNAUTHENTICATED.
+POST {{baseUrl}}/api/v1/agents/{{agentflowExplicitAgentId}}/disable
+X-Trace-Id: af-manual-agent-disable-no-auth-001
+
+> {%
+  client.test("Agent status actions require authentication", function () {
     client.assert(response.status === 401, "Expected HTTP 401");
     client.assert(response.body.code === "AUTH_UNAUTHENTICATED", "Expected AUTH_UNAUTHENTICATED");
   });

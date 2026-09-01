@@ -106,6 +106,70 @@ class AgentAppMapperTest {
     }
 
     @Test
+    void shouldUpdateOnlyStatusAndTimestampInsideTheLockedOwnerLiveExpectedState() {
+        MybatisConfiguration configuration = new MybatisConfiguration();
+        configuration.addMapper(AgentAppMapper.class);
+        OffsetDateTime updatedAt = OffsetDateTime.parse("2026-09-01T10:20:00+08:00");
+
+        String statementId = AgentAppMapper.class.getName() + ".updateStatusOwned";
+        assertThat(configuration.hasStatement(statementId, false)).isTrue();
+        BoundSql boundSql = configuration.getMappedStatement(statementId).getBoundSql(Map.of(
+                "agentId", 301L,
+                "userId", 101L,
+                "expectedStatus", "ACTIVE",
+                "targetStatus", "DISABLED",
+                "updatedAt", updatedAt
+        ));
+        String sql = boundSql.getSql();
+        String setClause = sql.substring(sql.indexOf("SET"), sql.indexOf("WHERE"));
+
+        assertThat(sql).contains(
+                "UPDATE agent_app",
+                "SET status = ?",
+                "updated_at = ?",
+                "WHERE id = ?",
+                "AND user_id = ?",
+                "AND deleted_at IS NULL",
+                "AND status = ?"
+        ).doesNotContain(
+                "FOR UPDATE",
+                "JOIN",
+                "DELETE FROM",
+                "tool_",
+                "knowledge_",
+                "task",
+                "step",
+                "trace"
+        );
+        assertThat(setClause).doesNotContain(
+                "name =",
+                "description =",
+                "system_prompt =",
+                "model_provider =",
+                "model_name =",
+                "temperature =",
+                "top_p =",
+                "max_steps =",
+                "max_tool_calls =",
+                "max_tokens =",
+                "timeout_seconds =",
+                "user_id =",
+                "config =",
+                "created_at =",
+                "deleted_at ="
+        );
+        assertThat(boundSql.getParameterMappings())
+                .extracting(ParameterMapping::getProperty)
+                .containsExactly(
+                        "targetStatus",
+                        "updatedAt",
+                        "agentId",
+                        "userId",
+                        "expectedStatus"
+                );
+    }
+
+    @Test
     void shouldSoftDeleteOnlyInsideTheIdOwnerLiveScopeWithOneTimestampParameter() {
         MybatisConfiguration configuration = new MybatisConfiguration();
         configuration.addMapper(AgentAppMapper.class);

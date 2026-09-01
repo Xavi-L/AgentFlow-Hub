@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** HTTP boundary for the V30-V33 Agent root resource. */
+/** HTTP boundary for the V30-V34 Agent root resource. */
 @RestController
 @RequestMapping("${agentflow.api.prefix}/agents")
 public class AgentAppController {
@@ -67,6 +67,30 @@ public class AgentAppController {
         return ApiResponse.success(
                 "Agent updated",
                 agentAppService.updateOwnedConfig(currentUser, agentId, request)
+        );
+    }
+
+    /** Enables one current-owner, non-deleted Agent and returns its complete public state. */
+    @PostMapping("/{agentId}/enable")
+    public ApiResponse<AgentAppResponse> enable(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @PathVariable Long agentId
+    ) {
+        return ApiResponse.success(
+                "Agent enabled",
+                agentAppService.enableOwned(currentUser, agentId)
+        );
+    }
+
+    /** Disables one current-owner, non-deleted Agent and returns its complete public state. */
+    @PostMapping("/{agentId}/disable")
+    public ApiResponse<AgentAppResponse> disable(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @PathVariable Long agentId
+    ) {
+        return ApiResponse.success(
+                "Agent disabled",
+                agentAppService.disableOwned(currentUser, agentId)
         );
     }
 

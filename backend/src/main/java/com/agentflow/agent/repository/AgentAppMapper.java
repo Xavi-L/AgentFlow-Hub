@@ -46,7 +46,7 @@ public interface AgentAppMapper extends BaseMapper<AgentApp> {
 
     /**
      * Locks one complete public configuration inside the same ID, owner, and live scope used
-     * by the write. The lock is held by the surrounding V32 transaction.
+     * by the write. The lock is held by the surrounding V32 or V34 transaction.
      */
     @Select("""
             SELECT id,
@@ -98,6 +98,28 @@ public interface AgentAppMapper extends BaseMapper<AgentApp> {
             @Param("agentId") Long agentId,
             @Param("userId") Long userId,
             @Param("agent") AgentApp agent
+    );
+
+    /**
+     * Applies one locked V34 state transition without touching public configuration, owner,
+     * internal config, creation time, or deletion state. The expected status is a defensive
+     * consistency fence; after the row lock is acquired, a real transition must affect one row.
+     */
+    @Update("""
+            UPDATE agent_app
+            SET status = #{targetStatus},
+                updated_at = #{updatedAt}
+            WHERE id = #{agentId}
+              AND user_id = #{userId}
+              AND deleted_at IS NULL
+              AND status = #{expectedStatus}
+            """)
+    int updateStatusOwned(
+            @Param("agentId") Long agentId,
+            @Param("userId") Long userId,
+            @Param("expectedStatus") String expectedStatus,
+            @Param("targetStatus") String targetStatus,
+            @Param("updatedAt") OffsetDateTime updatedAt
     );
 
     /**
