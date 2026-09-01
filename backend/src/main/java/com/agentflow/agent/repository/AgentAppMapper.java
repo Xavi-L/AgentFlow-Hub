@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 /** Agent root-resource persistence with explicit current-owner visibility scopes. */
 @Mapper
@@ -40,6 +41,62 @@ public interface AgentAppMapper extends BaseMapper<AgentApp> {
     AgentApp selectVisibleOwnedById(
             @Param("agentId") Long agentId,
             @Param("userId") Long userId
+    );
+
+    /**
+     * Locks one complete public configuration inside the same ID, owner, and live scope used
+     * by the write. The lock is held by the surrounding V32 transaction.
+     */
+    @Select("""
+            SELECT id,
+                   name,
+                   description,
+                   system_prompt,
+                   model_provider,
+                   model_name,
+                   temperature,
+                   top_p,
+                   max_steps,
+                   max_tool_calls,
+                   max_tokens,
+                   timeout_seconds,
+                   status,
+                   created_at,
+                   updated_at
+            FROM agent_app
+            WHERE id = #{agentId}
+              AND user_id = #{userId}
+              AND deleted_at IS NULL
+            FOR UPDATE
+            """)
+    AgentApp selectVisibleOwnedByIdForUpdate(
+            @Param("agentId") Long agentId,
+            @Param("userId") Long userId
+    );
+
+    /** Writes only V32's public configuration allowlist and the server-owned update timestamp. */
+    @Update("""
+            UPDATE agent_app
+            SET name = #{agent.name},
+                description = #{agent.description},
+                system_prompt = #{agent.systemPrompt},
+                model_provider = #{agent.modelProvider},
+                model_name = #{agent.modelName},
+                temperature = #{agent.temperature},
+                top_p = #{agent.topP},
+                max_steps = #{agent.maxSteps},
+                max_tool_calls = #{agent.maxToolCalls},
+                max_tokens = #{agent.maxTokens},
+                timeout_seconds = #{agent.timeoutSeconds},
+                updated_at = #{agent.updatedAt}
+            WHERE id = #{agentId}
+              AND user_id = #{userId}
+              AND deleted_at IS NULL
+            """)
+    int updateConfigOwned(
+            @Param("agentId") Long agentId,
+            @Param("userId") Long userId,
+            @Param("agent") AgentApp agent
     );
 
     /**

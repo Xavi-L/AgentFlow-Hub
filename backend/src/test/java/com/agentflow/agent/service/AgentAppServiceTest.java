@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import com.agentflow.agent.dto.AgentAppResponse;
 import com.agentflow.agent.dto.AgentAppSummaryResponse;
 import com.agentflow.agent.dto.CreateAgentAppRequest;
+import com.agentflow.agent.dto.UpdateAgentAppRequest;
 import com.agentflow.agent.model.AgentApp;
 import com.agentflow.agent.repository.AgentAppMapper;
 import com.agentflow.common.api.PageRequest;
@@ -24,6 +25,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -248,6 +250,310 @@ class AgentAppServiceTest {
         verifyNoInteractions(agentAppMapper);
     }
 
+    @Test
+    void shouldMergeAFullConfigPatchAndKeepDisabledStatusAndInternalFieldsUntouched() {
+        AgentApp current = detailRow(301L, "DISABLED");
+        OffsetDateTime createdAt = current.getCreatedAt();
+        when(agentAppMapper.selectVisibleOwnedByIdForUpdate(301L, 101L)).thenReturn(current);
+        when(agentAppMapper.updateConfigOwned(eq(301L), eq(101L), any(AgentApp.class)))
+                .thenReturn(1);
+        UpdateAgentAppRequest request = updateRequest(
+                Set.of(
+                        "name",
+                        "description",
+                        "systemPrompt",
+                        "modelProvider",
+                        "modelName",
+                        "temperature",
+                        "topP",
+                        "maxSteps",
+                        "maxToolCalls",
+                        "maxTokens",
+                        "timeoutSeconds"
+                ),
+                "  Payment diagnosis agent V2  ",
+                "  Analyze timeout failures  ",
+                "  Preserve the updated prompt exactly.\n",
+                "openai-compatible",
+                "  qwen3  ",
+                new BigDecimal("0.300"),
+                new BigDecimal("0.900"),
+                8,
+                5,
+                9_000,
+                180
+        );
+
+        AgentAppResponse response = agentAppService.updateOwnedConfig(currentUser(), 301L, request);
+
+        verify(agentAppMapper).selectVisibleOwnedByIdForUpdate(301L, 101L);
+        verify(agentAppMapper).updateConfigOwned(eq(301L), eq(101L), agentAppCaptor.capture());
+        AgentApp updated = agentAppCaptor.getValue();
+        assertThat(updated.getName()).isEqualTo("Payment diagnosis agent V2");
+        assertThat(updated.getDescription()).isEqualTo("Analyze timeout failures");
+        assertThat(updated.getSystemPrompt()).isEqualTo("  Preserve the updated prompt exactly.\n");
+        assertThat(updated.getModelProvider()).isEqualTo("openai-compatible");
+        assertThat(updated.getModelName()).isEqualTo("qwen3");
+        assertThat(updated.getTemperature()).isEqualByComparingTo("0.3");
+        assertThat(updated.getTopP()).isEqualByComparingTo("0.9");
+        assertThat(updated.getMaxSteps()).isEqualTo(8);
+        assertThat(updated.getMaxToolCalls()).isEqualTo(5);
+        assertThat(updated.getMaxTokens()).isEqualTo(9_000);
+        assertThat(updated.getTimeoutSeconds()).isEqualTo(180);
+        assertThat(updated.getStatus()).isEqualTo("DISABLED");
+        assertThat(updated.getConfig()).isEqualTo("{\"internal\":true}");
+        assertThat(updated.getCreatedAt()).isEqualTo(createdAt);
+        assertThat(updated.getDeletedAt()).isNull();
+        assertThat(response.status()).isEqualTo("DISABLED");
+        assertThat(response.updatedAt()).isAfter(createdAt);
+        verifyNoMoreInteractions(agentAppMapper);
+    }
+
+    @Test
+    void shouldPreserveEveryOmittedFieldInsteadOfApplyingCreateDefaults() {
+        AgentApp current = detailRow(301L, "ACTIVE");
+        current.setTemperature(new BigDecimal("1.100"));
+        current.setTopP(new BigDecimal("0.600"));
+        current.setMaxSteps(15);
+        current.setMaxToolCalls(12);
+        current.setMaxTokens(42_000);
+        current.setTimeoutSeconds(480);
+        when(agentAppMapper.selectVisibleOwnedByIdForUpdate(301L, 101L)).thenReturn(current);
+        when(agentAppMapper.updateConfigOwned(eq(301L), eq(101L), any(AgentApp.class)))
+                .thenReturn(1);
+
+        AgentAppResponse response = agentAppService.updateOwnedConfig(
+                currentUser(),
+                301L,
+                updateRequest(
+                        Set.of("name"),
+                        "Renamed only",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
+                )
+        );
+
+        verify(agentAppMapper).updateConfigOwned(eq(301L), eq(101L), agentAppCaptor.capture());
+        AgentApp updated = agentAppCaptor.getValue();
+        assertThat(updated.getName()).isEqualTo("Renamed only");
+        assertThat(updated.getDescription()).isEqualTo("Analyze payment failures");
+        assertThat(updated.getSystemPrompt()).isEqualTo("Use only supplied payment facts.");
+        assertThat(updated.getModelProvider()).isEqualTo("openai-compatible");
+        assertThat(updated.getModelName()).isEqualTo("kimi-k2");
+        assertThat(updated.getTemperature()).isEqualByComparingTo("1.1");
+        assertThat(updated.getTopP()).isEqualByComparingTo("0.6");
+        assertThat(updated.getMaxSteps()).isEqualTo(15);
+        assertThat(updated.getMaxToolCalls()).isEqualTo(12);
+        assertThat(updated.getMaxTokens()).isEqualTo(42_000);
+        assertThat(updated.getTimeoutSeconds()).isEqualTo(480);
+        assertThat(response.temperature()).isEqualByComparingTo("1.1");
+        assertThat(response.maxSteps()).isEqualTo(15);
+        verify(agentAppMapper).selectVisibleOwnedByIdForUpdate(301L, 101L);
+        verifyNoMoreInteractions(agentAppMapper);
+    }
+
+    @Test
+    void shouldClearDescriptionForExplicitNullOrBlank() {
+        for (String description : java.util.Arrays.asList(null, "  \t  ")) {
+            AgentApp current = detailRow(301L, "ACTIVE");
+            when(agentAppMapper.selectVisibleOwnedByIdForUpdate(301L, 101L)).thenReturn(current);
+            when(agentAppMapper.updateConfigOwned(eq(301L), eq(101L), any(AgentApp.class)))
+                    .thenReturn(1);
+
+            AgentAppResponse response = agentAppService.updateOwnedConfig(
+                    currentUser(),
+                    301L,
+                    updateRequest(
+                            Set.of("description"),
+                            null,
+                            description,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null
+                    )
+            );
+
+            assertThat(response.description()).isNull();
+        }
+
+        verify(agentAppMapper, org.mockito.Mockito.times(2))
+                .selectVisibleOwnedByIdForUpdate(301L, 101L);
+        verify(agentAppMapper, org.mockito.Mockito.times(2))
+                .updateConfigOwned(eq(301L), eq(101L), any(AgentApp.class));
+        verifyNoMoreInteractions(agentAppMapper);
+    }
+
+    @Test
+    void shouldSkipUpdateAndTimestampRefreshForNormalizedAndScaleEquivalentValues() {
+        AgentApp current = detailRow(301L, "ACTIVE");
+        OffsetDateTime previousUpdatedAt = current.getUpdatedAt();
+        when(agentAppMapper.selectVisibleOwnedByIdForUpdate(301L, 101L)).thenReturn(current);
+
+        AgentAppResponse response = agentAppService.updateOwnedConfig(
+                currentUser(),
+                301L,
+                updateRequest(
+                        Set.of("name", "description", "temperature", "topP"),
+                        "  Payment diagnosis agent  ",
+                        "  Analyze payment failures  ",
+                        null,
+                        null,
+                        null,
+                        new BigDecimal("0.2"),
+                        new BigDecimal("0.8000"),
+                        null,
+                        null,
+                        null,
+                        null
+                )
+        );
+
+        assertThat(response.updatedAt()).isEqualTo(previousUpdatedAt);
+        assertThat(response.temperature()).isEqualByComparingTo("0.2");
+        verify(agentAppMapper).selectVisibleOwnedByIdForUpdate(301L, 101L);
+        verify(agentAppMapper, never()).updateConfigOwned(any(), any(), any());
+        verifyNoMoreInteractions(agentAppMapper);
+    }
+
+    @Test
+    void shouldValidateEachSingleBudgetChangeAgainstTheLockedStoredCounterpart() {
+        when(agentAppMapper.selectVisibleOwnedByIdForUpdate(301L, 101L))
+                .thenReturn(detailRow(301L, "ACTIVE"), detailRow(301L, "ACTIVE"));
+        List<UpdateAgentAppRequest> invalidRequests = List.of(
+                updateRequest(
+                        Set.of("maxSteps"),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        3,
+                        null,
+                        null,
+                        null
+                ),
+                updateRequest(
+                        Set.of("maxToolCalls"),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        7,
+                        null,
+                        null
+                )
+        );
+
+        for (UpdateAgentAppRequest invalidRequest : invalidRequests) {
+            assertThatThrownBy(() -> agentAppService.updateOwnedConfig(
+                    currentUser(),
+                    301L,
+                    invalidRequest
+            )).isInstanceOf(BusinessException.class)
+                    .hasMessage("maxToolCalls must not exceed maxSteps")
+                    .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                            .isEqualTo(ErrorCode.COMMON_PARAM_INVALID));
+        }
+
+        verify(agentAppMapper, org.mockito.Mockito.times(2))
+                .selectVisibleOwnedByIdForUpdate(301L, 101L);
+        verify(agentAppMapper, never()).updateConfigOwned(any(), any(), any());
+        verifyNoMoreInteractions(agentAppMapper);
+    }
+
+    @Test
+    void shouldRejectEmptyNullAndOutOfRangeRecognizedFieldsBeforeLocking() {
+        List<UpdateAgentAppRequest> invalidRequests = List.of(
+                updateRequest(Set.of(), null, null, null, null, null, null, null, null, null, null, null),
+                updateRequest(Set.of("name"), null, null, null, null, null, null, null, null, null, null, null),
+                updateRequest(Set.of("name"), " ", null, null, null, null, null, null, null, null, null, null),
+                updateRequest(Set.of("description"), null, "x".repeat(4_001), null, null, null, null, null, null, null, null, null),
+                updateRequest(Set.of("systemPrompt"), null, null, " ", null, null, null, null, null, null, null, null),
+                updateRequest(Set.of("modelProvider"), null, null, null, "other", null, null, null, null, null, null, null),
+                updateRequest(Set.of("modelName"), null, null, null, null, " ", null, null, null, null, null, null),
+                updateRequest(Set.of("temperature"), null, null, null, null, null, null, null, null, null, null, null),
+                updateRequest(Set.of("temperature"), null, null, null, null, null, new BigDecimal("0.0001"), null, null, null, null, null),
+                updateRequest(Set.of("topP"), null, null, null, null, null, null, BigDecimal.ZERO, null, null, null, null),
+                updateRequest(Set.of("maxSteps"), null, null, null, null, null, null, null, 0, null, null, null),
+                updateRequest(Set.of("maxToolCalls"), null, null, null, null, null, null, null, null, -1, null, null),
+                updateRequest(Set.of("maxTokens"), null, null, null, null, null, null, null, null, null, 255, null),
+                updateRequest(Set.of("timeoutSeconds"), null, null, null, null, null, null, null, null, null, null, 601)
+        );
+
+        for (UpdateAgentAppRequest invalidRequest : invalidRequests) {
+            assertThatThrownBy(() -> agentAppService.updateOwnedConfig(
+                    currentUser(),
+                    301L,
+                    invalidRequest
+            )).isInstanceOf(BusinessException.class)
+                    .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                            .isEqualTo(ErrorCode.COMMON_PARAM_INVALID));
+        }
+
+        verifyNoInteractions(agentAppMapper);
+    }
+
+    @Test
+    void shouldMapAnEmptyLockedScopeAndZeroRowWriteToTheUniformNotFoundContract() {
+        UpdateAgentAppRequest request = updateRequest(
+                Set.of("name"),
+                "Renamed",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+        when(agentAppMapper.selectVisibleOwnedByIdForUpdate(999L, 101L)).thenReturn(null);
+
+        assertThatThrownBy(() -> agentAppService.updateOwnedConfig(currentUser(), 999L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Agent not found")
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMON_NOT_FOUND));
+
+        AgentApp current = detailRow(301L, "ACTIVE");
+        when(agentAppMapper.selectVisibleOwnedByIdForUpdate(301L, 101L)).thenReturn(current);
+        when(agentAppMapper.updateConfigOwned(eq(301L), eq(101L), any(AgentApp.class)))
+                .thenReturn(0);
+
+        assertThatThrownBy(() -> agentAppService.updateOwnedConfig(currentUser(), 301L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Agent not found")
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMON_NOT_FOUND));
+
+        verify(agentAppMapper).selectVisibleOwnedByIdForUpdate(999L, 101L);
+        verify(agentAppMapper).selectVisibleOwnedByIdForUpdate(301L, 101L);
+        verify(agentAppMapper).updateConfigOwned(eq(301L), eq(101L), any(AgentApp.class));
+        verifyNoMoreInteractions(agentAppMapper);
+    }
+
     private static CreateAgentAppRequest request(
             String name,
             String description,
@@ -262,6 +568,36 @@ class AgentAppServiceTest {
             Integer timeoutSeconds
     ) {
         return new CreateAgentAppRequest(
+                name,
+                description,
+                systemPrompt,
+                modelProvider,
+                modelName,
+                temperature,
+                topP,
+                maxSteps,
+                maxToolCalls,
+                maxTokens,
+                timeoutSeconds
+        );
+    }
+
+    private static UpdateAgentAppRequest updateRequest(
+            Set<String> presentFields,
+            String name,
+            String description,
+            String systemPrompt,
+            String modelProvider,
+            String modelName,
+            BigDecimal temperature,
+            BigDecimal topP,
+            Integer maxSteps,
+            Integer maxToolCalls,
+            Integer maxTokens,
+            Integer timeoutSeconds
+    ) {
+        return new UpdateAgentAppRequest(
+                presentFields,
                 name,
                 description,
                 systemPrompt,

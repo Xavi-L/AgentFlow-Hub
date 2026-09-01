@@ -3,6 +3,7 @@ package com.agentflow.agent.controller;
 import com.agentflow.agent.dto.AgentAppResponse;
 import com.agentflow.agent.dto.AgentAppSummaryResponse;
 import com.agentflow.agent.dto.CreateAgentAppRequest;
+import com.agentflow.agent.dto.UpdateAgentAppRequest;
 import com.agentflow.agent.service.AgentAppService;
 import com.agentflow.common.api.ApiResponse;
 import com.agentflow.common.api.PageRequest;
@@ -14,13 +15,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** HTTP boundary for the V30/V31 Agent root resource. */
+/** HTTP boundary for the V30-V32 Agent root resource. */
 @RestController
 @RequestMapping("${agentflow.api.prefix}/agents")
 public class AgentAppController {
@@ -51,6 +53,19 @@ public class AgentAppController {
         return ApiResponse.success(
                 "Agent retrieved",
                 agentAppService.getOwnedById(currentUser, agentId)
+        );
+    }
+
+    /** Partially updates one current-owner, non-deleted Agent's public configuration. */
+    @PatchMapping("/{agentId}")
+    public ApiResponse<AgentAppResponse> update(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @PathVariable Long agentId,
+            @Valid @RequestBody UpdateAgentAppRequest request
+    ) {
+        return ApiResponse.success(
+                "Agent updated",
+                agentAppService.updateOwnedConfig(currentUser, agentId, request)
         );
     }
 

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -14,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.agentflow.agent.dto.AgentAppResponse;
 import com.agentflow.agent.dto.AgentAppSummaryResponse;
 import com.agentflow.agent.dto.CreateAgentAppRequest;
+import com.agentflow.agent.dto.UpdateAgentAppRequest;
 import com.agentflow.agent.repository.AgentAppMapper;
 import com.agentflow.agent.service.AgentAppService;
 import com.agentflow.common.api.ApiResponse;
@@ -27,6 +29,7 @@ import com.agentflow.user.security.AuthenticatedUser;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -76,6 +79,35 @@ class AgentAppControllerTest {
         assertThat(response.getMessage()).isEqualTo("Agent retrieved");
         assertThat(response.getData().id()).isEqualTo("301");
         verify(service).getOwnedById(currentUser, 301L);
+    }
+
+    @Test
+    void shouldUpdateThroughTheUnified200Response() {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        AgentAppController controller = new AgentAppController(service);
+        AuthenticatedUser currentUser = currentUser();
+        UpdateAgentAppRequest request = new UpdateAgentAppRequest(
+                Set.of("name"),
+                "Payment diagnosis agent V2",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+        when(service.updateOwnedConfig(currentUser, 301L, request)).thenReturn(fullResponse());
+
+        ApiResponse<AgentAppResponse> response = controller.update(currentUser, 301L, request);
+
+        assertThat(response.getCode()).isEqualTo("OK");
+        assertThat(response.getMessage()).isEqualTo("Agent updated");
+        assertThat(response.getData().id()).isEqualTo("301");
+        verify(service).updateOwnedConfig(currentUser, 301L, request);
     }
 
     @Test
@@ -185,6 +217,74 @@ class AgentAppControllerTest {
     }
 
     @Test
+    void shouldBindPatchPresenceAndReturnTheCompleteSafeUpdatedResponse() throws Exception {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        AuthenticatedUser currentUser = authenticate();
+        when(service.updateOwnedConfig(eq(currentUser), eq(301L), any(UpdateAgentAppRequest.class)))
+                .thenReturn(fullResponse());
+
+        mockMvc(service).perform(patch("/api/v1/agents/301")
+                        .header("X-Trace-Id", "af-test-agent-update")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "name":"Payment diagnosis agent V2",
+                                  "description":null,
+                                  "temperature":0.3,
+                                  "maxSteps":8,
+                                  "maxToolCalls":5
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("OK"))
+                .andExpect(jsonPath("$.message").value("Agent updated"))
+                .andExpect(jsonPath("$.data.id").value("301"))
+                .andExpect(jsonPath("$.data.systemPrompt").value("Diagnose payment failures."))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.userId").doesNotExist())
+                .andExpect(jsonPath("$.data.config").doesNotExist())
+                .andExpect(jsonPath("$.data.deletedAt").doesNotExist())
+                .andExpect(jsonPath("$.data.currentPromptVersionId").doesNotExist())
+                .andExpect(jsonPath("$.data.knowledgeBaseIds").doesNotExist())
+                .andExpect(jsonPath("$.data.toolIds").doesNotExist());
+
+        ArgumentCaptor<UpdateAgentAppRequest> requestCaptor = ArgumentCaptor.forClass(
+                UpdateAgentAppRequest.class
+        );
+        verify(service).updateOwnedConfig(eq(currentUser), eq(301L), requestCaptor.capture());
+        UpdateAgentAppRequest request = requestCaptor.getValue();
+        assertThat(request.presentFields()).containsExactlyInAnyOrder(
+                "name",
+                "description",
+                "temperature",
+                "maxSteps",
+                "maxToolCalls"
+        );
+        assertThat(request.descriptionPresent()).isTrue();
+        assertThat(request.description()).isNull();
+        assertThat(request.systemPromptPresent()).isFalse();
+        assertThat(request.temperature()).isEqualByComparingTo("0.3");
+    }
+
+    @Test
+    void shouldReturnTheUniformNotFoundResponseForAnInvisibleAgentUpdate() throws Exception {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        AuthenticatedUser currentUser = authenticate();
+        when(service.updateOwnedConfig(eq(currentUser), eq(999L), any(UpdateAgentAppRequest.class)))
+                .thenThrow(new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Agent not found"));
+
+        mockMvc(service).perform(patch("/api/v1/agents/999")
+                        .header("X-Trace-Id", "af-test-agent-update-missing")
+                        .contentType("application/json")
+                        .content("{\"name\":\"Renamed\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("COMMON_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Agent not found"));
+
+        verify(service).updateOwnedConfig(eq(currentUser), eq(999L), any(UpdateAgentAppRequest.class));
+    }
+
+    @Test
     void shouldReturnTheUniformNotFoundResponseForAnInvisibleAgent() throws Exception {
         AgentAppService service = Mockito.mock(AgentAppService.class);
         AuthenticatedUser currentUser = authenticate();
@@ -214,6 +314,101 @@ class AgentAppControllerTest {
         }
 
         verifyNoInteractions(service);
+    }
+
+    @Test
+    void shouldRejectInvalidPatchPathIdsBeforeCallingTheService() throws Exception {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        authenticate();
+
+        for (String invalidId : List.of("not-a-number", "9223372036854775808")) {
+            mockMvc(service).perform(patch("/api/v1/agents/" + invalidId)
+                            .header("X-Trace-Id", "af-test-agent-update-invalid-binding")
+                            .contentType("application/json")
+                            .content("{\"name\":\"Renamed\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("COMMON_PARAM_INVALID"));
+        }
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void shouldRejectEveryNonConfigPatchFieldBeforeCallingTheService() throws Exception {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        authenticate();
+
+        for (String forbiddenField : List.of(
+                "id",
+                "userId",
+                "status",
+                "config",
+                "createdAt",
+                "updatedAt",
+                "deletedAt",
+                "currentPromptVersionId",
+                "knowledgeBaseIds",
+                "toolIds"
+        )) {
+            mockMvc(service).perform(patch("/api/v1/agents/301")
+                            .header("X-Trace-Id", "af-test-agent-update-forbidden-" + forbiddenField)
+                            .contentType("application/json")
+                            .content("{\"%s\":\"client-controlled\"}".formatted(forbiddenField)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("COMMON_REQUEST_BODY_INVALID"));
+        }
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void shouldRejectMalformedNonObjectAndWrongTypePatchBodiesBeforeCallingTheService()
+            throws Exception {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        authenticate();
+
+        for (String invalidBody : List.of(
+                "[]",
+                "\"text\"",
+                "{\"name\":123}",
+                "{\"temperature\":\"0.3\"}",
+                "{\"maxSteps\":1.5}",
+                "{"
+        )) {
+            mockMvc(service).perform(patch("/api/v1/agents/301")
+                            .header("X-Trace-Id", "af-test-agent-update-invalid-body")
+                            .contentType("application/json")
+                            .content(invalidBody))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("COMMON_REQUEST_BODY_INVALID"));
+        }
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void shouldRejectEmptyOrNonDescriptionNullPatchAsParamInvalidBeforeMapperAccess()
+            throws Exception {
+        AgentAppMapper mapper = Mockito.mock(AgentAppMapper.class);
+        AgentAppService service = new AgentAppService(mapper);
+        authenticate();
+
+        for (String invalidBody : List.of(
+                "{}",
+                "{\"name\":null}",
+                "{\"systemPrompt\":null}",
+                "{\"temperature\":null}",
+                "{\"maxSteps\":null}"
+        )) {
+            mockMvc(service).perform(patch("/api/v1/agents/301")
+                            .header("X-Trace-Id", "af-test-agent-update-invalid-value")
+                            .contentType("application/json")
+                            .content(invalidBody))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("COMMON_PARAM_INVALID"));
+        }
+
+        verifyNoInteractions(mapper);
     }
 
     @Test

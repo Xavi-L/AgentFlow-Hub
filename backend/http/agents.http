@@ -1,4 +1,4 @@
-# V30/V31 Agent root-resource manual checks for IntelliJ IDEA HTTP Client.
+# V30-V32 Agent root-resource manual checks for IntelliJ IDEA HTTP Client.
 #
 # First register/login a disposable test user through user-auth.http. The token stays in
 # IDEA's local session as agentflowAccessToken; never paste a real token into this file.
@@ -107,8 +107,152 @@ X-Trace-Id: af-manual-agent-detail-001
     client.assert(agent.currentPromptVersionId === undefined, "Prompt version remains outside V31");
     client.assert(agent.knowledgeBaseIds === undefined, "Knowledge bindings remain outside V31");
     client.assert(agent.toolIds === undefined, "Tool bindings remain outside V31");
+    client.global.set("agentflowExplicitUpdatedAt", agent.updatedAt);
   });
 %}
+
+### V32 partial update: omitted fields retain their stored values.
+PATCH {{baseUrl}}/api/v1/agents/{{agentflowExplicitAgentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-agent-update-001
+
+{
+  "name": "支付问题诊断助手 V2",
+  "temperature": 0.3,
+  "maxSteps": 8,
+  "maxToolCalls": 5
+}
+
+> {%
+  client.test("current owner partially updates one safe Agent configuration", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.message === "Agent updated", "Expected update message");
+    var agent = response.body.data;
+    client.assert(agent.id === client.global.get("agentflowExplicitAgentId"), "Expected same Agent ID");
+    client.assert(agent.name === "支付问题诊断助手 V2", "Expected updated name");
+    client.assert(agent.description === "用于验证 V30 公开配置。", "Omitted description must remain");
+    client.assert(agent.systemPrompt === "只分析输入中已有的支付事实。", "Omitted prompt must remain");
+    client.assert(agent.modelProvider === "openai-compatible", "Omitted provider must remain");
+    client.assert(agent.modelName === "qwen3", "Omitted model must remain");
+    client.assert(agent.temperature === 0.3, "Expected updated temperature");
+    client.assert(agent.topP === 1, "Omitted topP must remain");
+    client.assert(agent.maxSteps === 8 && agent.maxToolCalls === 5, "Expected merged budgets");
+    client.assert(agent.maxTokens === 100000, "Omitted maxTokens must remain");
+    client.assert(agent.timeoutSeconds === 600, "Omitted timeout must remain");
+    client.assert(agent.status === "ACTIVE", "PATCH must not change status");
+    client.assert(agent.updatedAt !== client.global.get("agentflowExplicitUpdatedAt"), "Expected refreshed updatedAt");
+    client.assert(agent.userId === undefined, "Owner ID must not be returned");
+    client.assert(agent.config === undefined, "Internal config must not be returned");
+    client.assert(agent.deletedAt === undefined, "Deletion marker must not be returned");
+    client.global.set("agentflowExplicitUpdatedAt", agent.updatedAt);
+  });
+%}
+
+### V32 no-op update: scale-equivalent decimals must not refresh updatedAt.
+PATCH {{baseUrl}}/api/v1/agents/{{agentflowExplicitAgentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-agent-update-noop-001
+
+{
+  "name": "  支付问题诊断助手 V2  ",
+  "temperature": 0.300
+}
+
+> {%
+  client.test("normalized equivalent PATCH skips the database UPDATE", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.message === "Agent updated", "Expected idempotent success message");
+    client.assert(
+      response.body.data.updatedAt === client.global.get("agentflowExplicitUpdatedAt"),
+      "No-op PATCH must preserve updatedAt"
+    );
+  });
+%}
+
+### V32 detail read-back after PATCH.
+GET {{baseUrl}}/api/v1/agents/{{agentflowExplicitAgentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-update-readback-001
+
+> {%
+  client.test("V31 detail reads back the V32 effective configuration", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    var agent = response.body.data;
+    client.assert(agent.name === "支付问题诊断助手 V2", "Expected updated name");
+    client.assert(agent.temperature === 0.3, "Expected updated temperature");
+    client.assert(agent.maxSteps === 8 && agent.maxToolCalls === 5, "Expected updated budgets");
+    client.assert(agent.systemPrompt === "只分析输入中已有的支付事实。", "Expected preserved prompt");
+    client.assert(agent.status === "ACTIVE", "Expected preserved status");
+  });
+%}
+
+### V32 merged budget violation: stored maxToolCalls is 5, so maxSteps 4 is invalid.
+PATCH {{baseUrl}}/api/v1/agents/{{agentflowExplicitAgentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-agent-update-cross-field-001
+
+{
+  "maxSteps": 4
+}
+
+> {%
+  client.test("single-field budget PATCH validates against the stored counterpart", function () {
+    client.assert(response.status === 400, "Expected HTTP 400");
+    client.assert(response.body.code === "COMMON_PARAM_INVALID", "Expected COMMON_PARAM_INVALID");
+  });
+%}
+
+### V32 explicit description null clears the column.
+PATCH {{baseUrl}}/api/v1/agents/{{agentflowExplicitAgentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-agent-update-clear-description-001
+
+{
+  "description": null
+}
+
+> {%
+  client.test("description null clears the public optional field", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(
+      response.body.data.description === null || response.body.data.description === undefined,
+      "Expected cleared description"
+    );
+  });
+%}
+
+### V32 empty object: expected 400 / COMMON_PARAM_INVALID.
+PATCH {{baseUrl}}/api/v1/agents/{{agentflowExplicitAgentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-agent-update-empty-001
+
+{}
+
+### V32 server-owned field: expected 400 / COMMON_REQUEST_BODY_INVALID.
+PATCH {{baseUrl}}/api/v1/agents/{{agentflowExplicitAgentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-agent-update-status-001
+
+{
+  "status": "DISABLED"
+}
+
+### V32 invisible ID: expected uniform 404 / COMMON_NOT_FOUND / Agent not found.
+PATCH {{baseUrl}}/api/v1/agents/9223372036854775807
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-agent-update-missing-001
+
+{
+  "name": "Invisible"
+}
 
 ### V31 well-formed but invisible ID: expected 404 / COMMON_NOT_FOUND / Agent not found.
 GET {{baseUrl}}/api/v1/agents/9223372036854775807
@@ -217,6 +361,14 @@ X-Trace-Id: af-manual-agent-list-001
     client.assert(created.userId === undefined, "List must omit owner ID");
     client.assert(created.config === undefined, "List must omit internal config");
     client.assert(created.deletedAt === undefined, "List must omit deletion marker");
+    var updatedId = client.global.get("agentflowExplicitAgentId");
+    var updated = response.body.data.items.find(function (item) {
+      return item.id === updatedId;
+    });
+    client.assert(updated !== undefined, "Expected the V32-updated Agent in the list");
+    client.assert(updated.name === "支付问题诊断助手 V2", "List must expose the updated summary name");
+    client.assert(updated.systemPrompt === undefined, "Updated list item must still omit systemPrompt");
+    client.assert(updated.maxSteps === undefined, "Updated list item must still omit execution budgets");
   });
 %}
 
