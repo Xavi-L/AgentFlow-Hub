@@ -8,9 +8,39 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
-/** Agent root-resource persistence with an explicit current-owner list scope. */
+/** Agent root-resource persistence with explicit current-owner visibility scopes. */
 @Mapper
 public interface AgentAppMapper extends BaseMapper<AgentApp> {
+
+    /**
+     * Selects the complete public configuration only inside the requested ID, owner, and
+     * non-deleted scope. Internal owner/config/deletion fields are not projected.
+     */
+    @Select("""
+            SELECT id,
+                   name,
+                   description,
+                   system_prompt,
+                   model_provider,
+                   model_name,
+                   temperature,
+                   top_p,
+                   max_steps,
+                   max_tool_calls,
+                   max_tokens,
+                   timeout_seconds,
+                   status,
+                   created_at,
+                   updated_at
+            FROM agent_app
+            WHERE id = #{agentId}
+              AND user_id = #{userId}
+              AND deleted_at IS NULL
+            """)
+    AgentApp selectVisibleOwnedById(
+            @Param("agentId") Long agentId,
+            @Param("userId") Long userId
+    );
 
     /**
      * The owner and live-row predicates are part of the SQL itself. The projection deliberately

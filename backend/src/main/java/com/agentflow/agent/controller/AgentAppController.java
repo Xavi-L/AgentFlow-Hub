@@ -14,12 +14,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** HTTP boundary for the V30 Agent root resource. */
+/** HTTP boundary for the V30/V31 Agent root resource. */
 @RestController
 @RequestMapping("${agentflow.api.prefix}/agents")
 public class AgentAppController {
@@ -39,6 +40,18 @@ public class AgentAppController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Agent created", agentApp));
+    }
+
+    /** Returns the complete public configuration of one current-owner, non-deleted Agent. */
+    @GetMapping("/{agentId}")
+    public ApiResponse<AgentAppResponse> get(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @PathVariable Long agentId
+    ) {
+        return ApiResponse.success(
+                "Agent retrieved",
+                agentAppService.getOwnedById(currentUser, agentId)
+        );
     }
 
     /** Returns a compact page of the current owner's non-deleted Agent metadata. */

@@ -195,6 +195,59 @@ class AgentAppServiceTest {
         verifyNoMoreInteractions(agentAppMapper);
     }
 
+    @Test
+    void shouldReturnTheCompletePublicConfigurationAndKeepDisabledVisible() {
+        AgentApp row = detailRow(9_223_372_036_854_775_000L, "DISABLED");
+        when(agentAppMapper.selectVisibleOwnedById(row.getId(), 101L)).thenReturn(row);
+
+        AgentAppResponse response = agentAppService.getOwnedById(currentUser(), row.getId());
+
+        assertThat(response.id()).isEqualTo("9223372036854775000");
+        assertThat(response.name()).isEqualTo("Payment diagnosis agent");
+        assertThat(response.description()).isEqualTo("Analyze payment failures");
+        assertThat(response.systemPrompt()).isEqualTo("Use only supplied payment facts.");
+        assertThat(response.modelProvider()).isEqualTo("openai-compatible");
+        assertThat(response.modelName()).isEqualTo("kimi-k2");
+        assertThat(response.temperature()).isEqualByComparingTo("0.2");
+        assertThat(response.topP()).isEqualByComparingTo("0.8");
+        assertThat(response.maxSteps()).isEqualTo(6);
+        assertThat(response.maxToolCalls()).isEqualTo(4);
+        assertThat(response.maxTokens()).isEqualTo(8_000);
+        assertThat(response.timeoutSeconds()).isEqualTo(120);
+        assertThat(response.status()).isEqualTo("DISABLED");
+        assertThat(response.createdAt()).isEqualTo(row.getCreatedAt());
+        assertThat(response.updatedAt()).isEqualTo(row.getUpdatedAt());
+        verify(agentAppMapper).selectVisibleOwnedById(row.getId(), 101L);
+        verifyNoMoreInteractions(agentAppMapper);
+    }
+
+    @Test
+    void shouldMapEveryScopedMissToTheSameNotFoundContract() {
+        when(agentAppMapper.selectVisibleOwnedById(999L, 101L)).thenReturn(null);
+
+        assertThatThrownBy(() -> agentAppService.getOwnedById(currentUser(), 999L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Agent not found")
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMON_NOT_FOUND));
+
+        verify(agentAppMapper).selectVisibleOwnedById(999L, 101L);
+        verifyNoMoreInteractions(agentAppMapper);
+    }
+
+    @Test
+    void shouldRejectMissingOrNonPositiveAgentIdBeforeMapperAccess() {
+        for (Long invalidId : java.util.Arrays.asList(null, 0L, -1L)) {
+            assertThatThrownBy(() -> agentAppService.getOwnedById(currentUser(), invalidId))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessage("agentId must be a positive integer")
+                    .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                            .isEqualTo(ErrorCode.COMMON_PARAM_INVALID));
+        }
+
+        verifyNoInteractions(agentAppMapper);
+    }
+
     private static CreateAgentAppRequest request(
             String name,
             String description,
@@ -234,6 +287,29 @@ class AgentAppServiceTest {
         row.setStatus(status);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
+        return row;
+    }
+
+    private static AgentApp detailRow(Long id, String status) {
+        OffsetDateTime createdAt = OffsetDateTime.parse("2026-09-01T10:00:00+08:00");
+        AgentApp row = new AgentApp();
+        row.setId(id);
+        row.setUserId(101L);
+        row.setName("Payment diagnosis agent");
+        row.setDescription("Analyze payment failures");
+        row.setSystemPrompt("Use only supplied payment facts.");
+        row.setModelProvider("openai-compatible");
+        row.setModelName("kimi-k2");
+        row.setTemperature(new BigDecimal("0.200"));
+        row.setTopP(new BigDecimal("0.800"));
+        row.setMaxSteps(6);
+        row.setMaxToolCalls(4);
+        row.setMaxTokens(8_000);
+        row.setTimeoutSeconds(120);
+        row.setStatus(status);
+        row.setConfig("{\"internal\":true}");
+        row.setCreatedAt(createdAt);
+        row.setUpdatedAt(createdAt.plusMinutes(1));
         return row;
     }
 

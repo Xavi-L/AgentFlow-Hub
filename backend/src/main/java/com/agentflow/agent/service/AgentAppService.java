@@ -25,7 +25,7 @@ import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Business boundary for V30 create and current-owner Agent listing. */
+/** Business boundary for V30 create/list and V31 current-owner Agent detail. */
 @Service
 public class AgentAppService {
     private static final String ACTIVE_STATUS = "ACTIVE";
@@ -90,6 +90,25 @@ public class AgentAppService {
         int affectedRows = agentAppMapper.insert(agentApp);
         if (affectedRows != 1) {
             throw new IllegalStateException("Expected exactly one inserted agent_app row");
+        }
+        return AgentAppResponse.from(agentApp);
+    }
+
+    /**
+     * Reads one current-owner, non-deleted Agent. A scoped miss deliberately does not
+     * distinguish absent, cross-owner, or soft-deleted rows.
+     */
+    @Transactional(readOnly = true)
+    public AgentAppResponse getOwnedById(
+            AuthenticatedUser currentUser,
+            Long agentId
+    ) {
+        Objects.requireNonNull(currentUser, "currentUser must not be null");
+        validateAgentId(agentId);
+
+        AgentApp agentApp = agentAppMapper.selectVisibleOwnedById(agentId, currentUser.id());
+        if (agentApp == null) {
+            throw new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Agent not found");
         }
         return AgentAppResponse.from(agentApp);
     }
@@ -183,6 +202,12 @@ public class AgentAppService {
     private static void validateInteger(int value, String fieldName, int minimum, int maximum) {
         if (value < minimum || value > maximum) {
             throw invalid(fieldName + " must be between " + minimum + " and " + maximum);
+        }
+    }
+
+    private static void validateAgentId(Long agentId) {
+        if (agentId == null || agentId <= 0) {
+            throw invalid("agentId must be a positive integer");
         }
     }
 

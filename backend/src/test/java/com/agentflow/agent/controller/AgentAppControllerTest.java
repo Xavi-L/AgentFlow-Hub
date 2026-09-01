@@ -14,10 +14,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.agentflow.agent.dto.AgentAppResponse;
 import com.agentflow.agent.dto.AgentAppSummaryResponse;
 import com.agentflow.agent.dto.CreateAgentAppRequest;
+import com.agentflow.agent.repository.AgentAppMapper;
 import com.agentflow.agent.service.AgentAppService;
 import com.agentflow.common.api.ApiResponse;
 import com.agentflow.common.api.PageRequest;
 import com.agentflow.common.api.PageResult;
+import com.agentflow.common.error.BusinessException;
+import com.agentflow.common.error.ErrorCode;
 import com.agentflow.common.error.GlobalExceptionHandler;
 import com.agentflow.common.web.TraceIdFilter;
 import com.agentflow.user.security.AuthenticatedUser;
@@ -58,6 +61,21 @@ class AgentAppControllerTest {
         assertThat(response.getBody().getMessage()).isEqualTo("Agent created");
         assertThat(response.getBody().getData().id()).isEqualTo("301");
         verify(service).create(currentUser, request);
+    }
+
+    @Test
+    void shouldGetThroughTheUnified200Response() {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        AgentAppController controller = new AgentAppController(service);
+        AuthenticatedUser currentUser = currentUser();
+        when(service.getOwnedById(currentUser, 301L)).thenReturn(fullResponse());
+
+        ApiResponse<AgentAppResponse> response = controller.get(currentUser, 301L);
+
+        assertThat(response.getCode()).isEqualTo("OK");
+        assertThat(response.getMessage()).isEqualTo("Agent retrieved");
+        assertThat(response.getData().id()).isEqualTo("301");
+        verify(service).getOwnedById(currentUser, 301L);
     }
 
     @Test
@@ -128,6 +146,90 @@ class AgentAppControllerTest {
                 .andExpect(jsonPath("$.data.items[0].deletedAt").doesNotExist());
 
         verify(service).listOwnedBy(eq(currentUser), any(PageRequest.class));
+    }
+
+    @Test
+    void shouldBindThePrincipalAndReturnTheCompleteSafeDetailResponse() throws Exception {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        AuthenticatedUser currentUser = authenticate();
+        when(service.getOwnedById(currentUser, 301L)).thenReturn(fullResponse());
+
+        mockMvc(service).perform(get("/api/v1/agents/301")
+                        .header("X-Trace-Id", "af-test-agent-detail"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("OK"))
+                .andExpect(jsonPath("$.message").value("Agent retrieved"))
+                .andExpect(jsonPath("$.data.id").value("301"))
+                .andExpect(jsonPath("$.data.name").value("Payment diagnosis agent"))
+                .andExpect(jsonPath("$.data.description").value("Analyze payment failures."))
+                .andExpect(jsonPath("$.data.systemPrompt").value("Diagnose payment failures."))
+                .andExpect(jsonPath("$.data.modelProvider").value("openai-compatible"))
+                .andExpect(jsonPath("$.data.modelName").value("kimi-k2"))
+                .andExpect(jsonPath("$.data.temperature").value(0.2))
+                .andExpect(jsonPath("$.data.topP").value(0.8))
+                .andExpect(jsonPath("$.data.maxSteps").value(6))
+                .andExpect(jsonPath("$.data.maxToolCalls").value(4))
+                .andExpect(jsonPath("$.data.maxTokens").value(8000))
+                .andExpect(jsonPath("$.data.timeoutSeconds").value(120))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.createdAt").exists())
+                .andExpect(jsonPath("$.data.updatedAt").exists())
+                .andExpect(jsonPath("$.data.userId").doesNotExist())
+                .andExpect(jsonPath("$.data.config").doesNotExist())
+                .andExpect(jsonPath("$.data.deletedAt").doesNotExist())
+                .andExpect(jsonPath("$.data.currentPromptVersionId").doesNotExist())
+                .andExpect(jsonPath("$.data.knowledgeBaseIds").doesNotExist())
+                .andExpect(jsonPath("$.data.toolIds").doesNotExist());
+
+        verify(service).getOwnedById(currentUser, 301L);
+    }
+
+    @Test
+    void shouldReturnTheUniformNotFoundResponseForAnInvisibleAgent() throws Exception {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        AuthenticatedUser currentUser = authenticate();
+        when(service.getOwnedById(currentUser, 999L)).thenThrow(
+                new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Agent not found")
+        );
+
+        mockMvc(service).perform(get("/api/v1/agents/999")
+                        .header("X-Trace-Id", "af-test-agent-detail-missing"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("COMMON_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Agent not found"));
+
+        verify(service).getOwnedById(currentUser, 999L);
+    }
+
+    @Test
+    void shouldRejectNonNumericAndOutOfLongRangeIdsBeforeCallingTheService() throws Exception {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        authenticate();
+
+        for (String invalidId : List.of("not-a-number", "9223372036854775808")) {
+            mockMvc(service).perform(get("/api/v1/agents/" + invalidId)
+                            .header("X-Trace-Id", "af-test-agent-detail-invalid-binding"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("COMMON_PARAM_INVALID"));
+        }
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void shouldRejectNonPositiveIdsBeforeAccessingTheMapper() throws Exception {
+        AgentAppMapper mapper = Mockito.mock(AgentAppMapper.class);
+        AgentAppService service = new AgentAppService(mapper);
+        authenticate();
+
+        for (String invalidId : List.of("0", "-1")) {
+            mockMvc(service).perform(get("/api/v1/agents/" + invalidId)
+                            .header("X-Trace-Id", "af-test-agent-detail-non-positive"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("COMMON_PARAM_INVALID"));
+        }
+
+        verifyNoInteractions(mapper);
     }
 
     @Test
@@ -270,7 +372,7 @@ class AgentAppControllerTest {
         return new AgentAppResponse(
                 "301",
                 "Payment diagnosis agent",
-                null,
+                "Analyze payment failures.",
                 "Diagnose payment failures.",
                 "openai-compatible",
                 "kimi-k2",

@@ -1,4 +1,4 @@
-# V30 Agent root-resource manual checks for IntelliJ IDEA HTTP Client.
+# V30/V31 Agent root-resource manual checks for IntelliJ IDEA HTTP Client.
 #
 # First register/login a disposable test user through user-auth.http. The token stays in
 # IDEA's local session as agentflowAccessToken; never paste a real token into this file.
@@ -70,6 +70,104 @@ X-Trace-Id: af-manual-agent-explicit-001
     client.assert(agent.maxSteps === 20 && agent.maxToolCalls === 20, "Expected equal step/tool bounds");
     client.assert(agent.maxTokens === 100000, "Expected max token boundary");
     client.assert(agent.timeoutSeconds === 600, "Expected timeout boundary");
+    client.global.set("agentflowExplicitAgentId", agent.id);
+  });
+%}
+
+### V31 detail: read back the exact complete public configuration created above.
+GET {{baseUrl}}/api/v1/agents/{{agentflowExplicitAgentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-detail-001
+
+> {%
+  client.test("current owner reads one complete safe Agent configuration", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.message === "Agent retrieved", "Expected detail message");
+    var agent = response.body.data;
+    client.assert(typeof agent.id === "string", "BIGINT ID must remain a string");
+    client.assert(agent.id === client.global.get("agentflowExplicitAgentId"), "Expected created Agent ID");
+    client.assert(agent.name === "支付问题诊断助手（显式配置）", "Expected full name");
+    client.assert(agent.description === "用于验证 V30 公开配置。", "Expected description");
+    client.assert(agent.systemPrompt === "只分析输入中已有的支付事实。", "Expected full prompt");
+    client.assert(agent.modelProvider === "openai-compatible", "Expected provider");
+    client.assert(agent.modelName === "qwen3", "Expected model");
+    client.assert(agent.temperature === 0, "Expected temperature");
+    client.assert(agent.topP === 1, "Expected topP");
+    client.assert(agent.maxSteps === 20, "Expected maxSteps");
+    client.assert(agent.maxToolCalls === 20, "Expected maxToolCalls");
+    client.assert(agent.maxTokens === 100000, "Expected maxTokens");
+    client.assert(agent.timeoutSeconds === 600, "Expected timeoutSeconds");
+    client.assert(agent.status === "ACTIVE", "Expected ACTIVE status");
+    client.assert(agent.createdAt !== undefined, "Expected createdAt");
+    client.assert(agent.updatedAt !== undefined, "Expected updatedAt");
+    client.assert(agent.userId === undefined, "Owner ID must not be returned");
+    client.assert(agent.config === undefined, "Internal config must not be returned");
+    client.assert(agent.deletedAt === undefined, "Deletion marker must not be returned");
+    client.assert(agent.currentPromptVersionId === undefined, "Prompt version remains outside V31");
+    client.assert(agent.knowledgeBaseIds === undefined, "Knowledge bindings remain outside V31");
+    client.assert(agent.toolIds === undefined, "Tool bindings remain outside V31");
+  });
+%}
+
+### V31 well-formed but invisible ID: expected 404 / COMMON_NOT_FOUND / Agent not found.
+GET {{baseUrl}}/api/v1/agents/9223372036854775807
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-detail-missing-001
+
+> {%
+  client.test("scoped detail miss uses the uniform not-found contract", function () {
+    client.assert(response.status === 404, "Expected HTTP 404");
+    client.assert(response.body.code === "COMMON_NOT_FOUND", "Expected COMMON_NOT_FOUND");
+    client.assert(response.body.message === "Agent not found", "Expected uniform Agent not found message");
+  });
+%}
+
+### V31 non-numeric ID: expected 400 / COMMON_PARAM_INVALID.
+GET {{baseUrl}}/api/v1/agents/not-a-number
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-detail-nonnumeric-001
+
+> {%
+  client.test("non-numeric Agent ID is invalid", function () {
+    client.assert(response.status === 400, "Expected HTTP 400");
+    client.assert(response.body.code === "COMMON_PARAM_INVALID", "Expected COMMON_PARAM_INVALID");
+  });
+%}
+
+### V31 Long overflow ID: expected 400 / COMMON_PARAM_INVALID.
+GET {{baseUrl}}/api/v1/agents/9223372036854775808
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-detail-overflow-001
+
+> {%
+  client.test("out-of-Long-range Agent ID is invalid", function () {
+    client.assert(response.status === 400, "Expected HTTP 400");
+    client.assert(response.body.code === "COMMON_PARAM_INVALID", "Expected COMMON_PARAM_INVALID");
+  });
+%}
+
+### V31 zero ID: expected 400 / COMMON_PARAM_INVALID before Mapper access.
+GET {{baseUrl}}/api/v1/agents/0
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-detail-zero-001
+
+> {%
+  client.test("zero Agent ID is invalid", function () {
+    client.assert(response.status === 400, "Expected HTTP 400");
+    client.assert(response.body.code === "COMMON_PARAM_INVALID", "Expected COMMON_PARAM_INVALID");
+  });
+%}
+
+### V31 negative ID: expected 400 / COMMON_PARAM_INVALID before Mapper access.
+GET {{baseUrl}}/api/v1/agents/-1
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-detail-negative-001
+
+> {%
+  client.test("negative Agent ID is invalid", function () {
+    client.assert(response.status === 400, "Expected HTTP 400");
+    client.assert(response.body.code === "COMMON_PARAM_INVALID", "Expected COMMON_PARAM_INVALID");
   });
 %}
 
@@ -211,3 +309,14 @@ X-Trace-Id: af-manual-agent-provider-001
 ### Authentication remains required: expected 401 / AUTH_UNAUTHENTICATED.
 GET {{baseUrl}}/api/v1/agents?page=1&pageSize=20
 X-Trace-Id: af-manual-agent-no-auth-001
+
+### V31 detail authentication remains required: expected 401 / AUTH_UNAUTHENTICATED.
+GET {{baseUrl}}/api/v1/agents/{{agentflowExplicitAgentId}}
+X-Trace-Id: af-manual-agent-detail-no-auth-001
+
+> {%
+  client.test("Agent detail requires authentication", function () {
+    client.assert(response.status === 401, "Expected HTTP 401");
+    client.assert(response.body.code === "AUTH_UNAUTHENTICATED", "Expected AUTH_UNAUTHENTICATED");
+  });
+%}
