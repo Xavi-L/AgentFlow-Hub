@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -108,6 +109,20 @@ class AgentAppControllerTest {
         assertThat(response.getMessage()).isEqualTo("Agent updated");
         assertThat(response.getData().id()).isEqualTo("301");
         verify(service).updateOwnedConfig(currentUser, 301L, request);
+    }
+
+    @Test
+    void shouldSoftDeleteThroughTheUnified200Response() {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        AgentAppController controller = new AgentAppController(service);
+        AuthenticatedUser currentUser = currentUser();
+
+        ApiResponse<Void> response = controller.softDelete(currentUser, 301L);
+
+        assertThat(response.getCode()).isEqualTo("OK");
+        assertThat(response.getMessage()).isEqualTo("Agent deleted");
+        assertThat(response.getData()).isNull();
+        verify(service).softDeleteOwned(currentUser, 301L);
     }
 
     @Test
@@ -267,6 +282,39 @@ class AgentAppControllerTest {
     }
 
     @Test
+    void shouldBindThePrincipalToTheBodylessSoftDeleteRouteAndReturnNullData() throws Exception {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        AuthenticatedUser currentUser = authenticate();
+
+        mockMvc(service).perform(delete("/api/v1/agents/301")
+                        .header("X-Trace-Id", "af-test-agent-delete"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("OK"))
+                .andExpect(jsonPath("$.message").value("Agent deleted"))
+                .andExpect(jsonPath("$.data").isEmpty())
+                .andExpect(jsonPath("$.traceId").value("af-test-agent-delete"))
+                .andExpect(jsonPath("$.timestamp").exists());
+
+        verify(service).softDeleteOwned(currentUser, 301L);
+    }
+
+    @Test
+    void shouldReturnTheUniformNotFoundResponseForAnInvisibleAgentDelete() throws Exception {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        AuthenticatedUser currentUser = authenticate();
+        Mockito.doThrow(new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Agent not found"))
+                .when(service).softDeleteOwned(currentUser, 999L);
+
+        mockMvc(service).perform(delete("/api/v1/agents/999")
+                        .header("X-Trace-Id", "af-test-agent-delete-missing"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("COMMON_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Agent not found"));
+
+        verify(service).softDeleteOwned(currentUser, 999L);
+    }
+
+    @Test
     void shouldReturnTheUniformNotFoundResponseForAnInvisibleAgentUpdate() throws Exception {
         AgentAppService service = Mockito.mock(AgentAppService.class);
         AuthenticatedUser currentUser = authenticate();
@@ -326,6 +374,22 @@ class AgentAppControllerTest {
                             .header("X-Trace-Id", "af-test-agent-update-invalid-binding")
                             .contentType("application/json")
                             .content("{\"name\":\"Renamed\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("COMMON_PARAM_INVALID"));
+        }
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void shouldRejectNonNumericAndOutOfLongRangeDeleteIdsBeforeCallingTheService()
+            throws Exception {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        authenticate();
+
+        for (String invalidId : List.of("not-a-number", "9223372036854775808")) {
+            mockMvc(service).perform(delete("/api/v1/agents/" + invalidId)
+                            .header("X-Trace-Id", "af-test-agent-delete-invalid-binding"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("COMMON_PARAM_INVALID"));
         }
@@ -420,6 +484,22 @@ class AgentAppControllerTest {
         for (String invalidId : List.of("0", "-1")) {
             mockMvc(service).perform(get("/api/v1/agents/" + invalidId)
                             .header("X-Trace-Id", "af-test-agent-detail-non-positive"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("COMMON_PARAM_INVALID"));
+        }
+
+        verifyNoInteractions(mapper);
+    }
+
+    @Test
+    void shouldRejectNonPositiveDeleteIdsBeforeAccessingTheMapper() throws Exception {
+        AgentAppMapper mapper = Mockito.mock(AgentAppMapper.class);
+        AgentAppService service = new AgentAppService(mapper);
+        authenticate();
+
+        for (String invalidId : List.of("0", "-1")) {
+            mockMvc(service).perform(delete("/api/v1/agents/" + invalidId)
+                            .header("X-Trace-Id", "af-test-agent-delete-non-positive"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("COMMON_PARAM_INVALID"));
         }

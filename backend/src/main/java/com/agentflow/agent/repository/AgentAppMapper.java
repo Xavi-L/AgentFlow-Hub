@@ -4,6 +4,7 @@ import com.agentflow.agent.model.AgentApp;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import java.time.OffsetDateTime;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -97,6 +98,25 @@ public interface AgentAppMapper extends BaseMapper<AgentApp> {
             @Param("agentId") Long agentId,
             @Param("userId") Long userId,
             @Param("agent") AgentApp agent
+    );
+
+    /**
+     * Marks only one current-owner, live Agent as deleted. Reusing the same timestamp parameter
+     * makes deleted_at and updated_at identical; omitting a status predicate keeps both ACTIVE
+     * and DISABLED rows eligible.
+     */
+    @Update("""
+            UPDATE agent_app
+            SET deleted_at = #{deletedAt},
+                updated_at = #{deletedAt}
+            WHERE id = #{agentId}
+              AND user_id = #{userId}
+              AND deleted_at IS NULL
+            """)
+    int softDeleteOwned(
+            @Param("agentId") Long agentId,
+            @Param("userId") Long userId,
+            @Param("deletedAt") OffsetDateTime deletedAt
     );
 
     /**

@@ -1,4 +1,4 @@
-# V30-V32 Agent root-resource manual checks for IntelliJ IDEA HTTP Client.
+# V30-V33 Agent root-resource manual checks for IntelliJ IDEA HTTP Client.
 #
 # First register/login a disposable test user through user-auth.http. The token stays in
 # IDEA's local session as agentflowAccessToken; never paste a real token into this file.
@@ -254,6 +254,168 @@ X-Trace-Id: af-manual-agent-update-missing-001
   "name": "Invisible"
 }
 
+### V33 flow setup: create a dedicated Agent that will be patched and soft-deleted.
+POST {{baseUrl}}/api/v1/agents
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-agent-delete-create-001
+
+{
+  "name": "V33 待删除 Agent",
+  "description": "验证软删除前后的公开可见性。",
+  "systemPrompt": "只用于 V33 软删除验收。",
+  "modelProvider": "openai-compatible",
+  "modelName": "kimi-k2"
+}
+
+> {%
+  client.test("V33 flow creates one current-owner Agent", function () {
+    client.assert(response.status === 201, "Expected HTTP 201");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.global.set("agentflowDeleteAgentId", response.body.data.id);
+  });
+%}
+
+### V33 flow PATCH: prove the existing update path sees the live row before deletion.
+PATCH {{baseUrl}}/api/v1/agents/{{agentflowDeleteAgentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-agent-delete-patch-before-001
+
+{
+  "name": "V33 即将软删除 Agent"
+}
+
+> {%
+  client.test("V33 flow patches the live Agent before deletion", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.message === "Agent updated", "Expected update message");
+    client.assert(response.body.data.name === "V33 即将软删除 Agent", "Expected updated name");
+  });
+%}
+
+### V33 soft delete: request has no body and keeps the shared HTTP 200 envelope.
+DELETE {{baseUrl}}/api/v1/agents/{{agentflowDeleteAgentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-delete-001
+
+> {%
+  client.test("current owner soft-deletes one live Agent", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.code === "OK", "Expected code OK");
+    client.assert(response.body.message === "Agent deleted", "Expected delete message");
+    client.assert(response.body.data === null, "Expected data null");
+  });
+%}
+
+### V33 detail after deletion: existing V31 visibility must return the uniform 404.
+GET {{baseUrl}}/api/v1/agents/{{agentflowDeleteAgentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-delete-detail-after-001
+
+> {%
+  client.test("soft-deleted Agent is hidden from detail", function () {
+    client.assert(response.status === 404, "Expected HTTP 404");
+    client.assert(response.body.code === "COMMON_NOT_FOUND", "Expected COMMON_NOT_FOUND");
+    client.assert(response.body.message === "Agent not found", "Expected uniform not-found message");
+  });
+%}
+
+### V33 PATCH after deletion: existing V32 live-row lock must not revive the row.
+PATCH {{baseUrl}}/api/v1/agents/{{agentflowDeleteAgentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+X-Trace-Id: af-manual-agent-delete-patch-after-001
+
+{
+  "name": "不得复活"
+}
+
+> {%
+  client.test("soft-deleted Agent cannot be patched or revived", function () {
+    client.assert(response.status === 404, "Expected HTTP 404");
+    client.assert(response.body.code === "COMMON_NOT_FOUND", "Expected COMMON_NOT_FOUND");
+    client.assert(response.body.message === "Agent not found", "Expected uniform not-found message");
+  });
+%}
+
+### V33 list after deletion: existing V30 page must omit the soft-deleted Agent.
+GET {{baseUrl}}/api/v1/agents?page=1&pageSize=100
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-delete-list-after-001
+
+> {%
+  client.test("soft-deleted Agent is hidden from the current-owner list", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    var deletedId = client.global.get("agentflowDeleteAgentId");
+    var stillVisible = response.body.data.items.some(function (item) {
+      return item.id === deletedId;
+    });
+    client.assert(!stillVisible, "Deleted Agent must not remain in the list");
+  });
+%}
+
+### V33 repeated delete: expected the same 404 as missing, cross-owner, and already-deleted rows.
+DELETE {{baseUrl}}/api/v1/agents/{{agentflowDeleteAgentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-delete-repeat-001
+
+> {%
+  client.test("repeated Agent deletion uses the uniform not-found contract", function () {
+    client.assert(response.status === 404, "Expected HTTP 404");
+    client.assert(response.body.code === "COMMON_NOT_FOUND", "Expected COMMON_NOT_FOUND");
+    client.assert(response.body.message === "Agent not found", "Expected Agent not found");
+  });
+%}
+
+### V33 non-numeric delete ID: expected 400 / COMMON_PARAM_INVALID.
+DELETE {{baseUrl}}/api/v1/agents/not-a-number
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-delete-nonnumeric-001
+
+> {%
+  client.test("non-numeric delete ID is invalid", function () {
+    client.assert(response.status === 400, "Expected HTTP 400");
+    client.assert(response.body.code === "COMMON_PARAM_INVALID", "Expected COMMON_PARAM_INVALID");
+  });
+%}
+
+### V33 Long overflow delete ID: expected 400 / COMMON_PARAM_INVALID.
+DELETE {{baseUrl}}/api/v1/agents/9223372036854775808
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-delete-overflow-001
+
+> {%
+  client.test("out-of-Long-range delete ID is invalid", function () {
+    client.assert(response.status === 400, "Expected HTTP 400");
+    client.assert(response.body.code === "COMMON_PARAM_INVALID", "Expected COMMON_PARAM_INVALID");
+  });
+%}
+
+### V33 zero delete ID: expected 400 before Mapper access.
+DELETE {{baseUrl}}/api/v1/agents/0
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-delete-zero-001
+
+> {%
+  client.test("zero delete ID is invalid", function () {
+    client.assert(response.status === 400, "Expected HTTP 400");
+    client.assert(response.body.code === "COMMON_PARAM_INVALID", "Expected COMMON_PARAM_INVALID");
+  });
+%}
+
+### V33 negative delete ID: expected 400 before Mapper access.
+DELETE {{baseUrl}}/api/v1/agents/-1
+Authorization: Bearer {{agentflowAccessToken}}
+X-Trace-Id: af-manual-agent-delete-negative-001
+
+> {%
+  client.test("negative delete ID is invalid", function () {
+    client.assert(response.status === 400, "Expected HTTP 400");
+    client.assert(response.body.code === "COMMON_PARAM_INVALID", "Expected COMMON_PARAM_INVALID");
+  });
+%}
+
 ### V31 well-formed but invisible ID: expected 404 / COMMON_NOT_FOUND / Agent not found.
 GET {{baseUrl}}/api/v1/agents/9223372036854775807
 Authorization: Bearer {{agentflowAccessToken}}
@@ -468,6 +630,17 @@ X-Trace-Id: af-manual-agent-detail-no-auth-001
 
 > {%
   client.test("Agent detail requires authentication", function () {
+    client.assert(response.status === 401, "Expected HTTP 401");
+    client.assert(response.body.code === "AUTH_UNAUTHENTICATED", "Expected AUTH_UNAUTHENTICATED");
+  });
+%}
+
+### V33 soft delete authentication remains required: expected 401 / AUTH_UNAUTHENTICATED.
+DELETE {{baseUrl}}/api/v1/agents/{{agentflowExplicitAgentId}}
+X-Trace-Id: af-manual-agent-delete-no-auth-001
+
+> {%
+  client.test("Agent soft delete requires authentication", function () {
     client.assert(response.status === 401, "Expected HTTP 401");
     client.assert(response.body.code === "AUTH_UNAUTHENTICATED", "Expected AUTH_UNAUTHENTICATED");
   });

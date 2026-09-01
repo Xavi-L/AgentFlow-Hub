@@ -106,6 +106,61 @@ class AgentAppMapperTest {
     }
 
     @Test
+    void shouldSoftDeleteOnlyInsideTheIdOwnerLiveScopeWithOneTimestampParameter() {
+        MybatisConfiguration configuration = new MybatisConfiguration();
+        configuration.addMapper(AgentAppMapper.class);
+        OffsetDateTime deletedAt = OffsetDateTime.parse("2026-09-01T10:30:00+08:00");
+
+        String statementId = AgentAppMapper.class.getName() + ".softDeleteOwned";
+        assertThat(configuration.hasStatement(statementId, false)).isTrue();
+        BoundSql boundSql = configuration.getMappedStatement(statementId).getBoundSql(Map.of(
+                "agentId", 301L,
+                "userId", 101L,
+                "deletedAt", deletedAt
+        ));
+        String sql = boundSql.getSql();
+        String setClause = sql.substring(sql.indexOf("SET"), sql.indexOf("WHERE"));
+
+        assertThat(sql).contains(
+                "UPDATE agent_app",
+                "SET deleted_at = ?",
+                "updated_at = ?",
+                "WHERE id = ?",
+                "AND user_id = ?",
+                "AND deleted_at IS NULL"
+        ).doesNotContain(
+                "DELETE FROM",
+                "FOR UPDATE",
+                "status =",
+                "JOIN",
+                "tool_",
+                "knowledge_",
+                "task",
+                "step",
+                "trace"
+        );
+        assertThat(setClause).doesNotContain(
+                "name =",
+                "description =",
+                "system_prompt =",
+                "model_provider =",
+                "model_name =",
+                "temperature =",
+                "top_p =",
+                "max_steps =",
+                "max_tool_calls =",
+                "max_tokens =",
+                "timeout_seconds =",
+                "user_id =",
+                "config =",
+                "created_at ="
+        );
+        assertThat(boundSql.getParameterMappings())
+                .extracting(ParameterMapping::getProperty)
+                .containsExactly("deletedAt", "deletedAt", "agentId", "userId");
+    }
+
+    @Test
     void shouldKeepIdOwnerAndLiveVisibilityInTheDetailSql() {
         MybatisConfiguration configuration = new MybatisConfiguration();
         configuration.addMapper(AgentAppMapper.class);

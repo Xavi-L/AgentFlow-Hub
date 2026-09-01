@@ -26,6 +26,7 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -45,6 +46,9 @@ class AgentAppServiceTest {
 
     @Captor
     private ArgumentCaptor<AgentApp> agentAppCaptor;
+
+    @Captor
+    private ArgumentCaptor<OffsetDateTime> deletedAtCaptor;
 
     @Test
     void shouldCreateAnOwnedActiveAgentWithTheFrozenV30Defaults() {
@@ -551,6 +555,124 @@ class AgentAppServiceTest {
         verify(agentAppMapper).selectVisibleOwnedByIdForUpdate(999L, 101L);
         verify(agentAppMapper).selectVisibleOwnedByIdForUpdate(301L, 101L);
         verify(agentAppMapper).updateConfigOwned(eq(301L), eq(101L), any(AgentApp.class));
+        verifyNoMoreInteractions(agentAppMapper);
+    }
+
+    @Test
+    void shouldSoftDeleteOneOwnedLiveAgentWithOneServerTimestampAndNoPriorRead() {
+        when(agentAppMapper.softDeleteOwned(eq(301L), eq(101L), any(OffsetDateTime.class)))
+                .thenReturn(1);
+
+        agentAppService.softDeleteOwned(currentUser(), 301L);
+
+        verify(agentAppMapper).softDeleteOwned(eq(301L), eq(101L), deletedAtCaptor.capture());
+        assertThat(deletedAtCaptor.getValue()).isNotNull();
+        verifyNoMoreInteractions(agentAppMapper);
+    }
+
+    @Test
+    void shouldMapEveryZeroRowDeleteToTheSameNotFoundContract() {
+        when(agentAppMapper.softDeleteOwned(eq(999L), eq(101L), any(OffsetDateTime.class)))
+                .thenReturn(0);
+
+        for (String invisibleCase : List.of(
+                "missing",
+                "foreign-owner",
+                "already-soft-deleted",
+                "repeated-delete"
+        )) {
+            assertThatThrownBy(() -> agentAppService.softDeleteOwned(currentUser(), 999L))
+                    .as(invisibleCase)
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessage("Agent not found")
+                    .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                            .isEqualTo(ErrorCode.COMMON_NOT_FOUND));
+        }
+
+        verify(agentAppMapper, org.mockito.Mockito.times(4))
+                .softDeleteOwned(eq(999L), eq(101L), any(OffsetDateTime.class));
+        verifyNoMoreInteractions(agentAppMapper);
+    }
+
+    @Test
+    void shouldRejectMissingOrNonPositiveDeleteIdsBeforeMapperAccess() {
+        for (Long invalidId : java.util.Arrays.asList(null, 0L, -1L)) {
+            assertThatThrownBy(() -> agentAppService.softDeleteOwned(currentUser(), invalidId))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessage("agentId must be a positive integer")
+                    .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                            .isEqualTo(ErrorCode.COMMON_PARAM_INVALID));
+        }
+
+        verifyNoInteractions(agentAppMapper);
+    }
+
+    @Test
+    void shouldTreatAnUnexpectedDeleteRowCountAsAnInternalConsistencyFailure() {
+        when(agentAppMapper.softDeleteOwned(eq(301L), eq(101L), any(OffsetDateTime.class)))
+                .thenReturn(2);
+
+        assertThatThrownBy(() -> agentAppService.softDeleteOwned(currentUser(), 301L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Expected exactly one soft-deleted agent_app row");
+
+        verify(agentAppMapper).softDeleteOwned(eq(301L), eq(101L), any(OffsetDateTime.class));
+        verifyNoMoreInteractions(agentAppMapper);
+    }
+
+    @Test
+    void shouldKeepADeletedAgentInvisibleToExistingDetailPatchAndListScopes() {
+        AtomicBoolean softDeleted = new AtomicBoolean(false);
+        when(agentAppMapper.softDeleteOwned(eq(301L), eq(101L), any(OffsetDateTime.class)))
+                .thenAnswer(invocation -> softDeleted.compareAndSet(false, true) ? 1 : 0);
+        when(agentAppMapper.selectVisibleOwnedById(301L, 101L))
+                .thenAnswer(invocation -> softDeleted.get() ? null : detailRow(301L, "ACTIVE"));
+        when(agentAppMapper.selectVisibleOwnedByIdForUpdate(301L, 101L))
+                .thenAnswer(invocation -> softDeleted.get() ? null : detailRow(301L, "ACTIVE"));
+        when(agentAppMapper.selectVisibleOwnedPage(any(), eq(101L))).thenAnswer(invocation -> {
+            Page<AgentApp> page = invocation.getArgument(0);
+            page.setRecords(softDeleted.get()
+                    ? List.of()
+                    : List.of(summaryRow(301L, "Visible before deletion", "ACTIVE")));
+            page.setTotal(softDeleted.get() ? 0 : 1);
+            return page;
+        });
+
+        agentAppService.softDeleteOwned(currentUser(), 301L);
+
+        assertThatThrownBy(() -> agentAppService.getOwnedById(currentUser(), 301L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Agent not found");
+        assertThatThrownBy(() -> agentAppService.updateOwnedConfig(
+                currentUser(),
+                301L,
+                updateRequest(
+                        Set.of("name"),
+                        "Cannot revive",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
+                )
+        )).isInstanceOf(BusinessException.class)
+                .hasMessage("Agent not found");
+        PageResult<AgentAppSummaryResponse> page = agentAppService.listOwnedBy(
+                currentUser(),
+                new PageRequest(1, 20)
+        );
+        assertThat(page.getItems()).isEmpty();
+        assertThat(page.getTotal()).isZero();
+
+        verify(agentAppMapper).softDeleteOwned(eq(301L), eq(101L), any(OffsetDateTime.class));
+        verify(agentAppMapper).selectVisibleOwnedById(301L, 101L);
+        verify(agentAppMapper).selectVisibleOwnedByIdForUpdate(301L, 101L);
+        verify(agentAppMapper).selectVisibleOwnedPage(any(), eq(101L));
         verifyNoMoreInteractions(agentAppMapper);
     }
 

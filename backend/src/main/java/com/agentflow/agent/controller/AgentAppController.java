@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -22,7 +23,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** HTTP boundary for the V30-V32 Agent root resource. */
+/** HTTP boundary for the V30-V33 Agent root resource. */
 @RestController
 @RequestMapping("${agentflow.api.prefix}/agents")
 public class AgentAppController {
@@ -67,6 +68,16 @@ public class AgentAppController {
                 "Agent updated",
                 agentAppService.updateOwnedConfig(currentUser, agentId, request)
         );
+    }
+
+    /** Soft-deletes one current-owner, non-deleted Agent without changing its status. */
+    @DeleteMapping("/{agentId}")
+    public ApiResponse<Void> softDelete(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @PathVariable Long agentId
+    ) {
+        agentAppService.softDeleteOwned(currentUser, agentId);
+        return ApiResponse.success("Agent deleted", null);
     }
 
     /** Returns a compact page of the current owner's non-deleted Agent metadata. */

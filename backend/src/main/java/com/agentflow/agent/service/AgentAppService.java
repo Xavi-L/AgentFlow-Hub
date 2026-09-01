@@ -26,7 +26,7 @@ import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Business boundary for V30-V32 current-owner Agent root-resource operations. */
+/** Business boundary for V30-V33 current-owner Agent root-resource operations. */
 @Service
 public class AgentAppService {
     private static final String ACTIVE_STATUS = "ACTIVE";
@@ -209,6 +209,33 @@ public class AgentAppService {
             throw new IllegalStateException("Expected exactly one updated agent_app row");
         }
         return AgentAppResponse.from(current);
+    }
+
+    /**
+     * Soft-deletes one current-owner, live Agent with a single atomic scoped write. Missing,
+     * foreign-owner, already-deleted, and repeated-delete cases all affect zero rows and share
+     * the same not-found response. ACTIVE and DISABLED rows are both eligible.
+     */
+    @Transactional
+    public void softDeleteOwned(
+            AuthenticatedUser currentUser,
+            Long agentId
+    ) {
+        Objects.requireNonNull(currentUser, "currentUser must not be null");
+        validateAgentId(agentId);
+
+        OffsetDateTime deletedAt = OffsetDateTime.now();
+        int affectedRows = agentAppMapper.softDeleteOwned(
+                agentId,
+                currentUser.id(),
+                deletedAt
+        );
+        if (affectedRows == 0) {
+            throw new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Agent not found");
+        }
+        if (affectedRows != 1) {
+            throw new IllegalStateException("Expected exactly one soft-deleted agent_app row");
+        }
     }
 
     /** Lists only the current owner's non-deleted Agent summaries; DISABLED remains visible. */
