@@ -61,4 +61,5 @@ agentflow:
     base-url: ${OPENAI_BASE_URL:http://127.0.0.1:1234/v1}
     api-key: ${OPENAI_API_KEY:}
     chat-model: ${OPENAI_CHAT_MODEL:qwen/qwen3-1.7b}
+    timeout: ${OPENAI_TIMEOUT:PT30S}
     embedding-model: ${OPENAI_EMBEDDING_MODEL:text-embedding-v4}

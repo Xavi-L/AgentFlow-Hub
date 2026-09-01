@@ -1,12 +1,9 @@
-package com.agentflow.knowledge.chat;
+package com.agentflow.config;
 
 import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-/**
- * Server-owned OpenAI-compatible chat settings. The three connection values reuse the
- * existing OPENAI_BASE_URL, OPENAI_API_KEY, and OPENAI_CHAT_MODEL development configuration.
- */
+/** Shared connection settings for the manually configured OpenAI-compatible ChatModel. */
 @ConfigurationProperties(prefix = "agentflow.llm")
 public class OpenAiChatProperties {
     private String baseUrl = "http://127.0.0.1:1234/v1";

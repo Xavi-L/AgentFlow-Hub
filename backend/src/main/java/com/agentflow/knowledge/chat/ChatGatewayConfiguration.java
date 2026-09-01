@@ -1,5 +1,7 @@
 package com.agentflow.knowledge.chat;
 
+import com.agentflow.config.OpenAiChatProperties;
+import com.agentflow.infra.llm.LlmGateway;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -12,10 +14,10 @@ public class ChatGatewayConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(ChatGateway.class)
-    public ChatGateway openAiCompatibleChatGateway(OpenAiChatProperties properties) {
-        return new OpenAiCompatibleChatGateway(
-                properties,
-                ChatRestClientFactory.create(properties.getBaseUrl(), properties.getTimeout())
-        );
+    public ChatGateway openAiCompatibleChatGateway(
+            OpenAiChatProperties properties,
+            LlmGateway llmGateway
+    ) {
+        return new OpenAiCompatibleChatGateway(properties, llmGateway);
     }
 }

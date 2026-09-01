@@ -5,6 +5,10 @@ V9 只在 V8 的稳定 RAG context 之后增加一次受控生成：它调用 V8
 `ChatGateway`，再用 V8 已分配的 source 表核对模型回答里的 `[S#]`。V9 不重做检索、预算装配或
 citation 编号。
 
+V35 完成后，V9 的公开 HTTP/DTO/citation 契约保持不变；`OpenAiCompatibleChatGateway` 改为领域适配器，
+把固定知识问答 Prompt 转成通用 `LlmGateway.chat` 请求。OpenAI-compatible HTTP、鉴权、timeout、解析和
+稳定内部失败分类由 `com.agentflow.infra.llm` 统一实现，不再保留 V9 私有 `RestClient`。
+
 ## 1. HTTP 契约
 
 ```http
@@ -69,7 +73,10 @@ KnowledgeChatController
        -> KnowledgeContextService.retrieveContextTest(...)     (V8)
             -> KnowledgeContextResponse
        -> ChatGateway.generate(ChatRequest)
-            -> answer
+            -> OpenAiCompatibleChatGateway              (V9 领域适配器)
+                 -> LlmGateway.chat(LlmChatRequest)      (V35 通用边界)
+                      -> answer + provider metadata
+            -> answer（V9 只消费 content）
        -> CitationReferenceExtractor
             -> validated citationIds
 ```
@@ -84,20 +91,23 @@ KnowledgeChatController
 
 ## 3. OpenAI-compatible Gateway
 
-`OpenAiCompatibleChatGateway` 使用 `POST {OPENAI_BASE_URL}/chat/completions`，并绑定既有开发配置：
+V35 后，`OpenAiCompatibleChatGateway` 不再直接创建 HTTP client；它调用通用 `LlmGateway`，后者使用
+Spring AI `ChatModel.call(Prompt)` 发送 `POST {OPENAI_BASE_URL}/chat/completions`。连接配置继续绑定：
 
 - `OPENAI_BASE_URL` -> `agentflow.llm.base-url`
 - `OPENAI_API_KEY` -> `agentflow.llm.api-key`
 - `OPENAI_CHAT_MODEL` -> `agentflow.llm.chat-model`
 
-模型名只从服务端配置读取。Gateway 固定发送一段内部 system instruction，要求模型只依据提供的
+模型名只从服务端配置读取。V9 adapter 固定发送一段内部 system instruction，要求模型只依据提供的
 context 作答、每个答案至少使用一个 context 中已有的 `[S#]`，并禁止编造来源；再发送包含 query 和
-原样 context 的 user message。请求固定 `stream: false` 和 `max_tokens: maxAnswerTokens`，不存在 Prompt
-模板管理、客户端温度/模型设置或其他生成调度功能。
+原样 context 的 user message。它固定 temperature `0.2`、topP `0.8`，把 `maxAnswerTokens` 映射为通用
+请求的单次 `maxOutputTokens`。通用 Gateway 固定 `n: 1`、`stream: false`，并关闭 Spring AI 内部工具执行
+与自动重试；不存在 Prompt 模板管理、客户端温度/模型设置或其他生成调度功能。
 
-若 API key 非空，Gateway 发送 Bearer header；为空时不伪造 header，以兼容不鉴权的本地
-OpenAI-compatible 服务。连接、超时、非成功响应、缺失 `choices[0].message.content` 或空回答统一封装为
-Gateway failure，绝不把 provider URL、响应体或密钥回传给客户端。
+若 API key 非空，通用 Gateway 发送 Bearer header；为空时使用无认证 key，不发送 Authorization，以兼容
+不鉴权的本地 OpenAI-compatible 服务。配置、连接、超时、非成功响应、JSON/choice/content 异常先转换为
+脱敏 `LlmGatewayException`；V9 adapter 再转换成原有无 provider 细节的 `ChatGatewayException`。V9 不把
+resolved model、usage、finish reason、provider response ID 或 latency 加入公开 response。
 
 ## 4. Context 与 citation 失败边界
 
@@ -108,8 +118,8 @@ Gateway failure，绝不把 provider URL、响应体或密钥回传给客户端�
    一个有效标记。
 4. 无 citation、未知 ID（如 `[S99]`）、或畸形 S 型 citation（如 `[S1, S2]`、`[[S1]]`）返回
    `502 KNOWLEDGE_CHAT_CITATION_INVALID`。失败响应不会把模型编造的 citation/source 作为真实来源回传。
-5. Gateway 不可用或返回无效 Chat-completions body 时返回
-   `503 KNOWLEDGE_CHAT_GATEWAY_UNAVAILABLE`。V9 不重试生成。
+5. 通用 Gateway 不可用或返回无效 Chat-completions body 时，V9 adapter 将脱敏内部失败转换为既有
+   `503 KNOWLEDGE_CHAT_GATEWAY_UNAVAILABLE`。V9/V35 均不重试生成。
 
 ## 5. IDEA HTTP 与 mock 验收
 
@@ -123,8 +133,8 @@ Gateway failure，绝不把 provider URL、响应体或密钥回传给客户端�
 2. 合法且重复的 `[S#]` 按首次出现顺序去重；
 3. 空 context 不调用 Gateway；
 4. 缺失/伪造/畸形 citation 与 Gateway 不可用均返回稳定受控错误，且无重试；
-5. OpenAI-compatible adapter 的 HTTP 路径、服务端模型、固定 instruction、原样 context 与非流式
-   `max_tokens`；
+5. V9 adapter 的服务端模型、固定 instruction、原样 context 与 `maxAnswerTokens` 映射；V35 本地 HTTP
+   stub 另行覆盖通用 Gateway 的路径、鉴权、采样参数、非流式 JSON、usage 与失败解析；
 6. 禁止字段和越界 `maxAnswerTokens` 在 Controller 层拒绝。
 
 ## 6. 明确不做
@@ -147,7 +157,8 @@ query、逐字未修改的 context、原始预算统计和 sources 继续传递�
 
 **回答：** `chat-test` 请求使用局部严格白名单，只接受 `query`、`topK`、`maxContextTokens` 与 `maxAnswerTokens` 四个字段；
 `model`、`prompt`、`chunkId`、`citationId` 和其他字段会在进入 Service 前返回 `400 COMMON_REQUEST_BODY_INVALID`。模型名
-只从服务端 `agentflow.llm` 配置读取，Gateway 固定内部 system instruction，并把 `maxAnswerTokens` 限制为 `1..4096`。
+只从服务端 `agentflow.llm` 配置读取，V9 adapter 固定内部 system instruction，并把 `maxAnswerTokens` 限制为
+`1..4096` 后映射为通用 Gateway 的单次 output cap。
 这保证客户端不能改变本切片的模型选择、上下文来源或引用表，但不包含多模型调度、Prompt 管理等后续能力。
 
 ### 问题 3：模型回答里的 citation 如何校验，异常时如何避免把伪造来源返回给客户端？
@@ -155,11 +166,13 @@ query、逐字未修改的 context、原始预算统计和 sources 继续传递�
 **回答：** 已实现校验只接受严格 `[S数字]`，要求至少一个标记且每个 ID 都存在于 V8 的 `sources[].citationId`；重复合法 ID
 按首次出现顺序去重。缺失、未知、嵌套、未闭合或其他畸形 S 型标记统一返回 `502 KNOWLEDGE_CHAT_CITATION_INVALID`，不会把
 模型自由文本升级为来源。若 V8 没有任何完整 context/source，则先返回 `409 KNOWLEDGE_CONTEXT_EMPTY` 且不调用 Gateway；
-Gateway 连接、上游非成功或无有效 answer 时返回不泄露 provider 细节的 `503 KNOWLEDGE_CHAT_GATEWAY_UNAVAILABLE`，本切片不重试。
+通用 Gateway 的连接、上游非成功或无有效 answer 会先成为脱敏内部失败，V9 adapter 再让既有 Service 返回
+不泄露 provider 细节的 `503 KNOWLEDGE_CHAT_GATEWAY_UNAVAILABLE`；V9/V35 均不重试。
 
 ### 问题 4：怎样区分 V9 的自动化验证、真实本地模型调用与尚未覆盖的生产能力？
 
-**回答：** 自动化测试用 mock 验证 V8 context 的原样传递、固定非流式 `/chat/completions` 请求、服务端模型和 instruction、
-引用/错误映射及禁止字段；这证明编排和 adapter 契约，不是实际模型质量或外部服务可用性的证明。`knowledge-document.http`
+**回答：** V9 自动化用 mock 验证 V8 context 的原样传递、服务端模型、固定 instruction、通用 Gateway 请求适配、
+引用/错误映射及禁止字段；V35 另用本地 HTTP stub 验证固定非流式 `/chat/completions` JSON/header 和响应解析。
+这证明编排与 adapter/wire 契约，不是实际模型质量或外部服务可用性的证明。`knowledge-document.http`
 的 happy path 只有在应用进程配置本地 OpenAI-compatible 服务与 `OPENAI_*` 环境变量后才会发起一次真实模型调用；它仍不同于
 线上 SLA、流式、多轮会话、回答落库、Agent/tool calling 或效果评测，这些都未纳入本切片。

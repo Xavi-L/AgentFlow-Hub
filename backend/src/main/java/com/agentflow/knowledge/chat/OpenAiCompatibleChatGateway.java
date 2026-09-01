@@ -1,17 +1,18 @@
 package com.agentflow.knowledge.chat;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import java.util.LinkedHashMap;
+import com.agentflow.config.OpenAiChatProperties;
+import com.agentflow.infra.llm.LlmChatRequest;
+import com.agentflow.infra.llm.LlmGateway;
+import com.agentflow.infra.llm.LlmGatewayException;
+import com.agentflow.infra.llm.LlmMessage;
+import com.agentflow.infra.llm.LlmMessageRole;
+import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import org.springframework.http.MediaType;
-import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
 /**
- * One non-streaming OpenAI-compatible {@code /chat/completions} adapter. It owns one fixed
- * internal instruction, while V9 service retains citation validation and source provenance.
+ * V9 domain adapter over the generic LLM boundary. It owns the fixed knowledge instruction,
+ * while V9 service retains citation validation and source provenance.
  */
 public final class OpenAiCompatibleChatGateway implements ChatGateway {
     static final String SYSTEM_INSTRUCTION = """
@@ -19,74 +20,37 @@ public final class OpenAiCompatibleChatGateway implements ChatGateway {
             Every answer must include at least one citation marker exactly in the form [S#].
             Use only citation markers already present in the supplied context, and never invent a source.
             """;
+    private static final BigDecimal TEMPERATURE = new BigDecimal("0.2");
+    private static final BigDecimal TOP_P = new BigDecimal("0.8");
 
     private final OpenAiChatProperties properties;
-    private final RestClient restClient;
+    private final LlmGateway llmGateway;
 
-    OpenAiCompatibleChatGateway(OpenAiChatProperties properties, RestClient restClient) {
+    OpenAiCompatibleChatGateway(OpenAiChatProperties properties, LlmGateway llmGateway) {
         this.properties = Objects.requireNonNull(properties, "properties must not be null");
-        this.restClient = Objects.requireNonNull(restClient, "restClient must not be null");
+        this.llmGateway = Objects.requireNonNull(llmGateway, "llmGateway must not be null");
     }
 
     @Override
     public String generate(ChatRequest request) {
         Objects.requireNonNull(request, "request must not be null");
-        String model = requireNonBlank(properties.getChatModel(), "OPENAI_CHAT_MODEL");
-        String apiKey = properties.getApiKey();
-
-        JsonNode response;
         try {
-            response = restClient.post()
-                    .uri("/chat/completions")
-                    .headers(headers -> {
-                        if (apiKey != null && !apiKey.isBlank()) {
-                            headers.setBearerAuth(apiKey.trim());
-                        }
-                    })
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(requestBody(model, request))
-                    .retrieve()
-                    .body(JsonNode.class);
-        } catch (RestClientException requestFailure) {
-            throw new ChatGatewayException("OpenAI-compatible chat request failed", requestFailure);
+            return llmGateway.chat(new LlmChatRequest(
+                    "openai-compatible",
+                    properties.getChatModel(),
+                    List.of(
+                            new LlmMessage(LlmMessageRole.SYSTEM, SYSTEM_INSTRUCTION),
+                            new LlmMessage(
+                                    LlmMessageRole.USER,
+                                    "Question:\n" + request.query() + "\n\nContext:\n" + request.context()
+                            )
+                    ),
+                    TEMPERATURE,
+                    TOP_P,
+                    request.maxAnswerTokens()
+            )).content();
+        } catch (LlmGatewayException gatewayFailure) {
+            throw new ChatGatewayException("OpenAI-compatible chat request failed");
         }
-
-        return extractAnswer(response);
-    }
-
-    private static Map<String, Object> requestBody(String model, ChatRequest request) {
-        Map<String, Object> systemMessage = new LinkedHashMap<>();
-        systemMessage.put("role", "system");
-        systemMessage.put("content", SYSTEM_INSTRUCTION);
-
-        Map<String, Object> userMessage = new LinkedHashMap<>();
-        userMessage.put("role", "user");
-        userMessage.put("content", "Question:\n" + request.query() + "\n\nContext:\n" + request.context());
-
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("model", model);
-        body.put("messages", List.of(systemMessage, userMessage));
-        body.put("max_tokens", request.maxAnswerTokens());
-        body.put("stream", false);
-        return body;
-    }
-
-    private static String extractAnswer(JsonNode response) {
-        JsonNode content = response == null
-                ? null
-                : response.path("choices").path(0).path("message").path("content");
-        if (content == null || !content.isTextual() || content.textValue().isBlank()) {
-            throw new ChatGatewayException(
-                    "OpenAI-compatible response must contain a non-blank choices[0].message.content"
-            );
-        }
-        return content.textValue();
-    }
-
-    private static String requireNonBlank(String value, String settingName) {
-        if (value == null || value.isBlank()) {
-            throw new ChatGatewayException(settingName + " is not configured");
-        }
-        return value;
     }
 }
