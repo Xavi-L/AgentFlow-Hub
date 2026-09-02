@@ -437,6 +437,7 @@ error_message              VARCHAR(500)
 cancel_requested_at        TIMESTAMPTZ
 started_at                 TIMESTAMPTZ
 completed_at               TIMESTAMPTZ
+last_event_sequence        BIGINT NOT NULL DEFAULT 0
 created_at                 TIMESTAMPTZ NOT NULL
 updated_at                 TIMESTAMPTZ NOT NULL
 version                    INT NOT NULL DEFAULT 0
@@ -451,7 +452,7 @@ MIXED
 UNKNOWN
 ```
 
-### 6.2 外键与唯一性
+### 6.2 外键、唯一性与幂等指纹
 
 ```text
 FOREIGN KEY (agent_id, user_id)
@@ -460,7 +461,17 @@ FOREIGN KEY (agent_id, user_id)
 UNIQUE(user_id, client_request_id)
 ```
 
-`request_fingerprint` 为规范化 agentId、userInput 和影响执行的请求选项的 SHA-256，用于识别幂等键被不同 payload 重用。
+`request_fingerprint` 对以下 fixed-version canonical JSON 的 UTF-8 bytes 计算 lowercase SHA-256：
+
+```json
+{
+  "version": "agent-task-request-v1",
+  "agentId": "1001",
+  "input": "原始 userInput"
+}
+```
+
+对象 key 顺序、字符串转义和 ID 字符串表达必须固定。`userInput` 校验非空白后按原始值参与 fingerprint，不做静默 trim。
 
 ### 6.3 状态约束
 
@@ -480,6 +491,7 @@ phase IN (PREPARING, RETRIEVING, DECIDING, EXECUTING_TOOL, GENERATING)
 - `TIMED_OUT`：terminationReason=`DEADLINE_EXCEEDED`；
 - used counters 非负且不超过配置上限；
 - token 三字段非负且 `total_tokens = input_tokens + output_tokens`；
+- `last_event_sequence >= 0`；
 - citations 为 JSON array；
 - execution_snapshot 为 JSON object；
 - `max_tool_calls < max_decision_turns`；
@@ -540,11 +552,14 @@ SKIPPED
 ```text
 FOREIGN KEY(task_id) REFERENCES agent_task(id)
 UNIQUE(task_id, step_index)
+UNIQUE(id, task_id)
 CHECK step_index >= 0
 CHECK terminal step has ended_at/latency
 CHECK success has no error
 CHECK failed has safe error
 ```
+
+`UNIQUE(id,task_id)` 为 LLM/RAG/tool 日志的复合外键提供被引用键，使数据库能证明 `step_id` 确实属于同一个 `task_id`。
 
 `summary` 只保存小型语义摘要和专项日志 ID，不复制完整 Prompt、tool result 或 hit content。
 
@@ -584,6 +599,16 @@ DECISION
 FINAL_GENERATION
 ```
 
+约束至少包括：
+
+```text
+FOREIGN KEY (step_id, task_id)
+  REFERENCES agent_step(id, task_id)
+CHECK request_snapshot is object
+CHECK usage fields/quality are mutually consistent
+CHECK success/error fields are mutually consistent
+```
+
 V0.1 的 document embedding 不写入这张 task-scoped 表。知识库向量化继续由 chunk 状态和服务日志观察；未来需要统一 provider observability 时增加 `scope_type/scope_id`，不要把所有 embedding 强行伪造成 AgentTask call。
 
 `request_snapshot` 必须脱敏、大小受限，并保存消息角色/正文快照；不保存 API key、Authorization、完整 endpoint 或框架内部对象。
@@ -611,6 +636,16 @@ status                     VARCHAR(32) NOT NULL
 error_code                 VARCHAR(64)
 error_message              VARCHAR(500)
 created_at                 TIMESTAMPTZ NOT NULL
+```
+
+约束至少包括：
+
+```text
+FOREIGN KEY (step_id, task_id)
+  REFERENCES agent_step(id, task_id)
+CHECK corpus_snapshot is object
+CHECK counts/latency are nonnegative
+CHECK status/error fields are mutually consistent
 ```
 
 ### 9.2 rag_retrieval_hit
@@ -663,7 +698,23 @@ CHECK payload is object
 INDEX(task_id, sequence_no)
 ```
 
-sequence 由单一 `TaskEventAppender` 分配。V0.1 可以使用 task row lock 或独立 sequence allocator，不能由多个组件各自读取 `max(sequence)+1` 后竞争写入。
+### 10.1 Sequence 分配
+
+V0.1 使用 `agent_task.last_event_sequence` 作为唯一游标。每次 append 在同一短事务中：
+
+```sql
+UPDATE agent_task
+SET last_event_sequence = last_event_sequence + 1
+WHERE id = :taskId
+RETURNING last_event_sequence;
+
+INSERT INTO agent_task_event(task_id, sequence_no, event_type, payload, created_at)
+VALUES (:taskId, :returnedSequence, :eventType, :payload, CURRENT_TIMESTAMP);
+```
+
+该 UPDATE 的行锁串行化同一 task 的事件 append。禁止使用 `SELECT max(sequence_no)+1`。状态/phase/终态变化需要事件时，业务字段更新、cursor increment 和 event insert 必须放在同一事务。
+
+`last_event_sequence` 是事件游标，不等同于 task 乐观锁 `version`；单独 append 展示事件时不自动修改 `version`。
 
 Event 是 SSE 的持久投影，不复制完整 Trace。`ANSWER_CHUNK` 需要合并和大小限制。
 
@@ -671,25 +722,29 @@ Event 是 SSE 的持久投影，不复制完整 Trace。`ANSWER_CHUNK` 需要合
 
 ## 11. Tool log 与 AgentTask 关联
 
-Task 创建相关 schema 完成后，通过新 migration：
+Task/step schema 完成后，通过新 migration 保留现有 nullable 字段并增加：
 
 ```text
-FOREIGN KEY(tool_call_log.task_id) REFERENCES agent_task(id)
-FOREIGN KEY(tool_call_log.step_id) REFERENCES agent_step(id)
+FOREIGN KEY (step_id, task_id)
+  REFERENCES agent_step(id, task_id)
 ```
 
-FK 允许 null，以兼容已有 standalone 工具测试调用。
+复合 FK 允许 `(NULL,NULL)`，兼容已有 standalone 工具测试调用；但 AgentTask 路径必须同时提供 task_id 和 step_id。不得出现 task_id 非空而 step_id 为空，或只填 step_id 的半关联状态。可通过 CHECK 约束：
 
-AgentTask 路径要求：
+```text
+(task_id IS NULL AND step_id IS NULL)
+OR
+(task_id IS NOT NULL AND step_id IS NOT NULL)
+```
 
-- task_id 非空；
-- step_id 非空；
+AgentTask 路径还要求：
+
 - tool snapshot code/name 保留；
 - arguments/result 为 JSON object；
 - status/时间/error 字段满足现有 V13 lifecycle CHECK；
-- `task_id` 与 `step_id` 必须属于同一 task。PostgreSQL 若仅用两个单列 FK不能证明这一点，应给 `agent_step` 增加 `(id, task_id)` unique，并让 tool log 使用复合 FK，或由专门触发/写入接口保证。优先选择复合 FK。
+- result/arguments 大小受限且已脱敏。
 
-同样的 task/step 一致性适用于 LLM 和 RAG log。
+同样的复合 task/step 一致性已直接定义在 LLM 和 RAG log 中。
 
 ---
 
@@ -808,6 +863,14 @@ knowledge_base.embedding_profile_id
 
 在支持第二个向量空间前完成，不提前建设空注册中心。
 
+### 14.7 Task Retry Chain
+
+```text
+agent_task.retry_of_task_id
+```
+
+V0.1 重试由客户端创建一个完全独立的新 task，不保存链。出现历史聚合或自动重试产品需求后，再增加 nullable self-reference 和循环约束。
+
 ---
 
 ## 15. 建议 migration 顺序
@@ -840,12 +903,13 @@ knowledge_base.embedding_profile_id
 7. failed task 必须有安全错误；
 8. task 内 step index 唯一；
 9. 专项日志的 step 属于同一 task；
-10. task event sequence 唯一且递增；
-11. RAG hit snapshot 不因源文档删除消失；
-12. vector state 字段互相一致；
-13. tool call lifecycle 字段互相一致；
-14. execution snapshot/citations/event payload JSON 类型正确；
-15. 所有预算、计数和 latency 非负。
+10. task.last_event_sequence 与已提交 event sequence 一致；
+11. task event sequence 唯一且递增；
+12. RAG hit snapshot 不因源文档删除消失；
+13. vector state 字段互相一致；
+14. tool call lifecycle 字段互相一致；
+15. execution snapshot/citations/event payload JSON 类型正确；
+16. 所有预算、计数和 latency 非负。
 
 ---
 

@@ -188,13 +188,15 @@ maxToolCalls < maxDecisionTurns
 
 ```text
 Header: Agent 名称、Task 状态、取消按钮
-Main: 用户输入 + 最终答案/临时流式答案
+Main: 用户输入 + 最终答案/临时答案
 Right/Bottom: 执行时间线
 Evidence: 引用列表
 Action: 查看 Trace
 ```
 
 V0.1 不做多轮 conversation。每次提交创建独立 task；历史 task 可以通过最近任务列表进入。
+
+SSE 实时展示任务阶段和工具过程。由于 V0.1 Final Generation 仍使用同步非流式 LlmGateway，答案增量可以只有一个完整 `ANSWER_CHUNK`；前端不得用逐字动画伪装 provider token streaming。
 
 ### 4.5 Trace 页
 
@@ -242,12 +244,14 @@ Idempotency-Key: <uuid>
 taskId
 status
 phase
-lastEventSequence
+serverLastEventSequence
 eventsUrl
 idempotencyKey
 ```
 
-随后从 `lastEventSequence` 建立 SSE。即使 task 已经开始，数据库 replay 会补发后续事件。
+`serverLastEventSequence` 表示服务端已经提交到哪里，不代表客户端已经处理到哪里。新 task 的本地 `lastProcessedSequence` 初始化为 `0`，随后连接 `afterSequence=0`，让数据库 replay 发送 `TASK_CREATED` 以及连接建立前产生的所有早期事件。
+
+不得直接把创建响应的 `lastEventSequence` 复制到 `lastProcessedSequence`，否则客户端会跳过尚未读取的事件。
 
 ### 5.3 网络结果未知
 
@@ -263,6 +267,7 @@ POST 超时或连接断开时，不立即生成新 key 重试。使用原 key �
 interface TaskRuntimeState {
   task: AgentTaskDetail | null
   uiState: TaskUiState
+  serverLastEventSequence: number
   lastProcessedSequence: number
   timeline: TaskTimelineItem[]
   draftAnswer: string
@@ -274,6 +279,8 @@ interface TaskRuntimeState {
 ```
 
 ID 一律使用 `string`，不得转换为 JavaScript number。
+
+`serverLastEventSequence` 只用于判断服务端是否还有未处理事件；SSE cursor 始终使用 `lastProcessedSequence`。
 
 `timeline` 是 event 投影。完整 Trace 由 Trace API 加载，不把所有 Prompt/result 长期存入 Pinia。
 
@@ -304,8 +311,9 @@ await fetchEventSource(
 2. 二者必须相同；
 3. `sequenceNo <= lastProcessedSequence`：忽略；
 4. `sequenceNo == lastProcessedSequence + 1`：应用；
-5. 出现 gap：停止增量应用，调用 snapshot/trace 恢复；
-6. 应用成功后再更新 lastProcessedSequence。
+5. 出现 gap：停止增量应用，调用 events/trace snapshot 恢复；
+6. 应用成功后再更新 lastProcessedSequence；
+7. 同时更新 serverLastEventSequence 的最大值。
 
 不能只依赖浏览器库“应该不会重复”。
 
@@ -315,7 +323,7 @@ await fetchEventSource(
 - 始终携带 lastProcessedSequence；
 - 401 不自动无限重连，清除 token；
 - 404 表示 task 不可见，停止；
-- terminal task 不再重连；
+- terminal task 在处理完 terminal event 后不再重连；
 - 重连失败时仍允许用户刷新 task detail。
 
 ### 7.4 页面刷新
@@ -323,14 +331,17 @@ await fetchEventSource(
 刷新流程：
 
 1. GET task detail；
-2. GET trace 或 events snapshot，重建 timeline；
-3. 以 task.finalAnswer/citations 为权威；
-4. 若 task 非终态，以快照的 lastEventSequence 建立 SSE；
-5. GET 与 SSE 之间产生的事件由 replay 补发。
+2. GET trace 或完整 events snapshot；
+3. 按 sequence 重建 timeline，并将 `lastProcessedSequence` 设置为**实际成功应用的最大 sequence**；
+4. 以 task.finalAnswer/citations 为权威；
+5. 若 task 非终态，从 lastProcessedSequence 建立 SSE；
+6. GET 与 SSE 之间产生的事件由 replay 补发。
+
+不得直接将 task.lastEventSequence 当成已处理 cursor，除非对应事件列表已经全部成功应用。
 
 ### 7.5 临时答案和最终答案
 
-`ANSWER_CHUNK` 只追加到 `draftAnswer`。收到 terminal event 后：
+`ANSWER_CHUNK` 追加到 `draftAnswer`。V0.1 通常只收到一个完整答案 chunk，但 reducer 保持支持多个合并 chunk。收到 terminal event 后：
 
 1. GET task detail；
 2. 用 `task.finalAnswer` 覆盖 draftAnswer；
@@ -356,7 +367,7 @@ SSE draft 永远不是最终数据源。
 | `TOOL_STARTED` | 新增工具调用进行中项 |
 | `TOOL_FINISHED` | 按 toolCallId 更新对应项 |
 | `FINAL_GENERATION_STARTED` | 显示生成中 |
-| `ANSWER_CHUNK` | 追加临时答案 |
+| `ANSWER_CHUNK` | 追加临时答案，可为完整答案单块 |
 | `TASK_COMPLETED` | 拉取 task，展示成功/受预算限制原因 |
 | `TASK_FAILED` | 拉取 task，展示 errorCode/safe message |
 | `TASK_CANCELLED` | 展示已取消 |
@@ -554,7 +565,7 @@ V0.1 不显示尚未实现的功能：
 - rerank；
 - Evaluation。
 
-禁用 Agent 时明确提示：新 task 无法创建；已经 RUNNING 的 task 是否继续以其 snapshot 为准，由后端契约决定，前端不自行终止。
+禁用 Agent 时明确提示：新 task 无法创建；已经 RUNNING 的 task 继续使用 snapshot，除非后端返回平台级资源撤销。前端不自行终止。
 
 ---
 
@@ -591,7 +602,7 @@ V0.1 完成后再考虑：
 - PDF 预览；
 - Policy/approval；
 - 成本报表；
-- 更复杂 timeline。
+- provider token streaming 和更细粒度 timeline。
 
 这些页面不得先于对应后端事实和状态机出现。
 
@@ -603,14 +614,17 @@ V0.1 完成后再考虑：
 
 1. BIGINT ID 不发生 JS 精度丢失；
 2. POST 网络未知时使用原 Idempotency-Key；
-3. Server status、phase 和 client uiState 分离；
-4. TIMED_OUT 单独展示；
-5. parseStatus 与 retrievalReadiness 分开展示；
-6. SSE 重复事件被忽略；
-7. sequence gap 会触发恢复而不是继续错误追加；
-8. 页面刷新后 timeline/final answer 可恢复；
-9. terminal 后以 task.finalAnswer 覆盖 draft；
-10. cancel 不提前伪造终态；
-11. citation 只来自后端白名单；
-12. Trace 不泄漏内部配置或 chain-of-thought；
-13. V0.1 主流程只需要少量页面即可完整演示。
+3. 新 task 从 afterSequence=0 读取尚未处理事件；
+4. serverLastEventSequence 与 lastProcessedSequence 不混用；
+5. Server status、phase 和 client uiState 分离；
+6. TIMED_OUT 单独展示；
+7. parseStatus 与 retrievalReadiness 分开展示；
+8. SSE 重复事件被忽略；
+9. sequence gap 会触发恢复而不是继续错误追加；
+10. 页面刷新后 timeline/final answer 可恢复；
+11. terminal 后以 task.finalAnswer 覆盖 draft；
+12. cancel 不提前伪造终态；
+13. citation 只来自后端白名单；
+14. Trace 不泄漏内部配置或 chain-of-thought；
+15. V0.1 不伪装 provider token streaming；
+16. V0.1 主流程只需要少量页面即可完整演示。

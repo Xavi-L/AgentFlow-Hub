@@ -272,7 +272,7 @@ public interface ToolRuntime {
 }
 ```
 
-Agent 可用 ToolSpec 在 task 创建时由 Agent application service + ToolDefinitionService 解析并写入 snapshot，不由 ToolRuntime 在每个 decision 中重新生成一套列表。
+Agent 可用 ToolSpec 在 task 创建时由 Agent application service + ToolDefinitionService 解析并写入 snapshot，不由 ToolRuntime 在每个 decision 中重新读取当前 binding 或生成另一套工具列表。
 
 ### 4.8 TaskEventAppender
 
@@ -282,7 +282,7 @@ public interface TaskEventAppender {
 }
 ```
 
-只有该边界分配 `sequenceNo`。模块不得自行 `max(sequence)+1`。
+只有该边界通过 `agent_task.last_event_sequence` 分配 `sequenceNo`。模块不得自行 `max(sequence)+1`。
 
 ---
 
@@ -461,7 +461,7 @@ maxToolCalls < maxDecisionTurns
 PUT 为全量替换，必须在一个事务中：
 
 - owner-scoped 校验 Agent；
-- 校验所有 KB 属于同 owner 且 live；
+- 校验所有 KB 属于同 owner、未软删除且 `ACTIVE`；
 - 去重；
 - 替换 bindings；
 - 不改变已经创建的 task snapshot。
@@ -480,6 +480,8 @@ PUT 为全量替换，必须在一个事务中：
 ```
 
 V0.1 只允许可绑定的两个 BUILTIN 工具。忽略客户端自报 enabled/configOverride/permissionLevel；这些由服务端定义。
+
+Binding 修改只影响后续创建的 task。运行中 task 使用已冻结 snapshot；平台级 tool disable/soft delete 仍作为紧急撤销。
 
 ---
 
@@ -504,10 +506,10 @@ Content-Type: application/json
 
 - `Idempotency-Key` 必填，1–128 字符；
 - key 仅在当前 user scope 内唯一；
-- 相同 key + 相同 payload 返回原 task，HTTP 200；
+- 相同 key + 相同 path agentId/原始 input 返回原 task，HTTP 200；
 - 相同 key + 不同 payload 返回 409；
 - 新 task 返回 HTTP 201；
-- task 与 snapshot 已提交后才响应；
+- task、snapshot 和 `TASK_CREATED` event 已提交后才响应；
 - 线程池 dispatch 发生在事务提交后。
 
 创建响应：
@@ -523,7 +525,9 @@ Content-Type: application/json
 }
 ```
 
-请求不包含 `stream`。事件订阅是独立读取接口，task 是否流式展示不改变执行语义。
+`lastEventSequence` 是创建响应生成时已经提交的服务端游标，至少包含 `TASK_CREATED`。客户端只能把“自己已经实际应用的 sequence”作为下一次 `afterSequence`；不能因为服务端报告最新 sequence，就跳过尚未读取的事件。
+
+请求不包含 `stream`。事件订阅是独立读取接口，task 是否展示过程不改变执行语义。
 
 ### 8.2 Task 列表和详情
 
@@ -639,14 +643,14 @@ TASK_CANCELLED
 TASK_TIMED_OUT
 ```
 
-`ANSWER_CHUNK` 是合并后的展示增量，不要求逐 token。
+`ANSWER_CHUNK` 是合并后的展示增量，不要求逐 token。V0.1 使用同步非流式 Final Generation，可以只发送一个包含完整最终答案的 `ANSWER_CHUNK`；SSE 的核心是实时展示任务语义过程，不伪装 provider token streaming。
 
 ### 9.5 刷新和重连
 
 - 客户端保存 last processed sequence；
 - 重连时从该 sequence 继续；
 - 页面刷新先 GET task/trace 建立快照；
-- 若 task 仍非终态，从快照的 `lastEventSequence` 之后订阅；
+- 若 task 仍非终态，从已实际处理的最后 sequence 之后订阅；
 - GET 与 SSE 之间产生的事件会由数据库 replay 补发；
 - 终态事件到达后重新 GET task，以 `finalAnswer` 覆盖临时增量。
 
@@ -748,7 +752,7 @@ Application service 负责：
 
 外部 LLM/Qdrant/tool I/O 不在长数据库事务内。
 
-Task terminal update 与 terminal event 必须在同一数据库事务中完成。SSE 只能观察已提交事件。
+Task status/phase/terminal update 与对应事件、event cursor increment 必须在同一数据库事务中完成。SSE 只能观察已提交事件。
 
 ---
 
@@ -769,8 +773,8 @@ Task terminal update 与 terminal event 必须在同一数据库事务中完成�
 必须证明：
 
 1. owner-scoped 资源不可枚举；
-2. 幂等 key 语义正确；
-3. task 创建后 snapshot 已持久化；
+2. 幂等 key/fingerprint 语义正确；
+3. task 创建后 snapshot 和 TASK_CREATED 已持久化；
 4. `status` 与 `phase` 不混用；
 5. `TIMED_OUT` 在数据库、API 和前端一致；
 6. cancel 不伪装成立即终止；
@@ -779,5 +783,6 @@ Task terminal update 与 terminal event 必须在同一数据库事务中完成�
 9. TASK_COMPLETED 时 GET task 已有 finalAnswer；
 10. Trace 能聚合同一 task 的所有专项日志；
 11. Knowledge 文档响应区分 parseStatus 和 retrievalReadiness；
-12. Agent 绑定 API 不能绑定跨 owner KB 或不允许的工具；
-13. 工具和模型内部配置不经 API 泄漏。
+12. Agent 绑定 API 不能绑定跨 owner/disabled KB 或不允许的工具；
+13. 已创建 task 不因普通 binding 修改改变能力集合；
+14. 工具和模型内部配置不经 API 泄漏。

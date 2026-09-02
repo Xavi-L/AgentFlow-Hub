@@ -124,7 +124,7 @@ stateDiagram-v2
 - 多个 runner 同时从 `QUEUED` 进入 `RUNNING`；
 - 模型直接选择或写入 TaskStatus。
 
-需要重试整项任务时创建新的 task，并通过 `retry_of_task_id` 或 metadata 关联；不要复活旧 task。
+需要重试整项任务时创建新的 task。V0.1 不保存重试链；后续确有产品需求时通过新 migration 增加 `retry_of_task_id`，不要借用未定义的 metadata 或复活旧 task。
 
 ---
 
@@ -141,7 +141,7 @@ record CreateAgentTaskCommand(
 ) {}
 ```
 
-`userId` 只能来自已认证 principal，不接受请求体自报。
+`userId` 只能来自已认证 principal，不接受请求体自报。`userInput` 校验非空白后按原始字符串保存和执行，不做静默 trim 或规范化改写。
 
 ### 3.2 同一事务内完成
 
@@ -154,7 +154,7 @@ Task 创建事务必须完成：
 5. 校验绑定资源与 Agent 属于同一 owner；
 6. 冻结 `execution_snapshot`；
 7. 插入 `agent_task(status=QUEUED)`；
-8. 插入 `TASK_CREATED` 事件。
+8. 通过 `TaskEventAppender` 插入 `TASK_CREATED` 事件。
 
 事务提交后，使用 after-commit hook 提交 `TaskDispatcher`。不得在事务提交前让 worker 读取尚未提交的 task。
 
@@ -164,11 +164,21 @@ V0.1 要求 `(user_id, client_request_id)` 唯一。
 
 重复请求规则：
 
-- agentId、规范化 userInput 和关键请求选项一致：返回原 task；
+- agentId、原始 userInput 和关键请求选项一致：返回原 task；
 - clientRequestId 相同但 payload 不同：返回 `409 TASK_IDEMPOTENCY_CONFLICT`；
 - clientRequestId 缺失：返回 `400`，不允许前端靠碰运气防重复提交。
 
-任务保存 `request_fingerprint`，用于比较重复请求。
+`request_fingerprint` 使用固定版本的 canonical JSON：
+
+```json
+{
+  "version": "agent-task-request-v1",
+  "agentId": "1001",
+  "input": "原始 userInput"
+}
+```
+
+对该 JSON 的 UTF-8 canonical bytes 计算 lowercase SHA-256。对象 key 排序、字符串转义和数字字符串表达必须固定，并提供测试向量。
 
 ### 3.4 Dispatch 失败
 
@@ -177,7 +187,7 @@ V0.1 要求 `(user_id, client_request_id)` 唯一。
 - 条件更新 `QUEUED -> FAILED`；
 - `terminationReason=SYSTEM_ERROR`；
 - `errorCode=TASK_DISPATCH_REJECTED`；
-- 写入 `TASK_FAILED` 事件。
+- 在同一终态事务写入 `TASK_FAILED` 事件。
 
 不得让 task 永久停留在 `QUEUED`。
 
@@ -201,6 +211,8 @@ WHERE id = :taskId
 ```
 
 只有更新一行的 runner 才能执行。更新零行表示任务已被其他 runner 领取、已取消或已终止。
+
+领取状态和 `TASK_STARTED` 事件必须在同一短事务中提交。后续每次持久 phase 变化与对应 `PHASE_CHANGED` 事件也在同一短事务中提交。
 
 ### 4.2 Runner 负责
 
@@ -257,7 +269,7 @@ WHERE id = :taskId
     "knowledgeBases": [
       {
         "knowledgeBaseId": "...",
-        "embeddingProfileCode": "dashscope-te-v4-1024",
+        "embeddingProfileCode": "dashscope-te-v4-1024-cosine",
         "documents": [
           {"documentId": "...", "vectorGeneration": 0}
         ]
@@ -287,9 +299,13 @@ WHERE id = :taskId
 - 运行期间不重新读取 Agent 的 Prompt、模型参数或预算；
 - RAG 使用 snapshot 中的知识库和 document generations；
 - 模型看到 snapshot 中的工具描述和 schema；
-- ToolRuntime 可以重新检查当前工具是否仍为 live/ACTIVE，作为紧急撤销开关；
-- 如果当前 schema hash 与 snapshot 不同，调用失败为 `TOOL_DEFINITION_CHANGED`，不得用新 schema 静默重解释旧 decision；
-- Agent/知识库/工具的后续修改只影响新 task。
+- Agent 的普通 metadata、Prompt、binding 或参数修改只影响新 task；
+- ToolRuntime 不重新读取当前 Agent-tool binding 来改写本次能力集合；snapshot 是本次绑定事实；
+- 平台级安全/生命周期撤销仍可影响运行中 task：用户禁用、工具禁用/软删除、知识库或文档禁用/软删除时，后端可以拒绝继续使用该资源；
+- 如果当前工具 schema hash 与 snapshot 不同，调用失败为 `TOOL_DEFINITION_CHANGED`，不得用新 schema 静默重解释旧 decision；
+- 如果 snapshot 中的文档 generation 已被删除或不再可验证，RAG 将其视为不可用证据并按 RAG 契约处理，不回退到新的 generation。
+
+Snapshot 冻结“本次应该使用什么”，不承诺被管理员删除或紧急禁用的外部资源永远保持可用。
 
 ---
 
@@ -461,7 +477,7 @@ Final Generation 请求包含：
 - answerPlan 或预算终止原因；
 - citation IDs。
 
-最终生成只输出用户答案，不输出动作 JSON。
+最终生成只输出用户答案，不输出动作 JSON。V0.1 可以继续使用同步非流式 `LlmGateway.chat`；SSE 主要流式展示任务过程，最终答案可在生成完成后作为一个合并的 `ANSWER_CHUNK` 和 terminal task 结果发布，不伪装成 provider token streaming。
 
 ---
 
@@ -506,7 +522,7 @@ V0.1 约束：
 - `maxTotalTokens` 是整个 task 所有 chat completion 调用的输入和输出总量；
 - 在每次 decision 前保留 Final Generation 所需的输入估算和 `reservedFinalOutputTokens`；
 - provider usage 可用时记录 `EXACT`；
-- usage 缺失时使用统一 tokenizer/estimator记录 `ESTIMATED`，绝不按 0 处理；
+- usage 缺失时使用统一 tokenizer/estimator 记录 `ESTIMATED`，绝不按 0 处理；
 - 估算本身也必须写入 LLM log；
 - 已知或估算会超预算时，不发起调用；
 - 剩余预算不足以执行 Final Generation 时，以 `TOKEN_BUDGET_EXHAUSTED` 失败。
@@ -588,14 +604,15 @@ Engine 负责：
 
 ToolRuntime 负责：
 
-- 当前工具 live/ACTIVE 撤销检查；
-- Agent binding 防御性复核；
-- snapshot schema hash 一致性；
+- 当前工具 live/ACTIVE 紧急撤销检查；
+- 当前 toolId/toolCode、snapshot schema hash 和 implementation version 一致性；
 - 参数校验；
 - per-tool timeout；
 - handler 路由；
 - tool call log；
 - 标准化结果。
+
+当前 Agent-tool binding 不在执行时重新查询；它已在 task 创建时验证并冻结到 snapshot。数据库通过 task/step/log 外键证明调用属于本次执行。
 
 ---
 
@@ -673,11 +690,11 @@ TASK_TIMED_OUT
 
 规则：
 
-- 事件 sequence 在单个 task 内严格递增；
+- 事件 sequence 在单个 task 内严格递增，由 `agent_task.last_event_sequence` 和单一 `TaskEventAppender` 分配；
 - 事件代表已经提交或明确开始的事实；
 - `TOOL_FINISHED` 必须在 tool log 终态提交后可见；
 - `TASK_COMPLETED` 必须与 task.final_answer 同一终态事务提交；
-- `ANSWER_CHUNK` 可以批量合并，不逐 token 落库；
+- `ANSWER_CHUNK` 可以批量合并；V0.1 同步 Final Generation 允许只发一个完整答案 chunk；
 - SSE 只读取持久事件，不作为业务事实源；
 - event payload 不包含完整 Prompt、密钥或未脱敏工具结果。
 
@@ -750,14 +767,16 @@ TASK_INTERNAL_ERROR
 - 人工确认；
 - 写工具；
 - PolicyGuard；
-- Episode 持久化。
+- Episode 持久化；
+- provider token streaming。
 
 ### 17.3 后续演进
 
 - 将 `TaskDispatcher` 替换为可靠队列，不修改 AgentEngine；
 - 增加 native tool call adapter，不修改 ToolRuntime；
+- 增加 streaming gateway，只改变 Final Generation 输出适配和事件粒度；
 - 增加 conversation，只改变 task 输入上下文构造；
-- 增加 Tool Policy，位于 ToolRuntime 内部硬校验之后、handler 之前；
+- 增加 Tool Policy，位于 ToolRuntime 硬校验之后、handler 之前；
 - 增加 Episode/Evaluation，读取已有 Trace，不反向接管执行。
 
 ---
@@ -768,11 +787,12 @@ TASK_INTERNAL_ERROR
 
 1. 两个并发 runner 只有一个能领取 task；
 2. 重复 clientRequestId 不创建第二个 task；
-3. Agent 修改不会改变运行中 snapshot；
-4. 工具定义中途变化不会被静默采用；
-5. RAG、两个工具和 final generation 都能关联到同一 task；
-6. maxDecisionTurns/maxToolCalls 能强制收敛；
-7. usage 缺失不会伪装为 0；
-8. cancel/timeout/complete 竞态只有一个终态；
-9. TASK_COMPLETED 之前 final_answer 已可查询；
-10. SSE 重连不会漏事件或重复追加最终答案。
+3. Agent 普通配置和 binding 修改不会改变运行中 snapshot；
+4. 平台级工具禁用或文档删除会安全撤销对应能力；
+5. 工具定义中途变化不会被静默采用；
+6. RAG、两个工具和 final generation 都能关联到同一 task/step；
+7. maxDecisionTurns/maxToolCalls 能强制收敛；
+8. usage 缺失不会伪装为 0；
+9. cancel/timeout/complete 竞态只有一个终态；
+10. TASK_COMPLETED 之前 final_answer 已可查询；
+11. SSE 重连不会漏事件或重复追加最终答案。

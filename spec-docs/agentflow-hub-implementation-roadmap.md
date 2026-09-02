@@ -131,7 +131,7 @@ V0.1 完成前暂停：
 
 按依赖新增 migration：
 
-1. `agent_app (id,user_id)` unique；
+1. `agent_app (id,user_id)` unique，并收紧新 Agent 的 `maxToolCalls < maxDecisionTurns` application validation；
 2. `knowledge_chunk.chunk_strategy_version`；
 3. `agent_knowledge_binding`；
 4. `agent_tool_binding`。
@@ -144,7 +144,8 @@ V0.1 完成前暂停：
 - 只允许两个 V0.1 BUILTIN 工具；
 - Agent snapshot resolver；
 - READY document generation resolver；
-- schema hash 和 implementation version resolver。
+- schema hash 和 implementation version resolver；
+- 固定 Chat/Embedding profile 解析。
 
 ### Seed/验收数据
 
@@ -160,11 +161,12 @@ payment_log_query
 
 ### 验收门槛
 
-- 不能绑定跨 owner KB；
+- 不能绑定跨 owner 或 DISABLED KB；
 - 不能绑定 disabled/deleted/unsupported tool；
 - 未绑定工具不进入 snapshot；
 - KB 无 READY 文档时 snapshot resolver 失败；
-- 已创建的 snapshot 不受绑定后续修改影响。
+- 已创建的 snapshot 不受普通 binding 修改影响；
+- 固定 profile code 与 RAG canonical contract 一致。
 
 ---
 
@@ -189,16 +191,17 @@ agent_task_event
 
 - `AgentTaskApplicationService.createTask`；
 - `Idempotency-Key`；
-- request fingerprint；
+- versioned canonical request fingerprint；
 - 同事务 execution snapshot；
 - 同事务 `TASK_CREATED` event；
+- `agent_task.last_event_sequence`；
 - 单一 `TaskEventAppender`；
 - after-commit dispatch；
 - bounded `TaskDispatcher`；
 - `TaskRunner`；
 - `QUEUED -> RUNNING` 条件领取；
 - `TASK_STARTED` 和 phase events；
-- phase 更新；
+- phase/event 同事务；
 - cancel_requested_at；
 - terminal conditional update；
 - terminal state/event 同事务；
@@ -217,55 +220,16 @@ agent_task_event
 - cancel/complete 竞态只有一个终态；
 - status/phase/terminationReason CHECK 全部通过；
 - 每个 task 从 `TASK_CREATED` 开始拥有严格递增 sequence；
+- 禁止 `max(sequence)+1`；
 - terminal task 和 terminal event 同事务可见。
 
 ---
 
-## 6. M4D：将前置 RAG 接入 V36 Engine
+## 6. M4D：Task-scoped Trace 基础
 
 ### 目标
 
-把当前独立 Knowledge Retrieval 接入 task snapshot 和 AgentEngine。
-
-### Backend
-
-- `RetrievalService` 接收 corpus snapshot；
-- 按 documentId + vectorGeneration 过滤；
-- PostgreSQL 二次验证；
-- bounded evidence；
-- citation ID；
-- RAG 空结果合法；
-- snapshot evidence 进入 Decision/Final Prompt；
-- knowledge 内容标记为 untrusted data。
-
-### Engine 调整
-
-- V36 `TOOL_CALL/FINAL_ANSWER` 收敛为 canonical `CALL_TOOL/FINISH`；
-- `FINISH` 只触发 Final Generation；
-- `max_steps` 语义重命名/映射为 maxDecisionTurns；
-- provider usage unknown 使用保守 estimator，不按 0，也不无条件使成功任务失败；
-- 为 Final Generation 预留 token；
-- maxToolCalls/decision limit 触发受限最终生成；
-- ToolRuntime 接收 task/step/snapshot context；
-- 重复调用检测；
-- 通过已有 TaskEventAppender 写 RAG/decision/tool/final-generation 语义事件。
-
-### 验收门槛
-
-- 脚本化模型能完成 RAG -> 两工具 -> Final；
-- 无 RAG hit 仍可工具执行；
-- 未绑定工具被 parser/Engine 拒绝；
-- budget 精确收敛；
-- Agent/工具/KB 中途修改不改变 snapshot 语义；
-- 执行事件和 task phase 顺序一致。
-
----
-
-## 7. M4E：Task-scoped Trace
-
-### 目标
-
-让同一 task 的执行路径完整可查询。
+在 AgentEngine 正式接入 task 前，先建立它所依赖的 step 和专项日志结构，使 ToolRuntime/LLM/RAG 从第一次 task 执行开始就能写入合法关联，而不是先产生无 step 的临时日志再补迁移。
 
 ### Schema
 
@@ -278,33 +242,93 @@ rag_retrieval_log
 rag_retrieval_hit
 ```
 
-并为现有 `tool_call_log` 增加 task/step 一致性约束和索引。
+并为现有 `tool_call_log` 增加：
+
+- `(step_id, task_id) -> agent_step(id, task_id)` 复合 FK；
+- standalone `(NULL,NULL)` / AgentTask `(NOT NULL,NOT NULL)` CHECK；
+- task 查询索引。
 
 ### Backend
 
-- `ExecutionRecorder`；
-- step lifecycle；
-- DECISION/FINAL_GENERATION LLM calls；
-- RAG hit snapshot；
-- tool log 关联 task/step；
+- `ExecutionRecorder` 接口与持久实现；
+- step start/success/failure lifecycle；
+- LLM DECISION/FINAL_GENERATION log writer；
+- RAG retrieval/hit snapshot writer；
+- ToolRuntime task command 和 task/step log writer；
 - Prompt/response/tool 数据脱敏与大小限制；
 - 禁止保存自由 chain-of-thought；
-- Trace 聚合 query service；
-- 已有 task events 继续作为展示投影，不替代专项日志。
+- Trace 聚合 query service 骨架。
+
+### 暂时允许
+
+使用脚本化 Engine/recording fixture 验证 recorder 和数据库不变量；本阶段不要求真实 provider 或完整支付诊断。
 
 ### 验收门槛
 
-固定任务必须拥有：
+- 所有专项日志的 step 属于同一 task；
+- standalone tool test 仍可使用 `(NULL,NULL)`；
+- stepIndex 唯一；
+- source document/tool 后续删除不破坏 snapshot；
+- 敏感字段不进入数据库/API；
+- 失败中断后已经提交的 Trace 保留。
+
+---
+
+## 7. M4E：前置 RAG 与 V36 Engine 正式接入
+
+### 目标
+
+把当前独立 Knowledge Retrieval 和 V36 同步循环接入 TaskRunner、ExecutionRecorder、ToolRuntime task context 和持久事件，形成完整后端执行链。
+
+### Retrieval
+
+- `RetrievalService` 接收 corpus snapshot；
+- 按 documentId + vectorGeneration 过滤；
+- PostgreSQL 二次验证；
+- bounded evidence；
+- citation ID；
+- RAG 空结果合法；
+- snapshot evidence 进入 Decision/Final Prompt；
+- knowledge 内容标记为 untrusted data；
+- disabled/deleted document 不回退到新 generation。
+
+### Engine 调整
+
+- V36 `TOOL_CALL/FINAL_ANSWER` 收敛为 canonical `CALL_TOOL/FINISH`；
+- `FINISH` 只触发 Final Generation；
+- `max_steps` 语义重命名/映射为 maxDecisionTurns；
+- provider usage unknown 使用保守 estimator，不按 0，也不无条件使成功任务失败；
+- 为 Final Generation 预留 token；
+- maxToolCalls/decision limit 触发受限最终生成；
+- ToolRuntime 接收已经存在的 task/step/snapshot context；
+- 当前 Agent binding 不在运行中重新查询；
+- 全局 tool disable/soft delete 作为紧急撤销；
+- 重复调用检测；
+- 通过已有 ExecutionRecorder 写 step/LLM/RAG/tool logs；
+- 通过已有 TaskEventAppender 写 RAG/decision/tool/final-generation 语义事件；
+- V0.1 Final Generation 保持同步非流式，可只发一个完整 ANSWER_CHUNK。
+
+### 验收门槛
+
+固定脚本模型必须产生：
 
 ```text
 1 PRE_RETRIEVAL step
 >= 1 LLM_DECISION step
 2 TOOL_CALL steps
 1 LLM_FINAL_GENERATION step
-对应专项日志
+对应专项日志和事件
 ```
 
-源文档/Agent/工具后续修改后，历史 Trace 仍可解释。
+并证明：
+
+- 无 RAG hit 仍可工具执行；
+- 未绑定工具在 snapshot/Engine 边界被拒绝；
+- 普通 Agent/binding 修改不改变运行中 snapshot；
+- 平台级资源撤销安全生效；
+- budget 精确收敛；
+- 执行事件、step 和 task phase 顺序一致；
+- source 资源后续修改后历史 Trace 仍可解释。
 
 ---
 
@@ -323,9 +347,10 @@ GET  /api/v1/tasks/{taskId}/trace
 
 ### Event 投影收口
 
-- 为 M4D/M4E 已记录的执行事实补齐稳定 payload；
+- 为 M4E 已记录的执行事实固定 payload schema；
 - semantic events；
 - `ANSWER_CHUNK` 合并；
+- 同步 Final Generation 允许一个完整答案 chunk；
 - event payload 脱敏；
 - 不增加第二套 event 状态机。
 
@@ -342,6 +367,8 @@ V0.1 使用数据库事件日志读取：
 ### 验收门槛
 
 - POST 返回前产生的事件不丢；
+- 新客户端从 `afterSequence=0` 可读取 TASK_CREATED；
+- 服务端 lastEventSequence 与客户端 lastProcessedSequence 不混用；
 - SSE 重连不重不漏；
 - sequence gap 可检测；
 - TASK_COMPLETED 时 finalAnswer 已可 GET；
@@ -366,6 +393,8 @@ Task Trace
 
 - Idempotency-Key；
 - server status/phase 与 client uiState 分离；
+- serverLastEventSequence 与 lastProcessedSequence 分离；
+- 新 task 从 afterSequence=0 replay；
 - SSE sequence reducer；
 - reconnect；
 - refresh snapshot；
@@ -373,7 +402,8 @@ Task Trace
 - citation drawer；
 - cancellation；
 - TIMED_OUT；
-- Trace tabs。
+- Trace tabs；
+- 不伪装 provider token streaming。
 
 ### 真实 E2E
 
@@ -461,7 +491,8 @@ Task Trace
 - richer Trace UI；
 - Evaluation UI；
 - 用户级限流；
-- 多实例部署。
+- 多实例部署；
+- provider token streaming。
 
 引入 RabbitMQ 的前提：单实例 DB task + thread pool 已经无法满足可靠投递、吞吐或多 worker 需求。RabbitMQ 不是“项目看起来更完整”的必选装饰。
 
@@ -480,8 +511,8 @@ Task Trace
 - Approval；
 - 多 Agent；
 - 工作流；
--企业组织；
--完整 observability stack。
+- 企业组织；
+- 完整 observability stack。
 
 ---
 
@@ -494,10 +525,10 @@ docs: align V0.1 architecture contracts
 feat(agent): add knowledge and tool bindings
 feat(agent): add task schema, durable events and idempotent creation
 feat(agent): add bounded dispatcher and task runner
+feat(trace): add task steps and llm/rag schema
+feat(trace): add execution recorder and tool task linkage
 feat(rag): add task corpus snapshot retrieval
-refactor(agent): align decision and budget contracts
-feat(trace): add task steps and llm/rag linkage
-feat(tool): attach tool calls to task steps
+refactor(agent): integrate runner, rag, decision budgets and final generation
 feat(task): expose task api and replayable sse
 feat(web): add minimal agent run and trace pages
 test(e2e): add real payment diagnosis workflow
@@ -534,8 +565,10 @@ chore: cut v0.1 release
 - 需要绕过 owner scope 或 binding；
 - 需要在外部 I/O 中持有数据库事务；
 - ToolRuntime 与 Engine 同时计算同一预算；
+- Engine 需要 stepId 但 `agent_step` schema 尚不存在；
 - SSE 事件无法从数据库恢复；
 - 新 embedding model 准备写入旧 collection；
+- 当前 vector ID v1 被用于两个 generation 同点并存；
 - migration 需要回改 V1–V16；
 - 前端需要猜测后端未定义的状态；
 - mock 测试被用来宣称真实 E2E 完成。

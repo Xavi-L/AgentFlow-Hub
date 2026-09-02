@@ -78,7 +78,7 @@ Agent 不负责解析文件、写向量或自行拼接 Qdrant filter。
 
 ### 3.1 KnowledgeBase
 
-知识库保存：
+知识库的逻辑视图包含：
 
 ```text
 id
@@ -94,7 +94,7 @@ updatedAt
 deletedAt
 ```
 
-现有数据库仍保留 `embedding_provider`、`embedding_model`、`chunk_size` 和 `chunk_overlap`。V0.1 API 将这些字段映射为固定 profile 和固定 strategy，不允许客户端自由组合不可兼容配置。
+当前数据库仍保存 `embedding_provider`、`embedding_model`、`chunk_size` 和 `chunk_overlap`。V0.1 的 `embeddingProfileCode` 与 `chunkStrategyVersion` 由固定配置和当前数据库字段解析，不声称已经存在对应数据库列；客户端不能自由组合不可兼容配置。
 
 ### 3.2 KnowledgeDocument
 
@@ -146,6 +146,7 @@ vectorId
 vectorGeneration
 vectorizationStatus
 vectorizationError
+chunkStrategyVersion
 createdAt
 updatedAt
 ```
@@ -261,7 +262,7 @@ maxChunkCount = 10000
 
 ### 5.4 策略版本
 
-每个 task snapshot、retrieval trace 和后续 reindex 记录必须保存 `chunkStrategyVersion`。修改 tokenizer、结构规则、overlap 或 hard split 行为时提升版本，不能静默改变已有 chunk 的含义。
+每个 chunk、task snapshot、retrieval trace 和后续 reindex 记录必须保存 `chunkStrategyVersion`。修改 tokenizer、结构规则、overlap 或 hard split 行为时提升版本，不能静默改变已有 chunk 的含义。
 
 ---
 
@@ -313,7 +314,7 @@ embedding_profile
 knowledge_base.embedding_profile_id
 ```
 
-Profile 一旦被使用即不可原地修改。创建新 profile、构建新 generation、验证完成后再切换 active generation。
+Profile 一旦被使用即不可原地修改。创建新 profile、构建新向量语料、验证完成后再切换 active corpus。
 
 ---
 
@@ -362,9 +363,20 @@ String material = String.join(
 4. 设置 RFC variant bits；
 5. 输出标准 UUID 字符串。
 
-`vectorGeneration` **不进入 vector ID material**。它是 Qdrant payload 和删除/reprocess 的 lifecycle fence。相同文档位置和相同正文可以幂等覆盖同一点；正文变化会产生新 point ID。
+`vectorGeneration` **不进入 V0.1 vector ID v1 material**。它是 Qdrant payload 和当前破坏性删除/reprocess 的 lifecycle fence。相同文档位置和相同正文可以幂等覆盖同一点；正文变化会产生新 point ID。
 
 该算法必须有跨语言测试向量，任何分隔符、字段顺序或编码变化都要求新的 namespace/version。
+
+### 8.4 与未来 copy-on-write 的兼容边界
+
+当前 v1 ID 不能让相同 document/chunk/content 的两个 generation 在同一个 collection 中并存：新 generation 会覆盖同一 point ID。因此未来零停机 copy-on-write 不能直接复用 v1 identity。
+
+实现 copy-on-write 时必须二选一，并通过显式 migration/reindex：
+
+1. 使用新 namespace `agentflow-knowledge-vector-v2`，将 `vectorGeneration` 纳入 ID material；或
+2. 每个 corpus generation 使用独立 physical collection，并通过 alias 原子切换。
+
+在选择并实现其中一种方案前，不能宣称当前 v1 ID 已支持双 generation 并存。
 
 ---
 
@@ -458,10 +470,12 @@ Task 创建时解析每个绑定知识库当前 `READY` 文档，并冻结：
 规则：
 
 - 只有 READY 文档进入 snapshot；
-- task 运行期间新上传或新 reprocess 的文档不进入本次语料；
+- task 运行期间新上传的文档、新 generation 或 binding 修改不进入本次语料；
 - 所有绑定知识库均没有 READY 文档时，task 创建失败为 `RAG_KNOWLEDGE_NOT_READY`；
 - 在线检索必须按 snapshot document/generation 过滤，而不是只按 knowledgeBaseId 搜索当前全部点；
 - Trace 保存 hit snapshot，历史解释不依赖未来文档是否仍存在。
+
+Snapshot 冻结语料选择，但不会绕过平台级撤销：若知识库或文档随后被禁用、软删除，或 snapshot generation 已被清理，在线检索不得回退到新 generation，也不得继续暴露已撤销内容。它记录该 evidence 不再可用；只要检索调用本身仍能受控完成，就可以返回空/部分有效结果并让 Agent 基于工具继续。若整个 corpus 校验或向量空间契约失效，则以稳定 RAG 错误结束。
 
 V0.1 演示 Agent 只绑定一个支付知识库，但数据模型允许多个知识库。
 
@@ -495,7 +509,7 @@ RetrievalQuery:
 4. Qdrant 搜索并使用 owner + document/generation filter；
 5. 取大于 topK 的有限候选，补偿 PostgreSQL 二次过滤；
 6. 回查 chunk、document、knowledge base；
-7. 验证 live owner scope、generation、contentHash、vectorization COMPLETED；
+7. 验证 owner scope、knowledge base/document live+ACTIVE、snapshot generation、contentHash、chunk strategy 和 vectorization COMPLETED；
 8. similarity threshold；
 9. 排序并截取 topK；
 10. 分配 citation ID；
@@ -517,14 +531,14 @@ V0.1 不做 query rewrite、multi-query、rerank 或 Hybrid Search。
 }
 ```
 
-Agent 可以继续调用业务工具；不得把空检索自动映射为系统失败。
+Agent 可以继续调用业务工具；不得把“没有有效 hit”自动映射为系统失败。Embedding provider、Qdrant 或 corpus contract 本身失败仍是 `RAG_RETRIEVAL_FAILED`。
 
-### 12.2 过期 point
+### 12.2 过期或已撤销 point
 
 Qdrant 命中但 PostgreSQL 校验失败的 point：
 
 - 不进入 Prompt；
-- 记录 `staleHitCount`；
+- 记录 `staleHitCount` 或 revoked count；
 - 不向用户暴露；
 - 后续 reconciliation 清理；
 - 若有效候选不足，可从更大的受限候选集补足，但必须设置最大候选数。
@@ -639,21 +653,21 @@ createdAt
 - 默认前端可以隐藏 Completed 文档 reprocess；
 - 不继续扩展它的产品交互；
 - task snapshot 只选择当时 READY 的 generation；
-- 在运行中 task 与 reprocess 的并发没有完成充分验收前，不宣称语料完全可用。
+- snapshot generation 在 task 执行前被重处理清理时，本次检索不会切换到新 generation。
 
 ### 15.3 长期 copy-on-write
 
 V1.x 推荐：
 
 ```text
-保留 old active generation
--> 构建 new generation
+保留 old active corpus
+-> 使用 vector identity v2 或独立 collection 构建 new corpus
 -> 全量向量 READY
--> 原子切换 active generation
--> 异步删除 old generation
+-> 原子切换 active corpus/generation alias
+-> 异步删除 old corpus
 ```
 
-失败时旧 generation 保持可检索。
+失败时旧 corpus 保持可检索。该方案必须先落实第 8.4 节的双 generation identity/collection 选择，不能只增加数据库 generation 字段就宣称完成。
 
 ---
 
@@ -713,9 +727,10 @@ RAG_INVALID_CITATION
 2. vector ID 与精确测试向量一致；
 3. 不兼容 embedding profile 被拒绝；
 4. parse COMPLETED 但 vector 未完成时 readiness 不是 READY；
-5. Agent task snapshot 只包含 READY generation；
+5. Agent task snapshot 只包含 READY document generation；
 6. Qdrant hit 经 PostgreSQL scope/generation/hash 二次校验；
 7. 空结果是合法结果；
-8. stale point 不进入 Prompt；
+8. stale/revoked point 不进入 Prompt；
 9. citation 只能引用本次 hit；
-10. 真实 Qdrant 检索能支持支付诊断 Agent 的完整闭环。
+10. 当前 vector ID v1 不被误称为支持双 generation 并存；
+11. 真实 Qdrant 检索能支持支付诊断 Agent 的完整闭环。

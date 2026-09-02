@@ -42,22 +42,25 @@ PolicyGuard、人工确认、HTTP/MCP 工具和写操作全部后移。
 - 解析模型返回的 toolCode；
 - 最大工具调用次数；
 - 重复调用检测；
+- 从不可变 snapshot 构造内部 ToolExecutionCommand；
 - 调用 ToolRuntime；
 - 将安全结果写入 observations；
 - 决定继续 decision loop 或进入 Final Generation。
 
 ### 2.2 ToolRuntime 负责
 
-- 按 snapshot toolId 加载当前工具；
-- 检查工具未软删除且仍为 ACTIVE；
-- 防御性复核 Agent binding；
-- 对比 snapshot toolCode/schema hash/implementation version；
+- 接受由 AgentEngine 从不可变 task snapshot 解析出的工具命令；
+- 按 snapshot toolId 加载当前工具定义；
+- 检查工具未软删除且仍为 ACTIVE，作为平台级紧急撤销；
+- 对比当前 toolId/toolCode、snapshot input schema hash 和 implementation version；
 - 按 snapshot input schema 校验 arguments；
 - 执行 per-tool timeout；
 - 通过 exact builtin allowlist 路由 handler；
 - 标准化工具结果；
 - 写入 tool_call_log；
 - 返回稳定失败，不泄漏内部异常。
+
+ToolRuntime **不重新读取当前 Agent-tool binding**。Binding 已在 task 创建时进行 owner/状态校验并冻结到 execution snapshot；普通 binding 修改只影响新 task。运行中撤销使用全局 tool disable/soft delete，而不是偷偷改变 snapshot 的工具集合。
 
 ### 2.3 ToolRuntime 不负责
 
@@ -66,6 +69,7 @@ PolicyGuard、人工确认、HTTP/MCP 工具和写操作全部后移。
 - 维护 AgentTask 生命周期；
 - 计算整个 task 的 maxToolCalls；
 - 做重复循环检测；
+- 重新解释当前 Agent binding；
 - 拼装最终回答；
 - 管理 RAG；
 - 把普通合法性校验包装成 PolicyGuard。
@@ -81,7 +85,7 @@ PolicyGuard、人工确认、HTTP/MCP 工具和写操作全部后移。
 - 数据脱敏；
 - 业务时段和环境限制。
 
-工具存在、ACTIVE、绑定、schema 和总调用预算属于硬执行契约，不属于可配置 Policy 决策。
+工具存在、ACTIVE、snapshot 一致性、schema 和总调用预算属于硬执行契约，不属于可配置 Policy 决策。
 
 ---
 
@@ -215,7 +219,7 @@ priority
 - `report_generate` 不绑定；
 - V0.1 不支持 per-Agent config override。
 
-Task 创建后，binding 变化只影响新 task。运行中 task 使用其 snapshot；当前工具被禁用或软删除时，ToolRuntime 将其视为紧急撤销并拒绝执行。
+Task 创建后，binding 变化只影响新 task。运行中 task 使用其 snapshot；只有平台级工具禁用或软删除作为紧急撤销影响当前 task。
 
 ---
 
@@ -283,6 +287,7 @@ record TaskToolExecutionCommand(
     long agentId,
     long snapshotToolId,
     String snapshotToolCode,
+    JsonNode snapshotInputSchema,
     String snapshotInputSchemaHash,
     String snapshotImplementationVersion,
     JsonNode arguments,
@@ -292,12 +297,14 @@ record TaskToolExecutionCommand(
 
 约束：
 
-- task/step/user/agent 由内部调用方提供，不接受 HTTP body 自报；
+- task/step/user/agent 来自内部 execution context，不接受 HTTP body 自报；
 - arguments 必须是 JSON object；
 - tool 通过 ID 精确加载，不按模型字符串直接路由；
 - toolCode 只用于 snapshot 一致性和日志；
+- 参数按命令携带的 immutable snapshot schema 校验；
 - ToolRuntime 不接受任意 handler 名；
-- per-call timeout 不超过 task 剩余 deadline。
+- per-call timeout 不超过 task 剩余 deadline；
+- task/step 归属由执行上下文和日志复合外键共同保证。
 
 现有 standalone tool test 可以继续使用单独命令，taskId/stepId 为空；它不等同于 AgentTask 执行，也不能被当作 Agent 闭环证据。
 
@@ -314,10 +321,10 @@ sequenceDiagram
     participant EX as BuiltinToolExecutor
     participant LOG as ToolCallLogService
 
-    AE->>TR: TaskToolExecutionCommand
-    TR->>TD: load tool by snapshotToolId
+    AE->>TR: TaskToolExecutionCommand from snapshot
+    TR->>TD: load current tool by snapshotToolId
     TR->>TR: live/ACTIVE/type checks
-    TR->>TR: binding + snapshot consistency
+    TR->>TR: toolCode/schemaHash/implementation checks
     TR->>V: validate arguments against snapshot schema
     TR->>LOG: insert RUNNING log
     TR->>EX: exact handler execution with timeout
@@ -332,17 +339,16 @@ sequenceDiagram
 2. 当前 tool 存在、未删除；
 3. status=ACTIVE；
 4. type=BUILTIN；
-5. Agent binding 仍存在且 enabled；
-6. current toolCode 与 snapshot 一致；
-7. current schema hash 与 snapshot 一致；
-8. current implementation version 与 snapshot 兼容；
-9. arguments 按 snapshot schema 校验；
-10. 创建 RUNNING log；
-11. 执行 handler；
-12. 写 terminal log；
-13. 返回标准结果。
+5. current toolCode 与 snapshot 一致；
+6. current schema hash 与 snapshot hash 一致；
+7. current implementation version 与 snapshot 兼容；
+8. arguments 按 snapshot schema 校验；
+9. 创建 RUNNING log；
+10. 执行 handler；
+11. 写 terminal log；
+12. 返回标准结果。
 
-在步骤 1–9 被拒绝的调用仍应有 `REJECTED` log。若为了获得 log ID 需要先插入 PENDING，再更新 REJECTED，应保证生命周期约束一致。
+在步骤 1–8 被拒绝的调用仍应有 `REJECTED` log。若为了获得 log ID 需要先插入 PENDING，再更新 REJECTED，应保证生命周期约束一致。
 
 ---
 
@@ -543,15 +549,15 @@ Input：
 toolCode + SHA-256(canonical JSON arguments)
 ```
 
-ToolRuntime 可以返回已存在 log/result 的内部引用，但不自行决定 Agent 是否应该继续。
+ToolRuntime 不自行决定 Agent 是否应该继续。
 
 V0.1：
 
 - 首次执行；
-- 第二次相同调用不执行 handler，Engine复用已有 observation；
+- 第二次相同调用由 Engine 复用已有 observation，不再次进入 ToolRuntime/handler；
 - 第三次相同意图使任务失败为 `AGENT_DUPLICATE_TOOL_LOOP`。
 
-不将此规则放进 PolicyGuard。
+不将此规则放进 PolicyGuard，也不为第二次复用伪造新的 tool_call_log。
 
 ---
 
@@ -559,7 +565,7 @@ V0.1：
 
 ### 14.1 tool_call_log
 
-每次 AgentTask 工具调用必须记录：
+每次真正进入 AgentTask ToolRuntime 的调用必须记录：
 
 ```text
 taskId
@@ -574,11 +580,11 @@ safe error
 startedAt/finishedAt
 ```
 
-task/step 归属必须通过复合一致性约束或等价数据库不变量证明。
+task/step 归属通过复合外键证明。Engine 在重复调用时复用已有 observation，不创建虚假的第二条成功工具日志。
 
 ### 14.2 Event
 
-ToolRuntime 或其 application adapter 产生：
+ToolRuntime application adapter 产生：
 
 ```text
 TOOL_STARTED
@@ -591,7 +597,7 @@ TOOL_FINISHED
 - `TOOL_FINISHED` 在 terminal log 提交后；
 - payload 只包含 toolCallId、toolCode、status、latency 和 safe summary；
 - 默认不把完整 arguments/result 推送到浏览器；
-- Engine/Runner 通过统一 TaskEventAppender 写事件，不让 ToolRuntime 自己分配 sequence。
+- 通过统一 TaskEventAppender 写事件，ToolRuntime 不自行分配 sequence。
 
 ---
 
@@ -603,8 +609,8 @@ TOOL_FINISHED
 - arguments/result 大小限制；
 - 日志字段脱敏；
 - 只把安全 summary/data 写回模型；
-- 当前工具禁用作为紧急 kill switch；
-- owner/Agent binding 防御性复核；
+- 当前工具禁用/软删除作为紧急 kill switch；
+- Agent binding 在 task 创建时 owner-scoped 校验，执行时不重新解释；
 - 高权限字段在 V0.1 不形成虚假的“已实现审批”；
 - Tool test endpoint 仅用于开发/管理，不开放为普通 Agent 绕过入口。
 
@@ -615,8 +621,8 @@ TOOL_FINISHED
 ```text
 TOOL_NOT_FOUND
 TOOL_DISABLED
-TOOL_NOT_BOUND
 TOOL_TYPE_UNSUPPORTED
+TOOL_NOT_IN_TASK_SNAPSHOT
 TOOL_DEFINITION_CHANGED
 TOOL_HANDLER_NOT_FOUND
 TOOL_ARGUMENT_INVALID
@@ -626,6 +632,8 @@ TOOL_TIMEOUT
 TOOL_LOG_PERSIST_FAILED
 ```
 
+`TOOL_NOT_IN_TASK_SNAPSHOT` 正常应由 AgentEngine 在调用 ToolRuntime 前拒绝；ToolRuntime 若收到不一致内部命令，仍以该稳定错误失败。`TOOL_NOT_BOUND` 不作为运行中动态查询错误；binding 冲突在 task 创建时映射为 `AGENT_BINDING_INVALID`。
+
 工具执行成功但 terminal log 持久化失败时，不得向 Engine 返回普通 SUCCESS。对 V0.1 只读查询，可以返回系统失败并允许用户重建 task；未来副作用工具必须有独立 outcome reconciliation。
 
 ---
@@ -634,15 +642,17 @@ TOOL_LOG_PERSIST_FAILED
 
 必须证明：
 
-1. 未绑定工具不进入 task snapshot；
-2. 非 BUILTIN/禁用/软删除工具不进入 snapshot；
-3. 模型无法通过 toolCode 选择未授权 toolId；
-4. snapshot schema 与当前 schema 不一致时拒绝；
-5. 参数错误不进入 handler；
-6. handler 只能从 exact allowlist 路由；
-7. timeout 不超过 task 剩余 deadline；
-8. 每个 Agent tool call 关联正确 task/step；
-9. 工具内部异常不进入 Prompt、API 或 event；
-10. 支付 Agent 只能成功调用 order_query 和 payment_log_query；
-11. report_generate 不出现在 V0.1 availableTools；
-12. Engine 的重复调用防护能终止循环。
+1. 未绑定工具不进入新 task snapshot；
+2. 普通 binding 修改不改变已经创建 task 的工具集合；
+3. 全局工具 disable/soft delete 会撤销运行中调用；
+4. 非 BUILTIN/禁用/软删除工具不进入 snapshot；
+5. 模型无法通过 toolCode 选择 snapshot 外 toolId；
+6. snapshot schema 与当前 schema 不一致时拒绝；
+7. 参数错误不进入 handler；
+8. handler 只能从 exact allowlist 路由；
+9. timeout 不超过 task 剩余 deadline；
+10. 每个 Agent tool call 关联正确 task/step；
+11. 工具内部异常不进入 Prompt、API 或 event；
+12. 支付 Agent 只能成功调用 order_query 和 payment_log_query；
+13. report_generate 不出现在 V0.1 availableTools；
+14. Engine 的重复调用防护能终止循环且不伪造调用日志。
