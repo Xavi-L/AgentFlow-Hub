@@ -1,759 +1,387 @@
-# AI Agent 应用开发学习知识图谱
+# AI Agent Java 后端学习指南
 
-适用背景：北航计算机大四，Java 基础较熟，有一段 AI 大模型/CV 实习经历，目标是在年底前争取深圳大厂开发类实习，方向优先为 AI 应用开发、Agent 应用开发、后端开发。
-
-核心定位：
-
-> 把自己塑造成一个懂大模型应用的 Java 后端开发，而不是只会调 API 的 AI demo 开发者，也不是偏模型训练但工程经验不足的算法候选人。
-
-推荐项目主线：
-
-> AgentFlow Hub：面向企业知识库与业务流程的 Java Agent 应用平台。
-
-这个项目应同时体现三类能力：
-
-- Java 后端工程能力：接口、数据库、缓存、异步任务、高并发、可观测性。
-- AI 应用工程能力：RAG、Tool Calling、Agent 状态机、流式输出、Agent Runtime Harness、评测。
-- 项目表达能力：能讲清楚业务场景、架构设计、性能问题、失败处理、线上可维护性。
+> 文档状态：**INFORMATIVE / NON-NORMATIVE**  
+> 本文件只用于学习和面试复盘，不定义产品范围、Schema、模块边界或里程碑。  
+> 发生冲突时，以 `spec-docs/README.md` 列出的规范性文档为准。
 
 ---
 
-## 1. 知识总览
+## 1. 使用方式
 
-| 层级 | 主题 | 作用 | 项目中的体现 |
-| --- | --- | --- | --- |
-| 第一层 | Java 后端基本盘 | 证明你是靠谱的开发候选人 | 用户、知识库、任务、工具、权限等后端模块 |
-| 第二层 | 数据库与缓存 | 支撑业务数据、状态管理、性能优化 | PostgreSQL/MySQL、Redis、索引、事务、缓存 |
-| 第三层 | 高并发与工程化 | 对齐大厂开发岗位要求 | 限流、异步任务、消息队列、重试、幂等、SSE |
-| 第四层 | RAG 知识库 | AI 应用最常见核心能力 | 文档解析、切分、向量检索、重排、引用溯源 |
-| 第五层 | Agent 与工具调用 | 形成差异化亮点 | Planner、工具注册、权限、执行轨迹、状态机 |
-| 第六层 | LLMOps、Harness 与评测 | 体现工程化和线上意识 | token 成本、延迟、trace、episode、策略检查、评测集 |
+学习应跟随当前项目施工，而不是把所有相关技术一次学完。推荐顺序：
 
----
+```text
+当前切片需要什么
+-> 理解对应原理
+-> 完成实现和测试
+-> 用 Trace/E2E 验证
+-> 总结可解释的工程取舍
+```
 
-## 2. Java 后端基本盘
-
-### 2.1 必学知识
-
-- Java 基础
-  - 集合框架：ArrayList、LinkedList、HashMap、ConcurrentHashMap。
-  - 泛型、异常、反射、注解、枚举。
-  - Stream、Optional、Lambda。
-  - I/O、NIO 基础。
-
-- JVM
-  - JVM 内存结构：堆、栈、方法区、程序计数器。
-  - 对象创建过程。
-  - GC 基础：可达性分析、Minor GC、Full GC、常见垃圾收集器。
-  - 类加载机制：加载、验证、准备、解析、初始化。
-  - 常见排查：内存溢出、CPU 飙高、线程阻塞。
-
-- Java 并发
-  - 线程生命周期。
-  - synchronized、ReentrantLock。
-  - volatile、happens-before、Java 内存模型。
-  - AQS 基础。
-  - 线程池参数：corePoolSize、maximumPoolSize、queue、rejectionPolicy。
-  - CompletableFuture。
-  - ThreadLocal。
-  - 并发容器。
-
-- Spring Boot
-  - Controller、Service、Repository 分层。
-  - Spring MVC 请求流程。
-  - Bean 生命周期。
-  - 依赖注入。
-  - AOP。
-  - 事务传播机制。
-  - 参数校验。
-  - 全局异常处理。
-  - 拦截器、过滤器。
-  - 配置文件、环境隔离。
-
-- Web 后端基础
-  - RESTful API 设计。
-  - 统一响应体。
-  - 错误码设计。
-  - 分页查询。
-  - 参数校验。
-  - 幂等接口。
-  - JWT 登录认证。
-  - RBAC 权限模型。
-
-### 2.2 项目落地
-
-在 AgentFlow Hub 中，对应模块可以设计为：
-
-- 用户模块：登录、注册、JWT、角色权限。
-- 项目空间模块：每个用户可以创建多个 Agent 应用。
-- 知识库模块：管理文档、分片、向量索引。
-- Agent 配置模块：选择模型、Prompt、工具、知识库。
-- 任务模块：创建、执行、取消、查询 Agent 任务。
-- 调用记录模块：保存请求、响应、工具调用、token 成本。
-
-### 2.3 面试要能讲清楚
-
-- 一个 HTTP 请求进入 Spring Boot 后的完整处理链路。
-- Spring Bean 是如何创建和注入的。
-- 为什么同类内部方法调用会导致事务失效。
-- 线程池参数如何设置，为什么不能直接使用 Executors 默认工厂。
-- 接口变慢时如何排查。
-- JWT 认证和权限校验放在哪一层。
+不要因为某项技术常见于“企业级架构”就提前引入。RabbitMQ、Redis、MinIO、MCP、Kubernetes 和多 Agent 只有在规范与路线图进入对应阶段后才成为学习重点。
 
 ---
 
-## 3. 数据库与缓存
+## 2. Java 与 Spring Boot 基础
 
-### 3.1 必学知识
+### 必须掌握
 
-- 关系型数据库
-  - MySQL 或 PostgreSQL 基础。
-  - 表设计：主键、外键、唯一约束、普通索引。
-  - 索引原理：B+ 树、联合索引、最左前缀、覆盖索引。
-  - SQL 优化：explain、慢查询、回表、索引失效。
-  - 事务 ACID。
-  - 隔离级别：读未提交、读已提交、可重复读、串行化。
-  - MVCC。
-  - 行锁、表锁、间隙锁。
-  - 分页优化。
+- Java 集合、泛型、异常、枚举、record；
+- I/O、字符编码、UTF-8；
+- Stream/Optional 的合理使用；
+- 线程、中断、Future、CompletableFuture；
+- 线程池参数、队列和拒绝策略；
+- JVM 内存、类加载和常见故障定位；
+- Spring Bean、依赖注入、配置属性；
+- Spring MVC 请求链路；
+- Bean Validation；
+- 全局异常处理；
+- Spring Security/JWT；
+- `@Transactional`、传播、代理和锁边界；
+- 测试分层：unit、slice、integration、E2E。
 
-- Redis
-  - 数据结构：String、Hash、List、Set、ZSet、Stream。
-  - 缓存模式：Cache Aside。
-  - 缓存穿透、击穿、雪崩。
-  - 分布式锁。
-  - 限流计数器。
-  - 会话缓存。
-  - 热点数据缓存。
-  - Redis 持久化和淘汰策略。
+### 在项目中的落点
 
-### 3.2 项目落地
+- `ApiResponse`、错误码和 traceId；
+- owner-scoped service；
+- TaskRunner 有界线程池；
+- 外部 I/O 不持有长事务；
+- 条件更新领取 task；
+- 取消/完成竞态；
+- provider/tool timeout。
 
-数据库可以存：
+### 需要讲清楚
 
-- 用户表。
-- Agent 应用表。
-- 知识库表。
-- 文档表。
-- 文档 chunk 表。
-- 工具配置表。
-- Agent 任务表。
-- LLM 调用记录表。
-- 工具调用记录表。
-- 评测集和评测结果表。
-
-Redis 可以用于：
-
-- 登录态或 token 黑名单。
-- 用户级 QPS 限流。
-- Agent 任务临时状态。
-- SSE 流式输出过程中的任务状态缓存。
-- 热门知识库召回结果缓存。
-- 分布式锁，避免同一个文档被重复解析。
-
-### 3.3 面试要能讲清楚
-
-- 为什么某条 SQL 没走索引。
-- 联合索引字段顺序如何设计。
-- 如何设计一个能支撑多用户、多知识库的表结构。
-- Redis 和数据库如何保证相对一致。
-- 缓存击穿如何处理。
-- 分布式锁为什么要设置过期时间。
+- 为什么 AgentEngine 不应直接拥有 HTTP、SSE 和 task 状态；
+- 为什么线程池提交要在 task 创建事务提交后；
+- 为什么两个 runner 需要条件更新竞争领取；
+- 为什么 Java interrupt 不等于一定能中断外部 HTTP/数据库调用；
+- 为什么同类内部调用可能使 `@Transactional` 失效。
 
 ---
 
-## 4. 高并发与工程化后端
+## 3. PostgreSQL 与数据建模
 
-### 4.1 必学知识
+### 必须掌握
 
-- 并发处理
-  - 线程池隔离。
-  - 异步任务。
-  - CompletableFuture。
-  - 定时任务。
-  - 任务取消。
+- 主键、唯一约束、外键、CHECK；
+- 复合外键；
+- B-tree 和 partial index；
+- 事务隔离、MVCC、行锁；
+- 乐观锁和条件更新；
+- JSONB 的适用边界；
+- Flyway migration 不可变原则；
+- `EXPLAIN` 和查询计划；
+- 软删除与历史数据保留。
 
-- 消息队列
-  - Kafka、RabbitMQ、RocketMQ 选一个深入即可。
-  - 生产者、消费者。
-  - 消息确认。
-  - 消息重试。
-  - 死信队列。
-  - 延迟队列。
-  - 消息幂等。
+### 在项目中的落点
 
-- 限流与稳定性
-  - 固定窗口。
-  - 滑动窗口。
-  - 令牌桶。
-  - 漏桶。
-  - 熔断。
-  - 降级。
-  - 超时控制。
-  - 重试策略。
+- document/chunk owner-scope 复合 FK；
+- Agent binding 同 owner 约束；
+- AgentTask status/phase/termination CHECK；
+- task 内 stepIndex 和 event sequence 唯一；
+- tool/LLM/RAG log 与同一 task/step 的一致性；
+- idempotency key；
+-历史 Trace 不随文档/工具删除而消失。
 
-- 接口工程
-  - 幂等设计。
-  - 防重复提交。
-  - 文件上传。
-  - 对象存储，例如 MinIO、OSS、COS。
-  - SSE 流式响应。
-  - WebSocket 基础。
-  - traceId。
-  - 结构化日志。
+### 需要讲清楚
 
-### 4.2 项目落地
-
-建议在项目中实现：
-
-- Agent 任务异步执行。
-- 用户提交任务后立即返回 taskId。
-- 前端通过 SSE 接收 Agent 执行过程。
-- Agent 每一步执行状态写入数据库或 Redis。
-- 工具调用失败后按照策略重试。
-- 用户级、应用级、模型级限流。
-- 大模型接口超时后降级返回。
-- 文档上传后通过消息队列异步解析和向量化。
-- 所有请求带 traceId，串联用户请求、RAG 召回、LLM 调用、工具调用。
-
-### 4.3 面试要能讲清楚
-
-- Agent 任务为什么不适合同步阻塞执行。
-- SSE 和 WebSocket 的区别。
-- 如果 LLM 响应很慢，系统如何保证用户体验。
-- 如何避免同一任务被重复消费。
-- 如果消息队列消费失败怎么办。
-- 如何设计接口限流。
-- 如何排查一次 Agent 调用链路中的慢点。
+- 为什么只在 Service 校验 owner 不够；
+- 为什么 TaskStatus 和 TaskPhase 要拆开；
+- 为什么事件不是 task 的第二个真相源；
+- 为什么 Trace snapshot 不应使用危险级联删除；
+- 为什么已应用 migration 不能直接修改。
 
 ---
 
-## 5. RAG 知识库
+## 4. RAG 知识库
 
-### 5.1 必学知识
+### 必须掌握
 
-- 文档处理
-  - PDF、Word、Markdown、HTML、CSV、Excel 解析。
-  - 文本清洗。
-  - 去除页眉、页脚、噪声。
-  - 标题层级识别。
-  - 表格转文本。
+- 文件上传和 storage key；
+- UTF-8 严格解码；
+- TXT/Markdown 结构解析；
+- 固定长度、结构感知和语义分块的差异；
+- token estimation；
+- content hash；
+- embedding、维度和向量空间；
+- cosine similarity；
+- Qdrant collection、point、payload、filter；
+- topK、threshold；
+- PostgreSQL/Qdrant 部分失败；
+- citation 和 evidence snapshot。
 
-- Chunking
-  - 固定长度切分。
-  - 滑动窗口。
-  - 按标题切分。
-  - 语义切分。
-  - chunk metadata 设计。
-  - chunk overlap。
+### 当前项目基线
 
-- Embedding
-  - Embedding 模型的作用。
-  - 向量维度。
-  - cosine similarity。
-  - dot product。
-  - 向量归一化。
+V0.1 使用：
 
-- 向量数据库
-  - pgvector、Qdrant、Milvus 选一个即可。
-  - collection/index 概念。
-  - metadata filter。
-  - topK。
-  - 相似度阈值。
-  - 向量索引基础。
+```text
+structured-token-v1
+DashScope text-embedding-v4
+1024 dimensions
+Cosine
+agentflow_chunks_te_v4_1024
+```
 
-- 检索策略
-  - 向量检索。
-  - 关键词检索。
-  - Hybrid Search。
-  - Rerank。
-  - Query Rewrite。
-  - Multi-query Retrieval。
-  - Context Compression。
-  - 引用溯源。
+语义分块、rerank 和 Hybrid Search 不是当前必做。
 
-- RAG 评测
-  - 检索命中率。
-  - 上下文相关性。
-  - 答案忠实度。
-  - 引用准确性。
-  - 幻觉率。
+### 需要讲清楚
 
-### 5.2 项目落地
-
-建议实现一条完整链路：
-
-1. 用户上传文档。
-2. 后端保存原始文件。
-3. 异步解析文档。
-4. 文本清洗。
-5. 按规则切分 chunk。
-6. 为每个 chunk 生成 embedding。
-7. 写入向量数据库。
-8. 用户提问时进行召回。
-9. 对召回结果进行 rerank。
-10. 将高质量上下文拼入 prompt。
-11. LLM 生成回答。
-12. 返回答案和引用来源。
-13. 记录本次召回的 chunk、得分和最终回答。
-
-### 5.3 面试要能讲清楚
-
-- 为什么不能直接把整篇文档塞给大模型。
-- chunk 太大和太小分别有什么问题。
-- topK 如何选择。
-- RAG 为什么仍然会幻觉。
-- 如何提升召回质量。
-- 为什么需要 rerank。
-- 如何做引用溯源。
-- 如何评估一个知识库问答系统的质量。
+- 为什么 parse COMPLETED 不等于可检索；
+- 为什么不同 embedding 模型不能混写一个 collection；
+- 为什么 Qdrant 不是正文权威；
+- deterministic UUID 如何支持幂等 upsert；
+- vectorGeneration 为什么是删除 fence，而不是 point ID 的一部分；
+- 为什么 hit 还要回查 PostgreSQL；
+- 为什么 semantic chunking 必须通过评测证明优于 baseline。
 
 ---
 
-## 6. Agent 与工具调用
+## 5. Agent Runtime
 
-### 6.1 必学知识
+### 必须掌握
 
-- Tool Calling
-  - Function Calling / Tool Calling 基本原理。
-  - tool name、description、parameters。
-  - JSON Schema。
-  - 参数校验。
-  - 工具返回格式设计。
-  - 工具权限控制。
-  - 工具超时控制。
+- Tool Calling 的模型/后端职责；
+- ReAct/Planner 的基本思想；
+- 有限状态机；
+- immutable execution snapshot；
+- Prompt 分区；
+- structured output；
+- decision turn、tool call 和 Trace step 的区别；
+- token budget；
+- deadline/cancellation；
+- duplicate tool loop；
+- final generation；
+- failure taxonomy。
 
-- Agent 模式
-  - ReAct。
-  - Planner-Executor。
-  - Router Agent。
-  - Reflection 了解即可。
-  - 多 Agent 协作了解即可。
+### 当前执行链
 
-- Agent 状态管理
-  - 任务状态机。
-  - 最大执行步数。
-  - 最大 token 成本。
-  - 最大工具调用次数。
-  - 死循环检测。
-  - 中断和取消。
-  - 人工确认。
+```text
+AgentTaskApplicationService
+-> TaskDispatcher
+-> TaskRunner
+-> AgentEngine
+-> RetrievalService / LlmGateway / ToolRuntime
+-> ExecutionRecorder
+```
 
-- 记忆系统
-  - 短期记忆：当前会话上下文。
-  - 长期记忆：用户偏好、历史任务、长期事实。
-  - 记忆写入策略。
-  - 记忆召回策略。
-  - 记忆过期和删除。
+模型动作：
 
-- MCP
-  - MCP 的基本概念。
-  - MCP Server。
-  - Tools。
-  - Resources。
-  - Prompts。
-  - 与普通 Function Calling 的区别。
+```text
+CALL_TOOL
+FINISH
+```
 
-### 6.2 项目落地
+### 需要讲清楚
 
-建议先实现一个简化但工程化的 Agent 执行引擎：
-
-- Agent 配置
-  - 绑定模型。
-  - 绑定系统 Prompt。
-  - 绑定知识库。
-  - 绑定可用工具。
-  - 设置最大执行步数、最大 token 成本。
-
-- 工具注册中心
-  - 工具名称。
-  - 工具描述。
-  - 参数 schema。
-  - 权限配置。
-  - 超时时间。
-  - 是否需要人工确认。
-
-- Agent 执行流程
-  - 接收用户任务。
-  - 读取 Agent 配置。
-  - 进行 RAG 检索。
-  - 调用 LLM 生成下一步动作。
-  - 判断是否需要调用工具。
-  - 校验工具参数。
-  - 执行工具。
-  - 将工具结果写回上下文。
-  - 循环直到完成、失败或达到限制。
-  - 保存完整执行轨迹。
-
-### 6.3 可实现的工具示例
-
-- SQL 查询工具：查询业务数据。
-- 知识库检索工具：主动查询指定知识库。
-- 网页抓取工具：读取网页内容。
-- 报告生成工具：生成 Markdown 或 PDF。
-- 文件解析工具：解析上传文件。
-- 日志分析工具：分析错误日志。
-- 简历评分工具：根据 JD 对简历打分。
-- 工单查询工具：模拟企业内部工单系统。
-
-### 6.4 面试要能讲清楚
-
-- Agent 和普通 Chatbot 的区别。
-- Agent 什么时候应该调用工具。
-- 工具参数由谁生成，如何校验。
-- 工具执行失败怎么办。
-- 如何避免 Agent 无限循环。
-- 如何限制 Agent 的 token 成本。
-- 如何让用户看到 Agent 正在执行什么。
-- 如何记录一次 Agent 任务的完整执行链路。
-- MCP 解决了什么问题。
+- 为什么 `FINISH` 不是最终用户答案；
+- 为什么 final generation 不计 decision turn，但仍计 token；
+- 为什么要为 final generation 预留 token；
+- 为什么 runtime configuration 必须在 task 创建时冻结；
+- 为什么 provider usage 缺失不能按 0；
+- 为什么模型不能控制 TaskStatus。
 
 ---
 
-## 7. LLMOps 与评测
+## 6. ToolRuntime
 
-### 7.1 必学知识
+### 必须掌握
 
-- Prompt 管理
-  - Prompt 模板。
-  - Prompt 变量。
-  - Prompt 版本。
-  - System Prompt 与 User Prompt。
-  - Few-shot 示例。
+- JSON Schema；
+- schema canonicalization/hash；
+- allowlist 路由；
+- Agent binding；
+- per-tool timeout；
+- 参数错误与系统错误的区别；
+- side effect 和 idempotency；
+- retry 的安全条件；
+- tool result normalization；
+- result/argument 脱敏和大小限制。
 
-- 调用观测
-  - 模型名称。
-  - 输入 token。
-  - 输出 token。
-  - 总成本。
-  - 首 token 延迟。
-  - 总耗时。
-  - 错误码。
-  - 重试次数。
+### 当前工具
 
-- 执行链路
-  - 用户请求 trace。
-  - RAG 召回记录。
-  - LLM 调用记录。
-  - 工具调用记录。
-  - PolicyGuard 策略检查记录。
-  - Agent step 记录。
-  - Agent Episode Package。
-  - 最终答案记录。
+```text
+order_query
+payment_log_query
+```
 
-- 评测
-  - 构造测试问题集。
-  - 构造标准答案。
-  - 评估检索是否命中。
-  - 评估答案是否忠实。
-  - 评估工具调用是否正确。
-  - 人工反馈。
-  - 自动化回归评测。
+`report_generate` 不属于 V0.1 Agent 工具。
 
-- 可了解工具
-  - Langfuse。
-  - Arize Phoenix。
-  - OpenTelemetry。
-  - Prometheus。
-  - Grafana。
+### 需要讲清楚
 
-### 7.2 项目落地
-
-建议后台提供这些能力：
-
-- 查看每次 Agent 任务的完整 trace。
-- 查看每一步 LLM 调用的 prompt、响应、token、耗时。
-- 查看每次 RAG 召回的 chunk、分数、来源。
-- 查看每次工具调用的入参、出参、耗时、错误。
-- 查看工具调用前的策略检查结果。
-- 导出一次 Agent 运行的 Episode Package。
-- 对回答进行点赞、点踩、反馈。
-- 维护一组评测问题。
-- 一键运行评测集。
-- 对比不同 Prompt 版本或不同检索参数的效果。
-
-### 7.3 面试要能讲清楚
-
-- 为什么 AI 应用需要评测，而不是只看能不能回答。
-- 如何评估 RAG 效果。
-- 如何评估 Agent 是否完成任务。
-- 如何发现 Prompt 改动导致效果退化。
-- 如何控制 token 成本。
-- 如何排查一次 Agent 失败。
+- 为什么数据库 handler 字符串不能动态执行任意 Bean；
+- 为什么 ToolRuntime 校验 current ACTIVE 但参数仍按 task snapshot schema；
+- 为什么 schema 变化应失败而不是静默采用；
+- 为什么 maxToolCalls 和重复循环属于 AgentEngine；
+- 为什么 Policy 不应重复处理存在、绑定和 schema；
+- 为什么 timeout 后重试非幂等写操作可能产生重复副作用。
 
 ---
 
-## 8. DevOps 与部署
+## 7. Trace 与 SSE
 
-### 8.1 必学知识
+### 必须掌握
 
-- Git
-  - 分支管理。
-  - commit 规范。
-  - pull request。
-  - conflict 处理。
+- task、step、专项调用日志和 event 的区别；
+- append-only event sequence；
+- SSE wire format；
+- `Last-Event-ID`；
+- 断线恢复和去重；
+- snapshot + delta；
+- terminal event 与数据库提交顺序；
+- Prompt/response 脱敏；
+- 不保存 chain-of-thought；
+- exact/estimated token usage。
 
-- Docker
-  - Dockerfile。
-  - docker compose。
-  - 镜像、容器、网络、卷。
-  - 多服务本地部署。
+### 项目中的事实所有权
 
-- Linux
-  - 常用命令。
-  - 进程查看。
-  - 端口查看。
-  - 日志查看。
-  - systemd 了解即可。
+```text
+agent_task             当前任务事实
+agent_step             语义步骤顺序
+llm/rag/tool logs      外部调用事实
+agent_task_event       SSE 投影
+Episode                后续聚合视图
+```
 
-- CI/CD 了解
-  - GitHub Actions。
-  - 自动测试。
-  - 自动构建镜像。
+### 需要讲清楚
 
-- Nginx 了解
-  - 反向代理。
-  - 静态资源。
-  - HTTPS。
-
-### 8.2 项目落地
-
-至少做到：
-
-- 后端、数据库、Redis、向量数据库可以用 docker compose 一键启动。
-- README 写清楚本地启动方式。
-- 提供 API 文档。
-- 提供基础测试。
-- 提供演示数据。
-- 提供架构图。
-
-Kubernetes 可以了解，但不建议作为初期重点。
+- 为什么 POST 返回后再连接 SSE 会产生竞态；
+- 为什么 V0.1 使用数据库事件 replay 比纯内存 emitter 更稳；
+- 为什么不能逐 token 落库；
+- 为什么最终答案以 task.finalAnswer 为准；
+- 为什么 event 不能代替 LLM/RAG/tool log；
+- 为什么不应向前端展示自由思维链。
 
 ---
 
-## 9. 推荐技术栈
+## 8. 可靠性与并发
 
-### 9.1 后端主栈
+### 当前阶段重点
 
-- Java 21。
-- Spring Boot 3。
-- MyBatis-Plus 或 JPA。
-- Spring Security。
-- PostgreSQL 或 MySQL。
-- Redis。
-- RabbitMQ 或 Kafka。
-- Docker Compose。
+- 有界线程池；
+- after-commit dispatch；
+- conditional claim；
+- idempotency key；
+- task version；
+- provider/tool timeout；
+- cancel requested；
+- stale RUNNING task 的后续恢复策略；
+- Qdrant outcome unknown；
+- generation-fenced delete。
 
-### 9.2 AI 应用栈
+### 后续再学习
 
-- Spring AI 或 LangChain4j。
-- OpenAI-compatible API。
-- pgvector、Qdrant 或 Milvus。
-- Rerank 模型 API。
-- SSE 流式输出。
-- JSON Schema Tool Calling。
-- MCP 作为进阶扩展。
+- RabbitMQ ack/retry/dead letter；
+- transactional outbox；
+- Redis fan-out/限流；
+- 多实例 worker；
+- 分布式锁；
+- OpenTelemetry。
 
-### 9.3 前端
-
-前端不是你的主线，但最好有一个能演示的平台：
-
-- Vue 3 或 React。
-- 基础管理后台。
-- Agent 对话页面。
-- 知识库管理页面。
-- 工具管理页面。
-- Trace 详情页面。
-
-前端目标是“能展示项目价值”，不是做复杂视觉效果。
+先理解问题再引入组件。消息队列不能自动解决幂等、取消、外部副作用或数据库状态机。
 
 ---
 
-## 10. 学习优先级
+## 9. 安全
 
-### P0：必须掌握
+### 必须掌握
 
-- Java 并发。
-- Spring Boot。
-- SQL、索引、事务。
-- Redis。
-- REST API 设计。
-- JWT 权限。
-- RAG 基础。
-- Tool Calling。
-- SSE 流式响应。
-- Docker Compose。
+- owner scope；
+- authenticated resource enumeration；
+- prompt injection；
+- tool allowlist；
+- SSRF；
+- secret handling；
+- path traversal；
+- 文件类型/MIME/大小限制；
+-日志和 Trace 脱敏；
+-高风险写操作与人工确认；
+-最小权限。
 
-### P1：项目亮点
+### 当前项目要求
 
-- 消息队列。
-- Agent 状态机。
-- 工具注册中心。
-- 向量数据库。
-- Hybrid Search。
-- Rerank。
-- 执行链路追踪。
-- token 成本统计。
-- Prompt 版本管理。
-- 评测集。
-
-### P2：加分但不要过早深挖
-
-- Kubernetes。
-- 多 Agent 协作。
-- MCP 完整协议实现。
-- OpenTelemetry 全链路追踪。
-- 分库分表。
-- 模型微调。
-- Spring 源码通读。
-- 复杂深度学习论文复现。
+- 用户输入、知识库内容和工具结果都视为不可信数据；
+- Runtime Rules 由后端固定；
+- 模型不能控制完整 URL、SQL、handler 或 provider credential；
+- API/Trace 不返回内部异常和 secret；
+- V0.1 只读工具，不伪装已实现完整审批系统。
 
 ---
 
-## 11. 不建议优先投入的方向
+## 10. 测试策略
 
-为了年底前找开发类实习，不建议现在把主要精力放在：
+### Unit
 
-- 从零训练大模型。
-- CV 模型结构细节。
-- RLHF、DPO、PPO。
-- 复杂多 Agent 框架堆叠。
-- Kubernetes 深水区。
-- Spring 源码完整通读。
-- 大量前端动效。
-- 只做一个普通聊天机器人。
+- parser/chunker；
+- vector identity；
+- decision parser；
+- budget；
+- schema validator；
+- event reducer；
+- DTO validation。
 
-这些方向不是没价值，而是对“深圳大厂开发/AI 应用开发实习”的转化率不如 Java 后端 + Agent 工程化。
+### Repository/Migration Contract
 
----
+- owner-scope FK；
+- status CHECK；
+- task claim；
+- event sequence；
+- task/step log 一致性；
+- Flyway 顺序。
 
-## 12. 项目模块与知识映射
+### Integration
 
-| 项目模块 | 需要学习的知识 | 简历亮点 |
-| --- | --- | --- |
-| 用户与权限 | Spring Security、JWT、RBAC、Redis | 完整后端权限体系 |
-| 知识库管理 | 文件上传、对象存储、异步任务 | 企业知识库基础能力 |
-| 文档解析 | PDF/Word/Markdown 解析、文本清洗 | 数据治理和预处理能力 |
-| 向量检索 | Embedding、pgvector/Qdrant/Milvus | RAG 检索核心 |
-| 召回优化 | Hybrid Search、Rerank、Query Rewrite | 提升 RAG 质量 |
-| Agent 执行引擎 | 状态机、Tool Calling、Planner | Agent 工程化能力 |
-| Agent Runtime Harness | Episode Package、PolicyGuard、回归评测 | 可回放、可治理、可评测的 Agent 运行底座 |
-| 工具平台 | JSON Schema、权限、超时、重试 | 可扩展工具调用体系 |
-| 流式响应 | SSE、异步任务、任务状态 | 更好的用户体验 |
-| 调用观测 | traceId、日志、token、latency | LLMOps 意识 |
-| 评测平台 | 测试集、自动评测、反馈 | AI 应用质量保障 |
-| 部署 | Docker Compose、环境变量、README | 可运行、可展示 |
+- PostgreSQL；
+- Qdrant；
+- provider HTTP stub；
+- TaskRunner + Trace；
+- SSE replay。
 
----
+### Real E2E
 
-## 13. 自检清单
+- 实际 embedding provider；
+- 实际 chat provider；
+- 实际 Qdrant；
+- 两个真实 tool handler；
+- 浏览器/脚本 SSE；
+- 支付失败诊断固定任务。
 
-### 13.1 后端自检
-
-- 能否独立设计一个多表业务模块？
-- 能否解释接口从请求到响应的链路？
-- 能否写出统一异常处理和参数校验？
-- 能否处理分页、排序、筛选？
-- 能否解释事务失效场景？
-- 能否设计合理索引？
-- 能否使用 Redis 做缓存和限流？
-- 能否用线程池处理异步任务？
-- 能否解释消息队列的失败重试？
-
-### 13.2 RAG 自检
-
-- 能否解释 RAG 的完整链路？
-- 能否设计 chunk metadata？
-- 能否说明 chunk size 对效果的影响？
-- 能否解释向量检索和关键词检索的区别？
-- 能否解释为什么需要 rerank？
-- 能否返回答案引用来源？
-- 能否记录并分析每次召回结果？
-- 能否构造一组 RAG 评测问题？
-
-### 13.3 Agent 自检
-
-- 能否解释 Agent 和普通 Chatbot 的区别？
-- 能否设计工具 schema？
-- 能否限制工具调用权限？
-- 能否处理工具调用失败？
-- 能否限制最大执行步数？
-- 能否保存 Agent 执行轨迹？
-- 能否支持任务取消？
-- 能否解释 MCP 的基本价值？
-
-### 13.4 LLMOps 自检
-
-- 能否记录 prompt、响应、token、耗时？
-- 能否统计不同用户或应用的调用成本？
-- 能否展示一次任务的完整 trace？
-- 能否对 Prompt 版本做对比？
-- 能否设计评测集？
-- 能否发现一次 Agent 失败发生在哪一步？
+需要始终区分：mock contract test、真实连通性和真实任务质量。
 
 ---
 
-## 14. 面试叙事模板
+## 11. 面试表达框架
 
-项目介绍可以按照这个结构讲：
+建议围绕真实工程取舍，而不是堆名词：
 
-1. 背景
-   - 企业内部文档、业务系统、工单、日志分散，普通问答机器人无法完成复杂任务。
-
-2. 目标
-   - 构建一个支持知识库 RAG、工具调用、任务编排、流式响应和执行追踪的 Agent 应用平台。
-
-3. 架构
-   - 后端使用 Spring Boot，数据库存储业务配置，Redis 管理状态和限流，消息队列处理异步任务，向量数据库支撑 RAG 检索。
-
-4. 核心模块
-   - 知识库模块、Agent 执行引擎、工具注册中心、LLM 调用观测、评测模块。
-
-5. 难点
-   - 文档切分和召回质量。
-   - Agent 工具调用的稳定性。
-   - 长任务的流式反馈和状态管理。
-   - token 成本和执行链路追踪。
-
-6. 结果
-   - 支持多用户创建 Agent 应用。
-   - 支持文档上传、向量化、问答引用。
-   - 支持工具调用和完整执行轨迹。
-   - 支持调用成本、延迟、失败原因统计。
+1. **为什么模块化单体**：个人项目优先完整性，接口隔离保留演进空间；
+2. **为什么自研执行循环**：模型只产生动作，预算、工具、状态和 Trace 由后端掌控；
+3. **为什么 execution snapshot**：运行中配置变化不能造成混合版本；
+4. **为什么状态/阶段拆分**：生命周期稳定，阶段高频变化；
+5. **为什么数据库事件 replay**：避免 SSE 订阅竞态和断线丢失；
+6. **为什么 PostgreSQL + Qdrant**：正文和向量索引职责分离；
+7. **为什么只做两个工具**：先证明安全闭环，再扩展平台；
+8. **如何处理部分失败**：短事务、稳定 ID、generation fence、补偿和明确 outcome unknown；
+9. **如何防 Agent 失控**：decision/tool/token/deadline/duplicate loop；
+10. **如何证明有效**：Trace、真实 E2E 和后续 Evaluation，而不是只展示 happy path。
 
 ---
 
-## 15. 简历表达示例
+## 12. 当前学习优先级
 
-可以后续根据真实实现修改为：
+跟随 Roadmap：
 
-> 基于 Spring Boot 构建企业级 Agent 工作流平台，支持知识库 RAG、工具调用、任务编排、SSE 流式响应与执行链路追踪。设计文档解析、chunk 切分、向量检索、rerank、引用溯源等 RAG 流程，并实现工具注册、参数校验、权限控制、失败重试和 token 成本统计。通过 Redis 限流缓存、消息队列异步处理、Docker Compose 多服务部署提升系统稳定性与可维护性。
+```text
+1. 复合外键、CHECK、幂等和条件更新
+2. TaskRunner/线程池/取消/timeout
+3. Agent execution snapshot 与 Prompt contract
+4. Task-scoped RAG
+5. ToolRuntime snapshot consistency
+6. Trace 数据建模
+7. SSE sequence/replay
+8. Vue event reducer 和刷新恢复
+9. 真实 E2E 排障
+10. V0.1 后再学习 MQ、Evaluation、Policy 和 MCP
+```
 
-更偏后端的版本：
-
-> 负责 Agent 应用平台后端架构设计与核心模块开发，基于 Spring Boot 实现多租户应用管理、知识库管理、异步任务执行、SSE 流式响应、Redis 限流缓存和调用链路追踪。针对文档解析和 Agent 执行耗时较长的问题，引入消息队列进行异步解耦，并设计任务状态机、重试机制和幂等控制，提升系统稳定性。
-
-更偏 AI 应用的版本：
-
-> 设计并实现面向企业知识库的 RAG 与 Agent 执行引擎，支持文档解析、向量化、Hybrid Search、rerank、引用溯源、Tool Calling 和 Prompt 版本管理。沉淀 LLM 调用日志、token 成本、召回结果和工具执行轨迹，构建评测集对 RAG 命中率和 Agent 任务完成率进行持续评估。
-
----
-
-## 16. 最终学习主线
-
-建议始终围绕这条主线学习：
-
-> Java 后端基础 -> 数据库/缓存 -> 高并发与异步任务 -> RAG 知识库 -> Agent 工具调用 -> LLMOps/评测 -> 系统设计表达。
-
-学习时不要只看教程。每学一块，都要在 AgentFlow Hub 中落一个真实模块：
-
-- 学 Spring Boot，就做用户、知识库、任务接口。
-- 学 Redis，就做限流、缓存、任务状态。
-- 学消息队列，就做文档解析和 Agent 异步执行。
-- 学 RAG，就做上传、切分、向量化、召回、引用。
-- 学 Agent，就做工具注册、状态机、执行轨迹。
-- 学 LLMOps，就做 token 统计、trace、评测集。
-
-最终目标不是“我学过这些技术”，而是：
-
-> 我用这些技术解决了一个真实 AI 应用系统中的工程问题。
+本指南中的任何主题都不能单独扩大项目范围。学习完成的判断标准是能解释并验证当前切片，而不是“看过更多概念”。

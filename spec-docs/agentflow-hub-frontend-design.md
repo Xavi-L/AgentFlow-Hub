@@ -1,93 +1,30 @@
-# AgentFlow Hub 前端页面与交互设计
+# AgentFlow Hub Frontend 设计
 
-本文档用于沉淀 AgentFlow Hub 的前端信息架构、页面设计、交互流程、组件结构、状态管理、SSE 接入方式和 V0.1/V1.0 实现边界。
-
-核心结论：
-
-> 前端定位为“企业研发运营支持 Agent 平台”的管理后台与演示控制台。它不做营销页，不做复杂视觉，不做拖拽工作流，重点是清晰展示知识库入库、Agent 配置、工具调用、任务执行和 Trace 回放。
-
----
-
-## 1. 前端设计目标
-
-前端需要服务三个目标：
-
-1. **项目演示**
-   - 能完整演示从上传文档到 Agent 分析问题的链路。
-   - 面试官能直观看到 RAG、工具调用、SSE 和 Trace。
-
-2. **开发调试**
-   - 能测试知识库召回。
-   - 能查看工具入参和出参。
-   - 能查看 Agent 每一步执行记录。
-
-3. **工程表达**
-   - 页面结构和 API 调用清晰。
-   - 能体现一个真实后台系统的组织方式。
-   - 不让前端喧宾夺主，后端和 AI 工程能力才是重点。
+> 文档状态：**NORMATIVE**  
+> 权威范围：V0.1 页面边界、后端状态映射、SSE 恢复、事件 reducer 和展示规则  
+> 最近审查基线：`main@f276549`（V36）  
+> 前端不得重新定义 TaskStatus、TaskPhase 或 RetrievalReadiness。
 
 ---
 
-## 2. 设计原则
+## 1. 目标
 
-### 2.1 产品形态
+V0.1 前端只负责证明核心 Agent 闭环可用、可观察、可恢复：
 
-AgentFlow Hub 是偏后台、偏工作台的产品，应保持：
+```text
+配置最小知识库
+-> 配置支付 Agent
+-> 提交 task
+-> 展示执行过程
+-> 展示最终答案和引用
+-> 查看 Trace
+```
 
-- 安静。
-- 高信息密度。
-- 清晰层级。
-- 面向重复操作。
-- 以表格、表单、详情页、时间线为主。
-
-不做：
-
-- 营销落地页。
-- 大面积 hero 区。
-- 夸张插画。
-- 复杂动效。
-- 拖拽式低代码编辑器。
-
-### 2.2 页面布局
-
-原则：
-
-- 使用左侧导航 + 顶部用户区 + 主内容区。
-- 主要页面优先用表格、分栏、抽屉、tabs。
-- 避免卡片套卡片。
-- 避免页面 section 全部做成漂浮卡片。
-- Trace 和 Chat 页面可以使用左右分栏，提升信息对照效率。
-
-### 2.3 视觉风格
-
-推荐风格：
-
-- 背景：浅灰白。
-- 主色：理性蓝色，用于主操作和链接。
-- 状态色：绿色成功、红色失败、黄色等待、蓝色运行中、灰色取消。
-- 字体：系统默认字体。
-- 圆角：后台控件保持 4 到 8px。
-- 信息层级通过字号、间距、分割线、表格和标签区分。
-
-不要让界面变成单一蓝色或紫色调。
-
-### 2.4 控件使用
-
-- 工具操作使用图标按钮，并配 tooltip。
-- 主要命令使用 icon + text 按钮。
-- 状态使用 tag。
-- 多视图使用 tabs。
-- 配置项使用表单。
-- 数字配置使用 input number。
-- 开关使用 switch。
-- 模型参数使用 input number 或 slider。
-- 长 JSON 使用代码编辑器或只读 JSON viewer。
+前端不是当前项目的主要差异化能力。使用简单、稳定的表格、表单、抽屉和时间线，不建设复杂工作台、流程编辑器或仪表盘。
 
 ---
 
-## 3. 技术栈
-
-最终选型：
+## 2. 技术栈
 
 ```text
 Vue 3
@@ -100,1366 +37,594 @@ Axios
 @microsoft/fetch-event-source
 ```
 
-### 3.1 为什么使用 Vue 3 + Element Plus
-
-原因：
-
-- 管理后台开发效率高。
-- 表格、表单、抽屉、tabs、dialog 组件齐全。
-- 学习和维护成本低。
-- 更适合个人项目快速做出可演示版本。
-
-### 3.2 SSE 客户端选择
-
-不推荐直接使用原生 `EventSource`。
-
-原因：
-
-- 原生 `EventSource` 不能自定义 `Authorization` header。
-- 项目后端使用 Bearer Token。
-- 不应把 token 放到 URL query 中。
-
-推荐使用：
-
-```text
-@microsoft/fetch-event-source
-```
-
-它可以通过 fetch 发起 SSE 请求，并携带：
-
-```http
-Authorization: Bearer <access_token>
-```
+使用 `fetchEventSource` 而不是原生 `EventSource`，因为 Task SSE 需要 Bearer Authorization header。
 
 ---
 
-## 4. 路由结构
+## 3. 前端状态分层
 
-推荐路由：
+前端必须区分三类状态：
 
-```text
-/login
+### 3.1 Server TaskStatus
 
-/agents
-/agents/:agentId/edit
-/agents/:agentId/chat
-
-/knowledge-bases
-/knowledge-bases/:kbId/documents
-/knowledge-bases/:kbId/chunks
-/knowledge-bases/:kbId/retrieve-test
-
-/tools
-/tools/:toolId
-
-/tasks
-/tasks/:taskId/trace
-
-/evaluations
-/evaluations/:datasetId
-/eval-runs/:runId
-```
-
-默认登录后跳转：
+直接使用后端值：
 
 ```text
-/agents
-```
-
-如果已有 Agent，也可以在前端提供“进入对话”的快捷操作。
-
----
-
-## 5. 页面信息架构
-
-```mermaid
-flowchart TD
-    Login["登录页"] --> Shell["应用主框架"]
-    Shell --> Agents["Agent 管理"]
-    Shell --> Chat["Agent 对话"]
-    Shell --> KB["知识库管理"]
-    Shell --> Tools["工具管理"]
-    Shell --> Tasks["任务历史"]
-    Shell --> Trace["Trace 详情"]
-    Shell --> Eval["评测"]
-
-    Agents --> AgentEdit["Agent 编辑"]
-    Agents --> Chat
-
-    KB --> Documents["文档列表"]
-    Documents --> Chunks["Chunk 查看"]
-    KB --> RetrieveTest["检索测试"]
-
-    Tasks --> Trace
-    Eval --> EvalRun["评测运行结果"]
-```
-
----
-
-## 6. 应用主框架
-
-### 6.1 左侧导航
-
-导航项：
-
-- Agent
-- Knowledge Bases
-- Tools
-- Tasks
-- Evaluations
-
-可选管理员入口：
-
-- Demo Data
-
-### 6.2 顶部区域
-
-展示：
-
-- 当前用户。
-- 退出登录。
-- 当前环境标识，例如 `Local`。
-
-不做：
-
-- 复杂全局搜索。
-- 通知中心。
-- 多组织切换。
-
-### 6.3 主内容区
-
-主内容区使用：
-
-- 页面标题。
-- 主要操作按钮。
-- 筛选区。
-- 表格或详情布局。
-
-示例结构：
-
-```text
-PageHeader
-Toolbar / Filters
-MainTable or SplitPane
-Drawer / Dialog
-```
-
----
-
-## 7. 登录页
-
-### 7.1 功能
-
-- 用户名。
-- 密码。
-- 登录按钮。
-- 错误提示。
-
-### 7.2 交互
-
-- 输入为空时前端校验。
-- 登录中按钮 loading。
-- 登录成功保存 token 和用户信息。
-- 登录失败展示后端错误信息。
-
-### 7.3 V0.1
-
-可以预置测试账号：
-
-```text
-username: demo
-password: demo123
-```
-
-页面上不需要写长说明，只保留必要表单和登录入口。
-
----
-
-## 8. Agent 管理页
-
-路径：
-
-```text
-/agents
-```
-
-### 8.1 页面目标
-
-让用户管理自己的 Agent，并快速进入对话。
-
-### 8.2 页面结构
-
-```text
-Header: Agent
-Actions: New Agent
-Filters: status / keyword
-Table:
-  Name
-  Model
-  Status
-  Knowledge Bases
-  Tools
-  Updated At
-  Actions
-```
-
-### 8.3 操作
-
-- 创建 Agent。
-- 编辑 Agent。
-- 启用/禁用 Agent。
-- 删除 Agent。
-- 进入对话。
-
-### 8.4 表格动作
-
-动作按钮：
-
-- Chat
-- Edit
-- Enable/Disable
-- Delete
-
-删除需要确认弹窗。
-
----
-
-## 9. Agent 编辑页
-
-路径：
-
-```text
-/agents/:agentId/edit
-```
-
-### 9.1 页面目标
-
-配置 Agent 的模型、Prompt、知识库、工具和执行限制。
-
-### 9.2 页面结构
-
-使用 tabs：
-
-```text
-Basic
-Prompt
-Knowledge
-Tools
-Limits
-Versions
-```
-
-### 9.3 Basic tab
-
-字段：
-
-- name。
-- description。
-- status。
-- modelProvider。
-- modelName。
-- temperature。
-- topP。
-
-### 9.4 Prompt tab
-
-字段：
-
-- systemPrompt。
-- changeNote。
-
-操作：
-
-- Save as new version。
-- Activate version。
-
-V0.1 可以只保存当前 prompt，不做版本列表。
-
-### 9.5 Knowledge tab
-
-功能：
-
-- 展示已绑定知识库。
-- 添加知识库。
-- 移除知识库。
-
-表格字段：
-
-- name。
-- documentCount。
-- status。
-- priority。
-
-### 9.6 Tools tab
-
-功能：
-
-- 展示可用工具。
-- 勾选 Agent 可调用的工具。
-- 查看工具 schema。
-
-表格字段：
-
-- enabled。
-- toolCode。
-- name。
-- permissionLevel。
-- requiresConfirmation。
-- timeoutMs。
-
-### 9.7 Limits tab
-
-字段：
-
-- maxSteps。
-- maxToolCalls。
-- maxTokens。
-- timeoutSeconds。
-
-### 9.8 Versions tab
-
-V1.0 可展示 Prompt 版本：
-
-- versionNo。
-- createdAt。
-- createdBy。
-- changeNote。
-- actions。
-
----
-
-## 10. Agent 对话页
-
-路径：
-
-```text
-/agents/:agentId/chat
-```
-
-这是项目最重要的演示页面之一。
-
-### 10.1 页面目标
-
-展示 Agent 如何执行一个真实任务：
-
-- 接收用户问题。
-- 进行 RAG 检索。
-- 调用工具。
-- 流式生成答案。
-- 实时展示执行步骤。
-
-### 10.2 推荐布局
-
-使用三栏或两栏响应式布局。
-
-桌面端：
-
-```text
-Left: Conversation / Task History
-Center: Chat and Final Answer
-Right: Execution Timeline / Citations
-```
-
-如果实现成本要低，V0.1 可以使用两栏：
-
-```text
-Center: Chat
-Right: Execution Timeline
-```
-
-### 10.3 中间对话区
-
-包含：
-
-- 用户输入消息。
-- Agent 最终回答。
-- 流式输出中的回答。
-- 引用标记 `[C1]`。
-- 输入框。
-- 发送按钮。
-- 取消按钮。
-
-输入框：
-
-- 支持多行。
-- Enter 发送，Shift + Enter 换行。
-- 执行中禁用发送或允许新开任务，V1.0 建议禁用。
-
-### 10.4 右侧执行时间线
-
-展示 Agent 当前执行状态。
-
-事件映射：
-
-| SSE 事件 | UI 展示 |
-| --- | --- |
-| `TASK_STARTED` | 任务开始 |
-| `RAG_STARTED` | 正在检索知识库 |
-| `RAG_FINISHED` | 展示命中文档数量 |
-| `LLM_STARTED` | 正在分析下一步 |
-| `TOOL_STARTED` | 正在调用工具 |
-| `TOOL_FINISHED` | 展示工具执行摘要 |
-| `TOKEN_DELTA` | 追加到答案区 |
-| `TASK_COMPLETED` | 标记完成 |
-| `TASK_FAILED` | 显示失败原因 |
-| `TASK_CANCELLED` | 显示已取消 |
-
-时间线条目字段：
-
-- step title。
-- status。
-- duration。
-- summary。
-- 可展开详情。
-
-### 10.5 引用面板
-
-显示当前回答使用的 citations：
-
-- citationId。
-- fileName。
-- titlePath。
-- score。
-- chunk preview。
-
-点击 `[C1]` 时：
-
-- 高亮对应引用。
-- 展示 chunk 详情抽屉。
-
-### 10.6 任务状态
-
-页面状态：
-
-```text
-IDLE
-SUBMITTING
 QUEUED
 RUNNING
 COMPLETED
 FAILED
 CANCELLED
+TIMED_OUT
 ```
 
-### 10.7 失败体验
+不得将 `TIMED_OUT` 映射为 `FAILED` 后丢失原因，也不得自行使用 `TIMEOUT` 作为另一种服务端状态。
 
-失败时展示：
+### 3.2 Server TaskPhase
 
-- errorCode。
-- errorMessage。
-- 查看 Trace 按钮。
-
-不要只显示“请求失败”。
-
-### 10.8 示例任务快捷入口
-
-V1.0 可以提供一个小型示例任务下拉：
+只有 RUNNING 时存在：
 
 ```text
-帮我分析 order_1024 支付失败的原因，并给出处理建议。
+PREPARING
+RETRIEVING
+DECIDING
+EXECUTING_TOOL
+GENERATING
 ```
 
-注意：
+Phase 用于当前进度提示，不作为历史时间线唯一来源。
 
-- 这只是填入输入框的快捷动作。
-- 不要在页面大篇幅解释功能。
+### 3.3 Client UI State
+
+客户端自己的网络/交互状态独立保存：
+
+```text
+IDLE
+SUBMITTING
+LOADING_SNAPSHOT
+CONNECTING
+CONNECTED
+RECONNECTING
+CLOSED
+```
+
+`SUBMITTING` 不是 TaskStatus；`CONNECTED` 也不表示 task 正在运行。不要把客户端状态和服务端状态放进同一个 enum。
 
 ---
 
-## 11. SSE 前端交互设计
+## 4. V0.1 页面范围
 
-### 11.1 提交任务
+### 4.1 登录页
 
-流程：
-
-1. 用户点击发送。
-2. 前端调用 `POST /api/v1/agents/{agentId}/tasks`。
-3. 后端返回 `taskId` 和 `sseUrl`。
-4. 前端用 `fetchEventSource` 连接 SSE。
-5. 根据事件更新 UI。
-
-### 11.2 fetchEventSource 示例
-
-```ts
-import { fetchEventSource } from '@microsoft/fetch-event-source'
-
-await fetchEventSource(`/api/v1/tasks/${taskId}/events`, {
-  headers: {
-    Authorization: `Bearer ${token}`
-  },
-  onmessage(event) {
-    const data = JSON.parse(event.data)
-    handleTaskEvent(data)
-  },
-  onerror(err) {
-    throw err
-  }
-})
+```text
+/login
 ```
 
-### 11.3 断线恢复
+- username/password；
+- 登录成功保存 access token；
+- token 过期时清除本地状态并跳转；
+- 不实现 refresh token UI；
+- logout 为清除本地 token。
 
-V1.0 简化策略：
-
-- SSE 断开后，重新调用 `GET /api/v1/tasks/{taskId}/trace` 拉取完整状态。
-- 如果任务仍在运行，可以重新订阅 SSE。
-
-V1.5 可增强：
-
-- 使用 `sequenceNo` 补拉事件。
-- 支持 Last-Event-ID。
-
----
-
-## 12. 知识库管理页
-
-路径：
+### 4.2 知识库页
 
 ```text
 /knowledge-bases
+/knowledge-bases/:kbId
 ```
 
-### 12.1 页面目标
+V0.1 可以将知识库列表、创建、文档上传和文档状态放在同一详情页，避免额外页面。
 
-管理知识库并查看文档处理状态。
+展示：
 
-### 12.2 页面结构
+- name/description；
+- embeddingProfileCode，只读；
+- chunkStrategyVersion，只读；
+- status；
+- 文档列表；
+- Upload；
+- Retrieval Test，可折叠。
 
-表格字段：
-
-- name。
-- description。
-- embeddingModel。
-- documentCount。
-- status。
-- updatedAt。
-- actions。
-
-操作：
-
-- New Knowledge Base。
-- Edit。
-- Documents。
-- Retrieve Test。
-- Delete。
-
----
-
-## 13. 文档列表页
-
-路径：
+文档必须同时展示：
 
 ```text
-/knowledge-bases/:kbId/documents
+parseStatus
+vectorization counts
+retrievalReadiness
+vectorGeneration
 ```
 
-### 13.1 页面目标
+只有 `retrievalReadiness=READY` 显示“可用于 Agent”。`parseStatus=COMPLETED` 不能直接显示为“向量化完成”。
 
-上传文档，查看解析和向量化状态。
+Completed 文档 reprocess 在 V0.1 默认隐藏到高级/维护操作，不作为主流程按钮。
 
-### 13.2 页面结构
-
-顶部：
-
-- 知识库名称。
-- Upload Document。
-- Retrieve Test。
-
-表格字段：
-
-- fileName。
-- fileType。
-- fileSize。
-- parseStatus。
-- chunkCount。
-- parseError。
-- createdAt。
-- actions。
-
-状态 tag：
-
-- `PENDING`。
-- `PROCESSING`。
-- `COMPLETED`。
-- `FAILED`。
-
-操作：
-
-- View Chunks。
-- Reprocess。
-- Delete。
-
-### 13.3 上传交互
-
-使用 Upload Dialog：
-
-- 文件选择。
-- 支持类型提示。
-- 上传进度。
-- 上传成功后刷新表格。
-- 处理状态通过轮询或手动刷新查看。
-
-V1.0 可以轮询文档状态：
+### 4.3 Agent 配置页
 
 ```text
-每 3 秒刷新一次 PROCESSING 文档，最多 2 分钟
+/agents
+/agents/:agentId
 ```
 
----
+字段：
 
-## 14. Chunk 查看页
+- name；
+- description；
+- systemPrompt；
+- chatModelProfileCode，只读或固定选择；
+- temperature/topP；
+- maxDecisionTurns；
+- maxToolCalls；
+- maxTotalTokens；
+- timeoutSeconds；
+- status；
+- knowledge binding；
+- tool binding。
 
-路径：
+V0.1 工具选择只显示：
 
 ```text
-/knowledge-bases/:kbId/chunks
+order_query
+payment_log_query
 ```
 
-也可以从文档详情进入：
+不显示 `report_generate`、HTTP、MCP、permission level 或 confirmation 配置。
+
+保存前校验：
 
 ```text
-/documents/:documentId/chunks
+maxToolCalls < maxDecisionTurns
 ```
 
-### 14.1 页面目标
+但后端仍是最终校验者。
 
-调试文档切分质量。
-
-### 14.2 页面结构
-
-筛选：
-
-- document。
-- keyword。
-- chunkIndex。
-
-表格字段：
-
-- chunkIndex。
-- document。
-- titlePath。
-- tokenCount。
-- charCount。
-- contentPreview。
-
-点击行：
-
-- 右侧抽屉显示完整 chunk。
-- 展示 metadata JSON。
-
----
-
-## 15. 检索测试页
-
-路径：
+### 4.4 Agent 执行页
 
 ```text
-/knowledge-bases/:kbId/retrieve-test
+/agents/:agentId/run
+/tasks/:taskId
 ```
 
-### 15.1 页面目标
-
-调试 RAG 召回效果。
-
-### 15.2 页面结构
-
-左侧表单：
-
-- query。
-- topK。
-- similarityThreshold。
-- useRerank。
-- Run。
-
-右侧结果：
-
-- latencyMs。
-- hit count。
-- hits list。
-
-hit 展示：
-
-- rank。
-- score。
-- rerankScore。
-- fileName。
-- titlePath。
-- content。
-
-### 15.3 交互
-
-- 点击 hit 可打开 chunk 详情。
-- 支持复制 chunkId。
-- 支持跳转到原文档 chunks。
-
----
-
-## 16. 工具管理页
-
-路径：
+页面结构：
 
 ```text
-/tools
+Header: Agent 名称、Task 状态、取消按钮
+Main: 用户输入 + 最终答案/临时答案
+Right/Bottom: 执行时间线
+Evidence: 引用列表
+Action: 查看 Trace
 ```
 
-### 16.1 页面目标
+V0.1 不做多轮 conversation。每次提交创建独立 task；历史 task 可以通过最近任务列表进入。
 
-查看工具定义、schema、状态，并测试工具调用。
+SSE 实时展示任务阶段和工具过程。由于 V0.1 Final Generation 仍使用同步非流式 LlmGateway，答案增量可以只有一个完整 `ANSWER_CHUNK`；前端不得用逐字动画伪装 provider token streaming。
 
-### 16.2 页面结构
-
-表格字段：
-
-- toolCode。
-- name。
-- type。
-- permissionLevel。
-- requiresConfirmation。
-- timeoutMs。
-- retryCount。
-- status。
-- actions。
-
-操作：
-
-- View。
-- Enable/Disable。
-- Test。
-
-### 16.3 工具详情
-
-用 drawer 展示：
-
-- description。
-- inputSchema。
-- outputSchema。
-- config。
-- timeoutMs。
-- retryCount。
-
-JSON 使用只读代码块或 JSON viewer。
-
-### 16.4 工具测试
-
-测试面板：
-
-- arguments JSON editor。
-- Run。
-- result JSON。
-- latency。
-- error。
-
-V1.0 中普通用户可查看工具，管理员可启停工具。
-
----
-
-## 17. 任务历史页
-
-路径：
-
-```text
-/tasks
-```
-
-### 17.1 页面目标
-
-查看历史 Agent 任务，快速进入 Trace。
-
-### 17.2 表格字段
-
-- taskId。
-- agentName。
-- userInput preview。
-- status。
-- totalTokens。
-- totalCost。
-- startedAt。
-- completedAt。
-- actions。
-
-筛选：
-
-- agent。
-- status。
-- date range。
-- keyword。
-
-操作：
-
-- View Trace。
-- Open Chat。
-
----
-
-## 18. Trace 详情页
-
-路径：
+### 4.5 Trace 页
 
 ```text
 /tasks/:taskId/trace
 ```
 
-这是项目最重要的演示页面之一。
+V0.1 使用 tabs 或折叠面板：
 
-### 18.1 页面目标
+- Overview；
+- Steps；
+- RAG；
+- LLM Calls；
+- Tool Calls；
+- Events。
 
-完整回放一次 Agent 任务：
-
-- 用户输入。
-- Agent 配置快照。
-- RAG 召回。
-- LLM 调用。
-- 工具调用。
-- Policy checks。
-- Episode summary。
-- SSE 事件。
-- 最终回答。
-- 错误信息。
-
-### 18.2 页面结构
-
-顶部摘要：
-
-- taskId。
-- agentName。
-- status。
-- duration。
-- totalTokens。
-- totalCost。
-- episodeId。
-- startedAt。
-
-主体布局：
-
-```text
-Left: Step Timeline
-Right: Detail Panel
-```
-
-或者使用 tabs：
-
-```text
-Overview
-Steps
-RAG
-LLM Calls
-Tool Calls
-Policy Checks
-Episode
-Events
-Final Answer
-```
-
-推荐：
-
-- V0.1 用 tabs，简单。
-- V1.0 用左侧 timeline + 右侧 detail，更直观。
-
-### 18.3 Overview tab
-
-展示：
-
-- userInput。
-- finalAnswer。
-- errorCode。
-- errorMessage。
-- agentSnapshot。
-- episodeSummary。
-
-### 18.4 Steps tab
-
-字段：
-
-- stepIndex。
-- stepType。
-- title。
-- status。
-- latencyMs。
-- startedAt。
-
-点击 step：
-
-- 查看 inputData。
-- outputData。
-- error。
-
-### 18.5 RAG tab
-
-展示：
-
-- query。
-- topK。
-- threshold。
-- useRerank。
-- latencyMs。
-- hits。
-
-hit 字段：
-
-- rank。
-- score。
-- rerankScore。
-- fileName。
-- titlePath。
-- contentSnapshot。
-
-### 18.6 LLM Calls tab
-
-展示：
-
-- modelName。
-- callType。
-- inputTokens。
-- outputTokens。
-- latencyMs。
-- status。
-- prompt。
-- response。
-
-prompt 和 response 默认折叠，避免页面过长。
-
-### 18.7 Tool Calls tab
-
-展示：
-
-- toolCode。
-- status。
-- latencyMs。
-- arguments。
-- result。
-- error。
-
-### 18.8 Policy Checks tab
-
-展示：
-
-- toolCode。
-- decision。
-- policyCodes。
-- reason。
-- createdAt。
-
-决策状态：
-
-```text
-ALLOW
-WARN
-BLOCK
-REVIEW
-```
-
-### 18.9 Episode tab
-
-展示：
-
-- episodeId。
-- task summary。
-- budget usage。
-- metrics。
-- export button。
-
-V1.0 只需要展示摘要和导出入口，不做复杂可视化。
-
-### 18.10 Events tab
-
-展示 SSE 事件回放：
-
-- sequenceNo。
-- eventType。
-- timestamp。
-- payload。
+不实现复杂 DAG、火焰图、Episode 页面或 Evaluation 页面。
 
 ---
 
-## 19. 评测页
+## 5. Task 创建交互
 
-路径：
+### 5.1 请求
 
-```text
-/evaluations
-```
-
-### 19.1 页面目标
-
-轻量管理评测集，验证 RAG 和 Agent 效果。
-
-### 19.2 评测集列表
-
-字段：
-
-- name。
-- targetType。
-- targetName。
-- caseCount。
-- updatedAt。
-- actions。
-
-操作：
-
-- New Dataset。
-- Cases。
-- Run。
-- Results。
-
-### 19.3 Case 管理
-
-字段：
-
-- question。
-- expectedAnswer。
-- expectedDocumentIds。
-- expectedToolCodes。
-
-### 19.4 运行结果
-
-展示：
-
-- totalCases。
-- passedCases。
-- failedCases。
-- hitRate。
-- toolCallMatch。
-- totalTokens。
-- duration。
-- episodeCount。
-
-V1.0 允许人工标记：
-
-- passed。
-- judgeComment。
-
-### 19.5 Evaluation Harness 增强
-
-V1.5 可加入：
-
-- Prompt 版本对比。
-- RAG 参数对比。
-- 模型配置对比。
-- 评测结果指标对比。
-- 点击 eval result 跳转对应 episode。
-
----
-
-## 20. Demo Data 页面
-
-可选管理员页面：
-
-```text
-/demo
-```
-
-用途：
-
-- 查看 mock orders。
-- 查看 mock payment logs。
-- 查看 mock tickets。
-- 一键 seed demo 数据。
-
-V1.0 可以不放入主导航，只在管理员角色展示。
-
----
-
-## 21. 前端目录结构
-
-推荐：
-
-```text
-src
-  main.ts
-  App.vue
-
-  router
-    index.ts
-
-  stores
-    auth.ts
-    agent.ts
-    task.ts
-
-  api
-    http.ts
-    auth.ts
-    agents.ts
-    knowledge.ts
-    tools.ts
-    tasks.ts
-    trace.ts
-    evaluations.ts
-
-  layouts
-    AppLayout.vue
-    AuthLayout.vue
-
-  views
-    login
-    agents
-    chat
-    knowledge
-    tools
-    tasks
-    trace
-    evaluations
-
-  components
-    common
-    agent
-    rag
-    tool
-    trace
-    task
-
-  composables
-    useTaskEvents.ts
-    usePagination.ts
-    useConfirm.ts
-
-  types
-    api.ts
-    agent.ts
-    knowledge.ts
-    tool.ts
-    task.ts
-    trace.ts
-```
-
----
-
-## 22. API Client 设计
-
-### 22.1 Axios 实例
-
-`api/http.ts` 负责：
-
-- baseURL。
-- Authorization header。
-- 错误拦截。
-- 401 跳转登录。
-- 统一解包 `ApiResponse<T>`。
-
-### 22.2 API 类型
-
-前端定义与后端 DTO 对齐的 TypeScript 类型。
-
-示例：
+每次用户点击发送时生成不可复用的 opaque idempotency key：
 
 ```ts
-export interface AgentTask {
-  id: string
-  agentId: string
-  status: AgentTaskStatus
-  userInput: string
-  finalAnswer?: string
-  totalTokens?: number
-  totalCost?: number
-}
+const idempotencyKey = crypto.randomUUID()
 ```
 
-ID 统一使用 `string`。
+调用：
 
----
+```http
+POST /api/v1/agents/{agentId}/tasks
+Idempotency-Key: <uuid>
+```
 
-## 23. 状态管理
+在请求结果明确前，重复点击使用**同一个** key，而不是生成新 key。只有用户主动发起新的 task 才生成新 key。
 
-使用 Pinia。
-
-### 23.1 auth store
+### 5.2 成功
 
 保存：
 
-- accessToken。
-- currentUser。
-- isAuthenticated。
+```text
+taskId
+status
+phase
+serverLastEventSequence
+eventsUrl
+idempotencyKey
+```
 
-操作：
+`serverLastEventSequence` 表示服务端已经提交到哪里，不代表客户端已经处理到哪里。新 task 的本地 `lastProcessedSequence` 初始化为 `0`，随后连接 `afterSequence=0`，让数据库 replay 发送 `TASK_CREATED` 以及连接建立前产生的所有早期事件。
 
-- login。
-- logout。
-- fetchMe。
+不得直接把创建响应的 `lastEventSequence` 复制到 `lastProcessedSequence`，否则客户端会跳过尚未读取的事件。
 
-### 23.2 task store
+### 5.3 网络结果未知
 
-保存当前任务运行状态：
+POST 超时或连接断开时，不立即生成新 key 重试。使用原 key 重发创建请求，后端应返回同一 task 或明确冲突。
 
-- currentTaskId。
+---
+
+## 6. Task Store
+
+建议状态：
+
+```ts
+interface TaskRuntimeState {
+  task: AgentTaskDetail | null
+  uiState: TaskUiState
+  serverLastEventSequence: number
+  lastProcessedSequence: number
+  timeline: TaskTimelineItem[]
+  draftAnswer: string
+  finalAnswer: string | null
+  citations: Citation[]
+  reconnectAttempts: number
+  streamError: string | null
+}
+```
+
+ID 一律使用 `string`，不得转换为 JavaScript number。
+
+`serverLastEventSequence` 只用于判断服务端是否还有未处理事件；SSE cursor 始终使用 `lastProcessedSequence`。
+
+`timeline` 是 event 投影。完整 Trace 由 Trace API 加载，不把所有 Prompt/result 长期存入 Pinia。
+
+---
+
+## 7. SSE 连接与恢复
+
+### 7.1 建立连接
+
+```ts
+await fetchEventSource(
+  `/api/v1/tasks/${taskId}/events?afterSequence=${lastProcessedSequence}`,
+  {
+    headers: { Authorization: `Bearer ${token}` },
+    signal,
+    onmessage(event) {
+      applyTaskEvent(event)
+    }
+  }
+)
+```
+
+### 7.2 Sequence 去重
+
+收到事件时：
+
+1. 严格解析 `event.id` 和 data.sequenceNo；
+2. 二者必须相同；
+3. `sequenceNo <= lastProcessedSequence`：忽略；
+4. `sequenceNo == lastProcessedSequence + 1`：应用；
+5. 出现 gap：停止增量应用，调用 events/trace snapshot 恢复；
+6. 应用成功后再更新 lastProcessedSequence；
+7. 同时更新 serverLastEventSequence 的最大值。
+
+不能只依赖浏览器库“应该不会重复”。
+
+### 7.3 断线重连
+
+- 指数退避，但设置最大间隔；
+- 始终携带 lastProcessedSequence；
+- 401 不自动无限重连，清除 token；
+- 404 表示 task 不可见，停止；
+- terminal task 在处理完 terminal event 后不再重连；
+- 重连失败时仍允许用户刷新 task detail。
+
+### 7.4 页面刷新
+
+刷新流程：
+
+1. GET task detail；
+2. GET trace 或完整 events snapshot；
+3. 按 sequence 重建 timeline，并将 `lastProcessedSequence` 设置为**实际成功应用的最大 sequence**；
+4. 以 task.finalAnswer/citations 为权威；
+5. 若 task 非终态，从 lastProcessedSequence 建立 SSE；
+6. GET 与 SSE 之间产生的事件由 replay 补发。
+
+不得直接将 task.lastEventSequence 当成已处理 cursor，除非对应事件列表已经全部成功应用。
+
+### 7.5 临时答案和最终答案
+
+`ANSWER_CHUNK` 追加到 `draftAnswer`。V0.1 通常只收到一个完整答案 chunk，但 reducer 保持支持多个合并 chunk。收到 terminal event 后：
+
+1. GET task detail；
+2. 用 `task.finalAnswer` 覆盖 draftAnswer；
+3. 使用 task.citations；
+4. 清除不完整尾部；
+5. 关闭 SSE。
+
+SSE draft 永远不是最终数据源。
+
+---
+
+## 8. Event Reducer
+
+### 8.1 事件映射
+
+| Event | UI 行为 |
+| --- | --- |
+| `TASK_CREATED` | 建立 timeline 起点 |
+| `TASK_STARTED` | 显示开始执行 |
+| `PHASE_CHANGED` | 更新当前 phase，不重复创建大量相同行 |
+| `RAG_FINISHED` | 显示命中数量、耗时和 citation 摘要 |
+| `DECISION_FINISHED` | 显示 `CALL_TOOL` 或 `FINISH`，不显示隐藏推理 |
+| `TOOL_STARTED` | 新增工具调用进行中项 |
+| `TOOL_FINISHED` | 按 toolCallId 更新对应项 |
+| `FINAL_GENERATION_STARTED` | 显示生成中 |
+| `ANSWER_CHUNK` | 追加临时答案，可为完整答案单块 |
+| `TASK_COMPLETED` | 拉取 task，展示成功/受预算限制原因 |
+| `TASK_FAILED` | 拉取 task，展示 errorCode/safe message |
+| `TASK_CANCELLED` | 展示已取消 |
+| `TASK_TIMED_OUT` | 展示整体超时 |
+
+### 8.2 Timeline 不显示 chain-of-thought
+
+展示：
+
+- decision type；
+- tool code/name；
+- 简短 reason；
+- RAG hit count；
+- safe summary；
+- latency；
 - status。
-- events。
-- timelineItems。
-- answerText。
-- citations。
-- error。
 
-### 23.3 agent store
+不展示：
 
-可缓存：
+- 自由形式思维链；
+- 完整 provider 原始响应；
+- 内部 Prompt rules；
+- handler/config；
+- Authorization/API key；
+- 未脱敏日志正文。
 
-- agents。
-- currentAgent。
-- boundKnowledgeBases。
-- boundTools。
-
-注意：
-
-- 不要把所有页面数据都塞到 Pinia。
-- 普通列表数据可以留在页面组件中。
+完整可公开 Trace 仍需要折叠和访问控制。
 
 ---
 
-## 24. 关键组件设计
+## 9. 状态展示
 
-### 24.1 TaskEventTimeline
+### 9.1 TaskStatus 标签
 
-用途：
+| 状态 | 文案 |
+| --- | --- |
+| `QUEUED` | 等待执行 |
+| `RUNNING` | 执行中 |
+| `COMPLETED` | 已完成 |
+| `FAILED` | 执行失败 |
+| `CANCELLED` | 已取消 |
+| `TIMED_OUT` | 已超时 |
 
-- 展示 Agent 执行事件。
+颜色和样式由主题决定，业务逻辑不依赖颜色。
 
-props：
+### 9.2 Phase 文案
 
-```ts
-events: TaskEvent[]
-activeSequenceNo?: number
+| Phase | 文案 |
+| --- | --- |
+| `PREPARING` | 正在准备执行配置 |
+| `RETRIEVING` | 正在检索知识库 |
+| `DECIDING` | 正在判断下一步动作 |
+| `EXECUTING_TOOL` | 正在查询业务数据 |
+| `GENERATING` | 正在生成最终答案 |
+
+### 9.3 terminationReason
+
+`COMPLETED` 也可能带预算受限原因：
+
+- `ANSWERED`：正常完成；
+- `MAX_DECISION_TURNS`：基于已有证据生成部分答案；
+- `MAX_TOOL_CALLS`：达到工具次数上限后生成部分答案。
+
+UI 需要在答案顶部显示非阻断提示，不能把这两种完成伪装成完全正常，也不能简单显示为失败。
+
+---
+
+## 10. 取消交互
+
+- 仅 QUEUED/RUNNING 显示取消按钮；
+- 点击后按钮进入 pending；
+- RUNNING cancel 响应可能仍是 RUNNING；
+- 显示“取消请求已提交，当前外部调用结束后生效”；
+- 不提前把本地状态改为 CANCELLED；
+- 最终状态来自 task/event；
+- terminal task 的重复取消视为幂等，不弹错误。
+
+---
+
+## 11. 引用展示
+
+最终答案中的 `[C1]` 映射到 task.citations：
+
+```text
+citationId
+fileName
+titlePath
+score
+contentPreview
+chunkId
+documentId
 ```
 
-### 24.2 StreamingAnswer
+交互：
 
-用途：
+- 点击 marker 打开 evidence drawer；
+- 只显示后端验证过的 citation；
+- citation 不存在时前端不自行猜测；
+- contentPreview 有长度限制；
+- 可跳转到对应文档/chunk；
+- 源文档已删除时仍显示 Trace snapshot，并标注“历史快照”。
 
-- 展示流式生成的最终答案。
-- 支持 citation 点击。
+---
 
-props：
+## 12. Trace 页面
 
-```ts
-content: string
-citations: Citation[]
+### Overview
+
+- task status/phase/terminationReason；
+- userInput；
+- Agent snapshot 摘要；
+- model profile；
+- corpus snapshot；
+- tool snapshot；
+- budget used/max；
+- total latency；
+- final answer。
+
+### Steps
+
+按 stepIndex 展示：
+
+```text
+PRE_RETRIEVAL
+LLM_DECISION
+TOOL_CALL
+LLM_FINAL_GENERATION
 ```
 
-### 24.3 CitationList
+### RAG
 
-用途：
+- query；
+- profile；
+- candidate/valid/stale count；
+- hits/citation；
+- content snapshot；
+- latency。
 
-- 展示引用来源。
+### LLM
 
-字段：
+- call type；
+- requested/resolved model；
+- usage 和 quality；
+- latency；
+- status/error；
+- Prompt/response 默认折叠；
+- 不显示 chain-of-thought。
 
-- citationId。
-- fileName。
-- titlePath。
-- score。
+### Tool
 
-### 24.4 JsonViewer
+- tool code/name；
+- arguments/result snapshot；
+- status；
+- latency；
+- error；
+- 默认脱敏和折叠。
 
-用途：
+### Events
 
-- 展示 tool arguments、tool result、metadata、payload。
-
-要求：
-
-- 支持折叠。
-- 支持复制。
-
-### 24.5 StatusTag
-
-用途：
-
-- 统一展示 task/document/tool/eval 状态。
-
----
-
-## 25. V0.1 页面边界
-
-V0.1 必须页面：
-
-- 登录页，可以简化。
-- Agent 列表页。
-- Agent 对话页。
-- 知识库列表页。
-- 文档上传和列表页。
-- 检索测试页。
-- 任务 Trace 页，基础版。
-
-V0.1 可以不做：
-
-- Agent Prompt 版本页。
-- 完整工具管理页。
-- 完整评测页。
-- Demo Data 页面。
-- 精细权限 UI。
-- 复杂响应式适配。
+用于检查 SSE sequence，不替代专项日志。
 
 ---
 
-## 26. V1.0 页面完成标准
+## 13. Knowledge UI
 
-V1.0 前端应支持：
+文档列表筛选：
 
-1. 用户登录。
-2. 创建和编辑 Agent。
-3. 配置 Agent Prompt、模型参数、知识库和工具。
-4. 创建知识库。
-5. 上传文档并查看处理状态。
-6. 查看 chunks。
-7. 运行知识库检索测试。
-8. 在 Agent 对话页提交任务。
-9. 通过 SSE 实时看到执行过程。
-10. 查看最终回答和引用。
-11. 查看工具列表和工具详情。
-12. 查看任务历史。
-13. 查看完整 Trace。
-14. 查看 episode summary 和 policy checks。
-15. 导出 Agent Episode Package。
-16. 创建轻量评测集并运行评测。
+- parseStatus；
+- retrievalReadiness；
+- fileType。
+
+上传后：
+
+- 显示 parse 和 vectorization 两阶段；
+- 可以每 2–3 秒轮询非终态文档；
+- 达到前端轮询上限后停止自动轮询，但不把 document 标记失败；
+- 用户可手动刷新；
+- 只有 READY 文档计入“可检索文档数”。
+
+Retrieval Test 页面可以作为知识库详情中的折叠区域，不单独建设完整调试工作台。
 
 ---
 
-## 27. V1.5 增强项
+## 14. Agent UI
 
-推荐增强：
+V0.1 不显示尚未实现的功能：
 
-- Trace 页面可视化时间轴。
-- Episode Package 导出体验增强。
-- RAG 命中 chunk 高亮。
-- Prompt 版本 diff。
-- Evaluation Harness 结果对比。
-- 工具调用统计图。
-- token 成本趋势。
-- SSE 断线补偿。
-- 更完整的空状态和错误状态。
-- 简单压测结果展示。
+- Prompt versions；
+- conversation memory；
+- PolicyGuard；
+- requiresConfirmation；
+- HTTP/MCP tool；
+- arbitrary model provider；
+- semantic chunking；
+- rerank；
+- Evaluation。
 
----
-
-## 28. 面试表达重点
-
-前端设计可以这样讲：
-
-1. **不是只做聊天框**
-   - 前端覆盖知识库、Agent 配置、工具、任务历史、Trace 和评测。
-
-2. **演示 Agent 执行过程**
-   - 对话页通过 SSE 实时展示 RAG、LLM、工具调用和最终答案。
-
-3. **Trace 可回放**
-   - Trace 页面可以查看 step、RAG hit、LLM call、tool call 和事件流。
-
-4. **服务后端工程展示**
-   - 前端页面围绕后端核心能力组织，方便展示系统设计和排查链路。
-
-5. **SSE 认证处理**
-   - 使用 fetch-event-source 携带 Authorization header，避免把 token 放在 URL 中。
+禁用 Agent 时明确提示：新 task 无法创建；已经 RUNNING 的 task 继续使用 snapshot，除非后端返回平台级资源撤销。前端不自行终止。
 
 ---
 
-## 29. 当前不做的内容
+## 15. 错误体验
 
-V1.0 暂不做：
+错误区域至少显示：
 
-- 营销首页。
-- 移动端深度适配。
-- 拖拽式工作流编辑器。
-- 复杂 BI 仪表盘。
-- 多主题皮肤。
-- 多人协作编辑。
-- 实时多人会话。
-- 前端低代码表单系统。
+```text
+errorCode
+safe message
+Task ID
+查看 Trace
+重试为新 Task
+```
 
-这些内容会增加复杂度，但对当前找实习的项目价值不高。
+不得只显示“请求失败”。
+
+重试 task 时生成新的 Idempotency-Key；网络结果未知的创建请求重发时使用原 key，两者必须区分。
+
+错误 UI 不显示 stack、provider body、SQL、内部 URL 或本地路径。
+
+---
+
+## 16. V1.x 后续页面
+
+V0.1 完成后再考虑：
+
+- Task history 完整筛选；
+- Prompt version；
+- conversation；
+- Tool 管理；
+- Evaluation；
+- Episode export；
+- PDF 预览；
+- Policy/approval；
+- 成本报表；
+- provider token streaming 和更细粒度 timeline。
+
+这些页面不得先于对应后端事实和状态机出现。
+
+---
+
+## 17. 前端验收
+
+必须验证：
+
+1. BIGINT ID 不发生 JS 精度丢失；
+2. POST 网络未知时使用原 Idempotency-Key；
+3. 新 task 从 afterSequence=0 读取尚未处理事件；
+4. serverLastEventSequence 与 lastProcessedSequence 不混用；
+5. Server status、phase 和 client uiState 分离；
+6. TIMED_OUT 单独展示；
+7. parseStatus 与 retrievalReadiness 分开展示；
+8. SSE 重复事件被忽略；
+9. sequence gap 会触发恢复而不是继续错误追加；
+10. 页面刷新后 timeline/final answer 可恢复；
+11. terminal 后以 task.finalAnswer 覆盖 draft；
+12. cancel 不提前伪造终态；
+13. citation 只来自后端白名单；
+14. Trace 不泄漏内部配置或 chain-of-thought；
+15. V0.1 不伪装 provider token streaming；
+16. V0.1 主流程只需要少量页面即可完整演示。

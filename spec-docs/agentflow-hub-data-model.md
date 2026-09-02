@@ -1,1252 +1,924 @@
 # AgentFlow Hub 数据库与领域模型设计
 
-本文档用于沉淀 AgentFlow Hub 的核心领域模型、PostgreSQL 表设计、Qdrant payload 设计、关键索引和状态枚举。
-
-设计目标：
-
-> 表结构既要支撑 V1.0 的完整业务闭环，也要方便后续扩展到 Prompt 版本管理、Agent Trace、轻量评测和工具平台。
-
----
-
-## 1. 数据建模原则
-
-### 1.1 主键策略
-
-所有核心业务表使用：
-
-```text
-BIGINT id
-```
-
-由后端通过 MyBatis-Plus `ASSIGN_ID` 生成。
-
-原因：
-
-- 国内 Java 后端项目常见。
-- 便于分布式扩展。
-- 避免数据库自增 ID 在未来拆分服务时产生迁移成本。
-
-### 1.2 通用字段
-
-核心业务表尽量包含：
-
-```text
-id BIGINT PRIMARY KEY
-created_at TIMESTAMPTZ NOT NULL
-updated_at TIMESTAMPTZ NOT NULL
-deleted_at TIMESTAMPTZ NULL
-```
-
-需要审计的表额外包含：
-
-```text
-created_by BIGINT NULL
-updated_by BIGINT NULL
-```
-
-### 1.3 状态字段
-
-状态字段使用：
-
-```text
-VARCHAR(32)
-```
-
-不使用 PostgreSQL enum。
-
-原因：
-
-- 迁移简单。
-- Java 枚举和数据库字符串映射更直接。
-- 后续新增状态不需要修改数据库 enum 类型。
-
-### 1.4 JSON 字段
-
-工具 schema、模型参数、trace metadata 等使用：
-
-```text
-JSONB
-```
-
-典型使用场景：
-
-- tool input schema。
-- tool config。
-- model options。
-- agent config snapshot。
-- step input/output。
-- trace metadata。
-
-### 1.5 删除策略
-
-核心配置类数据使用软删除：
-
-- 用户。
-- 知识库。
-- 文档。
-- Agent。
-- 工具定义。
-- 评测集。
-
-日志类和 trace 类数据默认不软删除：
-
-- LLM 调用日志。
-- 工具调用日志。
-- RAG 召回记录。
-- Agent step。
+> 文档状态：**NORMATIVE**  
+> 权威范围：PostgreSQL/Qdrant 数据形状、约束、索引、外键和快照字段  
+> 最近审查基线：`main@f276549`，当前 Flyway schema version 为 16  
+> TaskStatus/TaskPhase 以 Agent Engine Design 为准；向量身份和 readiness 以 RAG Design 为准。
 
 ---
 
-## 2. 领域模型总览
+## 1. 建模原则
 
-核心聚合：
+### 1.1 已应用 migration 不可变
 
-| 聚合 | 说明 | 主要表 |
+`V1`–`V16` 保持不可变。本文中的新增字段、约束和表必须通过更高版本 migration 实现，不得回改历史 migration。
+
+本文同时区分：
+
+- **CURRENT**：V16 schema 已存在；
+- **V0.1 TARGET**：完成 Agent 闭环前必须新增；
+- **DEFERRED**：V1.x 后再新增。
+
+### 1.2 主键和时间
+
+- 核心表使用 `BIGINT id`；
+- Java 侧继续使用 MyBatis-Plus `ASSIGN_ID`；
+- 时间使用 `TIMESTAMPTZ`；
+- 业务排序总是增加 `id` 作为稳定 tie-breaker；
+- API 将 BIGINT 序列化为字符串，数据库仍保持 BIGINT。
+
+### 1.3 状态必须受数据库约束
+
+状态使用 `VARCHAR` + CHECK，不使用 PostgreSQL enum。新增状态时通过新 migration 修改 CHECK。
+
+状态字段只能表达一个事实：
+
+- task 生命周期使用 `status`；
+- task 当前执行阶段使用 `phase`；
+- 文档软删除使用 `deleted_at`，不再额外使用 `DELETED` parse status；
+- parsing、vectorization 和 retrieval readiness 不混用。
+
+### 1.4 Owner scope 由数据库证明
+
+只要子表冗余保存 `user_id`，就必须通过复合外键证明它与父资源 owner 一致。现有 `knowledge_document` 和 `knowledge_chunk` 的复合外键模式是标准做法，后续 Agent binding 和 task 继续采用。
+
+禁止只在 Service 中“先查 owner 再插入”而不给数据库约束。
+
+### 1.5 JSONB 的使用边界
+
+JSONB 用于：
+
+- immutable execution snapshot；
+- corpus/tool/model snapshot；
+- provider request/response metadata；
+- event payload；
+- 可选扩展配置。
+
+核心可查询状态、外键、预算和时间不得只藏在 JSONB 中。
+
+### 1.6 历史 Trace 不随配置删除
+
+配置类资源可以软删除；Trace 默认不软删除。历史 hit、tool/LLM call 和 task 必须在源 Agent、文档或工具被修改/删除后仍可解释。
+
+因此：
+
+- Trace 保存必要 snapshot；
+- 不对历史 Trace 使用危险级联删除；
+- 对已删除源对象的 ID 可以只保存 snapshot value，或使用 nullable FK/`ON DELETE SET NULL`；
+- task 自身在 V0.1 不提供删除接口。
+
+---
+
+## 2. 聚合边界
+
+| 聚合 | 根对象 | 主要成员 |
 | --- | --- | --- |
-| User | 用户与权限 | `app_user` |
-| KnowledgeBase | 知识库、文档、chunk | `knowledge_base`、`knowledge_document`、`knowledge_chunk` |
-| AgentApp | Agent 配置、Prompt 版本、绑定关系 | `agent_app`、`agent_prompt_version`、`agent_knowledge_binding`、`agent_tool_binding` |
-| Tool | 工具定义与运行时配置 | `tool_definition` |
-| AgentTask | Agent 一次执行任务及完整 trace | `agent_conversation`、`agent_message`、`agent_task`、`agent_step`、`agent_task_event`、`agent_episode` |
-| Observability | LLM、RAG、工具调用和策略检查记录 | `llm_call_log`、`rag_retrieval_log`、`rag_retrieval_hit`、`tool_call_log`、`policy_check_log` |
-| Evaluation | 轻量评测 | `eval_dataset`、`eval_case`、`eval_run`、`eval_result` |
-| DemoBusiness | 模拟业务数据源 | `mock_order`、`mock_payment_log`、`mock_ticket` |
+| User | `app_user` | 用户身份与基础角色 |
+| Knowledge | `knowledge_base` | document、chunk、删除/重处理任务 |
+| AgentApp | `agent_app` | knowledge/tool bindings |
+| AgentTask | `agent_task` | step、LLM/RAG/tool logs、events |
+| Tool | `tool_definition` | binding、call log |
+| DemoBusiness | mock tables | order、payment log |
 
-领域关系图：
-
-```mermaid
-erDiagram
-    app_user ||--o{ knowledge_base : owns
-    app_user ||--o{ agent_app : owns
-    app_user ||--o{ agent_task : submits
-
-    knowledge_base ||--o{ knowledge_document : contains
-    knowledge_document ||--o{ knowledge_chunk : split_into
-
-    agent_app ||--o{ agent_prompt_version : has
-    agent_app ||--o{ agent_knowledge_binding : binds
-    knowledge_base ||--o{ agent_knowledge_binding : bound_by
-
-    agent_app ||--o{ agent_tool_binding : binds
-    tool_definition ||--o{ agent_tool_binding : bound_by
-
-    agent_app ||--o{ agent_conversation : has
-    agent_conversation ||--o{ agent_message : contains
-    agent_conversation ||--o{ agent_task : creates
-
-    agent_task ||--o{ agent_step : has
-    agent_task ||--o{ agent_task_event : emits
-    agent_task ||--o{ llm_call_log : records
-    agent_task ||--o{ rag_retrieval_log : records
-    rag_retrieval_log ||--o{ rag_retrieval_hit : has
-    agent_task ||--o{ tool_call_log : records
-    agent_task ||--o{ policy_check_log : records
-    agent_task ||--o| agent_episode : packages
-
-    eval_dataset ||--o{ eval_case : contains
-    eval_dataset ||--o{ eval_run : runs
-    eval_run ||--o{ eval_result : produces
-```
+`AgentTask` 是一次执行唯一根对象。Event、Episode 和前端状态都不能成为第二个任务真相源。
 
 ---
 
-## 3. 用户与权限
+## 3. CURRENT：用户与知识库
 
 ### 3.1 app_user
 
-用途：
+现有字段：
 
-> 保存平台用户、登录凭证和基础角色。
+```text
+id
+username
+email
+password_hash
+display_name
+role                 USER / ADMIN
+status               ACTIVE / DISABLED
+last_login_at
+created_at
+updated_at
+deleted_at
+```
 
-V1.0 只做普通用户和管理员，不做复杂 RBAC。
+约束：
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| username | VARCHAR(64) | 用户名，唯一 |
-| email | VARCHAR(128) | 邮箱，唯一，可选 |
-| password_hash | VARCHAR(255) | 密码哈希 |
-| display_name | VARCHAR(64) | 显示名称 |
-| role | VARCHAR(32) | `USER` / `ADMIN` |
-| status | VARCHAR(32) | `ACTIVE` / `DISABLED` |
-| last_login_at | TIMESTAMPTZ | 最近登录时间 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-| updated_at | TIMESTAMPTZ | 更新时间 |
-| deleted_at | TIMESTAMPTZ | 软删除时间 |
+```text
+UNIQUE(username)
+UNIQUE(email)
+CHECK role/status
+```
+
+V0.1 不增加组织、多租户或复杂 RBAC。
+
+### 3.2 knowledge_base
+
+现有字段：
+
+```text
+id
+user_id
+name
+description
+embedding_provider
+embedding_model
+chunk_size
+chunk_overlap
+status               ACTIVE / DISABLED
+metadata
+created_at
+updated_at
+deleted_at
+```
+
+现有复合唯一键 `(id, user_id)` 必须保留，供 document owner-scope FK 使用。
+
+逻辑上的 `embeddingProfileCode` 由 V0.1 固定 provider/model/collection 配置解析，不允许客户端自由组合。后续引入 `embedding_profile` 表时，再将 provider/model 迁移为 profile 引用。
+
+### 3.3 knowledge_document
+
+现有字段加 V11 generation：
+
+```text
+id
+user_id
+knowledge_base_id
+file_name
+file_type             TXT / MD
+mime_type
+file_size
+storage_bucket
+storage_object_key
+parse_status          PENDING / PROCESSING / COMPLETED / FAILED / REPROCESSING
+parse_error
+vector_generation
+created_at
+updated_at
+deleted_at
+```
 
 关键约束：
 
-- `username` 唯一。
-- `email` 唯一，但允许为空。
+```text
+FOREIGN KEY (knowledge_base_id, user_id)
+  REFERENCES knowledge_base(id, user_id)
 
-关键索引：
+UNIQUE(storage_bucket, storage_object_key)
+UNIQUE(id, knowledge_base_id, user_id)
+```
+
+`chunk_count`、`char_count`、`token_count` 在 V0.1 通过 chunk 聚合查询，不复制为可漂移的 document 字段。出现明确性能需求后再增加缓存列和一致性规则。
+
+### 3.4 knowledge_chunk
+
+现有字段：
 
 ```text
-uk_app_user_username(username)
-uk_app_user_email(email)
-idx_app_user_status(status)
+id
+user_id
+knowledge_base_id
+document_id
+chunk_index
+content
+title_path
+char_count
+token_count
+vectorization_status
+vectorization_error
+content_hash
+vector_id
+vector_generation
+created_at
+updated_at
 ```
+
+V0.1 TARGET 新增：
+
+```text
+chunk_strategy_version VARCHAR(64) NOT NULL
+```
+
+历史 V4–V16 数据回填为：
+
+```text
+structured-token-v1
+```
+
+关键约束：
+
+```text
+FOREIGN KEY (document_id, knowledge_base_id, user_id)
+  REFERENCES knowledge_document(id, knowledge_base_id, user_id)
+
+UNIQUE(document_id, chunk_index)
+CHECK chunk_index >= 0
+CHECK content nonblank
+CHECK char_count/token_count > 0
+CHECK content_hash is lowercase SHA-256
+CHECK vectorization state fields are mutually consistent
+CHECK vector_generation >= 0
+```
+
+不新增通用 `metadata JSONB` 作为 V0.1 前置。页码、block range 等在支持 PDF/更丰富 parser 时通过显式字段或版本化 metadata migration 增加。
+
+### 3.5 knowledge_document_deletion_task / reprocess_task
+
+现有 V10/V11 持久补偿表继续保留。它们属于 Knowledge 维护流程，不是 AgentTask，也不进入通用 task 状态机。
+
+要求：
+
+- task 与 document 使用 owner-scope 复合 FK；
+- 同一 document 同时最多一个 active cleanup task；
+- generation fence 为 BIGINT 非负；
+- lifecycle CHECK 保证时间字段和 cleanup status 一致；
+- 历史 Agent retrieval hit 不级联删除。
 
 ---
 
-## 4. 知识库模型
+## 4. CURRENT：Tool 与 AgentApp
 
-### 4.1 knowledge_base
+### 4.1 tool_definition
 
-用途：
-
-> 表示一个用户创建的知识库。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| user_id | BIGINT | 所属用户 |
-| name | VARCHAR(128) | 知识库名称 |
-| description | TEXT | 知识库描述 |
-| embedding_provider | VARCHAR(64) | embedding 服务商 |
-| embedding_model | VARCHAR(128) | embedding 模型 |
-| chunk_size | INT | 默认 chunk 大小 |
-| chunk_overlap | INT | 默认 chunk overlap |
-| status | VARCHAR(32) | `ACTIVE` / `DISABLED` |
-| metadata | JSONB | 扩展配置 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-| updated_at | TIMESTAMPTZ | 更新时间 |
-| deleted_at | TIMESTAMPTZ | 软删除时间 |
-
-关键索引：
+现有字段：
 
 ```text
-idx_kb_user_created(user_id, created_at DESC)
-idx_kb_user_status(user_id, status)
+id
+tool_code
+name
+description
+type                    BUILTIN / HTTP / MCP
+input_schema
+output_schema
+config
+timeout_ms
+retry_count
+requires_confirmation
+permission_level        LOW / MEDIUM / HIGH
+status                  ACTIVE / DISABLED
+created_at
+updated_at
+deleted_at
 ```
 
-### 4.2 knowledge_document
+V0.1 只执行 `BUILTIN`，且 Agent snapshot 只允许 `order_query`、`payment_log_query`。
 
-用途：
+`tool_code` 全局唯一。已发布 code 不原地重命名；语义不兼容变化创建新 code 或提升 implementation version。
 
-> 保存用户上传文档的元数据和处理状态。
+### 4.2 tool_call_log
 
-原始文件保存在 MinIO，不直接存数据库。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| user_id | BIGINT | 所属用户 |
-| knowledge_base_id | BIGINT | 所属知识库 |
-| file_name | VARCHAR(255) | 原始文件名 |
-| file_type | VARCHAR(32) | `TXT` / `MD` / `PDF` |
-| mime_type | VARCHAR(128) | MIME 类型 |
-| file_size | BIGINT | 文件大小 |
-| content_hash | VARCHAR(128) | 文件内容 hash，用于去重 |
-| storage_bucket | VARCHAR(128) | MinIO bucket |
-| storage_object_key | VARCHAR(512) | MinIO object key |
-| parse_status | VARCHAR(32) | 文档处理状态 |
-| parse_error | TEXT | 失败原因 |
-| chunk_count | INT | chunk 数量 |
-| char_count | INT | 文本字符数 |
-| token_count | INT | 估算 token 数 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-| updated_at | TIMESTAMPTZ | 更新时间 |
-| deleted_at | TIMESTAMPTZ | 软删除时间 |
-
-文档处理状态：
+现有字段：
 
 ```text
-PENDING
-PROCESSING
-COMPLETED
-FAILED
-DELETED
+id
+task_id nullable
+step_id nullable
+tool_id
+tool_code snapshot
+tool_name snapshot
+arguments
+result
+status
+retry_count
+latency_ms
+error_code
+error_message
+started_at
+finished_at
+created_at
 ```
 
-关键索引：
+V0.1 TARGET：
+
+- 在 `agent_task`/`agent_step` 建立后，为非空 task_id/step_id 增加 FK；
+- 不强制旧 standalone tool test log 必须关联 task；
+- 增加索引 `(task_id, created_at, id)`；
+- result/arguments 进入数据库前执行大小限制和脱敏；
+- V0.1 不做多 attempt 重试，因此一行代表一次实际 handler 调用。
+
+未来启用重试时新增 `tool_call_attempt`，不要只反复覆盖同一行并丢失 attempt 证据。
+
+### 4.3 agent_app
+
+现有字段：
 
 ```text
-idx_doc_kb_status(knowledge_base_id, parse_status)
-idx_doc_user_created(user_id, created_at DESC)
-idx_doc_content_hash(content_hash)
+id
+user_id
+name
+description
+system_prompt
+model_provider
+model_name
+temperature
+top_p
+max_steps
+max_tool_calls
+max_tokens
+timeout_seconds
+status                  ACTIVE / DISABLED
+config
+created_at
+updated_at
+deleted_at
 ```
 
-### 4.3 knowledge_chunk
-
-用途：
-
-> 保存文档切分后的 chunk 文本和元数据。
-
-向量本身存 Qdrant，PostgreSQL 只保存 chunk 文本、metadata 和 Qdrant vector id。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| user_id | BIGINT | 所属用户 |
-| knowledge_base_id | BIGINT | 所属知识库 |
-| document_id | BIGINT | 所属文档 |
-| chunk_index | INT | 文档内 chunk 序号 |
-| content | TEXT | chunk 正文 |
-| content_hash | VARCHAR(128) | chunk hash |
-| vector_id | VARCHAR(128) | Qdrant 向量 ID |
-| title_path | VARCHAR(512) | 标题路径，例如 `支付/失败处理/错误码` |
-| token_count | INT | 估算 token 数 |
-| char_count | INT | 字符数 |
-| metadata | JSONB | 页码、标题、段落等扩展信息 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-| updated_at | TIMESTAMPTZ | 更新时间 |
-
-关键约束：
+语义映射：
 
 ```text
-uk_chunk_doc_index(document_id, chunk_index)
+max_steps       -> maxDecisionTurns
+max_tokens      -> maxTotalTokens
 ```
 
-关键索引：
+V0.1 TARGET 增加：
 
 ```text
-idx_chunk_kb_doc(knowledge_base_id, document_id)
-idx_chunk_vector_id(vector_id)
-idx_chunk_content_hash(content_hash)
+UNIQUE(id, user_id)
 ```
 
-V1.5 可增加全文检索：
+用于 binding/task owner-scope 复合 FK。
 
-```text
-GIN(to_tsvector('simple', content))
-```
-
-用于 Hybrid Search。
+V0.1 不新增 prompt version 表。execution snapshot 保存 task 实际使用的 system prompt 和模型配置。
 
 ---
 
-## 5. Agent 配置模型
+## 5. V0.1 TARGET：Agent Bindings
 
-### 5.1 agent_app
-
-用途：
-
-> 表示用户创建的一个可配置 Agent 应用。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| user_id | BIGINT | 所属用户 |
-| name | VARCHAR(128) | Agent 名称 |
-| description | TEXT | Agent 描述 |
-| system_prompt | TEXT | 当前 system prompt |
-| current_prompt_version_id | BIGINT | 当前 Prompt 版本 |
-| model_provider | VARCHAR(64) | 模型服务商 |
-| model_name | VARCHAR(128) | 模型名称 |
-| temperature | NUMERIC(4,3) | 温度 |
-| top_p | NUMERIC(4,3) | topP |
-| max_steps | INT | 最大执行步数 |
-| max_tool_calls | INT | 最大工具调用次数 |
-| max_tokens | INT | 单次任务最大 token 预算 |
-| timeout_seconds | INT | 任务超时时间 |
-| status | VARCHAR(32) | `ACTIVE` / `DISABLED` |
-| config | JSONB | 扩展配置 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-| updated_at | TIMESTAMPTZ | 更新时间 |
-| deleted_at | TIMESTAMPTZ | 软删除时间 |
-
-关键索引：
+### 5.1 agent_knowledge_binding
 
 ```text
-idx_agent_user_created(user_id, created_at DESC)
-idx_agent_user_status(user_id, status)
+id                    BIGINT PK
+user_id               BIGINT NOT NULL
+agent_id              BIGINT NOT NULL
+knowledge_base_id     BIGINT NOT NULL
+priority              INT NOT NULL DEFAULT 0
+created_at            TIMESTAMPTZ NOT NULL
+updated_at            TIMESTAMPTZ NOT NULL
 ```
 
-### 5.2 agent_prompt_version
-
-用途：
-
-> 保存 Agent system prompt 的历史版本，支持后续评测和回滚。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| agent_id | BIGINT | 所属 Agent |
-| version_no | INT | 版本号，从 1 递增 |
-| system_prompt | TEXT | Prompt 内容 |
-| change_note | VARCHAR(255) | 修改说明 |
-| created_by | BIGINT | 创建人 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-
-关键约束：
+约束：
 
 ```text
-uk_prompt_agent_version(agent_id, version_no)
+FOREIGN KEY (agent_id, user_id)
+  REFERENCES agent_app(id, user_id)
+
+FOREIGN KEY (knowledge_base_id, user_id)
+  REFERENCES knowledge_base(id, user_id)
+
+UNIQUE(agent_id, knowledge_base_id)
+CHECK priority >= 0
 ```
 
-### 5.3 agent_knowledge_binding
+V0.1 首个 Agent 只绑定一个知识库，但表保持多对多，避免以后从单字段迁移。
 
-用途：
+绑定只表示 Agent 可以使用该知识库。task 创建时仍要解析当时 READY 的 document generation 并写 execution snapshot。
 
-> Agent 与知识库的多对多绑定关系。
-
-一个 Agent 可以绑定多个知识库。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| agent_id | BIGINT | Agent ID |
-| knowledge_base_id | BIGINT | 知识库 ID |
-| priority | INT | 检索优先级 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-
-关键约束：
+### 5.2 agent_tool_binding
 
 ```text
-uk_agent_kb(agent_id, knowledge_base_id)
+id                    BIGINT PK
+user_id               BIGINT NOT NULL
+agent_id              BIGINT NOT NULL
+tool_id               BIGINT NOT NULL
+enabled               BOOLEAN NOT NULL DEFAULT TRUE
+priority              INT NOT NULL DEFAULT 0
+created_at            TIMESTAMPTZ NOT NULL
+updated_at            TIMESTAMPTZ NOT NULL
 ```
 
-### 5.4 agent_tool_binding
-
-用途：
-
-> Agent 与工具的多对多绑定关系。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| agent_id | BIGINT | Agent ID |
-| tool_id | BIGINT | 工具 ID |
-| enabled | BOOLEAN | 是否启用 |
-| priority | INT | 工具展示或选择优先级 |
-| config_override | JSONB | 针对该 Agent 的工具覆盖配置 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-| updated_at | TIMESTAMPTZ | 更新时间 |
-
-关键约束：
+约束：
 
 ```text
-uk_agent_tool(agent_id, tool_id)
+FOREIGN KEY (agent_id, user_id)
+  REFERENCES agent_app(id, user_id)
+
+FOREIGN KEY (tool_id)
+  REFERENCES tool_definition(id)
+
+UNIQUE(agent_id, tool_id)
+CHECK priority >= 0
 ```
+
+V0.1 不增加 `config_override`。出现真实 per-Agent 工具配置需求后再增加，并定义 merge/schema 规则。
 
 ---
 
-## 6. 工具模型
+## 6. V0.1 TARGET：agent_task
 
-### 6.1 tool_definition
-
-用途：
-
-> 保存平台可用工具定义。V1.0 以系统内置工具为主，但仍以表结构表达注册中心能力。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| tool_code | VARCHAR(128) | 工具唯一编码，例如 `order_query` |
-| name | VARCHAR(128) | 工具展示名称 |
-| description | TEXT | 给模型看的工具描述 |
-| type | VARCHAR(32) | `BUILTIN` / `HTTP` / `MCP` |
-| input_schema | JSONB | JSON Schema 参数定义 |
-| output_schema | JSONB | 输出结构说明 |
-| config | JSONB | 工具运行配置 |
-| timeout_ms | INT | 超时时间 |
-| retry_count | INT | 失败重试次数 |
-| requires_confirmation | BOOLEAN | 是否需要人工确认 |
-| permission_level | VARCHAR(32) | `LOW` / `MEDIUM` / `HIGH` |
-| status | VARCHAR(32) | `ACTIVE` / `DISABLED` |
-| created_at | TIMESTAMPTZ | 创建时间 |
-| updated_at | TIMESTAMPTZ | 更新时间 |
-| deleted_at | TIMESTAMPTZ | 软删除时间 |
-
-关键约束：
+### 6.1 字段
 
 ```text
-uk_tool_code(tool_code)
+id                         BIGINT PK
+user_id                    BIGINT NOT NULL
+agent_id                   BIGINT NOT NULL
+client_request_id          VARCHAR(128) NOT NULL
+request_fingerprint        CHAR(64) NOT NULL
+status                     VARCHAR(32) NOT NULL
+phase                      VARCHAR(32)
+termination_reason         VARCHAR(64)
+user_input                 TEXT NOT NULL
+execution_snapshot         JSONB NOT NULL
+max_decision_turns         INT NOT NULL
+max_tool_calls             INT NOT NULL
+max_total_tokens           INT NOT NULL
+reserved_final_tokens      INT NOT NULL
+decision_turns_used        INT NOT NULL DEFAULT 0
+tool_calls_used            INT NOT NULL DEFAULT 0
+input_tokens               INT NOT NULL DEFAULT 0
+output_tokens              INT NOT NULL DEFAULT 0
+total_tokens               INT NOT NULL DEFAULT 0
+token_usage_quality        VARCHAR(32) NOT NULL DEFAULT 'UNKNOWN'
+final_answer               TEXT
+citations                  JSONB NOT NULL DEFAULT '[]'
+error_code                 VARCHAR(64)
+error_message              VARCHAR(500)
+cancel_requested_at        TIMESTAMPTZ
+started_at                 TIMESTAMPTZ
+completed_at               TIMESTAMPTZ
+last_event_sequence        BIGINT NOT NULL DEFAULT 0
+created_at                 TIMESTAMPTZ NOT NULL
+updated_at                 TIMESTAMPTZ NOT NULL
+version                    INT NOT NULL DEFAULT 0
 ```
 
-V1.0 内置工具：
-
-| tool_code | 说明 |
-| --- | --- |
-| `order_query` | 根据 orderId 查询模拟订单 |
-| `payment_log_query` | 根据 orderId / errorCode 查询支付日志 |
-| `ticket_query` | 查询历史相似工单 |
-| `knowledge_search` | 主动检索知识库 |
-| `report_generate` | 生成 Markdown 处理报告 |
-
----
-
-## 7. 会话与 Agent 任务模型
-
-### 7.1 agent_conversation
-
-用途：
-
-> 表示用户与某个 Agent 的一次会话。
-
-V1.0 支持多轮对话展示，但 Agent 任务仍以单次用户输入为主要执行单位。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| user_id | BIGINT | 用户 ID |
-| agent_id | BIGINT | Agent ID |
-| title | VARCHAR(255) | 会话标题 |
-| status | VARCHAR(32) | `ACTIVE` / `ARCHIVED` |
-| created_at | TIMESTAMPTZ | 创建时间 |
-| updated_at | TIMESTAMPTZ | 更新时间 |
-| deleted_at | TIMESTAMPTZ | 软删除时间 |
-
-关键索引：
+`token_usage_quality`：
 
 ```text
-idx_conversation_user_agent(user_id, agent_id, created_at DESC)
+EXACT
+ESTIMATED
+MIXED
+UNKNOWN
 ```
 
-### 7.2 agent_message
-
-用途：
-
-> 保存会话中的用户消息和助手最终消息。
-
-工具调用、RAG 召回等细节不放在 message 表，而是放在 trace 表中。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| conversation_id | BIGINT | 会话 ID |
-| task_id | BIGINT | 关联任务 ID，可为空 |
-| role | VARCHAR(32) | `USER` / `ASSISTANT` |
-| content | TEXT | 消息内容 |
-| metadata | JSONB | 扩展信息 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-
-关键索引：
+### 6.2 外键、唯一性与幂等指纹
 
 ```text
-idx_message_conversation_created(conversation_id, created_at)
+FOREIGN KEY (agent_id, user_id)
+  REFERENCES agent_app(id, user_id)
+
+UNIQUE(user_id, client_request_id)
 ```
 
-### 7.3 agent_task
-
-用途：
-
-> 表示 Agent 的一次任务执行，是 Trace 的根对象。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| user_id | BIGINT | 用户 ID |
-| agent_id | BIGINT | Agent ID |
-| conversation_id | BIGINT | 会话 ID，可为空 |
-| user_input | TEXT | 用户原始输入 |
-| status | VARCHAR(32) | 任务状态 |
-| config_snapshot | JSONB | Agent 配置快照 |
-| max_steps | INT | 本次任务最大步数 |
-| max_tool_calls | INT | 本次任务最大工具调用数 |
-| max_tokens | INT | 本次任务最大 token |
-| total_input_tokens | INT | 总输入 token |
-| total_output_tokens | INT | 总输出 token |
-| total_tokens | INT | 总 token |
-| total_cost | NUMERIC(12,6) | 估算成本 |
-| final_answer | TEXT | 最终答案 |
-| error_code | VARCHAR(64) | 错误码 |
-| error_message | TEXT | 错误信息 |
-| started_at | TIMESTAMPTZ | 开始时间 |
-| completed_at | TIMESTAMPTZ | 完成时间 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-| updated_at | TIMESTAMPTZ | 更新时间 |
-
-任务状态：
-
-```text
-CREATED
-QUEUED
-RUNNING
-RETRIEVING
-THINKING
-TOOL_CALLING
-GENERATING
-COMPLETED
-FAILED
-CANCELLED
-TIMEOUT
-```
-
-关键索引：
-
-```text
-idx_task_user_created(user_id, created_at DESC)
-idx_task_agent_status(agent_id, status)
-idx_task_conversation_created(conversation_id, created_at)
-```
-
-### 7.4 agent_step
-
-用途：
-
-> 保存一次 Agent 任务中的每个执行步骤。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| task_id | BIGINT | 任务 ID |
-| step_index | INT | 步骤序号 |
-| step_type | VARCHAR(32) | 步骤类型 |
-| title | VARCHAR(255) | 步骤标题 |
-| status | VARCHAR(32) | 步骤状态 |
-| input_data | JSONB | 输入快照 |
-| output_data | JSONB | 输出快照 |
-| error_code | VARCHAR(64) | 错误码 |
-| error_message | TEXT | 错误信息 |
-| started_at | TIMESTAMPTZ | 开始时间 |
-| ended_at | TIMESTAMPTZ | 结束时间 |
-| latency_ms | INT | 耗时 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-
-步骤类型：
-
-```text
-RAG_RETRIEVAL
-LLM_THINKING
-TOOL_CALL
-LLM_GENERATION
-FINAL_ANSWER
-SYSTEM
-```
-
-关键约束：
-
-```text
-uk_step_task_index(task_id, step_index)
-```
-
-### 7.5 agent_task_event
-
-用途：
-
-> 保存 Agent 执行过程中的事件，用于 SSE 推送和任务过程回放。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| task_id | BIGINT | 任务 ID |
-| event_type | VARCHAR(64) | 事件类型 |
-| sequence_no | INT | 任务内递增序号 |
-| payload | JSONB | 事件内容 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-
-事件类型示例：
-
-```text
-TASK_STARTED
-RAG_STARTED
-RAG_FINISHED
-LLM_STARTED
-LLM_FINISHED
-POLICY_CHECKED
-TOOL_STARTED
-TOOL_FINISHED
-CONFIRMATION_REQUIRED
-TOKEN_DELTA
-EPISODE_READY
-TASK_COMPLETED
-TASK_FAILED
-```
-
-关键约束：
-
-```text
-uk_event_task_seq(task_id, sequence_no)
-```
-
-### 7.6 agent_episode
-
-用途：
-
-> 保存一次 Agent 任务聚合后的运行证据包摘要和导出快照。
-
-V1.0 可以按需生成，也可以在任务完成后异步生成。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| task_id | BIGINT | 任务 ID，唯一 |
-| user_id | BIGINT | 用户 ID |
-| agent_id | BIGINT | Agent ID |
-| episode_key | VARCHAR(128) | 对外展示的 episode 编号，例如 `ep_30001` |
-| summary | JSONB | 运行摘要，包含状态、耗时、token、工具次数、召回数量 |
-| package_snapshot | JSONB | 可导出的完整 episode package |
-| metrics | JSONB | 任务成功、成本、延迟等指标 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-| updated_at | TIMESTAMPTZ | 更新时间 |
-
-关键约束：
-
-```text
-uk_episode_task(task_id)
-idx_episode_user_created(user_id, created_at DESC)
-```
-
----
-
-## 8. Trace 与 LLMOps 模型
-
-### 8.1 llm_call_log
-
-用途：
-
-> 保存每次 LLM 调用详情。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| task_id | BIGINT | 任务 ID |
-| step_id | BIGINT | step ID，可为空 |
-| provider | VARCHAR(64) | 模型服务商 |
-| model_name | VARCHAR(128) | 模型名 |
-| call_type | VARCHAR(32) | `CHAT` / `STREAM` / `EMBEDDING` / `RERANK` |
-| prompt | TEXT | 最终 prompt 或请求内容 |
-| response | TEXT | 模型响应 |
-| input_tokens | INT | 输入 token |
-| output_tokens | INT | 输出 token |
-| total_tokens | INT | 总 token |
-| estimated_cost | NUMERIC(12,6) | 估算成本 |
-| latency_ms | INT | 耗时 |
-| status | VARCHAR(32) | `SUCCESS` / `FAILED` |
-| error_code | VARCHAR(64) | 错误码 |
-| error_message | TEXT | 错误信息 |
-| metadata | JSONB | 扩展元数据 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-
-关键索引：
-
-```text
-idx_llm_task(task_id)
-idx_llm_step(step_id)
-idx_llm_provider_model(provider, model_name)
-```
-
-### 8.2 rag_retrieval_log
-
-用途：
-
-> 保存一次 RAG 检索请求的整体信息。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| task_id | BIGINT | 任务 ID |
-| step_id | BIGINT | step ID，可为空 |
-| user_id | BIGINT | 用户 ID |
-| query | TEXT | 检索 query |
-| knowledge_base_ids | JSONB | 检索的知识库 ID 列表 |
-| top_k | INT | 召回数量 |
-| similarity_threshold | NUMERIC(5,4) | 相似度阈值 |
-| use_rerank | BOOLEAN | 是否使用 rerank |
-| latency_ms | INT | 检索耗时 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-
-关键索引：
-
-```text
-idx_rag_task(task_id)
-idx_rag_user_created(user_id, created_at DESC)
-```
-
-### 8.3 rag_retrieval_hit
-
-用途：
-
-> 保存一次 RAG 检索命中的 chunk 列表。
-
-保存 content snapshot 是为了后续 trace 回放不受知识库修改影响。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| retrieval_id | BIGINT | RAG 检索记录 ID |
-| chunk_id | BIGINT | chunk ID |
-| document_id | BIGINT | 文档 ID |
-| knowledge_base_id | BIGINT | 知识库 ID |
-| rank_no | INT | 召回排序 |
-| score | NUMERIC(8,6) | 向量相似度 |
-| rerank_score | NUMERIC(8,6) | rerank 分数 |
-| content_snapshot | TEXT | 命中 chunk 内容快照 |
-| metadata_snapshot | JSONB | 命中时 metadata 快照 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-
-关键索引：
-
-```text
-idx_rag_hit_retrieval(retrieval_id, rank_no)
-idx_rag_hit_chunk(chunk_id)
-```
-
-### 8.4 tool_call_log
-
-用途：
-
-> 保存每次工具调用详情。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| task_id | BIGINT | 任务 ID |
-| step_id | BIGINT | step ID，可为空 |
-| tool_id | BIGINT | 工具 ID |
-| tool_code | VARCHAR(128) | 工具编码快照 |
-| tool_name | VARCHAR(128) | 工具名称快照 |
-| arguments | JSONB | 工具入参 |
-| result | JSONB | 工具出参 |
-| status | VARCHAR(32) | 调用状态 |
-| retry_count | INT | 重试次数 |
-| latency_ms | INT | 耗时 |
-| error_code | VARCHAR(64) | 错误码 |
-| error_message | TEXT | 错误信息 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-
-工具调用状态：
-
-```text
-PENDING
-RUNNING
-SUCCESS
-FAILED
-TIMEOUT
-REJECTED
-```
-
-关键索引：
-
-```text
-idx_tool_call_task(task_id)
-idx_tool_call_step(step_id)
-idx_tool_call_tool(tool_id, created_at DESC)
-```
-
-### 8.5 policy_check_log
-
-用途：
-
-> 保存工具执行前 PolicyGuard 的策略检查结果。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| task_id | BIGINT | 任务 ID |
-| step_id | BIGINT | step ID，可为空 |
-| tool_call_id | BIGINT | 工具调用 ID，可为空 |
-| tool_code | VARCHAR(128) | 工具编码快照 |
-| decision | VARCHAR(32) | `ALLOW` / `WARN` / `BLOCK` / `REVIEW` |
-| policy_codes | JSONB | 命中的策略编码列表 |
-| reason | TEXT | 策略判断说明 |
-| input_snapshot | JSONB | 策略检查输入快照 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-
-关键索引：
-
-```text
-idx_policy_task(task_id)
-idx_policy_step(step_id)
-idx_policy_decision(decision)
-```
-
----
-
-## 9. 评测模型
-
-### 9.1 eval_dataset
-
-用途：
-
-> 表示一个评测集。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| user_id | BIGINT | 用户 ID |
-| name | VARCHAR(128) | 评测集名称 |
-| description | TEXT | 描述 |
-| target_type | VARCHAR(32) | `AGENT` / `KNOWLEDGE_BASE` |
-| target_id | BIGINT | 目标 ID |
-| created_at | TIMESTAMPTZ | 创建时间 |
-| updated_at | TIMESTAMPTZ | 更新时间 |
-| deleted_at | TIMESTAMPTZ | 软删除时间 |
-
-### 9.2 eval_case
-
-用途：
-
-> 评测集中的单个问题。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| dataset_id | BIGINT | 评测集 ID |
-| question | TEXT | 测试问题 |
-| expected_answer | TEXT | 参考答案 |
-| expected_document_ids | JSONB | 期望命中文档 |
-| expected_tool_codes | JSONB | 期望调用工具 |
-| metadata | JSONB | 扩展信息 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-| updated_at | TIMESTAMPTZ | 更新时间 |
-
-### 9.3 eval_run
-
-用途：
-
-> 一次评测运行。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| dataset_id | BIGINT | 评测集 ID |
-| user_id | BIGINT | 用户 ID |
-| target_type | VARCHAR(32) | `AGENT` / `KNOWLEDGE_BASE` |
-| target_id | BIGINT | 目标 ID |
-| config_snapshot | JSONB | 本次评测配置快照 |
-| status | VARCHAR(32) | `RUNNING` / `COMPLETED` / `FAILED` |
-| total_cases | INT | case 总数 |
-| passed_cases | INT | 通过数量 |
-| failed_cases | INT | 失败数量 |
-| started_at | TIMESTAMPTZ | 开始时间 |
-| completed_at | TIMESTAMPTZ | 完成时间 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-
-### 9.4 eval_result
-
-用途：
-
-> 一条评测 case 的执行结果。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| run_id | BIGINT | eval run ID |
-| case_id | BIGINT | eval case ID |
-| task_id | BIGINT | 对应 Agent 任务，可为空 |
-| episode_id | BIGINT | 对应 Agent Episode，可为空 |
-| answer | TEXT | 实际答案 |
-| hit_document_ids | JSONB | 实际命中文档 |
-| called_tool_codes | JSONB | 实际调用工具 |
-| passed | BOOLEAN | 人工或规则判断是否通过 |
-| judge_comment | TEXT | 判断说明 |
-| metrics | JSONB | 命中率、耗时、token 等 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-
----
-
-## 10. 模拟业务数据源
-
-V1.0 需要内置模拟业务数据，以便工具调用不是纯 mock 字符串。
-
-### 10.1 mock_order
-
-用途：
-
-> 模拟订单系统数据，供订单查询工具调用。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| order_no | VARCHAR(64) | 订单号，例如 `order_1024` |
-| user_no | VARCHAR(64) | 模拟用户编号 |
-| amount | NUMERIC(12,2) | 订单金额 |
-| currency | VARCHAR(16) | 币种 |
-| status | VARCHAR(32) | 订单状态 |
-| payment_status | VARCHAR(32) | 支付状态 |
-| error_code | VARCHAR(64) | 支付错误码 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-| updated_at | TIMESTAMPTZ | 更新时间 |
-
-关键约束：
-
-```text
-uk_mock_order_no(order_no)
-```
-
-### 10.2 mock_payment_log
-
-用途：
-
-> 模拟支付日志，供日志查询工具调用。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| order_no | VARCHAR(64) | 订单号 |
-| trace_id | VARCHAR(128) | 模拟链路 ID |
-| log_level | VARCHAR(16) | `INFO` / `WARN` / `ERROR` |
-| error_code | VARCHAR(64) | 错误码 |
-| message | TEXT | 日志内容 |
-| occurred_at | TIMESTAMPTZ | 日志发生时间 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-
-关键索引：
-
-```text
-idx_payment_log_order(order_no, occurred_at DESC)
-idx_payment_log_error(error_code)
-```
-
-### 10.3 mock_ticket
-
-用途：
-
-> 模拟历史工单，供工单查询工具调用。
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| id | BIGINT | 主键 |
-| ticket_no | VARCHAR(64) | 工单号 |
-| title | VARCHAR(255) | 标题 |
-| content | TEXT | 工单内容 |
-| solution | TEXT | 解决方案 |
-| related_error_code | VARCHAR(64) | 相关错误码 |
-| status | VARCHAR(32) | 工单状态 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-| updated_at | TIMESTAMPTZ | 更新时间 |
-
-关键索引：
-
-```text
-idx_ticket_error(related_error_code)
-idx_ticket_status(status)
-```
-
----
-
-## 11. Qdrant Collection 设计
-
-### 11.1 Collection
-
-V1.0 使用一个 collection：
-
-```text
-kb_chunks
-```
-
-每个 chunk 对应一个 vector point。
-
-### 11.2 Vector ID
-
-推荐：
-
-```text
-vector_id = knowledge_chunk.id 的字符串形式
-```
-
-原因：
-
-- PostgreSQL chunk 与 Qdrant point 一一对应。
-- 删除文档时可以根据 chunk id 批量删除向量。
-- trace 中容易回溯。
-
-### 11.3 Payload
-
-Qdrant payload 建议包含：
+`request_fingerprint` 对以下 fixed-version canonical JSON 的 UTF-8 bytes 计算 lowercase SHA-256：
 
 ```json
 {
-  "user_id": "123",
-  "knowledge_base_id": "456",
-  "document_id": "789",
-  "chunk_id": "10001",
-  "chunk_index": 3,
-  "file_name": "payment-error-guide.md",
-  "file_type": "MD",
-  "title_path": "支付/失败处理/错误码",
-  "content_hash": "..."
+  "version": "agent-task-request-v1",
+  "agentId": "1001",
+  "input": "原始 userInput"
 }
 ```
 
-说明：
+对象 key 顺序、字符串转义和 ID 字符串表达必须固定。`userInput` 校验非空白后按原始值参与 fingerprint，不做静默 trim。
 
-- Qdrant 用 payload 做过滤。
-- chunk 正文以 PostgreSQL 为准。
-- payload 中可以保存少量展示字段，但不作为权威数据源。
-
-### 11.4 Metadata Filter
-
-常见过滤条件：
+### 6.3 状态约束
 
 ```text
-user_id = 当前用户
-knowledge_base_id IN Agent 绑定知识库列表
-document_id IN 指定文档列表，可选
+status IN (QUEUED, RUNNING, COMPLETED, FAILED, CANCELLED, TIMED_OUT)
+phase IN (PREPARING, RETRIEVING, DECIDING, EXECUTING_TOOL, GENERATING)
 ```
+
+必须通过 CHECK 保证：
+
+- `QUEUED`：phase/started_at/completed_at/termination_reason 均为空；
+- `RUNNING`：phase 和 started_at 非空，completed_at/termination_reason 为空；
+- 终态：phase 为空，completed_at 和 termination_reason 非空；
+- `COMPLETED`：final_answer 非空，error_code/error_message 为空；
+- `FAILED`：final_answer 为空，error_code/error_message 非空；
+- `CANCELLED`：terminationReason=`USER_CANCELLED`；
+- `TIMED_OUT`：terminationReason=`DEADLINE_EXCEEDED`；
+- used counters 非负且不超过配置上限；
+- token 三字段非负且 `total_tokens = input_tokens + output_tokens`；
+- `last_event_sequence >= 0`；
+- citations 为 JSON array；
+- execution_snapshot 为 JSON object；
+- `max_tool_calls < max_decision_turns`；
+- `reserved_final_tokens < max_total_tokens`。
+
+### 6.4 索引
+
+```text
+UNIQUE(user_id, client_request_id)
+INDEX(user_id, created_at DESC, id DESC)
+INDEX(agent_id, status, created_at, id)
+INDEX(status, created_at, id) WHERE status IN ('QUEUED', 'RUNNING')
+INDEX(cancel_requested_at) WHERE status = 'RUNNING' AND cancel_requested_at IS NOT NULL
+```
+
+V0.1 不把 conversation_id 加入 task。多轮对话后续通过新 migration 增加 nullable 关联。
 
 ---
 
-## 12. 核心状态枚举
-
-### 12.1 文档处理状态
+## 7. V0.1 TARGET：agent_step
 
 ```text
-PENDING
-PROCESSING
-COMPLETED
-FAILED
-DELETED
+id                BIGINT PK
+task_id           BIGINT NOT NULL
+step_index        INT NOT NULL
+step_type         VARCHAR(32) NOT NULL
+status            VARCHAR(32) NOT NULL
+title             VARCHAR(255) NOT NULL
+summary           JSONB NOT NULL DEFAULT '{}'
+error_code        VARCHAR(64)
+error_message     VARCHAR(500)
+started_at        TIMESTAMPTZ NOT NULL
+ended_at          TIMESTAMPTZ
+latency_ms        BIGINT
+created_at        TIMESTAMPTZ NOT NULL
 ```
 
-### 12.2 Agent 状态
+StepType：
 
 ```text
-ACTIVE
-DISABLED
-```
-
-### 12.3 Agent 任务状态
-
-```text
-CREATED
-QUEUED
-RUNNING
-RETRIEVING
-THINKING
-TOOL_CALLING
-GENERATING
-COMPLETED
-FAILED
-CANCELLED
-TIMEOUT
-```
-
-### 12.4 Agent Step 类型
-
-```text
-RAG_RETRIEVAL
-LLM_THINKING
+PRE_RETRIEVAL
+LLM_DECISION
 TOOL_CALL
-LLM_GENERATION
-FINAL_ANSWER
-SYSTEM
+LLM_FINAL_GENERATION
 ```
 
-### 12.5 工具类型
+StepStatus：
 
 ```text
-BUILTIN
-HTTP
-MCP
-```
-
-V1.0 主要实现 `BUILTIN`。
-
-### 12.6 工具调用状态
-
-```text
-PENDING
 RUNNING
 SUCCESS
 FAILED
-TIMEOUT
-REJECTED
+SKIPPED
 ```
 
-### 12.7 PolicyGuard 决策状态
+约束：
 
 ```text
-ALLOW
-WARN
-BLOCK
-REVIEW
+FOREIGN KEY(task_id) REFERENCES agent_task(id)
+UNIQUE(task_id, step_index)
+UNIQUE(id, task_id)
+CHECK step_index >= 0
+CHECK terminal step has ended_at/latency
+CHECK success has no error
+CHECK failed has safe error
 ```
 
----
+`UNIQUE(id,task_id)` 为 LLM/RAG/tool 日志的复合外键提供被引用键，使数据库能证明 `step_id` 确实属于同一个 `task_id`。
 
-## 13. V0.1 与 V1.0 表设计边界
-
-### 13.1 V0.1 最小表
-
-V0.1 只需要这些表即可跑通闭环：
-
-- `app_user`
-- `knowledge_base`
-- `knowledge_document`
-- `knowledge_chunk`
-- `agent_app`
-- `tool_definition`
-- `agent_task`
-- `agent_step`
-- `llm_call_log`
-- `rag_retrieval_log`
-- `rag_retrieval_hit`
-- `tool_call_log`
-- `policy_check_log`，可先轻量记录策略结果
-- `mock_order`
-- `mock_payment_log`
-
-可以暂缓：
-
-- `agent_conversation`
-- `agent_message`
-- `agent_prompt_version`
-- `agent_knowledge_binding`
-- `agent_tool_binding`
-- `agent_task_event`
-- `agent_episode`，V1.0 作为完整导出快照表
-- 评测相关表
-- `mock_ticket`
-
-V0.1 中，Agent 可以默认绑定一个知识库和几个内置工具。
-
-### 13.2 V1.0 完整表
-
-V1.0 应补齐：
-
-- Prompt 版本。
-- Agent 与知识库绑定。
-- Agent 与工具绑定。
-- 会话和消息历史。
-- SSE 事件回放。
-- Agent Episode Package。
-- PolicyGuard 策略检查记录。
-- 评测集、评测 case、评测运行、评测结果。
-- 工单模拟数据。
+`summary` 只保存小型语义摘要和专项日志 ID，不复制完整 Prompt、tool result 或 hit content。
 
 ---
 
-## 14. 面试表达重点
+## 8. V0.1 TARGET：LLM Trace
 
-这套表设计面试时可以强调：
+### 8.1 llm_call_log
 
-1. **领域边界清晰**
-   - 用户、知识库、Agent、工具、任务、Trace、评测分开建模。
+```text
+id                       BIGINT PK
+task_id                  BIGINT NOT NULL
+step_id                  BIGINT NOT NULL
+call_type                VARCHAR(32) NOT NULL
+provider                 VARCHAR(64) NOT NULL
+requested_model          VARCHAR(128) NOT NULL
+resolved_model           VARCHAR(128)
+request_snapshot         JSONB NOT NULL
+response_text            TEXT
+finish_reason            VARCHAR(64)
+provider_request_id      VARCHAR(255)
+input_tokens             INT
+output_tokens            INT
+total_tokens             INT
+usage_quality            VARCHAR(32) NOT NULL
+latency_ms               BIGINT NOT NULL
+status                   VARCHAR(32) NOT NULL
+error_code               VARCHAR(64)
+error_message            VARCHAR(500)
+created_at               TIMESTAMPTZ NOT NULL
+```
 
-2. **Agent 执行可追踪**
-   - `agent_task` 是一次执行根对象。
-   - `agent_step` 保存多步执行过程。
-   - `llm_call_log`、`rag_retrieval_log`、`tool_call_log` 分别记录模型、检索和工具调用。
+CallType：
 
-3. **RAG 可回放**
-   - 每次召回命中的 chunk 都有 `rag_retrieval_hit`。
-   - 保存 content snapshot，避免后续知识库变更导致历史 trace 不可复现。
+```text
+DECISION
+FINAL_GENERATION
+```
 
-4. **运行证据包可导出**
-   - `agent_episode` 将一次任务的配置、step、RAG、LLM、tool、policy 和最终答案聚合成 episode package。
-   - 评测结果可以关联 episode，方便回到完整执行证据。
+约束至少包括：
 
-5. **工具平台可扩展且可治理**
-   - 工具定义独立成表。
-   - input schema、timeout、retry、permission、confirmation 都是配置化。
-   - `policy_check_log` 记录工具执行前的策略决策。
+```text
+FOREIGN KEY (step_id, task_id)
+  REFERENCES agent_step(id, task_id)
+CHECK request_snapshot is object
+CHECK usage fields/quality are mutually consistent
+CHECK success/error fields are mutually consistent
+```
 
-6. **数据和向量解耦**
-   - PostgreSQL 保存权威业务数据和 chunk 文本。
-   - Qdrant 保存向量和检索 payload。
-   - 通过 `knowledge_chunk.vector_id` 关联。
+V0.1 的 document embedding 不写入这张 task-scoped 表。知识库向量化继续由 chunk 状态和服务日志观察；未来需要统一 provider observability 时增加 `scope_type/scope_id`，不要把所有 embedding 强行伪造成 AgentTask call。
 
-7. **为评测预留结构**
-   - 评测集、case、run、result 分层，后续可以支持 Prompt 对比和 RAG 参数对比。
+`request_snapshot` 必须脱敏、大小受限，并保存消息角色/正文快照；不保存 API key、Authorization、完整 endpoint 或框架内部对象。
 
 ---
 
-## 15. 暂不设计的内容
+## 9. V0.1 TARGET：RAG Trace
 
-V1.0 暂不设计：
+### 9.1 rag_retrieval_log
 
-- 复杂组织架构。
-- 企业级 RBAC 权限树。
-- 多租户计费。
-- API key 管理后台。
-- 插件市场。
-- 多 Agent 共享记忆。
-- 长期记忆画像。
-- 完整 OpenTelemetry span 表。
-- 大规模数据归档分区。
+```text
+id                         BIGINT PK
+task_id                    BIGINT NOT NULL
+step_id                    BIGINT NOT NULL
+query                      TEXT NOT NULL
+embedding_profile_code     VARCHAR(128) NOT NULL
+corpus_snapshot            JSONB NOT NULL
+top_k                      INT NOT NULL
+similarity_threshold       NUMERIC(8,6) NOT NULL
+candidate_count            INT NOT NULL
+valid_hit_count            INT NOT NULL
+stale_hit_count            INT NOT NULL
+latency_ms                 BIGINT NOT NULL
+status                     VARCHAR(32) NOT NULL
+error_code                 VARCHAR(64)
+error_message              VARCHAR(500)
+created_at                 TIMESTAMPTZ NOT NULL
+```
 
-这些内容可以作为 V2.0 扩展方向，不进入当前核心表设计。
+约束至少包括：
+
+```text
+FOREIGN KEY (step_id, task_id)
+  REFERENCES agent_step(id, task_id)
+CHECK corpus_snapshot is object
+CHECK counts/latency are nonnegative
+CHECK status/error fields are mutually consistent
+```
+
+### 9.2 rag_retrieval_hit
+
+```text
+id                         BIGINT PK
+retrieval_id               BIGINT NOT NULL
+rank_no                    INT NOT NULL
+citation_id                VARCHAR(32) NOT NULL
+chunk_id_snapshot          BIGINT NOT NULL
+document_id_snapshot       BIGINT NOT NULL
+knowledge_base_id_snapshot BIGINT NOT NULL
+vector_generation          BIGINT NOT NULL
+score                      NUMERIC(10,8) NOT NULL
+content_snapshot           TEXT NOT NULL
+metadata_snapshot          JSONB NOT NULL
+created_at                 TIMESTAMPTZ NOT NULL
+```
+
+约束：
+
+```text
+FOREIGN KEY(retrieval_id) REFERENCES rag_retrieval_log(id)
+UNIQUE(retrieval_id, rank_no)
+UNIQUE(retrieval_id, citation_id)
+```
+
+不对 source chunk/document 建强制级联 FK。历史 snapshot 必须在源文档删除后继续存在。
+
+---
+
+## 10. V0.1 TARGET：agent_task_event
+
+```text
+id                BIGINT PK
+task_id           BIGINT NOT NULL
+sequence_no       BIGINT NOT NULL
+event_type        VARCHAR(64) NOT NULL
+payload           JSONB NOT NULL
+created_at        TIMESTAMPTZ NOT NULL
+```
+
+约束与索引：
+
+```text
+FOREIGN KEY(task_id) REFERENCES agent_task(id)
+UNIQUE(task_id, sequence_no)
+CHECK sequence_no > 0
+CHECK payload is object
+INDEX(task_id, sequence_no)
+```
+
+### 10.1 Sequence 分配
+
+V0.1 使用 `agent_task.last_event_sequence` 作为唯一游标。每次 append 在同一短事务中：
+
+```sql
+UPDATE agent_task
+SET last_event_sequence = last_event_sequence + 1
+WHERE id = :taskId
+RETURNING last_event_sequence;
+
+INSERT INTO agent_task_event(task_id, sequence_no, event_type, payload, created_at)
+VALUES (:taskId, :returnedSequence, :eventType, :payload, CURRENT_TIMESTAMP);
+```
+
+该 UPDATE 的行锁串行化同一 task 的事件 append。禁止使用 `SELECT max(sequence_no)+1`。状态/phase/终态变化需要事件时，业务字段更新、cursor increment 和 event insert 必须放在同一事务。
+
+`last_event_sequence` 是事件游标，不等同于 task 乐观锁 `version`；单独 append 展示事件时不自动修改 `version`。
+
+Event 是 SSE 的持久投影，不复制完整 Trace。`ANSWER_CHUNK` 需要合并和大小限制。
+
+---
+
+## 11. Tool log 与 AgentTask 关联
+
+Task/step schema 完成后，通过新 migration 保留现有 nullable 字段并增加：
+
+```text
+FOREIGN KEY (step_id, task_id)
+  REFERENCES agent_step(id, task_id)
+```
+
+复合 FK 允许 `(NULL,NULL)`，兼容已有 standalone 工具测试调用；但 AgentTask 路径必须同时提供 task_id 和 step_id。不得出现 task_id 非空而 step_id 为空，或只填 step_id 的半关联状态。可通过 CHECK 约束：
+
+```text
+(task_id IS NULL AND step_id IS NULL)
+OR
+(task_id IS NOT NULL AND step_id IS NOT NULL)
+```
+
+AgentTask 路径还要求：
+
+- tool snapshot code/name 保留；
+- arguments/result 为 JSON object；
+- status/时间/error 字段满足现有 V13 lifecycle CHECK；
+- result/arguments 大小受限且已脱敏。
+
+同样的复合 task/step 一致性已直接定义在 LLM 和 RAG log 中。
+
+---
+
+## 12. DemoBusiness
+
+V0.1 继续使用：
+
+```text
+mock_order
+mock_payment_log
+```
+
+`mock_ticket` 延后。
+
+这些表是共享 demo 数据，不表示真实用户订单。工具结果和前端必须明确为 demo 场景，避免将 `app_user.id` 与模拟订单用户混为同一身份域。
+
+---
+
+## 13. Qdrant 数据模型
+
+V0.1 collection：
+
+```text
+agentflow_chunks_te_v4_1024
+```
+
+契约：
+
+```text
+vector size = 1024
+distance = Cosine
+point ID = RAG Design 定义的 deterministic UUIDv8
+```
+
+Payload：
+
+```text
+chunkId
+documentId
+knowledgeBaseId
+userId
+chunkIndex
+vectorGeneration
+contentHash
+embeddingProvider
+embeddingModel
+titlePath optional
+```
+
+过滤必须使用与写入相同的 JSON 字段名和数值类型。
+
+PostgreSQL 仍为：
+
+- 正文；
+- owner；
+- live/deleted；
+- generation；
+- vectorization status；
+- contentHash；
+- 当前 vectorId；
+- task/hit snapshot。
+
+---
+
+## 14. DEFERRED 数据模型
+
+以下不进入 V0.1 migration：
+
+### 14.1 Prompt 版本
+
+```text
+agent_prompt_version
+```
+
+只有出现 Prompt 回滚/对比需求时增加。V0.1 已通过 execution snapshot 保证历史 task 可解释。
+
+### 14.2 Conversation
+
+```text
+agent_conversation
+agent_message
+```
+
+多轮对话进入产品范围后再增加。message 只保存用户/助手消息，工具和 RAG 仍属于 task Trace。
+
+### 14.3 Episode
+
+V1 初期通过 Trace API 动态聚合，不建表。只有导出成本、不可变归档或评测复用出现明确需求时，再增加可缓存的 `agent_episode`，并标明它是派生快照。
+
+### 14.4 Evaluation
+
+```text
+eval_dataset
+eval_case
+eval_run
+eval_result
+```
+
+进入 V1.x 后单独设计，不作为 V0.1 task schema 前置。
+
+### 14.5 Tool Policy / Approval
+
+```text
+policy_check_log
+approval_request
+```
+
+只有实现动态风险规则或人工确认时增加。普通工具存在、绑定、ACTIVE、schema 和预算校验不写成 PolicyGuard 日志。
+
+### 14.6 Embedding Profile
+
+```text
+embedding_profile
+knowledge_base.embedding_profile_id
+```
+
+在支持第二个向量空间前完成，不提前建设空注册中心。
+
+### 14.7 Task Retry Chain
+
+```text
+agent_task.retry_of_task_id
+```
+
+V0.1 重试由客户端创建一个完全独立的新 task，不保存链。出现历史聚合或自动重试产品需求后，再增加 nullable self-reference 和循环约束。
+
+---
+
+## 15. 建议 migration 顺序
+
+从 V16 之后按依赖顺序：
+
+1. 为 `agent_app` 增加 `(id,user_id)` unique，并为 chunk 增加 `chunk_strategy_version`；
+2. 创建 `agent_knowledge_binding`、`agent_tool_binding`；
+3. 创建 `agent_task`；
+4. 创建 `agent_task_event`，使 task 创建、dispatch、取消和终态从第一天就有持久 sequence；
+5. 创建 `agent_step`；
+6. 创建 `llm_call_log`、`rag_retrieval_log`、`rag_retrieval_hit`；
+7. 为 `tool_call_log` 增加 task/step 复合一致性外键与索引；
+8. 最后实现公开 Task API/SSE，不在 schema 前让代码产生无法持久化的状态。
+
+具体 Flyway 版本号由实际提交顺序决定，但依赖顺序不得颠倒。
+
+---
+
+## 16. 不变量清单
+
+数据库和测试必须证明：
+
+1. document owner 与 knowledge base owner 一致；
+2. chunk scope 与 document scope 一致；
+3. Agent binding 中两端 owner 一致；
+4. task owner 与 Agent owner 一致；
+5. task 的 status/phase/terminationReason 组合合法；
+6. completed task 必须有 final answer；
+7. failed task 必须有安全错误；
+8. task 内 step index 唯一；
+9. 专项日志的 step 属于同一 task；
+10. task.last_event_sequence 与已提交 event sequence 一致；
+11. task event sequence 唯一且递增；
+12. RAG hit snapshot 不因源文档删除消失；
+13. vector state 字段互相一致；
+14. tool call lifecycle 字段互相一致；
+15. execution snapshot/citations/event payload JSON 类型正确；
+16. 所有预算、计数和 latency 非负。
+
+---
+
+## 17. 数据保留与脱敏
+
+V0.1 可以使用固定保留策略，但必须写清：
+
+- task/Trace 默认保留，不提供用户删除；
+- provider request/response、tool result、event payload 有最大长度；
+- API key、Authorization、Cookie、内部 URL 和显式敏感字段不进入数据库；
+- 后续开放真实业务数据前必须增加字段级脱敏和访问审计；
+- 删除用户或执行合规删除的策略在 V1.x 单独设计，不能依赖无约束 `ON DELETE CASCADE`。
