@@ -27,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class DocumentProcessingTransactionService {
+    public static final String CHUNK_STRATEGY_VERSION = "structured-token-v1";
+
     private final KnowledgeDocumentMapper knowledgeDocumentMapper;
     private final KnowledgeChunkMapper knowledgeChunkMapper;
 
@@ -94,6 +96,7 @@ public class DocumentProcessingTransactionService {
             chunk.setTitlePath(chunkDraft.titlePath());
             chunk.setCharCount(chunkDraft.charCount());
             chunk.setTokenCount(chunkDraft.tokenCount());
+            chunk.setChunkStrategyVersion(CHUNK_STRATEGY_VERSION);
             chunk.setVectorizationStatus(ChunkVectorizationStatus.PENDING.name());
             chunk.setContentHash(ChunkVectorIdentityFactory.contentHash(chunkDraft.content()));
             chunk.setCreatedAt(now);

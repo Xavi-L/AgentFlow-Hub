@@ -114,7 +114,7 @@ class AgentAppServiceTest {
                 new BigDecimal("2.000"),
                 new BigDecimal("1.000"),
                 20,
-                20,
+                19,
                 100_000,
                 600
         );
@@ -131,7 +131,7 @@ class AgentAppServiceTest {
         assertThat(persisted.getTemperature()).isEqualByComparingTo("2");
         assertThat(persisted.getTopP()).isEqualByComparingTo("1");
         assertThat(persisted.getMaxSteps()).isEqualTo(20);
-        assertThat(persisted.getMaxToolCalls()).isEqualTo(20);
+        assertThat(persisted.getMaxToolCalls()).isEqualTo(19);
         assertThat(persisted.getMaxTokens()).isEqualTo(100_000);
         assertThat(persisted.getTimeoutSeconds()).isEqualTo(600);
         assertThat(response.temperature()).isEqualByComparingTo("2");
@@ -439,7 +439,11 @@ class AgentAppServiceTest {
     @Test
     void shouldValidateEachSingleBudgetChangeAgainstTheLockedStoredCounterpart() {
         when(agentAppMapper.selectVisibleOwnedByIdForUpdate(301L, 101L))
-                .thenReturn(detailRow(301L, "ACTIVE"), detailRow(301L, "ACTIVE"));
+                .thenReturn(
+                        detailRow(301L, "ACTIVE"),
+                        detailRow(301L, "ACTIVE"),
+                        detailRow(301L, "ACTIVE")
+                );
         List<UpdateAgentAppRequest> invalidRequests = List.of(
                 updateRequest(
                         Set.of("maxSteps"),
@@ -465,6 +469,20 @@ class AgentAppServiceTest {
                         null,
                         null,
                         null,
+                        6,
+                        null,
+                        null
+                ),
+                updateRequest(
+                        Set.of("maxToolCalls"),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
                         7,
                         null,
                         null
@@ -477,12 +495,12 @@ class AgentAppServiceTest {
                     301L,
                     invalidRequest
             )).isInstanceOf(BusinessException.class)
-                    .hasMessage("maxToolCalls must not exceed maxSteps")
+                    .hasMessage("maxToolCalls must be less than maxSteps")
                     .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
                             .isEqualTo(ErrorCode.COMMON_PARAM_INVALID));
         }
 
-        verify(agentAppMapper, org.mockito.Mockito.times(2))
+        verify(agentAppMapper, org.mockito.Mockito.times(3))
                 .selectVisibleOwnedByIdForUpdate(301L, 101L);
         verify(agentAppMapper, never()).updateConfigOwned(any(), any(), any());
         verifyNoMoreInteractions(agentAppMapper);

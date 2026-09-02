@@ -321,27 +321,16 @@ class DefaultAgentEngineTest {
     }
 
     @Test
-    void shouldStopBeforeASecondDecisionCallWhenStepBudgetIsExhausted() throws Exception {
+    void shouldRejectLegacyEqualDecisionAndToolLimitsBeforeExternalIo() {
         when(agentAppMapper.selectVisibleOwnedById(AGENT_ID, USER_ID))
                 .thenReturn(agent("ACTIVE", 1, 1, 1_000, 120));
-        when(llmGateway.chat(any())).thenReturn(result("""
-                {"type":"TOOL_CALL","toolCode":"order_query",\
-                "arguments":{"orderNo":"order_1024"},"reason":"Query"}
-                """, 10));
-        when(toolRuntime.execute(any())).thenReturn(ToolExecutionResult.success(
-                "order_query",
-                "Order found",
-                objectMapper.readTree("{\"orderNo\":\"order_1024\"}"),
-                1
-        ));
 
         assertFailure(
                 () -> engine.execute(command()),
-                AgentFailureType.STEP_LIMIT_EXCEEDED,
-                "Agent decision-step budget is exhausted"
+                AgentFailureType.INVALID_AGENT_CONFIG,
+                "Agent execution configuration is invalid"
         );
-        verify(llmGateway).chat(any());
-        verify(toolRuntime).execute(any());
+        verifyNoInteractions(llmGateway, toolRuntime);
     }
 
     @Test

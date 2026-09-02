@@ -79,11 +79,11 @@ public record CreateAgentAppRequest(
     public static final int DEFAULT_TIMEOUT_SECONDS = 120;
 
     /** Validates the relationship after applying the same V30 defaults used by the service. */
-    @AssertTrue(message = "maxToolCalls must not exceed maxSteps")
+    @AssertTrue(message = "maxToolCalls must be less than maxSteps")
     @JsonIgnore
     public boolean isToolCallBudgetValid() {
         int effectiveMaxSteps = maxSteps == null ? DEFAULT_MAX_STEPS : maxSteps;
         int effectiveMaxToolCalls = maxToolCalls == null ? DEFAULT_MAX_TOOL_CALLS : maxToolCalls;
-        return effectiveMaxToolCalls <= effectiveMaxSteps;
+        return effectiveMaxToolCalls < effectiveMaxSteps;
     }
 }

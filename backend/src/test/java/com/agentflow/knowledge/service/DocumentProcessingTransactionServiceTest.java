@@ -106,6 +106,8 @@ class DocumentProcessingTransactionServiceTest {
                 .containsOnly(ChunkVectorizationStatus.PENDING.name());
         assertThat(chunkCaptor.getAllValues()).extracting(KnowledgeChunk::getVectorGeneration)
                 .containsOnly(0L);
+        assertThat(chunkCaptor.getAllValues()).extracting(KnowledgeChunk::getChunkStrategyVersion)
+                .containsOnly(DocumentProcessingTransactionService.CHUNK_STRATEGY_VERSION);
         assertThat(chunkCaptor.getAllValues()).extracting(KnowledgeChunk::getContentHash)
                 .containsExactly(
                         ChunkVectorIdentityFactory.contentHash("first chunk"),

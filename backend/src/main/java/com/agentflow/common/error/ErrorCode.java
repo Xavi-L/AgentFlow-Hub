@@ -21,6 +21,9 @@ public enum ErrorCode {
     USER_USERNAME_ALREADY_EXISTS("USER_USERNAME_ALREADY_EXISTS", "Username is already in use", 409),
     USER_EMAIL_ALREADY_EXISTS("USER_EMAIL_ALREADY_EXISTS", "Email is already in use", 409),
     USER_ACCOUNT_ALREADY_EXISTS("USER_ACCOUNT_ALREADY_EXISTS", "Username or email is already in use", 409),
+    AGENT_DISABLED("AGENT_DISABLED", "Agent is disabled", 409),
+    AGENT_BINDING_INVALID("AGENT_BINDING_INVALID", "Agent binding is invalid", 409),
+    RAG_KNOWLEDGE_NOT_READY("RAG_KNOWLEDGE_NOT_READY", "Agent knowledge is not ready", 409),
     KNOWLEDGE_BASE_NOT_ACTIVE("KNOWLEDGE_BASE_NOT_ACTIVE", "Knowledge base is not active", 409),
     KNOWLEDGE_CONTEXT_EMPTY(
             "KNOWLEDGE_CONTEXT_EMPTY",

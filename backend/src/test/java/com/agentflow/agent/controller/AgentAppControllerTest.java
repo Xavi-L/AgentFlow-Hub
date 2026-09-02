@@ -708,6 +708,7 @@ class AgentAppControllerTest {
                 body("Agent", "Prompt", "openai-compatible", " ", ""),
                 body("Agent", "Prompt", "openai-compatible", "model", ",\"temperature\":2.001"),
                 body("Agent", "Prompt", "openai-compatible", "model", ",\"topP\":0"),
+                body("Agent", "Prompt", "openai-compatible", "model", ",\"maxSteps\":6,\"maxToolCalls\":6"),
                 body("Agent", "Prompt", "openai-compatible", "model", ",\"maxSteps\":6,\"maxToolCalls\":7"),
                 body("Agent", "Prompt", "openai-compatible", "model", ",\"maxTokens\":255"),
                 body("Agent", "Prompt", "openai-compatible", "model", ",\"timeoutSeconds\":601")

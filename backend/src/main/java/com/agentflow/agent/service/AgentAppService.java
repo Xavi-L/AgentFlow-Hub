@@ -64,8 +64,8 @@ public class AgentAppService {
         validateDecimal(topP, "topP", BigDecimal.ZERO, false, BigDecimal.ONE);
         validateInteger(maxSteps, "maxSteps", 1, 20);
         validateInteger(maxToolCalls, "maxToolCalls", 0, 20);
-        if (maxToolCalls > maxSteps) {
-            throw invalid("maxToolCalls must not exceed maxSteps");
+        if (maxToolCalls >= maxSteps) {
+            throw invalid("maxToolCalls must be less than maxSteps");
         }
         validateInteger(maxTokens, "maxTokens", 256, 100_000);
         validateInteger(timeoutSeconds, "timeoutSeconds", 1, 600);
@@ -168,8 +168,8 @@ public class AgentAppService {
                 ? normalized.timeoutSeconds()
                 : current.getTimeoutSeconds();
 
-        if (updatedMaxToolCalls > updatedMaxSteps) {
-            throw invalid("maxToolCalls must not exceed maxSteps");
+        if (updatedMaxToolCalls >= updatedMaxSteps) {
+            throw invalid("maxToolCalls must be less than maxSteps");
         }
 
         if (sameConfig(

@@ -32,7 +32,9 @@ class BudgetGuardTest {
 
     @Test
     void shouldStopBeforeExternalIoWhenStepOrToolCallLimitsAreExhausted() {
-        BudgetGuard stepGuard = guard(1, 1, 8_000, 120, fixedClock());
+        BudgetGuard stepGuard = guard(2, 1, 8_000, 120, fixedClock());
+        stepGuard.beginDecisionCall();
+        stepGuard.completeLlmCall(LlmTokenUsage.known(1, 1, 2));
         stepGuard.beginDecisionCall();
         stepGuard.completeLlmCall(LlmTokenUsage.known(1, 1, 2));
         assertFailure(stepGuard::beginDecisionCall, AgentFailureType.STEP_LIMIT_EXCEEDED);

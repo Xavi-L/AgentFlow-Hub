@@ -71,6 +71,9 @@ public class KnowledgeChunk {
     @TableField("vector_generation")
     private Long vectorGeneration;
 
+    @TableField("chunk_strategy_version")
+    private String chunkStrategyVersion;
+
     @TableField("created_at")
     private OffsetDateTime createdAt;
 
@@ -195,6 +198,14 @@ public class KnowledgeChunk {
 
     public void setVectorGeneration(Long vectorGeneration) {
         this.vectorGeneration = vectorGeneration;
+    }
+
+    public String getChunkStrategyVersion() {
+        return chunkStrategyVersion;
+    }
+
+    public void setChunkStrategyVersion(String chunkStrategyVersion) {
+        this.chunkStrategyVersion = chunkStrategyVersion;
     }
 
     public OffsetDateTime getCreatedAt() {

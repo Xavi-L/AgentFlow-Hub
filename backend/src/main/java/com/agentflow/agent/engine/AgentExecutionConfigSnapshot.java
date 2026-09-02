@@ -38,7 +38,7 @@ public record AgentExecutionConfigSnapshot(
                 || topP.compareTo(BigDecimal.ONE) > 0
                 || maxSteps < 1 || maxSteps > 20
                 || maxToolCalls < 0 || maxToolCalls > 20
-                || maxToolCalls > maxSteps
+                || maxToolCalls >= maxSteps
                 || maxTokens < 256 || maxTokens > 100_000
                 || timeoutSeconds < 1 || timeoutSeconds > 600
                 || (!ACTIVE.equals(status) && !DISABLED.equals(status))) {
