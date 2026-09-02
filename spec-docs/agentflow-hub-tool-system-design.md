@@ -1,110 +1,91 @@
 # AgentFlow Hub 工具系统设计
 
-本文档用于沉淀 AgentFlow Hub 的工具系统设计，包括工具注册中心、工具运行时、JSON Schema 参数协议、权限控制、超时重试、内置工具、工具日志、Agent 调用流程和 V0.1/V1.0 实现边界。
-
-核心结论：
-
-> 工具系统采用“工具注册中心 + ToolRuntime + PolicyGuard + 内置工具适配器”的设计。模型只能提出工具调用意图，不能直接执行外部动作；真正的工具查找、绑定校验、参数校验、策略检查、权限判断、超时控制、重试和日志记录都由后端完成。
+> 文档状态：**NORMATIVE**  
+> 权威范围：ToolRuntime、工具定义、Agent 绑定、硬校验、参数协议、超时、重试和工具结果  
+> 最近审查基线：`main@f276549`（V36）
 
 ---
 
-## 1. 设计目标
+## 1. 核心结论
 
-工具系统需要支撑：
+工具系统采用：
 
-- 平台内置工具注册。
-- Agent 绑定指定工具。
-- 将工具描述转换为模型可理解的 tool schema。
-- 校验模型生成的工具参数。
-- 控制工具调用权限。
-- 在执行前进行策略检查。
-- 控制工具超时和重试。
-- 记录每次工具调用 trace。
-- 将工具结果写回 Agent execution context。
-- 支撑后续 HTTP 工具、MCP 工具扩展。
-
-面试表达目标：
-
-> 我没有让大模型直接执行任意操作，而是设计了一个受控的 ToolRuntime。模型只负责选择工具和生成参数，后端负责工具白名单、schema 校验、权限、超时、重试和日志，保证 Agent 执行可控、可观测、可扩展。
-
----
-
-## 2. 工具系统边界
-
-### 2.1 工具系统负责
-
-- 工具定义管理。
-- 工具 schema 管理。
-- Agent 可用工具查询。
-- 工具参数 JSON Schema 校验。
-- 工具权限判断。
-- 工具策略检查。
-- 工具执行调度。
-- 工具超时控制。
-- 工具失败重试。
-- 工具调用日志记录。
-- 工具结果标准化。
-
-### 2.2 工具系统不负责
-
-- 判断 Agent 是否需要调用工具。
-- 生成工具调用参数。
-- 生成最终回答。
-- 管理 Agent 状态机。
-- 管理 RAG 检索。
-
-这些分别由：
-
-- `AgentEngine`
-- `LlmGateway`
-- `RagService`
-- `TraceService`
-
-承载。
-
----
-
-## 3. 总体架构
-
-```mermaid
-flowchart LR
-    AgentEngine["AgentEngine"] --> ToolRuntime["ToolRuntime"]
-    ToolRuntime --> ToolRegistry["ToolRegistry / ToolDefinitionService"]
-    ToolRuntime --> Validator["ToolArgumentValidator"]
-    ToolRuntime --> PolicyGuard["PolicyGuard"]
-    PolicyGuard --> Permission["ToolPermissionChecker"]
-    ToolRuntime --> ExecutorRouter["ToolExecutorRouter"]
-    ToolRuntime --> Trace["TraceService / tool_call_log"]
-
-    ExecutorRouter --> Builtin["BuiltinToolExecutor"]
-    ExecutorRouter --> Http["HttpToolExecutor V1.5"]
-    ExecutorRouter --> Mcp["McpToolExecutor V2.0"]
-
-    Builtin --> DemoService["Demo Business Services"]
-    Builtin --> Knowledge["RagService"]
-    Builtin --> Report["ReportGenerator"]
+```text
+seeded tool_definition
++ explicit agent_tool_binding
++ immutable task tool snapshot
++ ToolRuntime hard validation
++ exact builtin handler allowlist
++ durable tool_call_log
 ```
 
-核心组件：
+模型只能提出 `CALL_TOOL(toolCode, arguments)`，不能直接获得 Java handler、HTTP client、数据库连接或 MCP client。
 
-| 组件 | 职责 |
-| --- | --- |
-| `ToolDefinitionService` | 管理工具定义，查询 Agent 可用工具 |
-| `ToolRuntime` | 工具执行统一入口 |
-| `ToolArgumentValidator` | 基于 JSON Schema 校验工具参数 |
-| `PolicyGuard` | 工具执行前的策略检查，输出 `ALLOW` / `WARN` / `BLOCK` / `REVIEW` |
-| `ToolPermissionChecker` | 校验用户、Agent、工具权限 |
-| `ToolExecutorRouter` | 根据工具类型路由到具体 executor |
-| `BuiltinToolExecutor` | 执行系统内置工具 |
-| `HttpToolExecutor` | 执行 HTTP 工具，V1.5 可做 |
-| `McpToolExecutor` | 执行 MCP 工具，V2.0 规划 |
-| `TraceService` | 记录工具调用日志 |
+V0.1 只向支付诊断 Agent 暴露：
+
+```text
+order_query
+payment_log_query
+```
+
+`report_generate` 虽然已有实现和定义，但不属于 V0.1 Agent 可用工具集合。最终报告由 Final Generation 或确定性页面导出完成。
+
+PolicyGuard、人工确认、HTTP/MCP 工具和写操作全部后移。
 
 ---
 
-## 4. 工具类型
+## 2. 职责所有权
 
-工具类型使用：
+### 2.1 AgentEngine 负责
+
+- 将 task snapshot 中的工具安全投影给模型；
+- 解析模型返回的 toolCode；
+- 最大工具调用次数；
+- 重复调用检测；
+- 调用 ToolRuntime；
+- 将安全结果写入 observations；
+- 决定继续 decision loop 或进入 Final Generation。
+
+### 2.2 ToolRuntime 负责
+
+- 按 snapshot toolId 加载当前工具；
+- 检查工具未软删除且仍为 ACTIVE；
+- 防御性复核 Agent binding；
+- 对比 snapshot toolCode/schema hash/implementation version；
+- 按 snapshot input schema 校验 arguments；
+- 执行 per-tool timeout；
+- 通过 exact builtin allowlist 路由 handler；
+- 标准化工具结果；
+- 写入 tool_call_log；
+- 返回稳定失败，不泄漏内部异常。
+
+### 2.3 ToolRuntime 不负责
+
+- 判断是否需要调用工具；
+- 生成参数；
+- 维护 AgentTask 生命周期；
+- 计算整个 task 的 maxToolCalls；
+- 做重复循环检测；
+- 拼装最终回答；
+- 管理 RAG；
+- 把普通合法性校验包装成 PolicyGuard。
+
+### 2.4 Future Tool Policy 负责
+
+只有真正动态、与风险治理相关的规则才进入后续 Tool Policy：
+
+- 写操作是否需要审批；
+- 敏感字段；
+- 外部域名 allowlist；
+- 用户/工具级限流；
+- 数据脱敏；
+- 业务时段和环境限制。
+
+工具存在、ACTIVE、绑定、schema 和总调用预算属于硬执行契约，不属于可配置 Policy 决策。
+
+---
+
+## 3. 工具类型与版本边界
 
 ```text
 BUILTIN
@@ -112,555 +93,386 @@ HTTP
 MCP
 ```
 
-### 4.1 BUILTIN
+### V0.1
 
-V1.0 主体。
+只执行 `BUILTIN`。数据库即使存在其他类型定义，也不能进入 Agent snapshot。
 
-特点：
+### V1.x
 
-- 工具逻辑由后端代码实现。
-- 工具定义存在数据库。
-- 执行时根据 `tool_code` 路由到具体 Java handler。
-- 安全、可控、适合个人项目落地。
+可评估受控 HTTP adapter。必须由管理员配置完整 endpoint，模型只能提供 schema 参数，不能控制 scheme、host、port 或完整 URL。
 
-### 4.2 HTTP
+### V2.0
 
-V1.5 可选增强。
-
-特点：
-
-- 工具配置 HTTP method、url、headers、body template。
-- 需要更复杂的安全控制。
-- 适合模拟调用外部业务系统。
-
-### 4.3 MCP
-
-V2.0 规划。
-
-特点：
-
-- 接入 MCP Server。
-- 将 MCP tools 转换为平台工具定义。
-- 不进入 V1.0 主线。
+可评估 allowlist MCP Adapter。MCP tool 仍映射到平台 ToolDefinition，并继续经过 binding、snapshot、ToolRuntime、timeout 和 Trace；模型不能直接操作 MCP client。
 
 ---
 
-## 5. 数据模型回顾
+## 4. ToolDefinition
 
-核心表：
+逻辑结构：
 
-- `tool_definition`
-- `agent_tool_binding`
-- `tool_call_log`
-- `policy_check_log`
-
-### 5.1 tool_definition 关键字段
-
-```text
-id
-tool_code
-name
-description
-type
-input_schema
-output_schema
-config
-timeout_ms
-retry_count
-requires_confirmation
-permission_level
-status
+```java
+record ToolDefinition(
+    long id,
+    String toolCode,
+    String name,
+    String description,
+    ToolType type,
+    JsonNode inputSchema,
+    JsonNode outputSchema,
+    JsonNode config,
+    int timeoutMs,
+    int retryCount,
+    boolean requiresConfirmation,
+    String permissionLevel,
+    ToolStatus status,
+    String implementationVersion
+) {}
 ```
 
-### 5.2 agent_tool_binding 关键字段
+当前数据库尚无独立 `implementation_version` 列。V0.1 可从代码常量或 config 的受控字段解析，并写入 task snapshot。出现真正多版本并存需求后再增加显式列。
 
-```text
-agent_id
-tool_id
-enabled
-priority
-config_override
-```
+### 4.1 toolCode
 
-### 5.3 tool_call_log 关键字段
+- 小写蛇形；
+- 全局唯一；
+- 一旦被 task snapshot 或 Trace 使用，不原地重命名；
+- 语义不兼容变化创建新 code 或提升 implementation version；
+- 模型只看到 code，不看到 handler bean 名。
 
-```text
-task_id
-step_id
-tool_id
-tool_code
-arguments
-result
-status
-retry_count
-latency_ms
-error_code
-error_message
-```
+### 4.2 description
 
----
+描述必须说明：
 
-## 6. 工具定义规范
+- 工具做什么；
+- 什么时候使用；
+- 关键限制；
+- 是否只读；
+- 不得包含内部表名、连接串、URL、密钥或实现类。
 
-### 6.1 tool_code 命名
+### 4.3 inputSchema
 
-使用小写蛇形：
+V0.1 使用受控 JSON Schema 子集：
 
-```text
-order_query
-payment_log_query
-ticket_query
-knowledge_search
-report_generate
-```
+- object；
+- properties；
+- required；
+- additionalProperties=false；
+- string/integer/number/boolean/array；
+- enum；
+- min/max；
+- minLength/maxLength；
+- items；
+- 简单 `anyOf`，仅在当前 validator 明确支持时使用。
 
-规则：
+工具上线前必须通过 schema contract test。数据库中是 JSON object 不代表它就是当前 validator 支持的合法 schema。
 
-- 全局唯一。
-- 不使用中文。
-- 不使用空格。
-- 一旦发布，尽量不修改。
+### 4.4 outputSchema
 
-### 6.2 工具描述 description
+V0.1 保存 output schema 作为文档和测试契约，但 ToolRuntime 主要依赖统一结果 wrapper。handler 返回 data 时仍应通过单元测试验证结构；不在 V0.1 建设完整通用 output-schema runtime validator。
 
-description 是给模型看的，必须清楚说明：
+### 4.5 config
 
-- 工具能做什么。
-- 什么时候应该使用。
-- 需要哪些参数。
-- 不能做什么。
-
-示例：
-
-```text
-根据订单号查询订单状态、支付状态、支付错误码和订单金额。
-当用户问题涉及具体订单、支付失败、订单状态时使用。
-本工具只查询模拟订单数据，不会修改任何订单状态。
-```
-
-### 6.3 input_schema
-
-使用 JSON Schema。
-
-示例：
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "orderNo": {
-      "type": "string",
-      "description": "订单号，例如 order_1024"
-    }
-  },
-  "required": ["orderNo"],
-  "additionalProperties": false
-}
-```
-
-### 6.4 output_schema
-
-V1.0 不强制严格校验输出，但应保存结构说明。
-
-示例：
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "orderNo": { "type": "string" },
-    "paymentStatus": { "type": "string" },
-    "errorCode": { "type": "string" }
-  }
-}
-```
-
-### 6.5 config
-
-工具运行配置。
-
-BUILTIN 示例：
+BUILTIN config 只保存安全、受控标识，例如：
 
 ```json
 {
   "handler": "orderQueryTool",
-  "readonly": true
+  "readonly": true,
+  "implementationVersion": "builtin-v1"
 }
 ```
 
-HTTP 示例，V1.5：
+实际路由必须是代码中的 exact allowlist：
 
-```json
-{
-  "method": "GET",
-  "url": "https://internal.example.com/orders/{orderNo}",
-  "headers": {}
-}
+```text
+orderQueryTool      -> OrderQueryToolHandler
+paymentLogQueryTool -> PaymentLogQueryToolHandler
 ```
+
+禁止根据数据库任意字符串动态获取任意 Spring Bean、反射加载类或执行脚本。
 
 ---
 
-## 7. ToolSpec 给模型的结构
+## 5. Agent Tool Binding
 
-AgentEngine 在调用模型前，会通过 ToolRuntime 获取当前 Agent 可用工具。
+V0.1 使用 `agent_tool_binding`：
 
-建议内部结构：
+```text
+userId
+agentId
+toolId
+enabled
+priority
+```
+
+规则：
+
+- Agent owner 由复合外键证明；
+- 绑定不复制 tool schema；
+- 只有 binding enabled、tool live/ACTIVE、type=BUILTIN 才能进入新 task snapshot；
+- 首个支付 Agent 只绑定 `order_query` 和 `payment_log_query`；
+- `report_generate` 不绑定；
+- V0.1 不支持 per-Agent config override。
+
+Task 创建后，binding 变化只影响新 task。运行中 task 使用其 snapshot；当前工具被禁用或软删除时，ToolRuntime 将其视为紧急撤销并拒绝执行。
+
+---
+
+## 6. 给模型的安全 ToolSpec
 
 ```java
-public class ToolSpec {
-    private Long toolId;
-    private String toolCode;
-    private String name;
-    private String description;
-    private JsonNode inputSchema;
-}
+record AgentToolSpec(
+    long toolId,
+    String toolCode,
+    String name,
+    String description,
+    JsonNode inputSchema
+) {}
 ```
 
-给模型的工具信息只包含：
+模型可见字段只有：
 
-- tool name/code。
-- description。
-- parameters schema。
+```text
+toolCode
+name
+description
+inputSchema
+```
 
-不暴露：
+不可见：
 
-- 内部 handler。
-- 权限等级。
-- 重试配置。
-- HTTP URL。
-- 敏感 headers。
+- handler；
+- config；
+- outputSchema；
+- timeout/retry；
+- permission level；
+- confirmation flag；
+- HTTP URL/headers；
+-数据库细节；
+- 内部工具 ID 是否连续。
+
+Task snapshot 额外保存 `inputSchemaHash`、`implementationVersion` 和 `timeoutMs`，但这些不进入模型 Prompt。
+
+### 6.1 Schema hash
+
+```text
+inputSchemaHash = SHA-256(canonical JSON bytes of inputSchema)
+```
+
+Canonical JSON 必须固定：
+
+- UTF-8；
+- object keys 排序；
+- 无无意义空白；
+- 数字格式稳定。
+
+Task 运行时若当前定义的 hash 与 snapshot 不同，ToolRuntime 返回 `TOOL_DEFINITION_CHANGED`，不使用新 schema 静默校验旧 decision。
 
 ---
 
-## 8. 工具调用流程
+## 7. ToolExecutionCommand
 
-### 8.1 总体流程
+AgentTask 路径：
+
+```java
+record TaskToolExecutionCommand(
+    long taskId,
+    long stepId,
+    long userId,
+    long agentId,
+    long snapshotToolId,
+    String snapshotToolCode,
+    String snapshotInputSchemaHash,
+    String snapshotImplementationVersion,
+    JsonNode arguments,
+    Instant deadlineAt
+) {}
+```
+
+约束：
+
+- task/step/user/agent 由内部调用方提供，不接受 HTTP body 自报；
+- arguments 必须是 JSON object；
+- tool 通过 ID 精确加载，不按模型字符串直接路由；
+- toolCode 只用于 snapshot 一致性和日志；
+- ToolRuntime 不接受任意 handler 名；
+- per-call timeout 不超过 task 剩余 deadline。
+
+现有 standalone tool test 可以继续使用单独命令，taskId/stepId 为空；它不等同于 AgentTask 执行，也不能被当作 Agent 闭环证据。
+
+---
+
+## 8. 执行顺序
 
 ```mermaid
 sequenceDiagram
     participant AE as AgentEngine
-    participant LLM as LlmGateway
     participant TR as ToolRuntime
     participant TD as ToolDefinitionService
-    participant V as Validator
-    participant P as PolicyGuard
-    participant EX as ToolExecutor
-    participant LOG as TraceService
+    participant V as ToolArgumentValidator
+    participant EX as BuiltinToolExecutor
+    participant LOG as ToolCallLogService
 
-    AE->>LLM: Thinking prompt + available tools
-    LLM-->>AE: tool_call(toolCode, arguments)
-    AE->>TR: execute(command)
-    TR->>TD: load tool definition
-    TR->>TD: check agent binding
-    TR->>V: validate arguments by JSON Schema
-    TR->>P: check policy, permission and confirmation
-    TR->>LOG: create policy_check_log
-    TR->>LOG: create tool_call_log RUNNING
-    TR->>EX: execute tool with timeout
-    EX-->>TR: result
-    TR->>LOG: update tool_call_log SUCCESS/FAILED
+    AE->>TR: TaskToolExecutionCommand
+    TR->>TD: load tool by snapshotToolId
+    TR->>TR: live/ACTIVE/type checks
+    TR->>TR: binding + snapshot consistency
+    TR->>V: validate arguments against snapshot schema
+    TR->>LOG: insert RUNNING log
+    TR->>EX: exact handler execution with timeout
+    EX-->>TR: domain result
+    TR->>LOG: terminal update
     TR-->>AE: ToolExecutionResult
-    AE->>AE: append observation
 ```
 
-### 8.2 执行前校验
+精确校验顺序：
 
-ToolRuntime 必须校验：
+1. command 基础合法性；
+2. 当前 tool 存在、未删除；
+3. status=ACTIVE；
+4. type=BUILTIN；
+5. Agent binding 仍存在且 enabled；
+6. current toolCode 与 snapshot 一致；
+7. current schema hash 与 snapshot 一致；
+8. current implementation version 与 snapshot 兼容；
+9. arguments 按 snapshot schema 校验；
+10. 创建 RUNNING log；
+11. 执行 handler；
+12. 写 terminal log；
+13. 返回标准结果。
 
-1. 工具是否存在。
-2. 工具是否启用。
-3. Agent 是否绑定该工具。
-4. 当前用户是否拥有 Agent。
-5. 工具参数是否符合 JSON Schema。
-6. PolicyGuard 是否允许执行。
-7. 工具是否需要人工确认。
-8. 工具调用次数是否超出 Agent 预算。
-
-### 8.3 执行后处理
-
-ToolRuntime 必须：
-
-- 标准化工具结果。
-- 记录 `policy_check_log`。
-- 记录 `tool_call_log`。
-- 返回给 AgentEngine。
-- 发布工具执行事件。
+在步骤 1–9 被拒绝的调用仍应有 `REJECTED` log。若为了获得 log ID 需要先插入 PENDING，再更新 REJECTED，应保证生命周期约束一致。
 
 ---
 
-## 9. ToolExecutionCommand
-
-建议结构：
-
-```json
-{
-  "taskId": "30001",
-  "stepId": "70003",
-  "userId": "123",
-  "agentId": "1001",
-  "toolCode": "order_query",
-  "arguments": {
-    "orderNo": "order_1024"
-  },
-  "context": {
-    "conversationId": "50001"
-  }
-}
-```
-
-Java 结构建议：
+## 9. ToolExecutionResult
 
 ```java
-public class ToolExecutionCommand {
-    private Long taskId;
-    private Long stepId;
-    private Long userId;
-    private Long agentId;
-    private String toolCode;
-    private JsonNode arguments;
-    private Map<String, Object> context;
-}
+record ToolExecutionResult(
+    ToolExecutionStatus status,
+    String toolCode,
+    String summary,
+    JsonNode data,
+    String errorCode,
+    String errorMessage,
+    long latencyMs,
+    long toolCallLogId
+) {}
 ```
+
+状态：
+
+```text
+SUCCESS
+REJECTED
+FAILED
+TIMEOUT
+```
+
+不再同时维护一个可能与 status 冲突的可写 `success` 字段。若 API/旧代码需要 `success`，它只能派生为 `status == SUCCESS`。
+
+字段规则：
+
+| 状态 | summary/data | error |
+| --- | --- | --- |
+| `SUCCESS` | summary 非空，data 为受限 JSON object | error 为空 |
+| `REJECTED` | safe summary 可选，data 为空或安全 object | error 非空 |
+| `FAILED` | safe summary 可选，data 不含内部异常 | error 非空 |
+| `TIMEOUT` | 固定安全 summary，data 为空 | error=`TOOL_TIMEOUT` |
+
+Engine 只把以下内容放入后续 Prompt：
+
+```text
+toolCode
+status
+safe summary
+bounded safe data（确有必要时）
+```
+
+完整内部异常、stack、SQL、URL、配置和敏感字段不进入 observation。
 
 ---
 
-## 10. ToolExecutionResult
+## 10. 参数校验
 
-统一结果结构：
+### 10.1 校验失败
 
-```json
-{
-  "success": true,
-  "toolCode": "order_query",
-  "summary": "订单 order_1024 当前支付状态为 PAY_FAILED，错误码 E_PAY_TIMEOUT。",
-  "data": {
-    "orderNo": "order_1024",
-    "paymentStatus": "PAY_FAILED",
-    "errorCode": "E_PAY_TIMEOUT"
-  },
-  "errorCode": null,
-  "errorMessage": null,
-  "latencyMs": 34
-}
+参数不合法：
+
+- 不进入 handler；
+- tool log=`REJECTED`；
+- errorCode=`TOOL_ARGUMENT_INVALID`；
+- 返回稳定字段级摘要，不返回 Java exception；
+- 本次 `CALL_TOOL` 已消耗 Engine 的 tool call 预算；
+- Engine 可将 rejection observation 提供给下一次 decision，但不会让 ToolRuntime 自行再次调用模型。
+
+### 10.2 业务校验
+
+JSON Schema 不能表达或当前 validator 未支持的跨字段规则，由 handler 在执行任何业务查询前校验。例如 `payment_log_query` 要求 `orderNo` 或 `errorCode` 至少一个非空。
+
+业务参数错误仍为 `REJECTED`，不是系统 `FAILED`。
+
+---
+
+## 11. 超时与重试
+
+### 11.1 V0.1 timeout
+
+```text
+order_query: 3000 ms
+payment_log_query: 5000 ms
 ```
 
-字段说明：
+实际 timeout：
 
-| 字段 | 说明 |
-| --- | --- |
-| `success` | 工具是否成功 |
-| `toolCode` | 工具编码 |
-| `summary` | 给模型阅读的简短摘要 |
-| `data` | 给 trace 和前端展示的结构化结果 |
-| `errorCode` | 失败错误码 |
-| `errorMessage` | 失败说明 |
-| `latencyMs` | 工具执行耗时 |
+```text
+min(snapshot timeout, current emergency timeout cap, remaining task deadline)
+```
 
-### 10.1 为什么需要 summary
+V0.1 handler 都是本地只读查询。实现可以使用 Future/受控 executor 或数据库 statement timeout，但不得宣称仅在返回后检查时钟就是“硬超时”。
+
+### 11.2 V0.1 retry
+
+V0.1 默认：
+
+```text
+retryCount = 0
+```
 
 原因：
 
-- 模型不适合直接阅读很大的 JSON。
-- summary 可以控制上下文长度。
-- data 仍然保留完整结构供 Trace 页面展示。
+- 两个工具是快速本地只读查询；
+- 自动重试会模糊一次 Agent 动作对应多少实际调用；
+- 当前 tool_call_log 一行还没有 attempt 子表。
+
+### 11.3 后续 retry 模型
+
+支持外部工具前必须增加：
+
+```text
+sideEffectClass:
+  READ_ONLY
+  IDEMPOTENT_WRITE
+  NON_IDEMPOTENT_WRITE
+
+idempotencyKeyStrategy
+retryableErrorClasses
+maxAttempts
+backoff
+```
+
+并新增 `tool_call_attempt`。timeout/连接中断可能表示远端结果未知，未来需要 `OUTCOME_UNKNOWN`，不得对非幂等写操作盲目重试。
 
 ---
 
-## 11. 参数校验
+## 12. V0.1 内置工具
 
-### 11.1 校验方式
+### 12.1 order_query
 
-使用 JSON Schema 校验模型生成的 arguments。
+用途：按订单号查询模拟订单。
 
-校验内容：
-
-- 必填字段。
-- 字段类型。
-- 枚举值。
-- 字符串长度。
-- 数值范围。
-- 是否允许额外字段。
-
-### 11.2 校验失败处理
-
-如果校验失败：
-
-1. 创建或更新 `tool_call_log`，状态 `REJECTED`。
-2. 记录错误码 `TOOL_ARGUMENT_INVALID`。
-3. 发布 `TOOL_FINISHED` 事件，状态 `REJECTED`。
-4. 将错误 observation 写回 Agent 上下文。
-5. 允许模型重新生成一次参数。
-6. 连续失败超过阈值，任务失败。
-
-### 11.3 示例 observation
-
-```text
-Tool order_query was rejected because required field orderNo is missing. Please call the tool again with valid arguments.
-```
-
----
-
-## 12. 权限设计
-
-### 12.1 权限等级
-
-工具权限等级：
-
-```text
-LOW
-MEDIUM
-HIGH
-```
-
-### 12.2 权限含义
-
-| 等级 | 含义 | 示例 |
-| --- | --- | --- |
-| `LOW` | 只读、无敏感数据 | 知识库检索、报告生成 |
-| `MEDIUM` | 查询业务数据，可能包含敏感信息 | 订单查询、日志查询、工单查询 |
-| `HIGH` | 可能修改外部系统或执行危险操作 | SQL 写操作、发送通知、修改订单 |
-
-### 12.3 V1.0 权限策略
-
-V1.0 只做：
-
-- Agent 必须绑定工具才能调用。
-- 用户只能通过自己的 Agent 调用工具。
-- 管理员才能创建和修改全局工具定义。
-- `HIGH` 工具默认不允许普通 Agent 调用。
-
-### 12.4 人工确认
-
-字段：
-
-```text
-requires_confirmation
-```
-
-V1.0 预留，不强制完整实现。
-
-适用场景：
-
-- SQL 查询。
-- 发送消息。
-- 修改业务状态。
-- 调用外部 HTTP 高权限接口。
-
-### 12.5 PolicyGuard 策略检查
-
-PolicyGuard 是 ToolRuntime 执行前的统一策略检查层。
-
-决策类型：
-
-```text
-ALLOW
-WARN
-BLOCK
-REVIEW
-```
-
-V1.0 轻量规则：
-
-- Agent 未绑定工具：`BLOCK`。
-- 工具未启用：`BLOCK`。
-- JSON Schema 参数不通过：`BLOCK`。
-- 工具权限等级为 `HIGH` 且未允许：`REVIEW` 或 `BLOCK`。
-- 同一任务中重复调用相同工具和相同参数：第二次 `WARN`，第三次 `BLOCK`。
-- 超出最大工具调用次数：`BLOCK`。
-
-策略检查结果写入 `policy_check_log`，并通过 Trace 页面展示。
-
----
-
-## 13. 超时与重试
-
-### 13.1 超时
-
-每个工具配置：
-
-```text
-timeout_ms
-```
-
-默认建议：
-
-```text
-order_query: 3000ms
-payment_log_query: 5000ms
-ticket_query: 5000ms
-knowledge_search: 8000ms
-report_generate: 10000ms
-```
-
-### 13.2 重试
-
-每个工具配置：
-
-```text
-retry_count
-```
-
-默认建议：
-
-```text
-只读查询工具: 1 到 2 次
-报告生成工具: 0 到 1 次
-高权限工具: 默认不重试
-```
-
-### 13.3 重试原则
-
-- 只对可重试异常重试。
-- 参数错误不重试。
-- 权限错误不重试。
-- 业务未找到不重试。
-- 超时可重试一次。
-- 外部服务 5xx 可重试。
-
-### 13.4 状态记录
-
-工具调用状态：
-
-```text
-PENDING
-RUNNING
-SUCCESS
-FAILED
-TIMEOUT
-REJECTED
-```
-
----
-
-## 14. 内置工具设计
-
-V1.0 内置 5 个工具：
-
-- `order_query`
-- `payment_log_query`
-- `ticket_query`
-- `knowledge_search`
-- `report_generate`
-
----
-
-## 15. order_query
-
-### 15.1 作用
-
-根据订单号查询模拟订单状态、支付状态、金额和错误码。
-
-### 15.2 使用时机
-
-当用户问题涉及：
-
-- 具体订单。
-- 支付失败。
-- 订单状态。
-- 支付状态。
-- 错误码。
-
-### 15.3 input_schema
+Input：
 
 ```json
 {
@@ -668,7 +480,8 @@ V1.0 内置 5 个工具：
   "properties": {
     "orderNo": {
       "type": "string",
-      "description": "订单号，例如 order_1024"
+      "minLength": 1,
+      "maxLength": 64
     }
   },
   "required": ["orderNo"],
@@ -676,591 +489,160 @@ V1.0 内置 5 个工具：
 }
 ```
 
-### 15.4 result 示例
+返回 data：
 
-```json
-{
-  "success": true,
-  "summary": "订单 order_1024 支付失败，错误码为 E_PAY_TIMEOUT，金额 199.00 CNY。",
-  "data": {
-    "orderNo": "order_1024",
-    "amount": 199.00,
-    "currency": "CNY",
-    "status": "CREATED",
-    "paymentStatus": "PAY_FAILED",
-    "errorCode": "E_PAY_TIMEOUT"
-  }
-}
+```text
+orderNo
+amount
+currency
+status
+paymentStatus
+errorCode nullable
 ```
 
----
+### 12.2 payment_log_query
 
-## 16. payment_log_query
+用途：按订单号或错误码查询有限条模拟支付日志。
 
-### 16.1 作用
-
-根据订单号或错误码查询模拟支付日志。
-
-### 16.2 input_schema
+Input：
 
 ```json
 {
   "type": "object",
   "properties": {
-    "orderNo": {
-      "type": "string",
-      "description": "订单号，例如 order_1024"
-    },
-    "errorCode": {
-      "type": "string",
-      "description": "支付错误码，例如 E_PAY_TIMEOUT"
-    },
-    "limit": {
-      "type": "integer",
-      "description": "最多返回日志条数",
-      "minimum": 1,
-      "maximum": 20,
-      "default": 10
-    }
+    "orderNo": {"type": "string", "minLength": 1, "maxLength": 64},
+    "errorCode": {"type": "string", "minLength": 1, "maxLength": 64},
+    "limit": {"type": "integer", "minimum": 1, "maximum": 20}
   },
   "additionalProperties": false
 }
 ```
 
-### 16.3 额外校验
+业务规则：`orderNo` 或 `errorCode` 至少一个存在。默认 limit=10 由 handler 设置，不能把 JSON Schema `default` 误解为 validator 会自动填值。
 
-至少需要：
+返回日志必须限制条数和单条 message 长度，避免将任意大日志塞入 Prompt。
+
+### 12.3 report_generate
+
+当前已有定义和 handler，但 V0.1：
+
+- 不绑定到支付 Agent；
+- 不进入 availableTools；
+- 不作为完成标准；
+- 不再扩展。
+
+若只是将最终答案包装成 Markdown，使用确定性 renderer。只有未来需要保存/发送报告这一真实外部动作时，再重新评估是否作为工具。
+
+---
+
+## 13. 重复调用与循环控制
+
+重复调用检测属于 AgentEngine：
 
 ```text
-orderNo 或 errorCode 二选一
+toolCode + SHA-256(canonical JSON arguments)
 ```
 
-JSON Schema draft 标准可以表达，但实现中也可以在 handler 内做业务校验。
+ToolRuntime 可以返回已存在 log/result 的内部引用，但不自行决定 Agent 是否应该继续。
 
-### 16.4 result 示例
+V0.1：
 
-```json
-{
-  "success": true,
-  "summary": "查询到 2 条支付错误日志，主要错误为支付网关响应超时。",
-  "data": {
-    "logs": [
-      {
-        "traceId": "pay-trace-1024",
-        "level": "ERROR",
-        "errorCode": "E_PAY_TIMEOUT",
-        "message": "Payment gateway response timeout after 3000ms",
-        "occurredAt": "2026-05-01T12:00:00+08:00"
-      }
-    ]
-  }
-}
-```
+- 首次执行；
+- 第二次相同调用不执行 handler，Engine复用已有 observation；
+- 第三次相同意图使任务失败为 `AGENT_DUPLICATE_TOOL_LOOP`。
+
+不将此规则放进 PolicyGuard。
 
 ---
 
-## 17. ticket_query
+## 14. 日志与事件
 
-### 17.1 作用
+### 14.1 tool_call_log
 
-根据错误码或关键词查询历史相似工单。
-
-### 17.2 input_schema
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "errorCode": {
-      "type": "string",
-      "description": "错误码，例如 E_PAY_TIMEOUT"
-    },
-    "keyword": {
-      "type": "string",
-      "description": "查询关键词，例如 支付超时"
-    },
-    "limit": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 10,
-      "default": 5
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-### 17.3 result 示例
-
-```json
-{
-  "success": true,
-  "summary": "找到 1 个历史相似工单，处理方式为检查支付渠道状态并引导用户重试。",
-  "data": {
-    "tickets": [
-      {
-        "ticketNo": "TCK-2026-001",
-        "title": "支付网关超时导致订单支付失败",
-        "solution": "确认用户未扣款后，引导用户重新支付；若已扣款则创建退款工单。"
-      }
-    ]
-  }
-}
-```
-
----
-
-## 18. knowledge_search
-
-### 18.1 作用
-
-让 Agent 主动进行二次知识库检索。
-
-### 18.2 V1.0 定位
-
-V1.0 可以注册该工具，但不强制在默认 Agent 流程中使用。
-
-默认 Agent 流程已经有前置 RAG。
-
-### 18.3 input_schema
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "query": {
-      "type": "string",
-      "description": "要检索的问题或关键词"
-    },
-    "topK": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 10,
-      "default": 5
-    }
-  },
-  "required": ["query"],
-  "additionalProperties": false
-}
-```
-
-### 18.4 result 示例
-
-```json
-{
-  "success": true,
-  "summary": "检索到 3 段与支付超时相关的知识库内容。",
-  "data": {
-    "hits": [
-      {
-        "chunkId": "10001",
-        "fileName": "payment-error-guide.md",
-        "score": 0.8421,
-        "content": "E_PAY_TIMEOUT 表示支付网关响应超时..."
-      }
-    ]
-  }
-}
-```
-
----
-
-## 19. report_generate
-
-### 19.1 作用
-
-根据 Agent 已有分析、知识库引用和工具结果生成 Markdown 处理报告。
-
-### 19.2 说明
-
-该工具可以有两种实现：
-
-1. 简单模板生成，不再调用 LLM。
-2. 调用 LLM 生成更完整报告。
-
-V1.0 推荐先用模板生成。
-
-### 19.3 input_schema
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "title": {
-      "type": "string",
-      "description": "报告标题"
-    },
-    "summary": {
-      "type": "string",
-      "description": "问题摘要"
-    },
-    "rootCause": {
-      "type": "string",
-      "description": "原因分析"
-    },
-    "suggestions": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "处理建议"
-    }
-  },
-  "required": ["title", "summary"],
-  "additionalProperties": false
-}
-```
-
-### 19.4 result 示例
-
-```json
-{
-  "success": true,
-  "summary": "已生成 Markdown 处理报告。",
-  "data": {
-    "markdown": "# order_1024 支付失败分析报告\n\n## 结论\n..."
-  }
-}
-```
-
----
-
-## 20. 工具结果进入 Agent 上下文
-
-ToolExecutionResult 会被转换为 observation。
-
-### 20.1 observation 格式
-
-```json
-{
-  "type": "TOOL_RESULT",
-  "toolCode": "order_query",
-  "success": true,
-  "summary": "订单 order_1024 支付失败，错误码为 E_PAY_TIMEOUT。",
-  "dataRef": "tool_call_log:60001"
-}
-```
-
-### 20.2 Prompt 中的展示格式
+每次 AgentTask 工具调用必须记录：
 
 ```text
-[Tool Observation 1]
-Tool: order_query
-Status: SUCCESS
-Summary:
-订单 order_1024 支付失败，错误码为 E_PAY_TIMEOUT。
+taskId
+stepId
+toolId
+toolCode/name snapshot
+arguments snapshot
+result snapshot
+status
+latency
+safe error
+startedAt/finishedAt
 ```
 
-原则：
+task/step 归属必须通过复合一致性约束或等价数据库不变量证明。
 
-- Prompt 中优先放 summary。
-- data 只在必要时放入。
-- 完整 data 在 Trace 页面查看。
-- 避免工具返回大 JSON 塞满上下文。
+### 14.2 Event
 
----
-
-## 21. Agent 调用工具的约束
-
-AgentEngine 给模型的规则中必须包含：
-
-```text
-- You may only call tools listed in Available Tools.
-- You must provide arguments that match the tool schema.
-- Do not invent tool results.
-- If a tool call fails, decide whether to retry with corrected arguments or answer with available evidence.
-- Do not call the same tool with the same arguments repeatedly.
-```
-
-后端仍需强制执行：
-
-- 工具白名单。
-- schema 校验。
-- 最大工具调用次数。
-- 重复工具调用检测。
-- 超时和取消。
-
----
-
-## 22. 重复调用检测
-
-为避免 Agent 循环调用同一工具：
-
-建议记录：
-
-```text
-toolCode + normalizedArgumentsHash
-```
-
-如果同一任务中连续重复调用：
-
-- 第一次允许。
-- 第二次可允许但提示 observation。
-- 第三次拒绝，错误码 `TOOL_DUPLICATE_CALL`。
-
-V0.1 可不做复杂检测。
-
-V1.0 建议至少做简单检测。
-
----
-
-## 23. 工具日志与 Trace
-
-每次工具调用都必须记录 `tool_call_log`。
-
-### 23.1 成功日志
-
-记录：
-
-- taskId。
-- stepId。
-- toolId。
-- toolCode。
-- arguments。
-- result。
-- status = `SUCCESS`。
-- retryCount。
-- latencyMs。
-
-### 23.2 失败日志
-
-记录：
-
-- status = `FAILED` / `TIMEOUT` / `REJECTED`。
-- errorCode。
-- errorMessage。
-- arguments。
-- retryCount。
-- latencyMs。
-
-### 23.3 Trace 页面展示
-
-Trace 页面应展示：
-
-- 工具名称。
-- 调用原因，可来自 AgentDecision reason。
-- 入参。
-- 出参。
-- 状态。
-- 耗时。
-- 错误信息。
-
----
-
-## 24. SSE 事件
-
-工具调用相关事件：
+ToolRuntime 或其 application adapter 产生：
 
 ```text
 TOOL_STARTED
 TOOL_FINISHED
 ```
 
-### 24.1 TOOL_STARTED
+规则：
 
-```json
-{
-  "taskId": "30001",
-  "sequenceNo": 8,
-  "eventType": "TOOL_STARTED",
-  "payload": {
-    "toolCode": "order_query",
-    "toolName": "订单查询工具",
-    "argumentsPreview": {
-      "orderNo": "order_1024"
-    }
-  }
-}
-```
-
-### 24.2 TOOL_FINISHED
-
-```json
-{
-  "taskId": "30001",
-  "sequenceNo": 9,
-  "eventType": "TOOL_FINISHED",
-  "payload": {
-    "toolCallId": "60001",
-    "toolCode": "order_query",
-    "status": "SUCCESS",
-    "latencyMs": 34,
-    "summary": "订单 order_1024 当前状态为 PAY_FAILED，错误码 E_PAY_TIMEOUT。"
-  }
-}
-```
+- `TOOL_STARTED` 在 RUNNING log 提交后；
+- `TOOL_FINISHED` 在 terminal log 提交后；
+- payload 只包含 toolCallId、toolCode、status、latency 和 safe summary；
+- 默认不把完整 arguments/result 推送到浏览器；
+- Engine/Runner 通过统一 TaskEventAppender 写事件，不让 ToolRuntime 自己分配 sequence。
 
 ---
 
-## 25. BuiltinToolExecutor 设计
+## 15. 安全要求
 
-### 25.1 接口
+- exact builtin allowlist；
+- 禁止任意反射/脚本/Bean 名执行；
+- 模型不可控制 URL、SQL 或 class name；
+- arguments/result 大小限制；
+- 日志字段脱敏；
+- 只把安全 summary/data 写回模型；
+- 当前工具禁用作为紧急 kill switch；
+- owner/Agent binding 防御性复核；
+- 高权限字段在 V0.1 不形成虚假的“已实现审批”；
+- Tool test endpoint 仅用于开发/管理，不开放为普通 Agent 绕过入口。
 
-```java
-public interface BuiltinToolHandler {
-    String toolCode();
+---
 
-    ToolExecutionResult execute(ToolExecutionCommand command);
-}
-```
-
-### 25.2 Router
-
-```java
-public class BuiltinToolExecutor {
-    private final Map<String, BuiltinToolHandler> handlers;
-
-    public ToolExecutionResult execute(ToolExecutionCommand command) {
-        BuiltinToolHandler handler = handlers.get(command.getToolCode());
-        if (handler == null) {
-            throw new ToolException("TOOL_HANDLER_NOT_FOUND");
-        }
-        return handler.execute(command);
-    }
-}
-```
-
-### 25.3 Handler 示例
+## 16. 失败分类
 
 ```text
-OrderQueryToolHandler
-PaymentLogQueryToolHandler
-TicketQueryToolHandler
-KnowledgeSearchToolHandler
-ReportGenerateToolHandler
+TOOL_NOT_FOUND
+TOOL_DISABLED
+TOOL_NOT_BOUND
+TOOL_TYPE_UNSUPPORTED
+TOOL_DEFINITION_CHANGED
+TOOL_HANDLER_NOT_FOUND
+TOOL_ARGUMENT_INVALID
+TOOL_RESULT_INVALID
+TOOL_EXECUTION_FAILED
+TOOL_TIMEOUT
+TOOL_LOG_PERSIST_FAILED
 ```
 
----
-
-## 26. HTTP 工具预留
-
-V1.5 可实现 HTTP 工具。
-
-必须限制：
-
-- 只允许管理员创建。
-- URL 白名单。
-- 禁止访问内网敏感地址。
-- 限制 method。
-- 限制 headers。
-- 配置超时。
-- 不允许模型直接控制完整 URL。
-
-当前 V1.0 不实现，避免安全和复杂度失控。
+工具执行成功但 terminal log 持久化失败时，不得向 Engine 返回普通 SUCCESS。对 V0.1 只读查询，可以返回系统失败并允许用户重建 task；未来副作用工具必须有独立 outcome reconciliation。
 
 ---
 
-## 27. 受控 MCP 工具预留
+## 17. V0.1 验收
 
-V2.0 可以接入 MCP，但只做受控适配。
+必须证明：
 
-思路：
-
-- 管理员注册 allowlist MCP Server。
-- 拉取 server tools 和 schema。
-- 映射为 `tool_definition`。
-- ToolRuntime 调用 McpToolExecutor。
-- 仍然沿用 Agent 绑定、PolicyGuard、权限、日志、超时和 Trace。
-
-V1.0 不做 MCP 的完整生态，只在文档和表设计中预留 `MCP` 类型。
-
----
-
-## 28. V0.1 实现边界
-
-V0.1 必须实现：
-
-- `tool_definition` 初始化内置工具。
-- Agent 可获取可用工具列表。
-- ToolRuntime 执行内置工具。
-- JSON Schema 基础校验。
-- `order_query`。
-- `payment_log_query`。
-- `report_generate`。
-- 工具调用日志。
-- `TOOL_STARTED` / `TOOL_FINISHED` SSE 事件。
-
-V0.1 可以简化：
-
-- 不做完整工具 CRUD。
-- 不做 HTTP 工具。
-- 不做 MCP 工具。
-- 不做人工确认。
-- 不做复杂权限等级。
-- 工具重试简单实现或暂不做。
-
----
-
-## 29. V1.0 完成标准
-
-V1.0 工具系统应支持：
-
-1. 工具定义表驱动。
-2. 管理员可以查看和启停工具。
-3. Agent 可以绑定指定工具。
-4. AgentEngine 可以获取当前 Agent 可用工具 specs。
-5. 模型返回工具调用后，后端执行绑定校验。
-6. 参数必须通过 JSON Schema 校验。
-7. 工具有超时控制。
-8. 工具有基础重试。
-9. 每次工具调用都有 `tool_call_log`。
-10. 每次工具执行前都有 PolicyGuard 轻量策略检查。
-11. Trace 页面可以展示工具入参、出参、策略结果、耗时和失败原因。
-12. 支持订单查询、支付日志查询、工单查询、知识库检索、报告生成 5 个内置工具。
-
----
-
-## 30. V1.5 增强项
-
-推荐增强：
-
-- HTTP 工具。
-- 工具调用人工确认。
-- PolicyGuard 规则配置。
-- 重复工具调用检测。
-- 工具调用统计。
-- 工具失败率统计。
-- 工具级限流。
-- 工具结果脱敏。
-- 工具参数示例管理。
-- 工具测试页面增强。
-
----
-
-## 31. 面试表达重点
-
-工具系统可以这样讲：
-
-1. **工具调用受控**
-   - 模型只能提出工具调用，后端负责查找、校验、策略检查、权限和执行。
-
-2. **schema 驱动**
-   - 工具参数用 JSON Schema 定义，模型生成的 arguments 必须校验通过。
-
-3. **Agent 绑定**
-   - 不是所有 Agent 都能调用所有工具，工具必须显式绑定到 Agent。
-
-4. **可观测**
-   - 每次工具调用都有 tool_call_log 和 policy_check_log，Trace 页面可以看到策略结果、入参、出参、状态、耗时和错误。
-
-5. **稳定性**
-   - 工具具备超时、重试、失败分类和最大调用次数限制。
-
-6. **可扩展**
-   - V1.0 先做 BUILTIN，后续可以扩展 HTTP 和受控 MCP，但仍复用同一套绑定、PolicyGuard、权限和日志体系。
-
----
-
-## 32. 当前不做的内容
-
-V1.0 暂不做：
-
-- 用户在线编写任意代码工具。
-- 工具插件市场。
-- 完整 HTTP 工具安全沙箱。
-- 完整 MCP Server 自动发现。
-- 任意 MCP Server 自动接入。
-- 工具调用审批流。
-- 工具结果复杂脱敏规则。
-- 写操作业务工具。
-- 真实生产数据库 SQL 执行工具。
-
-这些内容容易引入安全和复杂度问题，不进入当前核心闭环。
+1. 未绑定工具不进入 task snapshot；
+2. 非 BUILTIN/禁用/软删除工具不进入 snapshot；
+3. 模型无法通过 toolCode 选择未授权 toolId；
+4. snapshot schema 与当前 schema 不一致时拒绝；
+5. 参数错误不进入 handler；
+6. handler 只能从 exact allowlist 路由；
+7. timeout 不超过 task 剩余 deadline；
+8. 每个 Agent tool call 关联正确 task/step；
+9. 工具内部异常不进入 Prompt、API 或 event；
+10. 支付 Agent 只能成功调用 order_query 和 payment_log_query；
+11. report_generate 不出现在 V0.1 availableTools；
+12. Engine 的重复调用防护能终止循环。

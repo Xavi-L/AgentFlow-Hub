@@ -1,455 +1,115 @@
-# AgentFlow Hub 后端模块结构与 API 设计
+# AgentFlow Hub Backend API 设计
 
-本文档用于沉淀 AgentFlow Hub 的后端工程结构、模块边界、分层规范、核心接口抽象、REST API 和 SSE 事件设计。
-
-设计目标：
-
-> 后端要体现 Java 工程能力，而不是把所有逻辑写在几个 Controller 里。模块边界要清晰，但不要过度 DDD 化，确保个人项目能落地。
-
----
-
-## 1. 后端总体原则
-
-架构形态：
-
-> Spring Boot 模块化单体。
-
-基本原则：
-
-- 按业务模块拆包，而不是按技术类型全局堆 `controller/service/mapper`。
-- 每个模块内部可以有自己的 `controller`、`service`、`repository`、`dto`。
-- 外部依赖统一放到 `infra` 或模块内的 `infra` 子包中。
-- Controller 只处理 HTTP 请求、参数校验和响应封装。
-- Service 承载业务流程和事务边界。
-- Repository/Mapper 只负责数据库访问。
-- Agent 执行引擎、RAG 服务、工具运行时必须有明确接口，方便测试和面试讲解。
-- 所有 API 统一以 `/api/v1` 作为版本前缀。
+> 文档状态：**NORMATIVE**  
+> 权威范围：HTTP/SSE wire contract、DTO、错误码、模块边界和内部接口投影  
+> 最近审查基线：`main@f276549`（V36）  
+> Task 状态引用 Agent Engine Design；表结构引用 Data Model；RAG/Tool 语义不在本文件重复定义。
 
 ---
 
-## 2. 推荐包结构
+## 1. 模块结构
+
+V0.1 采用模块化单体：
 
 ```text
 com.agentflow
-  backend.src.main.java.com.agentflow.AgentFlowApplication.java
-
   common
     api
-      ApiResponse.java
-      PageRequest.java
-      PageResult.java
     error
-      ErrorCode.java
-      BusinessException.java
-      GlobalExceptionHandler.java
-    id
-      IdGenerator.java
-    json
-      JsonUtils.java
     web
-      TraceIdFilter.java
-      CurrentUser.java
-      CurrentUserArgumentResolver.java
-
-  config
-    SecurityConfig.java
-    RedisConfig.java
-    RabbitMqConfig.java
-    MybatisPlusConfig.java
-    SpringAiConfig.java
-    SseConfig.java
-
   user
-    controller
-    service
-    repository
-    model
-    dto
-    security
-
   knowledge
-    controller
-    service
-    repository
-    model
-    dto
     parser
     chunk
-
-  rag
-    controller
-    service
-    model
-    dto
-
+    vector
+    retrieval
+    storage
   agent
-    controller
-    service
-    engine
-    state
-    repository
-    model
-    dto
-
+    app
+    execution
   tool
-    controller
-    service
-    runtime
-    builtin
-    repository
-    model
-    dto
-
-  task
-    controller
-    service
-    event
-    sse
-    repository
-    model
-    dto
-
   trace
-    controller
-    service
-    repository
-    model
-    dto
-
-  harness
-    service
-    policy
-    episode
-    model
-    dto
-
-  evaluation
-    controller
-    service
-    repository
-    model
-    dto
-
   demo
-    controller
-    service
-    repository
-    model
-    data
-
   infra
     llm
     embedding
     vector
     storage
-    mq
-    redis
+    task
 ```
 
 说明：
 
-- `common`：跨模块基础能力，不能依赖业务模块。
-- `config`：Spring 配置类。
-- `user`：登录、JWT、当前用户、基础角色。
-- `knowledge`：知识库、文档、chunk、解析和切分。
-- `rag`：检索、rerank、上下文组装、RAG 调试。
-- `agent`：Agent 配置和执行引擎。
-- `tool`：工具注册中心和工具运行时。
-- `task`：异步任务、状态、SSE 事件。
-- `trace`：Agent trace、LLM 调用、RAG hit、工具调用日志。
-- `harness`：Episode Package、PolicyGuard、评测复盘支撑。
-- `evaluation`：轻量评测。
-- `demo`：模拟订单、支付日志、工单数据源。
-- `infra`：LLM、向量库、MinIO、RabbitMQ、Redis 等外部适配。
+- `agent.execution` 拥有 AgentTask application service、TaskRunner 和 AgentEngine；
+- V0.1 不建设通用 `task` 平台模块；
+- `trace` 只读取/记录执行事实，不修改 task 生命周期；
+- `harness` 不作为顶层包；
+- Evaluation 后续独立增加；
+- Controller 不拼 Prompt、不执行工具、不直接查询数据库。
+
+依赖方向：
+
+```text
+controller -> application/service -> domain boundary -> repository/infra adapter
+```
+
+`common` 不依赖业务模块，`infra` 不反向接管业务状态机。
 
 ---
 
-## 3. 模块职责
+## 2. 通用 HTTP 规范
 
-### 3.1 user
-
-职责：
-
-- 用户注册。
-- 用户登录。
-- JWT 签发和校验。
-- 当前用户上下文。
-- 基础角色控制。
-
-不负责：
-
-- Agent 权限细节。
-- 知识库业务逻辑。
-
-### 3.2 knowledge
-
-职责：
-
-- 知识库 CRUD。
-- 文档上传。
-- 文档元数据管理。
-- 文档解析任务创建。
-- chunk 切分和保存。
-- 文档处理状态管理。
-
-不负责：
-
-- 具体向量检索排序策略。
-- Agent 推理。
-
-### 3.3 rag
-
-职责：
-
-- query embedding。
-- 向量召回。
-- metadata filter。
-- rerank，可选。
-- RAG prompt context 构造。
-- 检索日志记录。
-- RAG 调试接口。
-
-不负责：
-
-- 文档上传。
-- Agent 状态机。
-
-### 3.4 agent
-
-职责：
-
-- Agent CRUD。
-- Agent 与知识库绑定。
-- Agent 与工具绑定。
-- Prompt 版本。
-- Agent 执行引擎。
-- Agent 状态机。
-- Agent 任务主流程编排。
-
-不负责：
-
-- 具体工具业务实现。
-- 具体向量数据库 SDK 调用。
-
-### 3.5 tool
-
-职责：
-
-- 工具定义 CRUD。
-- 工具 JSON Schema。
-- 工具权限、超时、重试配置。
-- 工具参数校验。
-- 工具执行。
-- 内置工具实现。
-
-不负责：
-
-- 决定 Agent 是否要调用工具。
-- LLM 推理。
-
-### 3.6 task
-
-职责：
-
-- Agent 任务创建。
-- 任务状态查询。
-- 任务取消。
-- SSE 连接管理。
-- 任务事件保存和推送。
-- 异步任务投递。
-
-不负责：
-
-- Agent 推理细节。
-- RAG 检索细节。
-
-### 3.7 trace
-
-职责：
-
-- LLM 调用日志。
-- RAG 召回日志。
-- 工具调用日志。
-- Agent step。
-- Trace 详情聚合查询。
-
-不负责：
-
-- 修改业务状态。
-- 执行 Agent。
-
-### 3.8 harness
-
-职责：
-
-- Agent Episode Package 聚合。
-- episode 导出。
-- PolicyGuard 策略检查。
-- policy check 记录。
-- 为 Evaluation Harness 提供运行证据。
-
-不负责：
-
-- 替代 AgentEngine 执行任务。
-- 直接执行工具。
-- 修改知识库或业务数据。
-
-### 3.9 evaluation
-
-职责：
-
-- 评测集 CRUD。
-- 评测问题 CRUD。
-- 评测运行。
-- 评测结果保存。
-
-不负责：
-
-- 复杂自动打分平台。
-
-### 3.9 demo
-
-职责：
-
-- 模拟订单数据。
-- 模拟支付日志。
-- 模拟工单。
-- 给内置工具提供业务数据源。
-
----
-
-## 4. 分层规范
-
-每个业务模块推荐结构：
-
-```text
-module
-  controller   HTTP API
-  service      业务流程
-  repository   数据访问封装
-  model        Entity / Enum / Domain Model
-  dto          Request / Response DTO
-```
-
-复杂模块可增加：
-
-```text
-engine       执行引擎
-runtime      运行时
-parser       解析器
-event        事件
-```
-
-### 4.1 Controller 规范
-
-Controller 只做：
-
-- 接收请求。
-- 参数校验。
-- 获取当前用户。
-- 调用 service。
-- 返回 DTO。
-
-Controller 不做：
-
-- 数据库查询。
-- 拼 prompt。
-- 调用 LLM。
-- 执行工具。
-- 复杂 if/else 业务流程。
-
-### 4.2 Service 规范
-
-Service 负责：
-
-- 事务边界。
-- 权限校验。
-- 状态流转。
-- 调用 repository。
-- 调用 infra client。
-- 调用其他模块 service。
-
-### 4.3 Repository / Mapper 规范
-
-Repository/Mapper 负责：
-
-- 单表 CRUD。
-- 简单条件查询。
-- 分页查询。
-- 必要的 join 查询。
-
-复杂聚合查询可以由 Service 编排多个 Repository 完成。
-
-### 4.4 DTO 规范
-
-命名：
-
-```text
-CreateAgentRequest
-UpdateAgentRequest
-AgentDetailResponse
-AgentListItemResponse
-KnowledgeBaseResponse
-PageResult<T>
-```
-
-不要直接把 Entity 返回给前端。
-
-原因：
-
-- 避免泄露内部字段。
-- 便于控制 ID、JSONB、时间格式。
-- 便于未来调整数据库结构。
-
----
-
-## 5. 通用 API 规范
-
-### 5.1 路径前缀
-
-所有 API：
+### 2.1 路径
 
 ```text
 /api/v1
 ```
 
-### 5.2 认证方式
-
-使用 Bearer Token：
+### 2.2 认证
 
 ```http
-Authorization: Bearer <access_token>
+Authorization: Bearer <access-token>
 ```
 
-V1.0 只做 access token，不强制做 refresh token。
+`userId` 永远来自认证 principal。请求体、query 或 header 中出现的 owner ID 不作为授权依据。
 
-### 5.3 统一响应结构
+跨 owner、软删除和不存在资源默认统一返回 `404 COMMON_NOT_FOUND`，避免 authenticated resource enumeration。只有明确的管理员 API 才可区分。
 
-成功响应：
+### 2.3 成功响应
 
 ```json
 {
   "code": "OK",
   "message": "success",
   "data": {},
-  "traceId": "af-20260501-xxx",
-  "timestamp": "2026-05-01T12:00:00+08:00"
+  "traceId": "af-...",
+  "timestamp": "2026-09-02T12:00:00+09:00"
 }
 ```
 
-失败响应：
+### 2.4 失败响应
 
 ```json
 {
-  "code": "AGENT_TASK_NOT_FOUND",
-  "message": "Agent task not found",
+  "code": "TASK_NOT_FOUND",
+  "message": "Task not found",
   "data": null,
-  "traceId": "af-20260501-xxx",
-  "timestamp": "2026-05-01T12:00:00+08:00"
+  "traceId": "af-...",
+  "timestamp": "2026-09-02T12:00:00+09:00"
 }
 ```
 
-### 5.4 分页响应结构
+响应 message 必须稳定、安全，不包含原始 provider body、SQL、stack、endpoint、文件绝对路径、API key 或未脱敏工具结果。
+
+### 2.5 ID 与时间
+
+- 数据库使用 BIGINT；
+- JSON 中所有业务 ID 返回字符串；
+- 请求中的 ID 字段也使用字符串并在后端严格解析为正整数；
+- 时间使用 ISO-8601 offset datetime；
+- 不依赖服务器默认时区解释无 offset 时间。
+
+### 2.6 分页
 
 ```json
 {
@@ -461,353 +121,283 @@ V1.0 只做 access token，不强制做 refresh token。
 }
 ```
 
-### 5.5 ID 返回规范
+V0.1 页码从 1 开始，`pageSize` 最大 100。排序必须有稳定 ID tie-breaker。
 
-数据库 ID 使用 `BIGINT`。
+### 2.7 HTTP 状态码
 
-API JSON 中 ID 建议返回字符串：
-
-```json
-{
-  "id": "1844674400000000001"
-}
-```
-
-原因：
-
-- 避免 JavaScript number 精度丢失。
-- 前端展示和路由传参更安全。
-
-### 5.6 时间格式
-
-统一使用 ISO-8601：
-
-```text
-2026-05-01T12:00:00+08:00
-```
-
-### 5.7 HTTP 状态码
-
-| 状态码 | 用途 |
+| HTTP | 用途 |
 | --- | --- |
-| 200 | 成功 |
-| 201 | 创建成功，可选 |
-| 400 | 参数错误 |
-| 401 | 未登录或 token 无效 |
-| 403 | 无权限 |
-| 404 | 资源不存在 |
-| 409 | 状态冲突或重复提交 |
-| 429 | 限流 |
-| 500 | 服务端错误 |
+| 200 | 查询、修改、幂等成功 |
+| 201 | 创建新资源 |
+| 202 | task 已接受并排队，可选；V0.1 统一使用 201 创建 task |
+| 400 | 参数或协议错误 |
+| 401 | 未认证/token 无效 |
+| 403 | 已认证但明确禁止的全局操作 |
+| 404 | owner-scoped 资源不可见 |
+| 409 | 幂等冲突、状态冲突、定义版本冲突 |
+| 413 | 上传超限 |
+| 429 | 限流，V1.x |
+| 500 | 未分类内部错误 |
+| 503 | 外部依赖暂不可用 |
+| 504 | 同步调试接口超时；AgentTask 自身使用终态 `TIMED_OUT` |
 
 ---
 
-## 6. 错误码设计
+## 3. 错误码命名
 
-错误码使用大写蛇形：
+使用大写蛇形，按领域分组：
 
 ```text
-AUTH_INVALID_TOKEN
-KNOWLEDGE_BASE_NOT_FOUND
-DOCUMENT_PARSE_FAILED
+AUTH_
+USER_
+KNOWLEDGE_
+DOCUMENT_
+EMBEDDING_
+VECTOR_
+RAG_
+AGENT_
+TASK_
+TOOL_
+LLM_
+TRACE_
+SYSTEM_
+```
+
+Task 与 Engine 至少暴露：
+
+```text
+TASK_NOT_FOUND
+TASK_IDEMPOTENCY_CONFLICT
+TASK_DISPATCH_REJECTED
+TASK_NOT_CANCELLABLE
 AGENT_NOT_FOUND
-AGENT_TASK_NOT_FOUND
+AGENT_DISABLED
+AGENT_BINDING_INVALID
+AGENT_INVALID_DECISION
+AGENT_DUPLICATE_TOOL_LOOP
+RAG_KNOWLEDGE_NOT_READY
+RAG_RETRIEVAL_FAILED
+RAG_INVALID_CITATION
+TOOL_NOT_AVAILABLE
+TOOL_DEFINITION_CHANGED
 TOOL_ARGUMENT_INVALID
-LLM_PROVIDER_ERROR
-VECTOR_STORE_ERROR
+TOOL_EXECUTION_FAILED
+TOOL_TIMEOUT
+LLM_CONFIGURATION_ERROR
+LLM_TIMEOUT
+LLM_TRANSPORT_ERROR
+LLM_PROVIDER_REJECTED
+LLM_MALFORMED_RESPONSE
+TOKEN_BUDGET_EXHAUSTED
 ```
 
-错误码分组：
-
-| 前缀 | 模块 |
-| --- | --- |
-| `AUTH_` | 认证 |
-| `USER_` | 用户 |
-| `KB_` | 知识库 |
-| `DOC_` | 文档 |
-| `RAG_` | 检索 |
-| `AGENT_` | Agent |
-| `TASK_` | 任务 |
-| `TOOL_` | 工具 |
-| `LLM_` | 模型调用 |
-| `EVAL_` | 评测 |
-| `SYS_` | 系统 |
+内部异常类型到公开错误码的映射由 application boundary 完成。不要让 Controller 解析 exception message。
 
 ---
 
-## 7. 核心内部接口
+## 4. 内部能力接口
 
-### 7.1 LlmGateway
+### 4.1 Chat completion
 
-用途：
-
-> 屏蔽具体模型供应商，统一 chat、stream、embedding、rerank。
-
-建议接口：
+当前代码的：
 
 ```java
 public interface LlmGateway {
-    ChatResult chat(ChatRequest request);
-
-    void streamChat(ChatRequest request, TokenStreamHandler handler);
-
-    EmbeddingResult embed(EmbeddingRequest request);
-
-    RerankResult rerank(RerankRequest request);
+    LlmChatResult chat(LlmChatRequest request);
 }
 ```
 
-说明：
+继续作为同步 chat completion 能力。它不负责业务 Prompt、task 状态、embedding 或 rerank。
 
-- V0.1 可先实现 `chat`、`streamChat`、`embed`。
-- `rerank` 可以 V1.5 再正式启用。
+概念上保持接口隔离：
 
-### 7.2 VectorStoreGateway
+```text
+ChatCompletionGateway
+ChatStreamingGateway
+EmbeddingGateway
+RerankGateway
+```
 
-用途：
+V0.1 只要求现有 `LlmGateway.chat` 和 `EmbeddingGateway`。不要把 stream/embed/rerank 方法继续堆进同一个接口。
 
-> 屏蔽 Qdrant SDK。
+### 4.2 VectorStoreGateway
 
 ```java
 public interface VectorStoreGateway {
-    void upsertChunks(List<VectorChunk> chunks);
-
+    void upsert(VectorStoreRecord record);
     List<VectorSearchHit> search(VectorSearchRequest request);
-
-    void deleteByDocumentId(Long documentId);
-
-    void deleteByChunkIds(List<Long> chunkIds);
+    void deleteByDocumentScope(VectorDocumentScope scope);
 }
 ```
 
-### 7.3 FileStorageGateway
+精确接口以当前实现为基线；业务层不 import Qdrant types。
 
-用途：
+### 4.3 DocumentStorage
 
-> 屏蔽 MinIO 或本地文件存储。
+现有 `DocumentStorage` 继续作为文件边界。V0.1 使用 local adapter，未来 MinIO adapter 不改变 Knowledge service。
+
+### 4.4 TaskDispatcher
 
 ```java
-public interface FileStorageGateway {
-    StoredFile put(FileUploadCommand command);
-
-    InputStream get(String bucket, String objectKey);
-
-    void delete(String bucket, String objectKey);
+public interface TaskDispatcher {
+    void dispatch(long taskId);
 }
 ```
 
-### 7.4 RagService
+V0.1 是有界线程池实现。Dispatcher 不执行业务，只触发 TaskRunner。
 
-用途：
-
-> 提供统一 RAG 检索入口。
-
-```java
-public interface RagService {
-    RagResult retrieve(RagQuery query);
-
-    RagContext buildContext(RagResult result);
-}
-```
-
-### 7.5 AgentEngine
-
-用途：
-
-> Agent 执行主入口。
+### 4.5 AgentEngine
 
 ```java
 public interface AgentEngine {
-    void execute(AgentExecutionCommand command);
-
-    void cancel(Long taskId, Long userId);
+    ExecutionOutcome execute(AgentExecutionRequest request);
 }
 ```
 
-### 7.6 ToolRuntime
+不再使用“Engine 自己创建/取消 task”的接口。
 
-用途：
+### 4.6 RetrievalService
 
-> 工具执行统一入口。
+```java
+public interface RetrievalService {
+    RetrievalResult retrieve(RetrievalQuery query);
+}
+```
+
+### 4.7 ToolRuntime
 
 ```java
 public interface ToolRuntime {
-    ToolExecutionResult execute(ToolExecutionCommand command);
-
-    List<ToolSpec> getToolSpecsForAgent(Long agentId);
+    ToolExecutionResult execute(TaskToolExecutionCommand command);
 }
 ```
 
-### 7.7 AgentRuntimeHarness
+Agent 可用 ToolSpec 在 task 创建时由 Agent application service + ToolDefinitionService 解析并写入 snapshot，不由 ToolRuntime 在每个 decision 中重新生成一套列表。
 
-用途：
-
-> 聚合 Agent Episode Package，并为评测和 Trace 回放提供统一运行证据。
+### 4.8 TaskEventAppender
 
 ```java
-public interface AgentRuntimeHarness {
-    AgentEpisode buildEpisode(Long taskId, Long userId);
-
-    AgentEpisode exportEpisode(Long taskId, Long userId);
+public interface TaskEventAppender {
+    TaskEvent append(long taskId, NewTaskEvent event);
 }
 ```
 
-### 7.8 PolicyGuard
-
-用途：
-
-> 在 ToolRuntime 执行工具前进行策略检查。
-
-```java
-public interface PolicyGuard {
-    PolicyDecision check(PolicyCheckCommand command);
-}
-```
-
-### 7.9 TaskEventPublisher
-
-用途：
-
-> 统一保存并推送任务事件。
-
-```java
-public interface TaskEventPublisher {
-    void publish(Long taskId, TaskEvent event);
-}
-```
+只有该边界分配 `sequenceNo`。模块不得自行 `max(sequence)+1`。
 
 ---
 
-## 8. REST API 总览
-
-### 8.1 Auth / User API
+## 5. Auth API
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| POST | `/api/v1/auth/register` | 用户注册 |
-| POST | `/api/v1/auth/login` | 用户登录 |
-| POST | `/api/v1/auth/logout` | 用户退出 |
-| GET | `/api/v1/users/me` | 查询当前用户 |
+| POST | `/api/v1/auth/register` | 注册 |
+| POST | `/api/v1/auth/login` | 登录 |
+| GET | `/api/v1/users/me` | 当前用户 |
 
-登录请求：
-
-```json
-{
-  "username": "xavier",
-  "password": "password"
-}
-```
-
-登录响应：
-
-```json
-{
-  "accessToken": "jwt-token",
-  "tokenType": "Bearer",
-  "expiresIn": 7200,
-  "user": {
-    "id": "1",
-    "username": "xavier",
-    "displayName": "Xavier",
-    "role": "USER"
-  }
-}
-```
+V0.1 的 logout 为客户端删除 access token；没有 refresh token/黑名单时不提供虚假的服务端撤销语义。
 
 ---
 
-## 9. Knowledge API
+## 6. Knowledge API
 
-### 9.1 知识库
+### 6.1 Knowledge Base
 
-| 方法 | 路径 | 说明 |
+| 方法 | 路径 | V0.1 |
 | --- | --- | --- |
-| GET | `/api/v1/knowledge-bases` | 分页查询知识库 |
-| POST | `/api/v1/knowledge-bases` | 创建知识库 |
-| GET | `/api/v1/knowledge-bases/{kbId}` | 查询知识库详情 |
-| PATCH | `/api/v1/knowledge-bases/{kbId}` | 修改知识库 |
-| DELETE | `/api/v1/knowledge-bases/{kbId}` | 删除知识库 |
+| GET | `/api/v1/knowledge-bases` | 必须 |
+| POST | `/api/v1/knowledge-bases` | 必须 |
+| GET | `/api/v1/knowledge-bases/{kbId}` | 必须 |
+| PATCH | `/api/v1/knowledge-bases/{kbId}` | 已有，可保留 |
+| DELETE | `/api/v1/knowledge-bases/{kbId}` | 已有，可保留但不扩展 |
 
-创建知识库请求：
+创建请求：
 
 ```json
 {
   "name": "支付业务知识库",
-  "description": "支付失败、错误码、退款规则相关文档",
-  "embeddingProvider": "openai-compatible",
-  "embeddingModel": "text-embedding-v3",
-  "chunkSize": 800,
-  "chunkOverlap": 120
+  "description": "支付失败、错误码和处理规则"
 }
 ```
 
-### 9.2 文档
+V0.1 不接受任意 embedding provider/model/chunk strategy。响应返回服务端解析后的固定 profile：
 
-| 方法 | 路径 | 说明 |
+```json
+{
+  "id": "201",
+  "name": "支付业务知识库",
+  "description": "支付失败、错误码和处理规则",
+  "embeddingProfileCode": "dashscope-te-v4-1024-cosine",
+  "chunkStrategyVersion": "structured-token-v1",
+  "status": "ACTIVE"
+}
+```
+
+### 6.2 Document
+
+| 方法 | 路径 | V0.1 |
 | --- | --- | --- |
-| GET | `/api/v1/knowledge-bases/{kbId}/documents` | 查询文档列表 |
-| POST | `/api/v1/knowledge-bases/{kbId}/documents` | 上传文档 |
-| GET | `/api/v1/documents/{documentId}` | 查询文档详情 |
-| POST | `/api/v1/documents/{documentId}/reprocess` | 重新解析文档 |
-| DELETE | `/api/v1/documents/{documentId}` | 删除文档 |
-| GET | `/api/v1/documents/{documentId}/chunks` | 查询文档 chunks |
+| GET | `/api/v1/knowledge-bases/{kbId}/documents` | 必须 |
+| POST | `/api/v1/knowledge-bases/{kbId}/documents` | 必须 |
+| GET | `/api/v1/documents/{documentId}` | 必须 |
+| GET | `/api/v1/documents/{documentId}/chunks` | 调试/Trace 必须 |
+| POST | `/api/v1/documents/{documentId}/reprocess` | 已有维护入口，不属于闭环验收 |
+| DELETE | `/api/v1/documents/{documentId}` | 已有维护入口 |
 
-上传文档：
+文档响应必须同时表达三个维度：
+
+```json
+{
+  "id": "301",
+  "knowledgeBaseId": "201",
+  "fileName": "refund-rules.md",
+  "fileType": "MD",
+  "fileSize": 193,
+  "parseStatus": "COMPLETED",
+  "vectorization": {
+    "pending": 0,
+    "processing": 0,
+    "completed": 4,
+    "failed": 0
+  },
+  "retrievalReadiness": "READY",
+  "vectorGeneration": 0,
+  "createdAt": "...",
+  "updatedAt": "..."
+}
+```
+
+前端不得仅凭 `parseStatus=COMPLETED` 显示“可用于 Agent”。
+
+### 6.3 Retrieval Test
 
 ```http
-POST /api/v1/knowledge-bases/{kbId}/documents
-Content-Type: multipart/form-data
-
-file=<binary>
+POST /api/v1/knowledge-bases/{kbId}/retrieve-test
 ```
-
-文档响应核心字段：
 
 ```json
 {
-  "id": "101",
-  "knowledgeBaseId": "10",
-  "fileName": "payment-error-guide.md",
-  "fileType": "MD",
-  "fileSize": 24576,
-  "parseStatus": "COMPLETED",
-  "chunkCount": 32,
-  "parseError": null,
-  "createdAt": "2026-05-01T12:00:00+08:00"
-}
-```
-
-### 9.3 检索测试
-
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| POST | `/api/v1/knowledge-bases/{kbId}/retrieve-test` | 知识库检索测试 |
-
-请求：
-
-```json
-{
-  "query": "支付失败错误码 E_PAY_TIMEOUT 怎么处理？",
+  "query": "E_PAY_TIMEOUT 怎么处理",
   "topK": 5,
-  "similarityThreshold": 0.2,
-  "useRerank": false
+  "similarityThreshold": 0.2
 }
 ```
 
-响应：
+V0.1 可保留调试接口，但 `topK/threshold` 必须在安全范围内。`useRerank` 不进入 V0.1 请求。
+
+响应 hit 带 `citationId`，与 Agent 路径相同：
 
 ```json
 {
-  "query": "支付失败错误码 E_PAY_TIMEOUT 怎么处理？",
+  "query": "E_PAY_TIMEOUT 怎么处理",
   "hits": [
     {
-      "chunkId": "10001",
-      "documentId": "101",
-      "fileName": "payment-error-guide.md",
+      "citationId": "C1",
+      "chunkId": "401",
+      "documentId": "301",
+      "fileName": "refund-rules.md",
+      "titlePath": "支付失败/错误码",
       "score": 0.8421,
-      "rerankScore": null,
-      "content": "E_PAY_TIMEOUT 表示支付网关响应超时...",
-      "titlePath": "支付失败/错误码"
+      "content": "..."
     }
   ],
   "latencyMs": 86
@@ -816,480 +406,378 @@ file=<binary>
 
 ---
 
-## 10. Agent API
+## 7. Agent App API
 
-### 10.1 Agent 管理
+### 7.1 CRUD
 
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| GET | `/api/v1/agents` | 分页查询 Agent |
-| POST | `/api/v1/agents` | 创建 Agent |
-| GET | `/api/v1/agents/{agentId}` | 查询 Agent 详情 |
-| PATCH | `/api/v1/agents/{agentId}` | 修改 Agent |
-| DELETE | `/api/v1/agents/{agentId}` | 删除 Agent |
-| POST | `/api/v1/agents/{agentId}/enable` | 启用 Agent |
-| POST | `/api/v1/agents/{agentId}/disable` | 禁用 Agent |
+| 方法 | 路径 |
+| --- | --- |
+| GET | `/api/v1/agents` |
+| POST | `/api/v1/agents` |
+| GET | `/api/v1/agents/{agentId}` |
+| PATCH | `/api/v1/agents/{agentId}` |
+| DELETE | `/api/v1/agents/{agentId}` |
+| POST | `/api/v1/agents/{agentId}/enable` |
+| POST | `/api/v1/agents/{agentId}/disable` |
 
-创建 Agent 请求：
+目标创建请求：
 
 ```json
 {
   "name": "支付问题诊断助手",
-  "description": "用于分析订单支付失败、查询日志并生成处理建议",
-  "systemPrompt": "你是企业内部研发运营助手，擅长结合知识库和工具分析支付问题。",
-  "modelProvider": "openai-compatible",
-  "modelName": "kimi-k2",
+  "description": "分析订单支付失败并给出建议",
+  "systemPrompt": "你是企业内部支付问题诊断助手。",
+  "chatModelProfileCode": "openai-compatible-default",
   "temperature": 0.2,
   "topP": 0.8,
-  "maxSteps": 6,
+  "maxDecisionTurns": 6,
   "maxToolCalls": 4,
-  "maxTokens": 8000,
+  "maxTotalTokens": 8000,
   "timeoutSeconds": 120
 }
 ```
 
-### 10.2 Agent 绑定
+当前数据库/DTO 的 `maxSteps/maxTokens/modelProvider/modelName` 在兼容期映射到上述语义。客户端不应长期直接输入任意 provider/model 组合。
 
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| PUT | `/api/v1/agents/{agentId}/knowledge-bases` | 设置 Agent 绑定知识库 |
-| GET | `/api/v1/agents/{agentId}/knowledge-bases` | 查询 Agent 绑定知识库 |
-| PUT | `/api/v1/agents/{agentId}/tools` | 设置 Agent 可用工具 |
-| GET | `/api/v1/agents/{agentId}/tools` | 查询 Agent 可用工具 |
+约束：
 
-设置知识库绑定：
+```text
+maxToolCalls < maxDecisionTurns
+```
+
+### 7.2 Knowledge Binding
+
+| 方法 | 路径 |
+| --- | --- |
+| GET | `/api/v1/agents/{agentId}/knowledge-bases` |
+| PUT | `/api/v1/agents/{agentId}/knowledge-bases` |
 
 ```json
 {
-  "knowledgeBaseIds": ["10", "11"]
+  "knowledgeBaseIds": ["201"]
 }
 ```
 
-设置工具绑定：
+PUT 为全量替换，必须在一个事务中：
+
+- owner-scoped 校验 Agent；
+- 校验所有 KB 属于同 owner 且 live；
+- 去重；
+- 替换 bindings；
+- 不改变已经创建的 task snapshot。
+
+### 7.3 Tool Binding
+
+| 方法 | 路径 |
+| --- | --- |
+| GET | `/api/v1/agents/{agentId}/tools` |
+| PUT | `/api/v1/agents/{agentId}/tools` |
 
 ```json
 {
-  "tools": [
-    {
-      "toolId": "201",
-      "enabled": true,
-      "configOverride": {}
-    }
-  ]
+  "toolIds": ["270000000000000001", "280000000000000001"]
 }
 ```
 
-### 10.3 Prompt 版本
-
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| GET | `/api/v1/agents/{agentId}/prompt-versions` | 查询 Prompt 版本 |
-| POST | `/api/v1/agents/{agentId}/prompt-versions` | 创建 Prompt 版本 |
-| POST | `/api/v1/agents/{agentId}/prompt-versions/{versionId}/activate` | 激活指定版本 |
+V0.1 只允许可绑定的两个 BUILTIN 工具。忽略客户端自报 enabled/configOverride/permissionLevel；这些由服务端定义。
 
 ---
 
-## 11. Agent Task API
+## 8. Agent Task API
 
-### 11.1 创建和查询任务
+### 8.1 创建 Task
 
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| POST | `/api/v1/agents/{agentId}/tasks` | 创建 Agent 执行任务 |
-| GET | `/api/v1/tasks` | 查询任务历史 |
-| GET | `/api/v1/tasks/{taskId}` | 查询任务详情 |
-| POST | `/api/v1/tasks/{taskId}/cancel` | 取消任务 |
-| GET | `/api/v1/tasks/{taskId}/events` | SSE 订阅任务事件 |
-
-创建任务请求：
+```http
+POST /api/v1/agents/{agentId}/tasks
+Authorization: Bearer <token>
+Idempotency-Key: <client-generated-opaque-key>
+Content-Type: application/json
+```
 
 ```json
 {
-  "conversationId": null,
-  "input": "帮我分析 order_1024 支付失败的原因，并给出处理建议。",
-  "stream": true
+  "input": "帮我分析 order_1024 支付失败的原因，并给出处理建议。"
 }
 ```
 
-创建任务响应：
+规则：
 
-```json
-{
-  "taskId": "30001",
-  "conversationId": "50001",
-  "status": "QUEUED",
-  "sseUrl": "/api/v1/tasks/30001/events"
-}
-```
+- `Idempotency-Key` 必填，1–128 字符；
+- key 仅在当前 user scope 内唯一；
+- 相同 key + 相同 payload 返回原 task，HTTP 200；
+- 相同 key + 不同 payload 返回 409；
+- 新 task 返回 HTTP 201；
+- task 与 snapshot 已提交后才响应；
+- 线程池 dispatch 发生在事务提交后。
 
-任务详情响应：
+创建响应：
 
 ```json
 {
   "id": "30001",
   "agentId": "1001",
-  "conversationId": "50001",
-  "userInput": "帮我分析 order_1024 支付失败的原因，并给出处理建议。",
-  "status": "COMPLETED",
-  "finalAnswer": "根据订单状态和日志，支付失败原因可能是支付网关超时...",
-  "totalTokens": 5230,
-  "totalCost": 0.0123,
-  "startedAt": "2026-05-01T12:00:00+08:00",
-  "completedAt": "2026-05-01T12:00:12+08:00"
+  "status": "QUEUED",
+  "phase": null,
+  "lastEventSequence": 1,
+  "eventsUrl": "/api/v1/tasks/30001/events"
 }
 ```
 
----
+请求不包含 `stream`。事件订阅是独立读取接口，task 是否流式展示不改变执行语义。
 
-## 12. SSE 事件设计
+### 8.2 Task 列表和详情
 
-SSE endpoint：
+| 方法 | 路径 |
+| --- | --- |
+| GET | `/api/v1/tasks` |
+| GET | `/api/v1/tasks/{taskId}` |
+
+详情：
+
+```json
+{
+  "id": "30001",
+  "agentId": "1001",
+  "userInput": "...",
+  "status": "RUNNING",
+  "phase": "EXECUTING_TOOL",
+  "terminationReason": null,
+  "decisionTurnsUsed": 2,
+  "toolCallsUsed": 1,
+  "tokenUsage": {
+    "inputTokens": 1500,
+    "outputTokens": 120,
+    "totalTokens": 1620,
+    "quality": "EXACT"
+  },
+  "finalAnswer": null,
+  "citations": [],
+  "error": null,
+  "lastEventSequence": 8,
+  "startedAt": "...",
+  "completedAt": null,
+  "createdAt": "..."
+}
+```
+
+终态 `COMPLETED` 必须有 `finalAnswer`。`TIMEOUT` 统一使用状态 `TIMED_OUT`，前后端不得再混用两种拼写。
+
+### 8.3 Cancel
 
 ```http
-GET /api/v1/tasks/{taskId}/events
+POST /api/v1/tasks/{taskId}/cancel
+```
+
+- QUEUED：立即 CANCELLED；
+- RUNNING：记录 cancelRequestedAt，响应仍可能为 RUNNING；
+- 终态：幂等返回现状；
+- 不承诺立即中断已经阻塞的 provider/tool call；
+- 最终状态以 GET task 为准。
+
+响应：
+
+```json
+{
+  "id": "30001",
+  "status": "RUNNING",
+  "cancelRequested": true
+}
+```
+
+---
+
+## 9. SSE API
+
+### 9.1 Endpoint
+
+```http
+GET /api/v1/tasks/{taskId}/events?afterSequence=8
 Accept: text/event-stream
+Authorization: Bearer <token>
+Last-Event-ID: 8
 ```
 
-### 12.1 事件格式
+`afterSequence` 和 `Last-Event-ID` 都表示“客户端已经完整处理的最后一个 sequence”。若两者同时存在且不同，返回 400；不要静默选择一个。
+
+### 9.2 可靠读取模型
+
+V0.1 SSE 基于数据库事件日志：
+
+1. owner-scoped 校验 task；
+2. 从 `sequence_no > cursor` 读取已提交事件；
+3. 按 sequence 发送；
+4. 持续轮询/等待新持久事件；
+5. task 终态且所有事件发送完成后关闭。
+
+不能只依赖进程内 emitter，否则 POST 返回与 SSE 连接之间会丢事件。单实例下数据库轮询足够简单、可恢复；后续多实例再增加通知或 fan-out。
+
+### 9.3 Wire format
 
 ```text
-event: TOOL_STARTED
-id: 12
-data: {"taskId":"30001","sequenceNo":12,"payload":{}}
+id: 9
+event: TOOL_FINISHED
+data: {"taskId":"30001","sequenceNo":9,"eventType":"TOOL_FINISHED","timestamp":"...","payload":{}}
 ```
 
-### 12.2 通用事件 data
+`data` 不套通用 ApiResponse。
 
-```json
-{
-  "taskId": "30001",
-  "sequenceNo": 12,
-  "eventType": "TOOL_STARTED",
-  "timestamp": "2026-05-01T12:00:05+08:00",
-  "payload": {}
-}
+### 9.4 Event types
+
+```text
+TASK_CREATED
+TASK_STARTED
+PHASE_CHANGED
+RAG_FINISHED
+DECISION_FINISHED
+TOOL_STARTED
+TOOL_FINISHED
+FINAL_GENERATION_STARTED
+ANSWER_CHUNK
+TASK_COMPLETED
+TASK_FAILED
+TASK_CANCELLED
+TASK_TIMED_OUT
 ```
 
-### 12.3 事件类型
+`ANSWER_CHUNK` 是合并后的展示增量，不要求逐 token。
 
-| event | 说明 |
-| --- | --- |
-| `TASK_STARTED` | 任务开始 |
-| `RAG_STARTED` | RAG 检索开始 |
-| `RAG_FINISHED` | RAG 检索完成 |
-| `LLM_STARTED` | LLM 调用开始 |
-| `LLM_FINISHED` | LLM 调用完成 |
-| `TOOL_STARTED` | 工具调用开始 |
-| `TOOL_FINISHED` | 工具调用完成 |
-| `TOKEN_DELTA` | 最终答案 token 增量 |
-| `STEP_FINISHED` | 一个 Agent step 完成 |
-| `TASK_COMPLETED` | 任务完成 |
-| `TASK_FAILED` | 任务失败 |
-| `TASK_CANCELLED` | 任务取消 |
+### 9.5 刷新和重连
 
-### 12.4 TOKEN_DELTA 示例
-
-```json
-{
-  "taskId": "30001",
-  "sequenceNo": 21,
-  "eventType": "TOKEN_DELTA",
-  "timestamp": "2026-05-01T12:00:10+08:00",
-  "payload": {
-    "delta": "支付网关响应超时",
-    "append": true
-  }
-}
-```
-
-### 12.5 RAG_FINISHED 示例
-
-```json
-{
-  "taskId": "30001",
-  "sequenceNo": 4,
-  "eventType": "RAG_FINISHED",
-  "payload": {
-    "retrievalId": "40001",
-    "topK": 5,
-    "hits": [
-      {
-        "chunkId": "10001",
-        "fileName": "payment-error-guide.md",
-        "score": 0.8421,
-        "titlePath": "支付失败/错误码"
-      }
-    ]
-  }
-}
-```
-
-### 12.6 TOOL_FINISHED 示例
-
-```json
-{
-  "taskId": "30001",
-  "sequenceNo": 9,
-  "eventType": "TOOL_FINISHED",
-  "payload": {
-    "toolCallId": "60001",
-    "toolCode": "order_query",
-    "status": "SUCCESS",
-    "latencyMs": 34,
-    "summary": "订单 order_1024 当前状态为 PAY_FAILED，错误码 E_PAY_TIMEOUT"
-  }
-}
-```
+- 客户端保存 last processed sequence；
+- 重连时从该 sequence 继续；
+- 页面刷新先 GET task/trace 建立快照；
+- 若 task 仍非终态，从快照的 `lastEventSequence` 之后订阅；
+- GET 与 SSE 之间产生的事件会由数据库 replay 补发；
+- 终态事件到达后重新 GET task，以 `finalAnswer` 覆盖临时增量。
 
 ---
 
-## 13. Tool API
+## 10. Trace API
 
-### 13.1 工具定义
+V0.1 主入口：
 
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| GET | `/api/v1/tools` | 查询工具列表 |
-| POST | `/api/v1/tools` | 创建工具定义，V1.0 可仅管理员 |
-| GET | `/api/v1/tools/{toolId}` | 查询工具详情 |
-| PATCH | `/api/v1/tools/{toolId}` | 修改工具 |
-| POST | `/api/v1/tools/{toolId}/enable` | 启用工具 |
-| POST | `/api/v1/tools/{toolId}/disable` | 禁用工具 |
-| POST | `/api/v1/tools/{toolId}/test` | 测试工具调用 |
-
-工具详情响应：
-
-```json
-{
-  "id": "201",
-  "toolCode": "order_query",
-  "name": "订单查询工具",
-  "description": "根据订单号查询订单状态、支付状态和错误码。",
-  "type": "BUILTIN",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "orderNo": {
-        "type": "string",
-        "description": "订单号，例如 order_1024"
-      }
-    },
-    "required": ["orderNo"]
-  },
-  "timeoutMs": 3000,
-  "retryCount": 1,
-  "requiresConfirmation": false,
-  "permissionLevel": "LOW",
-  "status": "ACTIVE"
-}
-```
-
----
-
-## 14. Trace API
-
-Trace 是项目演示核心。
-
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| GET | `/api/v1/tasks/{taskId}/trace` | 查询一次任务完整 trace |
-| GET | `/api/v1/tasks/{taskId}/steps` | 查询任务 step 列表 |
-| GET | `/api/v1/tasks/{taskId}/llm-calls` | 查询 LLM 调用记录 |
-| GET | `/api/v1/tasks/{taskId}/rag-retrievals` | 查询 RAG 检索记录 |
-| GET | `/api/v1/tasks/{taskId}/tool-calls` | 查询工具调用记录 |
-| GET | `/api/v1/tasks/{taskId}/policy-checks` | 查询策略检查记录 |
-| GET | `/api/v1/tasks/{taskId}/episode` | 查询 Agent Episode Package |
-| GET | `/api/v1/tasks/{taskId}/episode/export` | 导出 Agent Episode Package |
-
-推荐前端主要调用：
-
-```text
+```http
 GET /api/v1/tasks/{taskId}/trace
 ```
 
-完整 trace 响应结构：
+响应：
 
 ```json
 {
   "task": {},
-  "agentSnapshot": {},
+  "executionSnapshot": {},
   "steps": [],
   "ragRetrievals": [],
   "llmCalls": [],
   "toolCalls": [],
-  "policyChecks": [],
-  "episodeSummary": {},
   "events": [],
-  "finalAnswer": "..."
+  "finalAnswer": "...",
+  "citations": []
 }
 ```
 
----
+原则：
 
-## 15. Evaluation API
+- 只读取同一 owner task；
+- execution snapshot 可展示前先脱敏；
+- 默认折叠完整 Prompt/response；
+- 不展示 chain-of-thought；
+- 不把 event 当成专项日志替代品；
+- 数据按 stepIndex/时间/ID 稳定排序；
+- 某个关联源资源已删除时仍返回 snapshot。
 
-V1.0 轻量实现。
-
-### 15.1 评测集
-
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| GET | `/api/v1/eval-datasets` | 查询评测集 |
-| POST | `/api/v1/eval-datasets` | 创建评测集 |
-| GET | `/api/v1/eval-datasets/{datasetId}` | 查询评测集详情 |
-| PATCH | `/api/v1/eval-datasets/{datasetId}` | 修改评测集 |
-| DELETE | `/api/v1/eval-datasets/{datasetId}` | 删除评测集 |
-
-### 15.2 评测 Case
-
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| GET | `/api/v1/eval-datasets/{datasetId}/cases` | 查询 case |
-| POST | `/api/v1/eval-datasets/{datasetId}/cases` | 创建 case |
-| PATCH | `/api/v1/eval-cases/{caseId}` | 修改 case |
-| DELETE | `/api/v1/eval-cases/{caseId}` | 删除 case |
-
-### 15.3 评测运行
-
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| POST | `/api/v1/eval-datasets/{datasetId}/runs` | 启动评测 |
-| GET | `/api/v1/eval-runs` | 查询评测运行历史 |
-| GET | `/api/v1/eval-runs/{runId}` | 查询评测运行详情 |
-| GET | `/api/v1/eval-runs/{runId}/results` | 查询评测结果 |
-| PATCH | `/api/v1/eval-results/{resultId}/judge` | 人工标记结果 |
-
-### 15.4 Evaluation Harness 增强接口
-
-V1.5 可补充：
-
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| POST | `/api/v1/eval-datasets/{datasetId}/runs/compare` | 启动 Prompt / RAG 参数对比评测 |
-| GET | `/api/v1/eval-runs/{runId}/episodes` | 查询评测运行关联的 episode 列表 |
-| GET | `/api/v1/eval-runs/{runId}/metrics` | 查询评测聚合指标 |
-
----
-
-## 16. Demo Business API
-
-Demo API 主要用于开发调试和展示工具数据来源。
-
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| GET | `/api/v1/demo/orders/{orderNo}` | 查询模拟订单 |
-| GET | `/api/v1/demo/payment-logs` | 查询模拟支付日志 |
-| GET | `/api/v1/demo/tickets` | 查询模拟工单 |
-| POST | `/api/v1/demo/seed` | 初始化演示数据，管理员 |
-
-说明：
-
-- Agent 工具内部可以直接调用 service，不一定通过 HTTP 调用这些 API。
-- 暴露 Demo API 是为了方便前端展示和调试。
-
----
-
-## 17. API 权限边界
-
-V1.0 权限规则：
-
-- 未登录只能访问 `/auth/register`、`/auth/login`。
-- 普通用户只能访问自己的知识库、Agent、任务、评测集。
-- 管理员可以管理全局工具和 demo seed。
-- 工具调用权限由 Agent 绑定关系、tool permission level 和 PolicyGuard 共同决定。
-
-资源归属校验：
+可选细分接口：
 
 ```text
-knowledge_base.user_id == current_user.id
-agent_app.user_id == current_user.id
-agent_task.user_id == current_user.id
-agent_episode.user_id == current_user.id
-eval_dataset.user_id == current_user.id
+GET /api/v1/tasks/{taskId}/steps
+GET /api/v1/tasks/{taskId}/llm-calls
+GET /api/v1/tasks/{taskId}/rag-retrievals
+GET /api/v1/tasks/{taskId}/tool-calls
 ```
 
----
+V0.1 前端优先使用聚合 trace，避免多请求拼接不一致快照。
 
-## 18. V0.1 API 边界
-
-V0.1 只需实现：
-
-- `POST /api/v1/auth/login`
-- `GET /api/v1/users/me`
-- `POST /api/v1/knowledge-bases`
-- `GET /api/v1/knowledge-bases`
-- `POST /api/v1/knowledge-bases/{kbId}/documents`
-- `GET /api/v1/knowledge-bases/{kbId}/documents`
-- `POST /api/v1/knowledge-bases/{kbId}/retrieve-test`
-- `POST /api/v1/agents`
-- `GET /api/v1/agents`
-- `GET /api/v1/agents/{agentId}`
-- `POST /api/v1/agents/{agentId}/tasks`
-- `GET /api/v1/tasks/{taskId}`
-- `GET /api/v1/tasks/{taskId}/events`
-- `GET /api/v1/tasks/{taskId}/trace`
-- `GET /api/v1/tools`
-
-V0.1 可以暂时不做：
-
-- Prompt 版本 API。
-- 完整工具 CRUD。
-- 完整评测 API。
-- 复杂任务历史筛选。
-- Demo API。
+Episode API 不进入 V0.1；V1 初期可由相同 Trace query service 动态聚合。
 
 ---
 
-## 19. V1.0 API 完成标准
+## 11. Tool API
 
-V1.0 API 应支持：
+V0.1 只需只读：
 
-1. 用户可以登录并拥有自己的资源空间。
-2. 用户可以创建知识库、上传文档、查看解析状态和 chunks。
-3. 用户可以测试知识库检索效果。
-4. 用户可以创建 Agent，绑定知识库和工具。
-5. 用户可以发起 Agent 任务，并通过 SSE 看到执行过程。
-6. 用户可以查看任务历史和完整 trace。
-7. 用户可以查看或导出任务的 Agent Episode Package。
-8. 用户可以查看工具定义，并测试工具调用。
-9. 用户可以创建轻量评测集并运行评测。
-10. 管理员可以初始化 demo 数据。
+```text
+GET /api/v1/tools
+GET /api/v1/tools/{toolId}
+```
 
----
+普通用户只看到可绑定的安全展示字段：
 
-## 20. 面试表达重点
+```text
+id
+toolCode
+name
+description
+type
+inputSchema
+status
+```
 
-后端模块和 API 设计可以这样讲：
+不返回 handler、config、内部 URL/headers 或密钥。
 
-1. **模块化单体**
-   - 项目没有过早拆微服务，但按用户、知识库、RAG、Agent、工具、任务、Trace、评测拆出清晰模块。
-
-2. **Controller 很薄**
-   - Controller 只做 HTTP 入口，核心流程在 Service、AgentEngine、RagService、ToolRuntime 中。
-
-3. **Agent 执行链路清楚**
-   - 创建任务后返回 taskId。
-   - 后端异步执行。
-   - 前端通过 SSE 订阅任务事件。
-   - Trace API 可查看完整执行链路，Episode API 可导出运行证据包。
-
-4. **外部依赖可替换**
-   - LLM、向量库、文件存储都通过 Gateway 抽象，便于替换模型供应商或 Qdrant/pgvector。
-
-5. **API 支撑演示闭环**
-   - 文档上传、RAG 检索、Agent 配置、工具调用、Trace 回放、评测都能通过 API 串起来。
+已有 tool test/enable/disable 接口可以保留为开发或管理员能力，但不属于 V0.1 用户主流程，也不能绕过 ToolRuntime。
 
 ---
 
-## 21. 暂不设计的后端能力
+## 12. Controller 与事务规则
 
-V1.0 暂不设计：
+Controller 只做：
 
-- 复杂组织空间。
-- API key 开放平台。
-- 完整 OAuth2 授权服务器。
-- 多租户计费。
-- 插件市场。
-- 拖拽式工作流编排 API。
-- Kubernetes 运维 API。
-- 复杂管理员审计后台。
+- HTTP 参数解析；
+- Bean Validation；
+- 当前 principal；
+- 调用 application service；
+- DTO 映射。
+
+Application service 负责：
+
+- owner scope；
+- 事务；
+- 状态条件更新；
+- snapshot；
+- module orchestration。
+
+外部 LLM/Qdrant/tool I/O 不在长数据库事务内。
+
+Task terminal update 与 terminal event 必须在同一数据库事务中完成。SSE 只能观察已提交事件。
+
+---
+
+## 13. DTO 与敏感数据
+
+- Entity 不直接返回；
+- JSONB 通过显式 DTO 投影；
+- BIGINT 转字符串；
+- error message 使用 allowlist；
+- Prompt、tool args/result 和 document content 进入 API 前执行大小限制；
+- API key、Authorization、Cookie、内部 endpoint、绝对文件路径永不返回；
+- Trace 的完整 request/response 只对 task owner 可见，未来真实业务数据前增加字段级脱敏。
+
+---
+
+## 14. V0.1 API 验收
+
+必须证明：
+
+1. owner-scoped 资源不可枚举；
+2. 幂等 key 语义正确；
+3. task 创建后 snapshot 已持久化；
+4. `status` 与 `phase` 不混用；
+5. `TIMED_OUT` 在数据库、API 和前端一致；
+6. cancel 不伪装成立即终止；
+7. SSE 能补发 POST 返回前后产生的事件；
+8. Last-Event-ID 不丢不重；
+9. TASK_COMPLETED 时 GET task 已有 finalAnswer；
+10. Trace 能聚合同一 task 的所有专项日志；
+11. Knowledge 文档响应区分 parseStatus 和 retrievalReadiness；
+12. Agent 绑定 API 不能绑定跨 owner KB 或不允许的工具；
+13. 工具和模型内部配置不经 API 泄漏。

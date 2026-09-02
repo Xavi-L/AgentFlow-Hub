@@ -1,1045 +1,721 @@
-# AgentFlow Hub RAG 知识库流程设计
+# AgentFlow Hub RAG 与知识库设计
 
-本文档用于沉淀 AgentFlow Hub 的 RAG 知识库设计，包括文档入库 pipeline、解析策略、chunk 策略、embedding、向量存储、在线检索、rerank、引用溯源、Trace 记录、评测口径和 V0.1/V1.0 实现边界。
-
-核心结论：
-
-> RAG 模块不是简单的“上传文档后向量检索”，而是一条可追踪、可调试、可评测的知识处理链路。PostgreSQL 保存权威文本和元数据，Qdrant 保存向量和检索 payload，Agent 执行时通过 RagService 获取带引用的上下文。
-
-正式分块结论：
-
-> 正式版本采用“结构感知语义分块”，而不是单纯按标题切分，也不是完全不受约束的纯语义切分。标题、段落、页码、代码块和表格提供可追踪的结构约束；相邻原子单元的语义相似度决定是否继续合并；estimated-token 上限负责保护上下文预算和运行时资源。
-
-本文的正式策略版本为 `semantic-v1`。该版本将结构解析、语义边界检测、token 约束、版本化和可追踪 metadata 作为统一的分块契约。
+> 文档状态：**NORMATIVE**  
+> 权威范围：文档入库、分块策略、embedding profile、向量身份、检索就绪、在线检索、citation 和重建语义  
+> 最近审查基线：`main@f276549`（V36）
 
 ---
 
-## 1. 设计目标
+## 1. 核心结论
 
-RAG 模块需要支撑：
-
-- 用户创建知识库。
-- 上传业务文档。
-- 文档解析、清洗、切分。
-- chunk metadata 保存。
-- embedding 批量生成。
-- 向量写入 Qdrant。
-- 在线 query 检索。
-- metadata filter。
-- 引用溯源。
-- RAG 召回记录。
-- RAG 调试和评测。
-
-面试表达目标：
-
-> 我实现的不只是向量检索，而是完整的知识库 pipeline：文档从上传到解析、chunk、embedding、入库、召回、引用、trace 和评测，每一步都能观察和优化。
-
----
-
-## 2. RAG 模块边界
-
-### 2.1 RAG 模块负责
-
-- query embedding。
-- 向量检索。
-- metadata filter。
-- 召回结果补全 chunk 文本。
-- 相似度阈值过滤。
-- rerank，可选。
-- RAG context 构造。
-- citation 构造。
-- 检索日志记录。
-- RAG 调试接口。
-
-### 2.2 RAG 模块不负责
-
-- 用户权限认证。
-- 原始文件上传。
-- MinIO 文件管理。
-- Agent 状态机。
-- 工具调用。
-- 最终答案生成。
-
-相关职责归属：
-
-| 能力 | 所属模块 |
-| --- | --- |
-| 文档上传 | `knowledge` |
-| 文档解析和切分 | `knowledge.parser` / `knowledge.chunk` |
-| embedding 调用 | `infra.embedding` / `LlmGateway` |
-| 向量读写 | `infra.vector` / `VectorStoreGateway` |
-| 在线检索编排 | `rag` |
-| Agent 中使用 RAG | `agent` 调用 `rag` |
-| RAG trace | `trace` |
-
----
-
-## 3. 总体流程
-
-RAG 分为两条链路：
-
-1. **离线入库链路**
-   - 文档上传后，异步解析、切分、embedding、写入向量库。
-
-2. **在线检索链路**
-   - 用户提问时，生成 query embedding，检索 Qdrant，补全文本，构造上下文和引用。
-
-```mermaid
-flowchart TD
-    subgraph Ingestion["离线入库链路"]
-        A["上传文档"] --> B["保存原始文件到 MinIO"]
-        B --> C["创建 document 记录"]
-        C --> D["解析文本"]
-        D --> E["文本清洗"]
-        E --> F["提取原子单元"]
-        F --> G["语义边界检测与分组"]
-        G --> H["保存最终 chunk 到 PostgreSQL"]
-        H --> I["生成 chunk embedding"]
-        I --> J["写入 Qdrant"]
-        J --> K["更新文档状态 COMPLETED"]
-    end
-
-    subgraph Retrieval["在线检索链路"]
-        Q["用户问题"] --> R1["生成 query embedding"]
-        R1 --> R2["Qdrant 向量召回"]
-        R2 --> R3["按 chunkId 查询 PostgreSQL 文本"]
-        R3 --> R4["阈值过滤 / rerank"]
-        R4 --> R5["构造 RAG Context"]
-        R5 --> R6["生成 citations"]
-        R6 --> R7["写入 RAG trace"]
-    end
-```
-
----
-
-## 4. 核心组件
-
-### 4.1 DocumentIngestionService
-
-职责：
-
-- 接收文档解析任务。
-- 更新 document 状态。
-- 调用 parser、cleaner、chunker。
-- 批量保存 chunks。
-- 调用 embedding。
-- 写入 Qdrant。
-- 处理失败和重试。
-
-### 4.2 DocumentParser
-
-接口：
-
-```java
-public interface DocumentParser {
-    boolean supports(DocumentType type);
-
-    ParsedDocument parse(DocumentParseCommand command);
-}
-```
-
-V1.0 实现：
-
-| Parser | 文件类型 | 说明 |
-| --- | --- | --- |
-| `TextDocumentParser` | `.txt` | 按纯文本读取 |
-| `MarkdownDocumentParser` | `.md` | 识别标题层级 |
-| `PdfDocumentParser` | `.pdf` | 使用 PDFBox 按页提取文本 |
-
-### 4.3 TextCleaner
-
-职责：
-
-- 统一换行。
-- 去除过多空行。
-- 去除首尾空白。
-- 合并异常空格。
-- 过滤过短噪声段落。
-- 保留标题结构。
-
-V1.0 不做复杂页眉页脚识别，只做轻量清洗。
-
-### 4.4 DocumentChunker
-
-职责：
-
-- 将解析结果拆成可追踪的原子单元。
-- 以标题、页码、代码块和表格作为结构约束，而不是机械的唯一切分依据。
-- 基于相邻原子单元的语义相似度识别主题边界并聚合最终 chunk。
-- 控制目标大小、最小大小、最大大小和语义单元级 overlap。
-- 生成 `titlePath`、`chunkIndex`、来源 block 范围和策略版本等 metadata。
-- 使用 token 估算作为上下文预算和运行时安全边界。
-
-### 4.5 EmbeddingService
-
-职责：
-
-- 批量调用 embedding API，为原子单元边界检测和最终 chunk 向量化提供向量。
-- 控制 batch size。
-- 处理模型调用失败。
-- 返回语义边界计算所需的相似度输入，以及最终 `chunkId` 到 vector 的映射。
-- 记录 embedding model 和策略版本，避免不同模型生成的 chunk 边界或向量被混用。
-
-### 4.6 VectorStoreGateway
-
-职责：
-
-- upsert chunks 到 Qdrant。
-- 按 query vector 搜索。
-- 删除指定 document/chunk 的向量。
-- 屏蔽 Qdrant SDK 细节。
-
-### 4.7 RagService
-
-职责：
-
-- 接收检索请求。
-- 调用 query embedding。
-- 调用 VectorStoreGateway。
-- 根据命中的 chunkId 查询 PostgreSQL。
-- 阈值过滤和 rerank。
-- 构造 context 和 citations。
-- 写入 rag retrieval trace。
-
----
-
-## 5. 文档入库流程
-
-### 5.1 上传阶段
-
-用户上传文档时：
-
-1. 校验用户是否有知识库权限。
-2. 校验文件类型。
-3. 计算文件 hash。
-4. 上传原始文件到 MinIO。
-5. 创建 `knowledge_document`，状态为 `PENDING`。
-6. 投递文档解析任务。
-
-V0.1 可同步处理，V1.0 使用 RabbitMQ 异步处理。
-
-### 5.2 解析阶段
-
-Worker 消费任务后：
-
-1. 将文档状态改为 `PROCESSING`。
-2. 从 MinIO 读取原始文件。
-3. 根据 `file_type` 选择 parser。
-4. 输出 `ParsedDocument`。
-
-`ParsedDocument` 建议结构：
-
-```json
-{
-  "title": "payment-error-guide.md",
-  "blocks": [
-    {
-      "type": "HEADING",
-      "level": 1,
-      "text": "支付失败处理"
-    },
-    {
-      "type": "PARAGRAPH",
-      "text": "E_PAY_TIMEOUT 表示支付网关响应超时...",
-      "pageNo": null
-    }
-  ],
-  "metadata": {
-    "fileName": "payment-error-guide.md",
-    "fileType": "MD"
-  }
-}
-```
-
-### 5.3 清洗阶段
-
-清洗规则：
-
-- `\r\n` 统一为 `\n`。
-- 连续 3 个以上空行压缩为 2 个。
-- 段落首尾 trim。
-- 去除纯页码行，例如 `1`、`Page 1`。
-- 保留 Markdown 标题。
-- 保留 PDF 页码信息。
-
-不做：
-
-- OCR。
-- 表格结构化恢复。
-- 复杂页眉页脚检测。
-- 语义纠错。
-
-### 5.4 正式切分阶段：结构感知语义分块
-
-正式版本不采用“标题一到就切一个 chunk，超长段落再硬切”的单一策略，也不允许语义模型无视文档结构自由拼接。分块器按照“原子单元 -> 结构约束 -> 语义聚合 -> token 安全边界”的顺序工作。
-
-#### 5.4.1 原子单元
-
-解析器先将文档转换为可独立追踪的原子单元，每个单元至少包含正文、类型、起止位置和来源 metadata：
-
-- 标题：记录标题文本、层级和当前 `titlePath`。
-- 段落：作为 TXT、Markdown 正文和 PDF 文本的主要语义单元。
-- 列表、引用和相邻短段落：在语义完整时作为一个候选单元。
-- fenced code、代码片段和表格：默认保持整体，不与普通说明文字跨类型合并。
-- PDF 页码、文本块和版面位置：保留为来源 metadata；页码默认不是强制 chunk 边界。
-
-原子单元只做规范化和结构解析，不改写原文，不通过 LLM 做语义纠错。扫描 PDF 必须先经过 OCR 或其他文本提取流程，不能把空文本直接交给语义分块器。
-
-#### 5.4.2 结构约束是软边界
-
-- Markdown 标题用于提供上下文和候选边界，`titlePath` 必须继承到其后的正文 chunk。
-- 标题层级跳跃、缺失或使用不一致时，不把层级当作绝对真相；标题仍保留为 provenance metadata，由语义边界决定是否真的切分。
-- PDF 页码用于引用和回溯。一个主题跨页时允许跨页合并；页码变化必须进入 `pageStart` / `pageEnd`。
-- 代码块、表格、列表等具有自身结构的单元默认不被普通段落的相似度计算拆散；当它们超过最大 chunk 大小时，使用类型专属的安全切分规则。
-
-#### 5.4.3 语义边界检测与聚合
-
-1. 对段落或句子级原子单元生成用于边界检测的 embedding；该 embedding 只用于判断相邻内容是否仍属于同一主题。
-2. 按文档顺序计算相邻单元或滑动窗口之间的语义相似度，识别主题突变点。
-3. 相似度足够高且未超过目标大小时继续合并；出现明显主题突变，或继续合并会超过目标大小时，在当前边界结束 chunk。
-4. 语义边界阈值必须跟 embedding 模型和评测集绑定，通过检索评测标定，不写死一个跨模型通用的常数。
-5. 如果单个段落或结构单元本身超过最大大小，先在句子边界切分；只有没有可用句子边界时才使用 token 边界硬切。
-6. 如果一个候选 chunk 小于最小大小，优先与语义最接近且结构允许的相邻单元合并，避免产生只有标题、半句话或单个列表项的碎片。
-
-#### 5.4.4 Overlap 规则
-
-Overlap 优先复制完整的上一个语义单元或句子，而不是从任意字符中间截取。默认目标为最后一个或两个语义单元，且不超过 `chunkOverlap` 的 estimated-token 上限；若单个单元已经超过上限，则按照句子边界或 token 安全边界处理。
-
-这样既能保留跨 chunk 的上下文连续性，又不会因为机械 token overlap 把标题、表格行或代码语句截断。
-
-#### 5.4.5 各格式策略
-
-| 格式 | 正式策略 |
-| --- | --- |
-| `.txt` | 以段落为主要原子单元，按相邻主题相似度合并；日志、配置和记录型 TXT 使用行/记录边界，不使用普通 prose 语义规则 |
-| `.md` | 标题作为软边界和 `titlePath` 来源；标题层级松散时由语义变化决定边界；代码块、表格和列表保持结构完整 |
-| `.pdf` | 先按页面和版面提取段落/文本块，再按语义聚合；保留页码和位置用于 citation，不把每页机械作为一个 chunk |
-
-#### 5.4.6 正式默认参数
+V0.1 的 RAG 采用：
 
 ```text
-chunkStrategyVersion = semantic-v1
+PostgreSQL 权威正文
++ structured-token-v1 确定性分块
++ 固定 Embedding Profile
++ 与 profile 一一绑定的 Qdrant collection
++ owner/KB/document/generation 过滤
++ PostgreSQL 回查
++ 引用白名单
+```
+
+V0.1 **不实现语义分块**。`semantic-v1` 只有在存在固定评测集并证明优于确定性基线后，才进入 V1.5 候选。
+
+文档解析完成与向量可检索是两个独立事实：
+
+```text
+DocumentParseStatus
+!=
+ChunkVectorizationStatus
+!=
+RetrievalReadiness
+```
+
+AgentTask 只能使用创建快照时已经 `READY` 的文档 generation。
+
+---
+
+## 2. 模块边界
+
+### 2.1 Knowledge 负责
+
+- 知识库 CRUD；
+- 文档上传和原文件定位；
+- 文档解析；
+- 分块；
+- chunk 正文和 metadata；
+- chunk 向量化状态；
+- 文档删除与重处理；
+- 在线检索编排；
+- citation 构造；
+- retrieval trace 的领域数据生成。
+
+V0.1 不再为在线检索单独建设一个大型顶层 `rag` 平台模块。可以使用 `knowledge.retrieval` 包隔离在线检索，但它仍属于 Knowledge 领域。
+
+### 2.2 Infra 负责
+
+- Embedding provider 适配；
+- Qdrant 适配；
+- 本地/对象文件存储适配；
+- HTTP timeout、序列化和外部错误归类。
+
+业务层不能直接依赖 provider SDK 或 Qdrant SDK。
+
+### 2.3 Agent 负责
+
+- 从 task execution snapshot 读取允许检索的知识库和 document generation；
+- 在执行开始时调用 RetrievalService；
+- 将 evidence 放入 Prompt；
+- 使用返回的 citation ID；
+- 决定空检索后是否继续工具流程。
+
+Agent 不负责解析文件、写向量或自行拼接 Qdrant filter。
+
+---
+
+## 3. 核心数据对象
+
+### 3.1 KnowledgeBase
+
+知识库保存：
+
+```text
+id
+userId
+name
+description
+embeddingProfileCode
+chunkStrategyVersion
+status
+metadata
+createdAt
+updatedAt
+deletedAt
+```
+
+现有数据库仍保留 `embedding_provider`、`embedding_model`、`chunk_size` 和 `chunk_overlap`。V0.1 API 将这些字段映射为固定 profile 和固定 strategy，不允许客户端自由组合不可兼容配置。
+
+### 3.2 KnowledgeDocument
+
+文档保存：
+
+```text
+id
+userId
+knowledgeBaseId
+fileName
+fileType
+mimeType
+fileSize
+storageBucket
+storageObjectKey
+parseStatus
+parseError
+vectorGeneration
+createdAt
+updatedAt
+deletedAt
+```
+
+V0.1 支持：
+
+```text
+TXT
+MD
+```
+
+PDF、OCR、Office 和网页抓取不进入 V0.1。
+
+### 3.3 KnowledgeChunk
+
+chunk 保存：
+
+```text
+id
+userId
+knowledgeBaseId
+documentId
+chunkIndex
+content
+titlePath
+charCount
+tokenCount
+contentHash
+vectorId
+vectorGeneration
+vectorizationStatus
+vectorizationError
+createdAt
+updatedAt
+```
+
+PostgreSQL 的 `content` 是权威正文。Qdrant payload 只用于过滤和回查，不作为正文真相源。
+
+---
+
+## 4. 状态模型
+
+### 4.1 DocumentParseStatus
+
+```text
+PENDING
+PROCESSING
+COMPLETED
+FAILED
+REPROCESSING
+```
+
+| 状态 | 含义 |
+| --- | --- |
+| `PENDING` | 原文件已接受，等待解析 |
+| `PROCESSING` | parser 已领取 |
+| `COMPLETED` | 当前 generation 的 chunk 正文已完整提交，不代表向量已经就绪 |
+| `FAILED` | 解析或 chunk 提交失败 |
+| `REPROCESSING` | 旧派生数据正在清理，尚未重新进入 parser |
+
+`DELETED` 不作为 parseStatus。软删除由 `deleted_at` 表示，避免同一事实存在两种来源。
+
+### 4.2 ChunkVectorizationStatus
+
+```text
+PENDING
+PROCESSING
+COMPLETED
+FAILED
+```
+
+- `PENDING`：等待 embedding/Qdrant；
+- `PROCESSING`：已被 vectorizer 条件领取；
+- `COMPLETED`：Qdrant 写入成功且 PostgreSQL 已保存 vectorId；
+- `FAILED`：确认未成功完成，保存安全错误摘要。
+
+外部结果不确定时不得伪装成普通 `FAILED` 并立即允许破坏性重处理。应保留 `PROCESSING` 或通过后续 reconciliation 状态处理，防止迟到 upsert。
+
+### 4.3 RetrievalReadiness
+
+RetrievalReadiness 是查询时派生的读模型，不在 V0.1 复制为第二个可写状态：
+
+```text
+NOT_READY
+INDEXING
+READY
+DEGRADED
+FAILED
+```
+
+派生规则：
+
+| 条件 | Readiness |
+| --- | --- |
+| document 为 `PENDING/PROCESSING/REPROCESSING` | `NOT_READY` |
+| document 为 `FAILED` | `FAILED` |
+| document 为 `COMPLETED` 且有 PENDING/PROCESSING chunk | `INDEXING` |
+| document 为 `COMPLETED` 且当前 generation 所有 chunk 均 COMPLETED | `READY` |
+| document 为 `COMPLETED` 且同时存在 COMPLETED 和 FAILED chunk | `DEGRADED` |
+| document 为 `COMPLETED` 且没有任何 COMPLETED chunk | `FAILED` |
+
+V0.1 Agent 只使用 `READY` 文档。`DEGRADED` 文档可以在管理页显示，但不进入 Agent task snapshot。
+
+---
+
+## 5. V0.1 分块策略：structured-token-v1
+
+### 5.1 目标
+
+V0.1 需要一个可复现、可测试、无需额外模型调用的分块基线。当前 `DocumentChunker` 的确定性结构/token 设计继续作为正式 V0.1 策略，并命名为：
+
+```text
+structured-token-v1
+```
+
+### 5.2 原子单元
+
+- TXT：段落和行记录；
+- Markdown：标题、段落、列表、引用、代码块和表格；
+- 标题用于形成 `titlePath`；
+- 代码块和表格优先保持完整；
+- 原文不由 LLM 改写；
+- 解析器必须保持稳定顺序和来源位置。
+
+### 5.3 聚合规则
+
+- 按文档顺序聚合；
+- 优先在自然结构边界结束；
+- 目标大小由 estimated token 控制；
+- 超长单元在安全 token/句子边界切分；
+- overlap 从前一 chunk 尾部按完整 token span 复制；
+- 不在 Unicode code point 中间截断；
+- 相同输入、相同策略参数必须产生相同 chunk 顺序和正文。
+
+V0.1 固定默认值：
+
+```text
 targetChunkSize = 800 estimated tokens
 chunkOverlap = 120 estimated tokens
-minChunkSize = 80 estimated tokens
-maxChunkSize = 1000 estimated tokens
-semanticBoundaryThreshold = per embedding model and evaluation set
+maxDocumentCodePoints = 500000
+maxChunkCount = 10000
 ```
 
-`targetChunkSize` 是聚合目标，不是必须达到的硬长度；`maxChunkSize` 是硬上限；`minChunkSize` 是防止碎片化的下限。无论语义模型如何判断，所有 chunk 都必须遵守最大源文档大小、最大 chunk 数和 token 安全限制。
+数据库现有 `chunk_size/chunk_overlap` 在 V0.1 只能使用支持范围内的固定默认值。配置 UI 不允许任意调参。
 
-### 5.5 token 估算策略
+### 5.4 策略版本
 
-token 估算只负责预算控制、最大长度保护和 overlap 上限，不负责替代语义边界判断。正式版本的语义边界由原子单元 embedding 和评测标定的边界策略决定。
+每个 task snapshot、retrieval trace 和后续 reindex 记录必须保存 `chunkStrategyVersion`。修改 tokenizer、结构规则、overlap 或 hard split 行为时提升版本，不能静默改变已有 chunk 的含义。
 
-正式版本可以使用轻量估算：
+---
+
+## 6. semantic-v1 的后移条件
+
+`semantic-v1` 不是 V0.1 的“正式默认策略”。它进入 V1.5 前必须满足：
+
+1. 固定且版本化的评测文档；
+2. 固定 query/expected evidence；
+3. 与 `structured-token-v1` 比较 Hit@K、MRR、citation accuracy、成本和延迟；
+4. 边界 embedding profile 固定；
+5. 阈值通过评测标定，而不是写死通用常数；
+6. 原子单元 embedding 与最终 chunk embedding 的成本被记录；
+7. reindex 和 generation 切换可回滚。
+
+没有这些证据时，不因“语义分块更高级”而替换稳定基线。
+
+---
+
+## 7. Embedding Profile 与向量空间
+
+### 7.1 V0.1 固定 Profile
 
 ```text
-中文字符：约 1 token
-英文单词：约 1 token
-数字和符号：按简单规则估算
+profileCode = dashscope-te-v4-1024-cosine
+provider = dashscope
+model = text-embedding-v4
+dimension = 1024
+distance = COSINE
+collection = agentflow_chunks_te_v4_1024
 ```
 
-示例接口：
+上述字段构成同一个不可拆分的向量空间契约。
+
+V0.1：
+
+- 新知识库只使用该 profile；
+- API 不接受自由 provider/model；
+- 旧的 `openai-compatible/text-embedding-v3` 知识库在 remote mode 下不视为 V0.1 可用知识库；
+- 不在同一 collection 混写不同模型、维度或距离度量；
+- profile 变化必须新建 collection 并显式 reindex。
+
+### 7.2 后续模型切换
+
+后续增加：
+
+```text
+embedding_profile
+knowledge_base.embedding_profile_id
+```
+
+Profile 一旦被使用即不可原地修改。创建新 profile、构建新 generation、验证完成后再切换 active generation。
+
+---
+
+## 8. Vector ID 精确契约
+
+### 8.1 Content Hash
+
+```text
+contentHash = lowercase hex SHA-256(exact UTF-8 chunk content)
+```
+
+不 trim、不规范化换行、不改写正文。解析和清洗产生的最终 chunk content 是 hash 输入。
+
+### 8.2 Material
+
+使用换行符 `\n` 连接以下 UTF-8 字符串：
+
+```text
+agentflow-knowledge-vector-v1
+{userId}
+{knowledgeBaseId}
+{documentId}
+{chunkIndex}
+{contentHash}
+```
+
+即：
 
 ```java
-public interface TokenEstimator {
-    int estimate(String text);
-}
+String material = String.join(
+    "\n",
+    "agentflow-knowledge-vector-v1",
+    userId.toString(),
+    knowledgeBaseId.toString(),
+    documentId.toString(),
+    chunkIndex.toString(),
+    contentHash
+);
 ```
 
-后续如果需要更精确，可以替换为模型 tokenizer；替换 tokenizer 或语义边界模型时必须提升 `chunkStrategyVersion`，并重新生成 chunk embedding，不能静默改变已有 chunk 的含义。
+### 8.3 UUIDv8
 
-### 5.6 chunk metadata
+1. 对 material 的 UTF-8 bytes 计算 SHA-256；
+2. 取 digest 前 16 bytes；
+3. 设置 RFC 9562 version 8 bits；
+4. 设置 RFC variant bits；
+5. 输出标准 UUID 字符串。
 
-每个 chunk 保存：
+`vectorGeneration` **不进入 vector ID material**。它是 Qdrant payload 和删除/reprocess 的 lifecycle fence。相同文档位置和相同正文可以幂等覆盖同一点；正文变化会产生新 point ID。
 
-- `chunkIndex`
-- `content`
-- `contentHash`
-- `titlePath`
-- `charCount`
-- `tokenCount`
-- `chunkStrategyVersion`
-- `metadata`
-
-metadata 示例：
-
-```json
-{
-  "fileName": "payment-error-guide.md",
-  "fileType": "MD",
-  "headingLevel": 2,
-  "pageNo": null,
-  "startBlockIndex": 3,
-  "endBlockIndex": 8,
-  "pageStart": null,
-  "pageEnd": null,
-  "boundaryStrategy": "semantic-v1"
-}
-```
-
-### 5.7 embedding 和向量写入
-
-推荐流程：
-
-1. parser 生成带来源 metadata 的原子单元。
-2. 批量生成原子单元 embedding，执行语义边界检测和 chunk 聚合。
-3. 批量插入最终 `knowledge_chunk`，初始 `vectorization_status = PENDING`，并保存精确 UTF-8 正文的 `content_hash`。
-4. 用 `userId + knowledgeBaseId + documentId + chunkIndex + contentHash` 派生稳定、Qdrant 可接受的 UUID `vector_id`。
-5. 批量生成最终 chunk embedding。
-6. 按 `vector_id` 批量 upsert 到 Qdrant。
-7. 将该 chunk 的 `vectorization_status` 更新为 `COMPLETED` 并保存 `vector_id`；document 的解析状态保持为自己的独立事实。
-
-原因：
-
-- PostgreSQL chunk 与 Qdrant point 一一对应，且相同正文出现在不同文档/位置时不会错误争用一个 point。
-- 删除和回溯简单。
-- trace 中可以通过 chunkId 回到原文。
-- 原子单元 embedding 与最终 chunk embedding 的职责分离，边界检测和在线检索不会混用两类向量。
-
-### 5.8 入库一致性策略
-
-PostgreSQL 和 Qdrant 不在同一个事务中，需要做补偿。
-
-策略：
-
-- 文档解析状态与 chunk 向量化状态分离：已完成解析的 chunk 依次经过 `PENDING → PROCESSING → COMPLETED / FAILED`。
-- 向量化失败写入受控的 `vectorization_error`，不会回写或伪造 document 的 `parse_status`。
-- 重新解析时，先删除旧 chunks 和旧 vectors，再重新入库。
-- Qdrant upsert 使用由 scope + content hash 派生的稳定 `vector_id`，因此重放可以安全覆盖同一点；已完成状态可直接跳过。
-- 如果 Qdrant upsert 成功但 PostgreSQL 状态更新失败，后续补偿仍使用相同 `vector_id`，不会制造重复 point。
+该算法必须有跨语言测试向量，任何分隔符、字段顺序或编码变化都要求新的 namespace/version。
 
 ---
 
-## 6. Qdrant 设计
+## 9. Qdrant Payload
 
-### 6.1 Collection
-
-使用一个 collection：
-
-```text
-kb_chunks
-```
-
-### 6.2 Vector ID
-
-```text
-content_hash = SHA-256(exact UTF-8 chunk content)
-vector_id = UUIDv8(SHA-256(
-  "agentflow-knowledge-vector-v1" + user_id + knowledge_base_id +
-  document_id + chunk_index + content_hash
-))
-```
-
-`content_hash` 让正文变化产生新的 point identity；owner/知识库/文档/顺序范围避免两个不同
-chunk 恰好正文相同而互相覆盖。UUID 只作为 Qdrant point ID，`chunk_id` 仍保存在 payload 中用于
-回查 PostgreSQL 权威正文。
-
-### 6.3 Payload
+V0.1 payload 使用当前实现字段：
 
 ```json
 {
-  "user_id": "123",
-  "knowledge_base_id": "456",
-  "document_id": "789",
-  "chunk_id": "10001",
-  "chunk_index": 3,
-  "file_name": "payment-error-guide.md",
-  "file_type": "MD",
-  "title_path": "支付失败/错误码",
-  "content_hash": "..."
+  "chunkId": 401,
+  "documentId": 301,
+  "knowledgeBaseId": 201,
+  "userId": 101,
+  "chunkIndex": 0,
+  "vectorGeneration": 0,
+  "contentHash": "...",
+  "embeddingProvider": "dashscope",
+  "embeddingModel": "text-embedding-v4",
+  "titlePath": "支付失败/错误码"
 }
 ```
 
-设计原则：
+原则：
 
-- payload 用于过滤和轻量展示。
-- chunk 正文以 PostgreSQL 为准。
-- 不把长文本正文作为 Qdrant 的权威数据源。
-
-### 6.4 Filter
-
-Agent 检索时必须过滤：
-
-```text
-user_id = currentUserId
-knowledge_base_id IN agent.boundKnowledgeBaseIds
-```
-
-可选过滤：
-
-```text
-document_id IN selectedDocumentIds
-file_type IN selectedFileTypes
-```
+- 不把完整 chunk 正文作为权威 payload；
+- ID 型字段的 JSON 类型在写入和过滤中保持一致；
+- `embeddingProvider/model` 用于诊断，不替代 collection profile；
+- `vectorGeneration` 用于精确删除和 task corpus snapshot；
+- hit 必须回查 PostgreSQL 并验证 owner、live document、current generation、contentHash 和 COMPLETED 状态。
 
 ---
 
-## 7. 在线检索流程
+## 10. 文档入库流程
 
-### 7.1 RagQuery
+### 10.1 上传
 
-建议结构：
+1. owner-scoped 校验 knowledge base；
+2. 校验知识库 ACTIVE 和 profile 支持；
+3. 校验扩展名、MIME、文件大小；
+4. 生成 server-owned storage key；
+5. 保存文件；
+6. 插入 `knowledge_document(PENDING)`。
+
+失败时不得留下数据库认为存在但文件不存在的成功记录。V0.1 可使用本地补偿删除或先存文件后事务建记录。
+
+### 10.2 解析与 chunk 提交
+
+1. 条件领取 `PENDING -> PROCESSING`；
+2. 读取原文件；
+3. parser 输出稳定结构；
+4. `structured-token-v1` 生成 chunk drafts；
+5. 同一短事务批量插入当前 generation chunks；
+6. 更新 document `COMPLETED`；
+7. chunk 初始 `vectorizationStatus=PENDING`。
+
+只有全部 chunk 成功提交后，document 才能 `COMPLETED`。
+
+### 10.3 向量化
+
+每个 chunk：
+
+1. 条件领取 `PENDING -> PROCESSING`；
+2. 事务外调用 EmbeddingGateway；
+3. 生成稳定 vector ID 和 payload；
+4. 事务外 Qdrant upsert，使用同一 ID 幂等覆盖；
+5. 成功后短事务写 `COMPLETED/vectorId`；
+6. 明确失败写安全 `FAILED/vectorizationError`；
+7. 结果不确定时保留不可安全重处理的状态并交给 reconciliation。
+
+不在外部 HTTP I/O 期间持有数据库事务或行锁。
+
+---
+
+## 11. Agent Task 的检索语料快照
+
+Task 创建时解析每个绑定知识库当前 `READY` 文档，并冻结：
 
 ```json
 {
-  "userId": "123",
-  "taskId": "30001",
-  "stepId": "70001",
-  "query": "order_1024 支付失败的原因是什么？",
-  "knowledgeBaseIds": ["456"],
+  "knowledgeBaseId": "201",
+  "embeddingProfileCode": "dashscope-te-v4-1024-cosine",
+  "documents": [
+    {"documentId": "301", "vectorGeneration": 0}
+  ],
   "topK": 5,
   "similarityThreshold": 0.2,
-  "useRerank": false
+  "chunkStrategyVersion": "structured-token-v1"
 }
 ```
 
-### 7.2 检索步骤
+规则：
 
-1. 校验知识库归属和状态。
-2. 调用 embedding 生成 query vector。
-3. 使用 Qdrant 搜索 topK。
-4. 按 payload filter 限定用户和知识库。
-5. 根据 chunkId 查询 PostgreSQL。
-6. 过滤已删除文档或无效 chunk。
-7. 按相似度阈值过滤。
-8. 可选 rerank。
-9. 构造 `RagResult`。
-10. 写入 `rag_retrieval_log` 和 `rag_retrieval_hit`。
+- 只有 READY 文档进入 snapshot；
+- task 运行期间新上传或新 reprocess 的文档不进入本次语料；
+- 所有绑定知识库均没有 READY 文档时，task 创建失败为 `RAG_KNOWLEDGE_NOT_READY`；
+- 在线检索必须按 snapshot document/generation 过滤，而不是只按 knowledgeBaseId 搜索当前全部点；
+- Trace 保存 hit snapshot，历史解释不依赖未来文档是否仍存在。
 
-### 7.3 RagResult
+V0.1 演示 Agent 只绑定一个支付知识库，但数据模型允许多个知识库。
 
-建议结构：
+---
+
+## 12. 在线检索
+
+建议接口：
+
+```java
+public interface RetrievalService {
+    RetrievalResult retrieve(RetrievalQuery query);
+}
+```
+
+```text
+RetrievalQuery:
+  taskId
+  userId
+  query
+  corpusSnapshot
+  topK
+  similarityThreshold
+```
+
+流程：
+
+1. 校验 query 非空且长度受限；
+2. 使用 corpus snapshot 的 embedding profile；
+3. 生成 query vector；
+4. Qdrant 搜索并使用 owner + document/generation filter；
+5. 取大于 topK 的有限候选，补偿 PostgreSQL 二次过滤；
+6. 回查 chunk、document、knowledge base；
+7. 验证 live owner scope、generation、contentHash、vectorization COMPLETED；
+8. similarity threshold；
+9. 排序并截取 topK；
+10. 分配 citation ID；
+11. 构造 bounded context；
+12. 写 retrieval log 和 hit snapshots。
+
+V0.1 不做 query rewrite、multi-query、rerank 或 Hybrid Search。
+
+### 12.1 空结果
+
+空结果是合法的 RetrievalResult：
 
 ```json
 {
-  "retrievalId": "40001",
-  "query": "order_1024 支付失败的原因是什么？",
-  "hits": [
-    {
-      "chunkId": "10001",
-      "documentId": "101",
-      "knowledgeBaseId": "456",
-      "fileName": "payment-error-guide.md",
-      "titlePath": "支付失败/错误码",
-      "score": 0.8421,
-      "rerankScore": null,
-      "content": "E_PAY_TIMEOUT 表示支付网关响应超时..."
-    }
-  ],
-  "contextText": "...",
+  "hits": [],
   "citations": [],
-  "latencyMs": 86
+  "contextText": "",
+  "empty": true
 }
 ```
 
----
+Agent 可以继续调用业务工具；不得把空检索自动映射为系统失败。
 
-## 8. Rerank 策略
+### 12.2 过期 point
 
-### 8.1 V0.1
+Qdrant 命中但 PostgreSQL 校验失败的 point：
 
-不做 rerank。
-
-只使用：
-
-- query embedding。
-- Qdrant topK。
-- similarity threshold。
-
-### 8.2 V1.0
-
-Rerank 作为“应该做”能力。
-
-实现方式：
-
-- 先向量召回较大的候选集，例如 topK=20。
-- 调用 rerank API。
-- 取前 5 个进入最终 context。
-
-### 8.3 V1.5
-
-Rerank 作为正式增强项：
-
-- 在知识库配置中启用或禁用。
-- 保存 rerank score。
-- 评测对比 rerank 前后命中率。
-
-### 8.4 为什么不一开始强制 rerank
-
-原因：
-
-- 增加模型调用成本。
-- 增加接口依赖。
-- V0.1 阶段更重要的是打通完整闭环。
-- 可以先通过可观测数据发现是否需要 rerank。
+- 不进入 Prompt；
+- 记录 `staleHitCount`；
+- 不向用户暴露；
+- 后续 reconciliation 清理；
+- 若有效候选不足，可从更大的受限候选集补足，但必须设置最大候选数。
 
 ---
 
-## 9. Hybrid Search 策略
+## 13. Context 与 Citation
 
-### 9.1 V1.0 边界
-
-Hybrid Search 属于“应该做”，不是 V0.1 必须项。
-
-推荐实现：
-
-- PostgreSQL 全文检索或简单关键词匹配。
-- Qdrant 向量召回。
-- 两路结果融合。
-
-### 9.2 简化融合策略
-
-可以使用 RRF：
-
-```text
-score = 1 / (k + vectorRank) + 1 / (k + keywordRank)
-```
-
-V1.0 如果时间不足，可以先只做向量检索，把 Hybrid Search 放到 V1.5。
-
-### 9.3 适用场景
-
-Hybrid Search 对这些问题更有帮助：
-
-- 错误码。
-- 订单状态枚举。
-- API 名称。
-- 精确术语。
-- 日志关键字。
-
-例如：
-
-```text
-E_PAY_TIMEOUT
-PAY_FAILED
-refund_status
-```
-
-纯向量检索可能弱于关键词精确匹配。
-
----
-
-## 10. Context 构造
-
-### 10.1 目标
-
-RAG context 要让模型：
-
-- 知道每段内容来自哪里。
-- 能区分知识库内容和工具结果。
-- 能在最终回答中引用来源。
-- 不把无关 chunk 塞满上下文。
-
-### 10.2 Context 格式
-
-推荐格式：
-
-```text
-[Document 1]
-Source: payment-error-guide.md
-Title: 支付失败/错误码
-ChunkId: 10001
-Content:
-E_PAY_TIMEOUT 表示支付网关响应超时，通常需要检查支付渠道状态、重试记录和用户扣款状态。
-
-[Document 2]
-Source: refund-policy.md
-Title: 退款规则/支付超时
-ChunkId: 10008
-Content:
-如果支付状态为 PAY_FAILED 且用户未扣款，应提示用户重新支付；如果扣款成功但订单失败，需要创建退款工单。
-```
-
-### 10.3 Context Budget
-
-建议预算：
-
-```text
-单次 Agent 任务总 maxTokens: 8000
-RAG context 预算: 2500 到 3500 tokens
-工具观察预算: 1500 到 2500 tokens
-最终回答预算: 1000 到 2000 tokens
-```
-
-Context 构造时：
-
-- 按 score/rerankScore 排序。
-- 逐个加入 chunk。
-- 超过 RAG context 预算则停止。
-- 同一文档连续 chunk 可合并展示，但 trace 仍保存各 chunk。
-
----
-
-## 11. 引用溯源
-
-### 11.1 Citation 数据结构
+### 13.1 Evidence 结构
 
 ```json
 {
   "citationId": "C1",
-  "chunkId": "10001",
-  "documentId": "101",
-  "fileName": "payment-error-guide.md",
+  "chunkId": "401",
+  "documentId": "301",
+  "knowledgeBaseId": "201",
+  "fileName": "refund-rules.md",
   "titlePath": "支付失败/错误码",
-  "score": 0.8421
+  "score": 0.8421,
+  "content": "E_PAY_TIMEOUT 表示支付网关响应超时……"
 }
 ```
 
-### 11.2 最终回答引用格式
+### 13.2 Context 限制
 
-建议模型最终回答中使用：
+- 单个 chunk content 上限；
+- 总 evidence token 上限；
+- 超限时按 score 和稳定 rank 截断；
+- 不在字符中间截断 citation 对应正文；
+- knowledge content 明确标记为 untrusted data；
+- 文档中的指令不得覆盖 Runtime Rules。
+
+### 13.3 Citation 验证
+
+Final Generation 只能使用本次 RetrievalResult 分配的 `[C1]...[Cn]`。
+
+后端必须：
+
+1. 提取最终回答中的 citation marker；
+2. 验证每个 marker 属于本次白名单；
+3. 生成结构化 citation 列表；
+4. 未知 marker 以 `RAG_INVALID_CITATION` 使最终生成失败，不静默伪造来源；
+5. 没有 evidence 时，不要求引用知识库。
+
+citation 验证只证明来源存在于本次 evidence，不自动证明每个自然语言结论都被充分支持；后续 Evaluation 再评估 citation accuracy。
+
+---
+
+## 14. Trace
+
+`rag_retrieval_log` 保存：
 
 ```text
-根据支付失败错误码说明，E_PAY_TIMEOUT 通常表示支付网关响应超时 [C1]。
+taskId
+stepId
+query
+embeddingProfileCode
+corpusSnapshot
+topK
+similarityThreshold
+candidateCount
+validHitCount
+staleHitCount
+latencyMs
+status
+errorCode
+createdAt
 ```
 
-前端可以将 `[C1]` 渲染为可点击引用，点击后展示 chunk 内容。
-
-### 11.3 引用原则
-
-- 引用只来自实际召回 chunk。
-- 不允许模型编造不存在的引用编号。
-- 后端可以在最终答案后附带 citations 列表。
-- 如果模型没有引用，但使用了知识库内容，前端仍展示召回来源。
-
----
-
-## 12. RAG 与 Agent 的关系
-
-### 12.1 V1.0 默认模式
-
-Agent 执行采用：
-
-> 前置 RAG + 工具调用循环。
-
-流程：
-
-1. AgentEngine 接收用户任务。
-2. AgentEngine 调用 RagService 进行前置检索。
-3. RAG 结果进入 `AgentExecutionContext.retrievedChunks`。
-4. Thinking Prompt 中包含 Knowledge Context。
-5. 模型决定是否调用业务工具。
-6. 最终回答同时基于知识库内容和工具 observations。
-
-### 12.2 knowledge_search 工具
-
-V1.0 内置 `knowledge_search` 工具，但可以先不作为默认路径。
-
-用途：
-
-- 当模型发现前置检索不够时，主动发起二次检索。
-- 适合复杂多跳问题。
-
-实现建议：
-
-- V0.1 不启用。
-- V1.0 作为可绑定工具保留。
-- V1.5 再优化主动检索策略。
-
----
-
-## 13. Trace 记录
-
-### 13.1 rag_retrieval_log
-
-记录一次检索：
-
-- taskId。
-- stepId。
-- userId。
-- query。
-- knowledgeBaseIds。
-- topK。
-- similarityThreshold。
-- useRerank。
-- latencyMs。
-
-### 13.2 rag_retrieval_hit
-
-记录每个命中：
-
-- retrievalId。
-- chunkId。
-- documentId。
-- knowledgeBaseId。
-- rankNo。
-- score。
-- rerankScore。
-- contentSnapshot。
-- metadataSnapshot。
-
-### 13.3 为什么保存 contentSnapshot
-
-原因：
-
-- 文档可能被删除。
-- 文档可能被重新解析。
-- chunk 内容可能变化。
-- 历史 Agent trace 仍然需要可回放。
-
-这是项目工程化亮点之一。
-
----
-
-## 14. RAG 调试能力
-
-V1.0 应提供知识库检索测试接口：
+`rag_retrieval_hit` 保存：
 
 ```text
-POST /api/v1/knowledge-bases/{kbId}/retrieve-test
+retrievalId
+rankNo
+citationId
+chunkIdSnapshot
+documentIdSnapshot
+knowledgeBaseIdSnapshot
+vectorGeneration
+score
+contentSnapshot
+metadataSnapshot
+createdAt
 ```
 
-调试页面应展示：
-
-- query。
-- topK。
-- similarityThreshold。
-- useRerank。
-- 命中 chunk。
-- score。
-- rerankScore。
-- document。
-- titlePath。
-- chunk 内容。
-- latencyMs。
-
-调试目标：
-
-- 判断文档是否成功入库。
-- 判断 chunk 是否切得合理。
-- 判断 query 是否能召回相关内容。
-- 调整 topK、threshold、chunkSize。
+历史 hit 不因 chunk/document 删除而级联消失。可以保留 nullable 关联 ID，但 snapshot 是历史 Trace 的权威内容。
 
 ---
 
-## 15. 评测口径
+## 15. 删除与重处理
 
-### 15.1 RAG 检索评测
+### 15.1 删除
 
-评测 case 字段：
+删除文档需要：
 
-- question。
-- expectedDocumentIds。
-- expectedAnswer，可选。
-- expectedToolCodes，可选。
+- owner/live scope；
+- 阻止正在 PROCESSING 的不确定 vector worker；
+- generation-fenced Qdrant 删除；
+- 持久补偿任务；
+- 数据库软删除或最终清理；
+- 不破坏历史 retrieval hit snapshot。
 
-RAG 指标：
+当前 V10/V11 的持久补偿和 generation fence 继续保留。
 
-| 指标 | 说明 |
-| --- | --- |
-| Hit@K | topK 中是否命中预期文档 |
-| MRR | 预期文档首次出现排名的倒数 |
-| Average Score | 命中 chunk 平均相似度 |
-| Citation Accuracy | 最终回答引用是否来自预期文档 |
+### 15.2 V0.1 Completed 文档重处理
 
-这些指标后续由 Evaluation Harness 聚合，并可回溯到对应 Agent Episode Package。
+当前实现采用先清理旧 vector/chunk，再回到 PENDING 的破坏性流程。它不是零停机重建：新解析或向量化失败时，旧可检索版本已经下线。
 
-V1.0 可以先实现：
+因此 V0.1：
 
-- Hit@K。
-- 是否命中预期文档。
-- 人工通过/不通过。
+- 该能力属于维护入口，不属于 Agent 闭环完成标准；
+- 默认前端可以隐藏 Completed 文档 reprocess；
+- 不继续扩展它的产品交互；
+- task snapshot 只选择当时 READY 的 generation；
+- 在运行中 task 与 reprocess 的并发没有完成充分验收前，不宣称语料完全可用。
 
-### 15.2 Agent 任务评测中的 RAG
+### 15.3 长期 copy-on-write
 
-Agent 评测还要看：
-
-- 是否检索了正确知识库。
-- 是否命中预期文档。
-- 是否调用了预期工具。
-- 最终答案是否引用证据。
-- 关联 episode 后能否回放完整 RAG、LLM、工具和策略检查过程。
-
----
-
-## 16. 失败处理
-
-### 16.1 入库失败
-
-可能失败：
-
-- 文件类型不支持。
-- PDF 解析失败。
-- embedding API 调用失败。
-- Qdrant 写入失败。
-- 数据库写入失败。
-
-处理：
-
-- document 状态改为 `FAILED`。
-- `parse_error` 写入失败原因。
-- 支持用户点击重新解析。
-- reprocess 前清理旧 chunk 和向量。
-
-### 16.2 检索失败
-
-可能失败：
-
-- embedding API 调用失败。
-- Qdrant 查询失败。
-- PostgreSQL chunk 查询失败。
-- rerank API 失败。
-
-处理：
-
-- 记录错误。
-- 如果 RAG 是 Agent 必需环节，任务可失败。
-- 如果只是辅助环节，可返回空上下文并让 Agent 说明知识库未检索到信息。
-
-推荐：
-
-- V0.1 中 RAG 失败直接让任务失败。
-- V1.0 中 RAG 召回为空不算失败，RAG 服务异常才失败。
-
-### 16.3 召回为空
-
-召回为空时：
-
-- 写入 `rag_retrieval_log`。
-- hits 为空。
-- SSE 发送 `RAG_FINISHED`，topK=0。
-- Agent 继续尝试工具调用或说明知识库未找到依据。
-
----
-
-## 17. 性能与批处理
-
-### 17.1 文档入库
-
-建议：
-
-- embedding 批量调用，batch size 16 到 64。
-- 大文档分批写入 chunk。
-- Qdrant 批量 upsert。
-- 文档解析异步执行。
-- 对同一 document 加锁，避免重复解析。
-
-### 17.2 在线检索
-
-建议：
-
-- query embedding 可以短期缓存。
-- 热门知识库检索结果可缓存。
-- topK 不宜过大，默认 5。
-- rerank 候选数量不宜过大，默认 20。
-- context 构造必须有 token budget。
-
-### 17.3 默认参数
+V1.x 推荐：
 
 ```text
-chunkSize: 800 estimated tokens
-chunkOverlap: 120 estimated tokens
-retrievalTopK: 5
-candidateTopKForRerank: 20
-similarityThreshold: 0.2
-ragContextBudget: 3000 estimated tokens
-embeddingBatchSize: 32
+保留 old active generation
+-> 构建 new generation
+-> 全量向量 READY
+-> 原子切换 active generation
+-> 异步删除 old generation
 ```
 
----
-
-## 18. V0.1 实现边界
-
-V0.1 必须实现：
-
-- `.txt` / `.md` 文档上传。
-- 简单 PDF 解析可选。
-- 文本清洗。
-- 结构感知语义 chunk 切分；在语义 embedding 不可用时，才允许使用可观测的确定性基线兜底。
-- embedding 生成。
-- Qdrant upsert。
-- 知识库检索测试。
-- Agent 前置 RAG。
-- RAG 召回写入 trace。
-- 最终回答带来源信息。
-
-V0.1 可以简化：
-
-- 文档解析同步执行。
-- 不做 rerank。
-- 不做 Hybrid Search。
-- 不做复杂 PDF 版面处理。
-- 不做 OCR。
-- 不做主动二次检索工具。
+失败时旧 generation 保持可检索。
 
 ---
 
-## 19. V1.0 完成标准
+## 16. 安全与资源限制
 
-V1.0 RAG 应支持：
+V0.1 固定限制：
 
-1. 用户创建多个知识库。
-2. 支持 `.txt`、`.md`、`.pdf`。
-3. 原始文件保存到 MinIO。
-4. 文档解析异步执行。
-5. 文档状态可查看。
-6. chunk 可查看。
-7. chunk 带 `titlePath`、`tokenCount`、来源 block 范围、`chunkStrategyVersion` 和其他 metadata。
-8. embedding 写入 Qdrant。
-9. 支持按用户和知识库过滤。
-10. 支持检索测试。
-11. Agent 执行时自动前置 RAG。
-12. RAG 结果进入 Prompt。
-13. 最终回答返回引用来源。
-14. 每次 RAG 召回都可在 Trace 中回放。
-15. 评测模块能判断是否命中预期文档。
+- 文件类型 allowlist；
+- MIME 与扩展名双校验；
+- 最大上传字节；
+- 最大解码 code points；
+- 最大 chunk 数；
+- 最大单 chunk tokens；
+- 最大 query 长度；
+- 最大 Qdrant 候选数；
+- 最大 context tokens；
+- parser/embedding/Qdrant timeout；
+- storage key 由服务端生成；
+- 禁止路径穿越；
+- 错误不暴露本地绝对路径、provider body、API key 或 Qdrant URL。
 
----
-
-## 20. V1.5 增强项
-
-推荐增强：
-
-- 语义边界阈值和 chunk 策略的评测调参。
-- Rerank。
-- Hybrid Search。
-- Query Rewrite。
-- 主动 `knowledge_search` 工具。
-- 接入 Evaluation Harness 做 RAG 参数对比评测。
-- chunk overlap 可视化调试。
-- 文档解析失败自动重试。
-- PDF 页码引用。
-- 检索结果缓存。
-- 更精确 tokenizer。
+Prompt 和 Trace 进入持久化前必须执行密钥、Authorization、Cookie 和显式敏感字段脱敏。
 
 ---
 
-## 21. 面试表达重点
+## 17. 失败分类
 
-RAG 设计可以这样讲：
+至少包括：
 
-1. **数据和向量解耦**
-   - PostgreSQL 保存 chunk 正文和元数据，Qdrant 保存向量和 payload，通过 chunkId 关联。
+```text
+KNOWLEDGE_BASE_NOT_FOUND
+KNOWLEDGE_BASE_DISABLED
+DOCUMENT_NOT_FOUND
+DOCUMENT_TYPE_UNSUPPORTED
+DOCUMENT_TOO_LARGE
+DOCUMENT_PARSE_FAILED
+DOCUMENT_REPROCESS_CONFLICT
+EMBEDDING_PROFILE_UNSUPPORTED
+EMBEDDING_GENERATION_FAILED
+VECTOR_STORE_UNAVAILABLE
+VECTOR_STORE_CONTRACT_MISMATCH
+VECTOR_OUTCOME_UNKNOWN
+RAG_KNOWLEDGE_NOT_READY
+RAG_RETRIEVAL_FAILED
+RAG_INVALID_CITATION
+```
 
-2. **不是黑盒检索**
-   - 文档入库经过解析、清洗、原子单元提取、语义边界检测、chunk 聚合、embedding 和向量写入，每一步都有状态和失败处理。
-
-3. **引用可追踪**
-   - 最终答案带 citations，Trace 保存每次召回的 chunk 快照。
-
-4. **可调试**
-   - 提供 retrieve-test 接口，可以观察 query 命中的 chunk、score、来源和耗时。
-
-5. **可评测**
-   - 评测集中保存 expectedDocumentIds，可以计算是否命中预期文档。
-
-6. **为工程化留余地**
-   - 后续可以加入 rerank、Hybrid Search、Query Rewrite，而不需要推翻现有结构。
+外部异常统一映射为稳定安全消息；原始 cause 仅进入受保护日志。
 
 ---
 
-## 22. 当前不做的内容
+## 18. V0.1 验收
 
-V1.0 暂不做：
+必须证明：
 
-- OCR。
-- 多模态文档解析。
-- Word/Excel/PPT 复杂解析。
-- Graph RAG。
-- 自动知识图谱。
-- 本地 embedding 模型部署。
-- 大规模分布式索引。
-
-这些内容可作为 V2.0 扩展，不进入当前核心闭环。
+1. 相同文档与参数产生稳定 chunks；
+2. vector ID 与精确测试向量一致；
+3. 不兼容 embedding profile 被拒绝；
+4. parse COMPLETED 但 vector 未完成时 readiness 不是 READY；
+5. Agent task snapshot 只包含 READY generation；
+6. Qdrant hit 经 PostgreSQL scope/generation/hash 二次校验；
+7. 空结果是合法结果；
+8. stale point 不进入 Prompt；
+9. citation 只能引用本次 hit；
+10. 真实 Qdrant 检索能支持支付诊断 Agent 的完整闭环。

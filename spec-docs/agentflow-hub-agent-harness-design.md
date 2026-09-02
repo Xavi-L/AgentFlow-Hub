@@ -1,452 +1,380 @@
-# AgentFlow Hub Agent Runtime Harness 设计
+# AgentFlow Hub Runtime Governance（Harness）设计
 
-本文档用于沉淀 AgentFlow Hub 的 Agent Runtime Harness 设计，包括运行证据包、策略守卫、评测回归、受控 MCP 适配，以及它们和现有 AgentEngine、ToolRuntime、Trace、Evaluation 模块的关系。
-
-这里的 Harness 指围绕 Agent 执行过程的一层工程化底座：
-
-> 让一次 Agent 运行不仅能完成任务，还能被治理、被记录、被回放、被评测、被对比。
-
-核心结论：
-
-> AgentFlow Hub 不额外引入一个黑盒 Agent 框架，而是在现有自研 AgentEngine 之上补一层轻量 Harness 能力。V1.0 先做 Agent Episode Package 和 PolicyGuard 轻量版；V1.5 强化 Evaluation Harness；V2.0 再考虑受控 MCP Adapter。
+> 文档状态：**FUTURE-NORMATIVE**  
+> 权威范围：Episode、Tool Policy、Evaluation 和受控 MCP 的后续边界  
+> V0.1 约束：本文件不得扩大 V0.1 范围
 
 ---
 
-## 1. 为什么需要 Harness
+## 1. 定位
 
-当前项目已经具备：
+“Runtime Harness”是对 Agent 运行治理能力的统称，不是一个包罗万象的顶层业务模块，也不接管 AgentEngine、ToolRuntime、Trace 或 Evaluation 的职责。
 
-- Agent 状态机。
-- ToolRuntime。
-- RAG trace。
-- LLM 调用日志。
-- Agent step。
-- 轻量评测表。
+对应关系：
 
-这些能力证明系统不是普通聊天机器人。
-
-但如果希望更贴近真实 Agent 工程，需要继续回答几个问题：
-
-- 一次 Agent 运行能不能完整复现？
-- 不同 prompt、模型、RAG 参数的效果能不能回归比较？
-- 工具调用能不能在执行前经过统一策略检查？
-- 未来接入外部工具协议时，能不能仍然受控？
-
-Harness 层解决这些问题。
-
----
-
-## 2. 版本边界
-
-### 2.1 V1.0 轻量 Harness
-
-V1.0 增加两项轻量能力：
-
-1. **Agent Episode Package**
-   - 将一次 Agent 任务的配置、输入、RAG、LLM、工具、事件、预算和最终答案聚合成可导出的运行证据包。
-
-2. **PolicyGuard**
-   - 在工具执行前进行策略检查，输出 `ALLOW` / `WARN` / `BLOCK` / `REVIEW` 决策，并写入 trace。
-
-V1.0 不做复杂页面，只要求能在 Trace 页面看到关键结果，并提供 API 导出。
-
-### 2.2 V1.5 Evaluation Harness
-
-V1.5 强化评测：
-
-- 支持一键运行评测集。
-- 支持 prompt 版本、RAG 参数、模型配置的对比。
-- 统计 RAG 命中、工具调用匹配、引用准确、任务成功、token、耗时。
-- 支持从历史 episode 回放或复用运行证据做回归分析。
-
-### 2.3 V2.0 受控 MCP Adapter
-
-V2.0 可做受控 MCP Adapter：
-
-- 注册 allowlist MCP server。
-- 拉取 MCP tool schema。
-- 映射为平台 `tool_definition`。
-- 仍然复用 Agent 工具绑定、权限、PolicyGuard、超时、trace 和评测。
-
-不做完整 MCP marketplace，不允许任意 server 自动接入。
-
----
-
-## 3. 总体架构
-
-```mermaid
-flowchart LR
-    AgentEngine["AgentEngine"] --> Harness["AgentRuntimeHarness"]
-    Harness --> Episode["EpisodePackageService"]
-    Harness --> Policy["PolicyGuard"]
-    Harness --> Eval["EvaluationHarness"]
-
-    AgentEngine --> Rag["RagService"]
-    AgentEngine --> Tool["ToolRuntime"]
-    AgentEngine --> LLM["LlmGateway"]
-    AgentEngine --> Trace["TraceService"]
-
-    Tool --> Policy
-    Policy --> Tool
-
-    Trace --> Episode
-    Rag --> Episode
-    Tool --> Episode
-    LLM --> Episode
-
-    Eval --> AgentEngine
-    Eval --> Episode
+```text
+Episode / export        -> trace.episode
+Tool Policy             -> tool.policy
+Evaluation              -> evaluation
+MCP adapter             -> tool.adapter.mcp
 ```
 
-说明：
+禁止建立：
 
-- `AgentEngine` 仍然是执行主流程。
-- `ToolRuntime` 仍然是工具执行唯一入口。
-- `PolicyGuard` 是工具执行前的安全策略层。
-- `EpisodePackageService` 是 trace 聚合和导出层。
-- `EvaluationHarness` 是评测运行、指标计算和版本对比层。
+```text
+AgentEngine -> Harness -> ToolRuntime -> Harness -> AgentEngine
+```
+
+任何双向依赖都说明模块所有权错误。
 
 ---
 
-## 4. Agent Episode Package
+## 2. 设计目标
 
-### 4.1 目标
+后续治理能力应让一次 Agent 运行能够：
 
-Episode Package 是一次 Agent 运行的完整证据包。
+- 被完整解释；
+- 导出为稳定证据包；
+- 在不同 Prompt/model/RAG 配置之间比较；
+- 对高风险工具执行附加策略；
+- 在接入外部工具协议时继续受平台边界控制。
 
-它用于：
+这些能力全部读取或扩展已有执行事实，不创建第二个运行时。
 
-- Trace 回放。
-- 面试演示。
-- 失败排查。
-- 评测复盘。
-- prompt / RAG / 工具版本对比。
-- 后续导出到 OpenTelemetry 或外部观测系统。
+---
 
-### 4.2 内容结构
+## 3. V0.1 边界
 
-建议结构：
+V0.1 不实现：
+
+- 独立 Harness 模块；
+- `agent_episode` 表；
+- PolicyGuard/policy_check_log；
+- Evaluation 数据模型和页面；
+- MCP；
+- 人工确认；
+- Prompt/model/RAG A/B；
+- Episode 缓存或异步生成。
+
+V0.1 只需要保证 task、step、LLM、RAG、tool 和 event Trace 足够完整，使后续治理能力可以从这些事实自然构建。
+
+V0.1 的 Trace API 可以提供一个动态聚合视图，但不将其命名为已经持久化、可完全复现的 Episode Package。
+
+---
+
+## 4. Episode 设计
+
+### 4.1 Episode 是派生读模型
+
+Episode 从以下权威数据聚合：
+
+```text
+agent_task
+execution_snapshot
+agent_step
+llm_call_log
+rag_retrieval_log
+rag_retrieval_hit
+tool_call_log
+agent_task_event
+```
+
+Episode 不反向修改 task 或调用 ToolRuntime。
+
+### 4.2 最小结构
 
 ```json
 {
-  "episodeId": "ep_30001",
+  "schemaVersion": "agent-episode-v1",
   "task": {},
-  "agentSnapshot": {},
-  "modelSnapshot": {},
-  "promptSnapshot": {},
-  "rag": {
-    "retrievals": [],
-    "hits": []
-  },
+  "executionSnapshot": {},
   "steps": [],
   "llmCalls": [],
+  "ragRetrievals": [],
   "toolCalls": [],
-  "policyChecks": [],
   "events": [],
-  "budget": {
-    "maxSteps": 8,
-    "usedSteps": 6,
-    "maxToolCalls": 5,
-    "usedToolCalls": 2,
-    "totalTokens": 4200,
-    "totalCost": 0.031
-  },
+  "budget": {},
   "finalAnswer": "",
-  "metrics": {
-    "latencyMs": 12800,
-    "success": true,
-    "toolCallCount": 2,
-    "retrievedChunkCount": 5
-  }
+  "citations": [],
+  "metrics": {}
 }
 ```
 
-### 4.3 V1.0 实现方式
+### 4.3 动态聚合优先
 
-不一定新建大量表。
-
-V1.0 推荐：
-
-- 继续以 `agent_task` 作为根对象。
-- 从已有 `agent_step`、`llm_call_log`、`rag_retrieval_log`、`rag_retrieval_hit`、`tool_call_log`、`agent_task_event` 聚合。
-- 增加 `agent_episode` 可选表，用于保存导出快照和摘要指标。
-- Trace API 增加 `episode` 聚合视图。
-
-### 4.4 最小 API
+V1 初期优先：
 
 ```text
 GET /api/v1/tasks/{taskId}/episode
 GET /api/v1/tasks/{taskId}/episode/export
 ```
 
-### 4.5 面试表达
+由 Trace query service 动态聚合。
 
-可以这样讲：
+只有满足以下任一条件时才增加 `agent_episode`：
 
-> 每次 Agent 执行都会形成一个 Episode Package，里面包含模型请求、RAG 命中、工具调用、策略检查、预算消耗和最终答案。这样历史任务不仅能看结果，还能完整复盘执行路径，并用于后续回归评测。
+- 聚合查询成本已被测量为不可接受；
+- 需要不可变归档；
+- 需要长期导出格式冻结；
+- Evaluation 大量复用同一聚合结果。
+
+即使增加表，它也必须标记：
+
+```text
+source_task_id
+schema_version
+source_trace_revision
+created_at
+```
+
+并明确是缓存/归档，不是新的任务事实源。
+
+### 4.4 可复现性的边界
+
+保存 Episode 不等于可以重新得到逐 token 相同输出。应区分：
+
+- **Execution explainability**：可以解释用了什么配置、证据和工具；
+- **Deterministic replay**：对相同 provider 能得到完全相同结果；
+- **Simulation replay**：不重新调用外部系统，只重放历史事实。
+
+V1 优先实现 explainability 和 simulation replay，不虚构跨模型的完全确定性。
 
 ---
 
-## 5. PolicyGuard
+## 5. Tool Policy
 
-### 5.1 目标
+### 5.1 位置
 
-PolicyGuard 是工具执行前的统一策略检查层。
+未来调用顺序：
 
-它解决：
+```text
+ToolRuntime hard validation
+-> ToolPolicy check
+-> optional approval
+-> handler execution
+```
 
-- 工具是否允许当前 Agent 调用。
-- 工具参数是否存在风险。
-- 是否需要人工确认。
-- 是否超过预算或频率限制。
-- 是否命中敏感数据策略。
-- 是否允许外部 HTTP / MCP 工具执行。
+Hard validation 包括：
 
-### 5.2 决策类型
+- 工具存在/live/ACTIVE；
+- Agent binding；
+- snapshot 一致性；
+- Schema；
+- handler allowlist。
+
+这些不是 Policy，不能被 `WARN` 或配置绕过。
+
+### 5.2 Policy 适用范围
+
+- 写操作；
+- 敏感字段；
+- 外部域名；
+- 数据出境/环境规则；
+- 用户、Agent、工具级频率限制；
+- 业务时间窗口；
+- 需要人工审批的动作。
+
+### 5.3 决策
 
 ```text
 ALLOW
-WARN
+ALLOW_WITH_WARNING
 BLOCK
-REVIEW
+REQUIRE_APPROVAL
 ```
 
-含义：
+只有 `ALLOW/ALLOW_WITH_WARNING` 可进入 handler。
 
-| 决策 | 含义 |
-| --- | --- |
-| `ALLOW` | 允许执行 |
-| `WARN` | 允许执行，但记录警告 |
-| `BLOCK` | 阻止执行，向 Agent 写回拒绝 observation |
-| `REVIEW` | 需要人工确认后继续 |
+### 5.4 Policy 记录
 
-### 5.3 检查维度
-
-V1.0 轻量检查：
-
-- Agent 是否绑定该工具。
-- 工具是否启用。
-- 工具权限等级是否超出 Agent 能力。
-- 参数是否通过 JSON Schema。
-- 是否重复调用同一工具和参数。
-- 是否超过最大工具调用次数。
-- `HIGH` 工具是否默认进入 `REVIEW` 或 `BLOCK`。
-
-V1.5 可增强：
-
-- 工具级限流。
-- 参数敏感字段检测。
-- 工具结果脱敏。
-- 高风险 HTTP 域名 allowlist。
-- policy 命中统计。
-
-### 5.4 调用流程
-
-```mermaid
-sequenceDiagram
-    participant AE as AgentEngine
-    participant TR as ToolRuntime
-    participant PG as PolicyGuard
-    participant EX as ToolExecutor
-    participant TS as TraceService
-
-    AE->>TR: execute(toolCall)
-    TR->>PG: check(policyContext)
-    PG-->>TR: decision
-    TR->>TS: save policy_check_log
-
-    alt ALLOW or WARN
-        TR->>EX: execute tool
-        EX-->>TR: result
-    else BLOCK
-        TR-->>AE: rejected result
-    else REVIEW
-        TR-->>AE: confirmation required
-    end
-```
-
-### 5.5 数据记录
-
-建议增加：
+未来 `policy_check_log` 保存：
 
 ```text
-policy_check_log
+taskId
+stepId
+toolCallId
+toolCode
+policyVersion
+decision
+policyCodes
+safeReason
+inputFingerprint
+createdAt
 ```
 
-关键字段：
+默认不复制完整敏感 arguments。需要审计时使用脱敏 snapshot。
 
-- task_id。
-- step_id。
-- tool_call_id，可为空。
-- tool_code。
-- decision。
-- policy_codes。
-- reason。
-- input_snapshot。
-- created_at。
+### 5.5 人工确认
 
-### 5.6 面试表达
+人工确认是独立持久状态机，需要：
 
-可以这样讲：
+- approval request；
+- approver identity；
+- expiry；
+- approve/reject；
+- task resume token；
+- 幂等；
+- 工具定义和参数快照；
+- 状态 `WAITING_APPROVAL`。
 
-> ToolRuntime 不是直接执行模型请求的工具调用，而是先进入 PolicyGuard。PolicyGuard 会根据工具绑定、权限等级、参数风险、预算和人工确认规则做决策，所有策略命中都会写入 trace。
+在这些契约完整前，只保留 `requires_confirmation` 字段，不宣称已经实现人工确认。
 
 ---
 
-## 6. Evaluation Harness
+## 6. Evaluation
 
-### 6.1 目标
+### 6.1 定位
 
-Evaluation Harness 是对 Agent 的持续回归测试能力。
+Evaluation 是离线或受控批量运行系统，不属于 AgentEngine 内部循环。
 
-它不只是人工标记通过与否，而是把一次评测运行拆成可比较的指标。
+```text
+EvaluationRunner
+-> 创建普通 AgentTask
+-> 等待终态
+-> 读取 Trace/Episode view
+-> 计算指标
+```
 
-### 6.2 评测维度
+它不能调用 Engine 的私有方法绕过 task snapshot、ToolRuntime 或 Trace。
 
-RAG 维度：
+### 6.2 最小指标
 
-- Hit@K。
-- MRR。
-- Citation Accuracy。
-- 召回 chunk 数。
-- 平均相似度。
+RAG：
 
-Agent 维度：
+- Hit@K；
+- MRR；
+- expected document/chunk hit；
+- citation whitelist/accuracy；
+- stale hit count。
 
-- 任务是否完成。
-- 是否调用预期工具。
-- 工具调用顺序是否匹配。
-- 是否生成最终答案。
-- 是否命中失败恢复策略。
+Agent：
+
+- terminal status；
+- termination reason；
+- expected tool set/order；
+- invalid decision；
+- duplicate loop；
+- answer produced。
 
 成本与性能：
 
-- total tokens。
-- total cost。
-- total latency。
-- LLM latency。
-- tool latency。
+- token；
+- LLM/RAG/tool latency；
+- total latency；
+- tool count；
+- exact/estimated usage quality。
 
 人工判断：
 
-- passed。
-- judge_comment。
+- passed；
+- judge comment；
+- rubric version。
 
-### 6.3 对比能力
+### 6.3 对比前提
 
-V1.5 建议支持：
+Prompt/model/RAG A/B 必须固定：
 
-- Prompt 版本 A/B。
-- RAG topK 对比。
-- 是否启用 rerank 对比。
-- 不同模型配置对比。
-- 不同 chunk 参数对比，可选。
+- eval dataset version；
+- demo business dataset version；
+- tool implementation version；
+- corpus generation；
+- embedding profile；
+- application revision；
+- random/temperature 配置。
 
-### 6.4 与 Episode Package 的关系
+不固定这些变量时，对比分数不能归因于某一个修改。
 
-每条 `eval_result` 可以关联：
+### 6.4 版本计划
 
-- `task_id`。
-- `episode_id`。
-- `metrics`。
-
-这样评测结果可以回到完整执行证据，而不只是一个分数。
-
-### 6.5 面试表达
-
-可以这样讲：
-
-> 我把 Agent 评测做成了回归测试。每次评测运行会产生一组 episode，并计算 RAG 命中、工具调用匹配、引用准确、任务成功、成本和延迟。这样修改 prompt 或 RAG 参数后，可以看到系统效果是否真实变好。
+- V0.1：无 Evaluation；
+- V1.0：API/CLI 轻量评测，可人工判断；
+- V1.5：配置对比和自动指标；
+- V2.0：更完整 regression pipeline，可选。
 
 ---
 
 ## 7. 受控 MCP Adapter
 
-### 7.1 定位
+### 7.1 原则
 
-MCP 不进入 V1.0 主线。
-
-未来如果实现，只做受控适配：
-
-- 管理员注册 MCP server。
-- server 必须 allowlist。
-- 平台拉取 tool schema。
-- 映射为 `tool_definition`。
-- Agent 必须显式绑定后才能调用。
-- 调用仍然经过 PolicyGuard 和 ToolRuntime。
-
-### 7.2 不做什么
-
-不做：
-
-- 任意用户注册 MCP server。
-- 自动发现全网 MCP server。
-- 插件市场。
-- 未审查工具直接暴露给模型。
-- 让模型直接操作 MCP client。
-
-### 7.3 最小数据字段
-
-可在 V2.0 增加：
+MCP 只是 ToolRuntime 的一种 adapter，不是新的 Agent runtime。
 
 ```text
-mcp_server
-mcp_tool_mapping
+allowlisted MCP server
+-> fetch tool schema
+-> review and map to ToolDefinition
+-> explicit Agent binding
+-> immutable task snapshot
+-> ToolRuntime
+-> Tool Policy
+-> timeout / trace
 ```
 
-V1.0 只保留 `tool_definition.type = MCP`。
+### 7.2 必须限制
+
+- 仅管理员注册 server；
+- server URL allowlist；
+- 禁止内网 SSRF；
+- 凭证由服务端 secret store 管理；
+- 模型不能选择 server；
+- schema 变化需要新版本或 task mismatch 失败；
+- tool result 大小限制和脱敏；
+- 明确 side-effect class；
+- 支持取消、deadline 和 outcome-unknown；
+- 不自动发现全网 server。
+
+### 7.3 版本计划
+
+MCP 不进入 V0.1/V1.0 主线。只有 BUILTIN 工具链、Trace、Tool Policy 和外部调用可靠性已经成熟后，才进入 V2.0 候选。
 
 ---
 
-## 8. 实施顺序
+## 8. 依赖方向
 
-推荐落地顺序：
+允许：
 
-1. 先完成 V0.1 主链路。
-2. 在 Trace 聚合 API 上增加 Episode Package。
-3. 在 ToolRuntime 前增加 PolicyGuard 轻量版。
-4. 在 Trace 页面展示 policy checks 和 episode summary。
-5. V1.5 再做 Evaluation Harness 的对比评测。
-6. V2.0 再考虑受控 MCP Adapter。
+```text
+evaluation -> public task application API
+trace.episode -> trace repositories
+tool.runtime -> tool.policy
+tool.adapter.mcp -> MCP client infra
+```
 
----
+禁止：
 
-## 9. 工作量预估
-
-| 能力 | 轻量版 | 完整版 |
-| --- | ---: | ---: |
-| Episode Package | 2 到 4 天 | 5 到 7 天 |
-| PolicyGuard | 3 到 5 天 | 约 1 周 |
-| Evaluation Harness | 5 到 8 天 | 约 2 周 |
-| 受控 MCP Adapter | 5 到 10 天 | 2 到 3 周 |
-
-推荐不要一次全做。
-
-V1.0 只加入：
-
-- Episode Package 轻量版。
-- PolicyGuard 轻量版。
-
-V1.5 再加入：
-
-- Evaluation Harness 完整一些。
-
-V2.0 再加入：
-
-- 受控 MCP Adapter。
+```text
+AgentEngine -> Evaluation
+AgentEngine -> Episode persistence
+Trace -> ToolRuntime execute
+Policy -> AgentEngine state transition
+MCP client -> AgentEngine
+Episode -> 修改 task
+```
 
 ---
 
-## 10. 与现有文档的关系
+## 9. 实施顺序
 
-本设计不替代原有专题文档。
+在 V0.1 完成后：
 
-对应关系：
+1. 先稳定 Trace 聚合查询；
+2. 增加动态 Episode view/export；
+3. 增加 Evaluation CLI/API；
+4. 用 Evaluation 证明 Prompt/RAG 修改有效；
+5. 出现真实风险工具后增加 Tool Policy；
+6. 出现真实写操作后增加 Approval；
+7. 最后评估 HTTP/MCP adapter。
 
-| Harness 能力 | 主要落点 |
-| --- | --- |
-| Episode Package | Agent 执行引擎、Trace API、前端 Trace 页面、数据模型 |
-| PolicyGuard | 工具系统、Agent 执行引擎、数据模型 |
-| Evaluation Harness | 评测模型、RAG 评测口径、前端评测页 |
-| 受控 MCP Adapter | 工具系统、数据模型、V2.0 规划 |
+不得为了“架构看起来企业级”而提前创建空表、空模块或循环依赖。
 
+---
+
+## 10. 验收原则
+
+- Episode 字段都能追溯到一个权威 Trace 来源；
+- 删除源配置不破坏历史 Episode view；
+- Evaluation 使用普通 task 路径，不绕过生产边界；
+- Policy 不能绕过 hard validation；
+- Approval 有完整持久状态机后才能启用；
+- MCP 工具仍受 binding、snapshot、timeout、policy 和 Trace 控制；
+- 任何治理功能都不能成为 V0.1 的隐藏前置条件。
