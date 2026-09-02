@@ -817,11 +817,11 @@ knowledge_base.embedding_profile_id
 1. 为 `agent_app` 增加 `(id,user_id)` unique，并为 chunk 增加 `chunk_strategy_version`；
 2. 创建 `agent_knowledge_binding`、`agent_tool_binding`；
 3. 创建 `agent_task`；
-4. 创建 `agent_step`；
-5. 创建 `llm_call_log`、`rag_retrieval_log`、`rag_retrieval_hit`；
-6. 创建 `agent_task_event`；
+4. 创建 `agent_task_event`，使 task 创建、dispatch、取消和终态从第一天就有持久 sequence；
+5. 创建 `agent_step`；
+6. 创建 `llm_call_log`、`rag_retrieval_log`、`rag_retrieval_hit`；
 7. 为 `tool_call_log` 增加 task/step 复合一致性外键与索引；
-8. 最后实现 API/Runner/SSE，不在 migration 前让代码产生无法持久化的状态。
+8. 最后实现公开 Task API/SSE，不在 schema 前让代码产生无法持久化的状态。
 
 具体 Flyway 版本号由实际提交顺序决定，但依赖顺序不得颠倒。
 

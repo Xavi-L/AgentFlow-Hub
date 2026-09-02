@@ -168,11 +168,11 @@ payment_log_query
 
 ---
 
-## 5. M4C：AgentTask 根对象与 TaskRunner
+## 5. M4C：AgentTask 根对象、持久事件与 TaskRunner
 
 ### 目标
 
-建立一次执行的权威根对象和可靠单实例调度。
+建立一次执行的权威根对象、从 task 创建开始存在的持久事件序列，以及可靠单实例调度。
 
 ### Schema
 
@@ -180,9 +180,10 @@ payment_log_query
 
 ```text
 agent_task
+agent_task_event
 ```
 
-字段和 CHECK 以 Data Model 为准。
+字段和 CHECK 以 Data Model 为准。事件表必须与 task 同阶段建立，因为 task 创建、dispatch 失败、取消和终态从第一天就需要稳定 sequence；不能等到 SSE 页面开发时才补事件事实。
 
 ### Backend
 
@@ -190,18 +191,22 @@ agent_task
 - `Idempotency-Key`；
 - request fingerprint；
 - 同事务 execution snapshot；
+- 同事务 `TASK_CREATED` event；
+- 单一 `TaskEventAppender`；
 - after-commit dispatch；
 - bounded `TaskDispatcher`；
 - `TaskRunner`；
 - `QUEUED -> RUNNING` 条件领取；
+- `TASK_STARTED` 和 phase events；
 - phase 更新；
 - cancel_requested_at；
 - terminal conditional update；
+- terminal state/event 同事务；
 - dispatch rejection 失败落库。
 
 ### 暂时允许
 
-本阶段 AgentEngine 可以先用 mock/脚本化 outcome，目的是先验证 lifecycle，不急于同时接 RAG/Trace。
+本阶段 AgentEngine 可以先用 mock/脚本化 outcome，目的是先验证 lifecycle、event ordering 和调度，不急于同时接 RAG/完整 Trace。
 
 ### 验收门槛
 
@@ -210,7 +215,9 @@ agent_task
 - 两个 runner 只有一个领取成功；
 - thread pool rejection 不留下永久 QUEUED；
 - cancel/complete 竞态只有一个终态；
-- status/phase/terminationReason CHECK 全部通过。
+- status/phase/terminationReason CHECK 全部通过；
+- 每个 task 从 `TASK_CREATED` 开始拥有严格递增 sequence；
+- terminal task 和 terminal event 同事务可见。
 
 ---
 
@@ -240,7 +247,8 @@ agent_task
 - 为 Final Generation 预留 token；
 - maxToolCalls/decision limit 触发受限最终生成；
 - ToolRuntime 接收 task/step/snapshot context；
-- 重复调用检测。
+- 重复调用检测；
+- 通过已有 TaskEventAppender 写 RAG/decision/tool/final-generation 语义事件。
 
 ### 验收门槛
 
@@ -248,7 +256,8 @@ agent_task
 - 无 RAG hit 仍可工具执行；
 - 未绑定工具被 parser/Engine 拒绝；
 - budget 精确收敛；
-- Agent/工具/KB 中途修改不改变 snapshot 语义。
+- Agent/工具/KB 中途修改不改变 snapshot 语义；
+- 执行事件和 task phase 顺序一致。
 
 ---
 
@@ -280,7 +289,8 @@ rag_retrieval_hit
 - tool log 关联 task/step；
 - Prompt/response/tool 数据脱敏与大小限制；
 - 禁止保存自由 chain-of-thought；
-- Trace 聚合 query service。
+- Trace 聚合 query service；
+- 已有 task events 继续作为展示投影，不替代专项日志。
 
 ### 验收门槛
 
@@ -298,15 +308,7 @@ rag_retrieval_hit
 
 ---
 
-## 8. M4F：Task API、持久事件与 SSE
-
-### Schema
-
-创建：
-
-```text
-agent_task_event
-```
+## 8. M4F：Task API 与可恢复 SSE
 
 ### API
 
@@ -319,14 +321,13 @@ GET  /api/v1/tasks/{taskId}/events
 GET  /api/v1/tasks/{taskId}/trace
 ```
 
-### Event
+### Event 投影收口
 
-- 单一 `TaskEventAppender`；
-- task 内 sequence；
+- 为 M4D/M4E 已记录的执行事实补齐稳定 payload；
 - semantic events；
-- terminal state/event 同事务；
 - `ANSWER_CHUNK` 合并；
-- event payload 脱敏。
+- event payload 脱敏；
+- 不增加第二套 event 状态机。
 
 ### SSE
 
@@ -414,7 +415,7 @@ Task Trace
 1. Project Spec 的用户故事完整可执行；
 2. Task/phase/termination contract 只有一套；
 3. Agent 绑定真实存在；
-4. RAG 使用 READY generation snapshot；
+4. RAG 使用 READY document generation snapshot；
 5. 两个工具全部经过 ToolRuntime；
 6. Final Generation 独立完成；
 7. task/step/LLM/RAG/tool/event 可回查；
@@ -491,13 +492,13 @@ Task Trace
 ```text
 docs: align V0.1 architecture contracts
 feat(agent): add knowledge and tool bindings
-feat(agent): add task schema and idempotent creation
+feat(agent): add task schema, durable events and idempotent creation
 feat(agent): add bounded dispatcher and task runner
 feat(rag): add task corpus snapshot retrieval
 refactor(agent): align decision and budget contracts
 feat(trace): add task steps and llm/rag linkage
 feat(tool): attach tool calls to task steps
-feat(task): add durable events and replayable sse
+feat(task): expose task api and replayable sse
 feat(web): add minimal agent run and trace pages
 test(e2e): add real payment diagnosis workflow
 chore: cut v0.1 release

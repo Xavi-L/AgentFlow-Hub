@@ -258,7 +258,9 @@ WHERE id = :taskId
       {
         "knowledgeBaseId": "...",
         "embeddingProfileCode": "dashscope-te-v4-1024",
-        "vectorGeneration": 0
+        "documents": [
+          {"documentId": "...", "vectorGeneration": 0}
+        ]
       }
     ],
     "topK": 5,
@@ -283,7 +285,7 @@ WHERE id = :taskId
 原则：
 
 - 运行期间不重新读取 Agent 的 Prompt、模型参数或预算；
-- RAG 使用 snapshot 中的知识库和 vector generation；
+- RAG 使用 snapshot 中的知识库和 document generations；
 - 模型看到 snapshot 中的工具描述和 schema；
 - ToolRuntime 可以重新检查当前工具是否仍为 live/ACTIVE，作为紧急撤销开关；
 - 如果当前 schema hash 与 snapshot 不同，调用失败为 `TOOL_DEFINITION_CHANGED`，不得用新 schema 静默重解释旧 decision；
