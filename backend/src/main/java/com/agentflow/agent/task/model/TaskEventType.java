@@ -1,0 +1,17 @@
+package com.agentflow.agent.task.model;
+
+public enum TaskEventType {
+    TASK_CREATED,
+    TASK_STARTED,
+    PHASE_CHANGED,
+    RAG_FINISHED,
+    DECISION_FINISHED,
+    TOOL_STARTED,
+    TOOL_FINISHED,
+    FINAL_GENERATION_STARTED,
+    ANSWER_CHUNK,
+    TASK_COMPLETED,
+    TASK_FAILED,
+    TASK_CANCELLED,
+    TASK_TIMED_OUT
+}

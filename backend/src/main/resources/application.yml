@@ -37,6 +37,15 @@ logging:
 agentflow:
   api:
     prefix: /api/v1
+  task:
+    dispatcher:
+      # V38 single-instance bounded executor defaults.
+      core-pool-size: 2
+      max-pool-size: 4
+      queue-capacity: 100
+    execution:
+      # M4E replaces this fail-closed seam with the real Engine integration.
+      mode: unavailable
   document:
     storage:
       # Keep runtime uploads outside this Git workspace. Override with

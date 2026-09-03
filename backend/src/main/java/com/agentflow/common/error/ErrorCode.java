@@ -23,6 +23,12 @@ public enum ErrorCode {
     USER_ACCOUNT_ALREADY_EXISTS("USER_ACCOUNT_ALREADY_EXISTS", "Username or email is already in use", 409),
     AGENT_DISABLED("AGENT_DISABLED", "Agent is disabled", 409),
     AGENT_BINDING_INVALID("AGENT_BINDING_INVALID", "Agent binding is invalid", 409),
+    TASK_IDEMPOTENCY_CONFLICT(
+            "TASK_IDEMPOTENCY_CONFLICT",
+            "Idempotency key was already used for a different task request",
+            409
+    ),
+    TASK_DISPATCH_REJECTED("TASK_DISPATCH_REJECTED", "Task dispatch was rejected", 503),
     RAG_KNOWLEDGE_NOT_READY("RAG_KNOWLEDGE_NOT_READY", "Agent knowledge is not ready", 409),
     KNOWLEDGE_BASE_NOT_ACTIVE("KNOWLEDGE_BASE_NOT_ACTIVE", "Knowledge base is not active", 409),
     KNOWLEDGE_CONTEXT_EMPTY(
