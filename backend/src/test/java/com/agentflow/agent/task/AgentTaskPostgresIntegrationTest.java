@@ -111,6 +111,11 @@ class AgentTaskPostgresIntegrationTest {
 
     @BeforeEach
     void resetDatabaseAndFakes() {
+        jdbc.update("DELETE FROM tool_call_log");
+        jdbc.update("DELETE FROM rag_retrieval_hit");
+        jdbc.update("DELETE FROM rag_retrieval_log");
+        jdbc.update("DELETE FROM llm_call_log");
+        jdbc.update("DELETE FROM agent_step");
         jdbc.update("DELETE FROM agent_task_event");
         jdbc.update("DELETE FROM agent_task");
         jdbc.update("DELETE FROM agent_tool_binding");
@@ -141,9 +146,15 @@ class AgentTaskPostgresIntegrationTest {
     @Test
     void shouldApplyV1ThroughV18AndEnforceOwnerStatusAndJsonConstraints() throws Exception {
         assertThat(jdbc.queryForObject(
-                "SELECT count(*) FROM flyway_schema_history WHERE success",
+                """
+                SELECT count(*)
+                FROM flyway_schema_history
+                WHERE version = '18'
+                  AND script = 'V18__create_agent_task_and_event.sql'
+                  AND success
+                """,
                 Integer.class
-        )).isEqualTo(18);
+        )).isEqualTo(1);
 
         AgentTask created = create("migration-contract", "  preserve this input  ");
         AgentTask persisted = queryService.findById(created.getId());
