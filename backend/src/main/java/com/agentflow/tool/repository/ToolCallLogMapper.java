@@ -1,11 +1,15 @@
 package com.agentflow.tool.repository;
 
 import com.agentflow.tool.model.ToolCallLogRecord;
+import java.util.List;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Options;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
-/** Write-only V27 persistence boundary for tool-call lifecycle rows. */
+/** Tool-call lifecycle persistence plus the V39 task-scoped internal Trace query. */
 @Mapper
 public interface ToolCallLogMapper {
 
@@ -60,4 +64,16 @@ public interface ToolCallLogMapper {
               AND status = 'RUNNING'
             """)
     int updateRunningToTerminal(ToolCallLogRecord record);
+
+    @Select("""
+            SELECT id, task_id, step_id, tool_id, tool_code, tool_name,
+                   arguments::text AS arguments_json, result::text AS result_json,
+                   status, retry_count, latency_ms, error_code, error_message,
+                   started_at, finished_at, created_at
+            FROM tool_call_log
+            WHERE task_id = #{taskId}
+            ORDER BY created_at ASC, id ASC
+            """)
+    @Options(useCache = false)
+    List<ToolCallLogRecord> selectByTaskIdOrdered(@Param("taskId") long taskId);
 }

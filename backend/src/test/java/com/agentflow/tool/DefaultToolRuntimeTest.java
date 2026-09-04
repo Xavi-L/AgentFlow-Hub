@@ -69,6 +69,26 @@ class DefaultToolRuntimeTest {
     }
 
     @Test
+    void shouldNotInvokeTheHandlerWhenTheRunningLogCannotBePersisted() throws Exception {
+        JsonNode arguments = objectMapper.readTree("{\"orderNo\":\"order_1024\"}");
+        when(definitionService.findActiveById(definition.id())).thenReturn(Optional.of(definition));
+        when(logService.recordRunning(any(), any(), any()))
+                .thenThrow(new IllegalStateException("running trace write failed"));
+
+        assertThatThrownBy(() -> runtime.execute(ToolExecutionCommand.taskScoped(
+                definition.id(),
+                101L,
+                201L,
+                arguments
+        ))).isInstanceOf(IllegalStateException.class)
+                .hasMessage("running trace write failed");
+
+        verifyNoInteractions(executor);
+        verify(logService, never()).recordSuccess(any(), any());
+        verify(logService, never()).recordFailed(any(), any());
+    }
+
+    @Test
     void shouldRejectResolvedInvalidArgumentsWithoutCreatingARunningLog() throws Exception {
         JsonNode arguments = objectMapper.readTree("{\"orderNo\":\"   \",\"extra\":true}");
         ToolExecutionCommand command = ToolExecutionCommand.standalone(definition.id(), arguments);

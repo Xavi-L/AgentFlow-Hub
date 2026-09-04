@@ -1,15 +1,17 @@
 package com.agentflow.tool;
 
+import com.agentflow.agent.trace.TracePayloadProperties;
+import com.agentflow.agent.trace.TracePayloadSanitizer;
 import com.agentflow.tool.model.ToolCallLogRecord;
 import com.agentflow.tool.repository.ToolCallLogMapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.Objects;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,11 +21,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class ToolCallLogService {
     private final ToolCallLogMapper toolCallLogMapper;
     private final ObjectMapper objectMapper;
+    private final TracePayloadSanitizer sanitizer;
     private final Clock clock;
 
+    @Autowired
     public ToolCallLogService(
             ToolCallLogMapper toolCallLogMapper,
             ObjectMapper objectMapper,
+            TracePayloadSanitizer sanitizer,
             Clock clock
     ) {
         this.toolCallLogMapper = Objects.requireNonNull(
@@ -31,7 +36,22 @@ public class ToolCallLogService {
                 "toolCallLogMapper must not be null"
         );
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
+        this.sanitizer = Objects.requireNonNull(sanitizer, "sanitizer must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
+    }
+
+    /** Retains the V27 unit-construction seam while applying V39's default payload limits. */
+    public ToolCallLogService(
+            ToolCallLogMapper toolCallLogMapper,
+            ObjectMapper objectMapper,
+            Clock clock
+    ) {
+        this(
+                toolCallLogMapper,
+                objectMapper,
+                new TracePayloadSanitizer(objectMapper, new TracePayloadProperties()),
+                clock
+        );
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -54,7 +74,7 @@ public class ToolCallLogService {
             OffsetDateTime startedAt
     ) {
         ToolCallLogRecord record = baseRecord(tool, command, startedAt);
-        record.setResultJson(toJson(result));
+        record.setResultJson(sanitizer.sanitizeToolJson(result, "tool result"));
         record.setStatus("REJECTED");
         record.setLatencyMs(result.latencyMs());
         record.setErrorCode(result.errorCode());
@@ -85,7 +105,7 @@ public class ToolCallLogService {
         record.setToolId(tool.id());
         record.setToolCode(tool.toolCode());
         record.setToolName(tool.name());
-        record.setArgumentsJson(toJson(command.arguments() == null ? NullNode.getInstance() : command.arguments()));
+        record.setArgumentsJson(sanitizer.sanitizeToolJson(safeArguments(command.arguments()), "tool arguments"));
         record.setRetryCount(0);
         record.setStartedAt(startedAt);
         record.setCreatedAt(startedAt);
@@ -95,7 +115,7 @@ public class ToolCallLogService {
     private void updateTerminal(Long callId, String status, ToolExecutionResult result) {
         ToolCallLogRecord record = new ToolCallLogRecord();
         record.setId(callId);
-        record.setResultJson(toJson(result));
+        record.setResultJson(sanitizer.sanitizeToolJson(result, "tool result"));
         record.setStatus(status);
         record.setLatencyMs(result.latencyMs());
         record.setErrorCode(result.errorCode());
@@ -114,11 +134,14 @@ public class ToolCallLogService {
         }
     }
 
-    private String toJson(Object value) {
-        try {
-            return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException ex) {
-            throw new IllegalStateException("Tool call snapshot could not be serialized", ex);
+    private JsonNode safeArguments(JsonNode arguments) {
+        if (arguments != null && arguments.isObject()) {
+            return arguments;
         }
+        ObjectNode omitted = objectMapper.createObjectNode();
+        omitted.put("snapshotOmitted", true);
+        omitted.put("reason", "NON_OBJECT_ARGUMENTS");
+        omitted.put("originalType", arguments == null ? "MISSING" : arguments.getNodeType().name());
+        return omitted;
     }
 }

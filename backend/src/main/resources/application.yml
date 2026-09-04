@@ -37,6 +37,13 @@ logging:
 agentflow:
   api:
     prefix: /api/v1
+  trace:
+    payload:
+      # V39 measures the serialized UTF-8 form and fails closed before persistence.
+      small-max-bytes: 16384
+      tool-max-bytes: 65536
+      large-max-bytes: 262144
+      rag-hit-content-max-bytes: 16384
   task:
     dispatcher:
       # V38 single-instance bounded executor defaults.

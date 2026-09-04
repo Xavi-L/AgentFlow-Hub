@@ -84,7 +84,7 @@ public class DefaultToolRuntime implements ToolRuntime {
             ToolExecutionResult failed = ToolExecutionResult.failure(
                     tool.toolCode(),
                     ex.getErrorCode().getCode(),
-                    ex.getMessage(),
+                    ex.getErrorCode().getMessage(),
                     elapsedMillis(startedNanos)
             );
             toolCallLogService.recordFailed(callId, failed);
