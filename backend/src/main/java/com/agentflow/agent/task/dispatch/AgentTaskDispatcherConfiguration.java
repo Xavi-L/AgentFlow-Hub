@@ -32,7 +32,7 @@ public class AgentTaskDispatcherConfiguration {
             prefix = "agentflow.task.execution",
             name = "mode",
             havingValue = "unavailable",
-            matchIfMissing = true
+            matchIfMissing = false
     )
     public TaskExecutionDelegate unavailableTaskExecutionDelegate() {
         return request -> TaskExecutionOutcome.failed(

@@ -75,12 +75,7 @@ class DefaultToolRuntimeTest {
         when(logService.recordRunning(any(), any(), any()))
                 .thenThrow(new IllegalStateException("running trace write failed"));
 
-        assertThatThrownBy(() -> runtime.execute(ToolExecutionCommand.taskScoped(
-                definition.id(),
-                101L,
-                201L,
-                arguments
-        ))).isInstanceOf(IllegalStateException.class)
+        assertThatThrownBy(() -> runtime.execute(ToolExecutionCommand.standalone(definition.id(), arguments))).isInstanceOf(IllegalStateException.class)
                 .hasMessage("running trace write failed");
 
         verifyNoInteractions(executor);

@@ -34,8 +34,8 @@ class AgentPromptBuilderTest {
         assertThat(messages.get(1).role()).isEqualTo(LlmMessageRole.SYSTEM);
         assertThat(messages.get(1).content()).contains(
                 "Return exactly one JSON object",
-                "TOOL_CALL",
-                "FINAL_ANSWER"
+                "CALL_TOOL",
+                "FINISH"
         );
         assertThat(messages.get(2).role()).isEqualTo(LlmMessageRole.USER);
 
@@ -72,7 +72,7 @@ class AgentPromptBuilderTest {
         assertThat(messages.get(1).content()).contains("Return only the final user-facing answer");
         JsonNode payload = objectMapper.readTree(messages.get(2).content());
         assertThat(payload.path("userInput").textValue()).isEqualTo("Diagnose order_1024");
-        assertThat(payload.path("answerDraft").textValue()).isEqualTo("Enough evidence to answer");
+        assertThat(payload.path("answerPlan").textValue()).isEqualTo("Enough evidence to answer");
         assertThat(payload.has("availableTools")).isFalse();
         assertThat(payload.path("observations")).isEmpty();
     }

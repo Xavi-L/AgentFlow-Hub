@@ -120,6 +120,11 @@ class AgentTaskPostgresIntegrationTest {
         jdbc.update("DELETE FROM agent_task");
         jdbc.update("DELETE FROM agent_tool_binding");
         jdbc.update("DELETE FROM agent_knowledge_binding");
+        jdbc.update("DELETE FROM knowledge_document_reprocess_task");
+        jdbc.update("DELETE FROM knowledge_document_deletion_task");
+        jdbc.update("DELETE FROM knowledge_chunk");
+        jdbc.update("DELETE FROM knowledge_document");
+        jdbc.update("DELETE FROM knowledge_base");
         jdbc.update("DELETE FROM agent_app");
         jdbc.update("DELETE FROM app_user");
         jdbc.update("""
@@ -266,7 +271,7 @@ class AgentTaskPostgresIntegrationTest {
         assertThat(completed.getFinalAnswer()).isEqualTo("scripted answer");
         assertThat(completed.getTotalTokens()).isEqualTo(15);
         assertThat(eventTypes(task.getId())).containsExactly(
-                "TASK_CREATED", "TASK_STARTED", "PHASE_CHANGED", "TASK_COMPLETED"
+                "TASK_CREATED", "TASK_STARTED", "ANSWER_CHUNK", "TASK_COMPLETED"
         );
         assertThat(scriptedDelegate.invocations()).isEqualTo(1);
         assertThat(scriptedDelegate.sawDatabaseTransaction()).isFalse();

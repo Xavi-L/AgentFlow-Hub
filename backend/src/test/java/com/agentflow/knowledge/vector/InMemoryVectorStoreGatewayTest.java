@@ -10,6 +10,27 @@ import org.junit.jupiter.api.Test;
 class InMemoryVectorStoreGatewayTest {
 
     @Test
+    void snapshotScopeKeepsDocumentGenerationPairsAndExcludesLegacyMissingGeneration() {
+        InMemoryVectorStoreGateway gateway = new InMemoryVectorStoreGateway();
+        long[][] combinations = {{301, 7}, {301, 8}, {302, 7}, {302, 8}, {303, 7}};
+        for (int i = 0; i < combinations.length; i++) {
+            gateway.upsert(new VectorStoreRecord(new java.util.UUID(0, i + 1).toString(),
+                    new EmbeddingVector(List.of(1.0f, 0.0f)), Map.of(
+                    "chunkId", 401L + i, "userId", 101L, "knowledgeBaseId", 201L,
+                    "documentId", combinations[i][0], "vectorGeneration", combinations[i][1],
+                    "contentHash", "hash-" + i)));
+        }
+        gateway.upsert(record("fdafcd5a-e66a-8e7e-8a02-0ea311d084a1", 499L,
+                101L, 201L, 301L, List.of(1.0f, 0.0f)));
+        List<VectorSearchHit> hits = gateway.search(new VectorSearchRequest(
+                new EmbeddingVector(List.of(1.0f, 0.0f)), 101L, 201L, 20, List.of(
+                new VectorSearchRequest.DocumentGeneration(301, 7),
+                new VectorSearchRequest.DocumentGeneration(302, 8))));
+        assertThat(hits).extracting(VectorSearchHit::chunkId).containsExactly(401L, 404L);
+        assertThat(hits).extracting(VectorSearchHit::contentHash).containsExactly("hash-0", "hash-3");
+    }
+
+    @Test
     void shouldReturnOnlyTheRequestedOwnerAndKnowledgeBaseInSimilarityOrder() {
         InMemoryVectorStoreGateway gateway = new InMemoryVectorStoreGateway();
         gateway.upsert(record(

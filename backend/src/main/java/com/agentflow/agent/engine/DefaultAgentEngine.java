@@ -29,6 +29,7 @@ public final class DefaultAgentEngine implements AgentEngine {
     private final AgentPromptBuilder promptBuilder;
     private final AgentDecisionParser decisionParser;
     private final Clock clock;
+    private TaskSnapshotAgentExecutor taskExecutor;
 
     public DefaultAgentEngine(
             AgentAppMapper agentAppMapper,
@@ -49,6 +50,29 @@ public final class DefaultAgentEngine implements AgentEngine {
         this.promptBuilder = Objects.requireNonNull(promptBuilder, "promptBuilder must not be null");
         this.decisionParser = Objects.requireNonNull(decisionParser, "decisionParser must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public DefaultAgentEngine(
+            AgentAppMapper agentAppMapper,
+            ToolDefinitionService toolDefinitionService,
+            LlmGateway llmGateway,
+            ToolRuntime toolRuntime,
+            AgentPromptBuilder promptBuilder,
+            AgentDecisionParser decisionParser,
+            Clock clock,
+            TaskSnapshotAgentExecutor taskExecutor
+    ) {
+        this(agentAppMapper, toolDefinitionService, llmGateway, toolRuntime,
+                promptBuilder, decisionParser, clock);
+        this.taskExecutor = Objects.requireNonNull(taskExecutor, "taskExecutor must not be null");
+    }
+
+    @Override
+    public com.agentflow.agent.task.execution.TaskExecutionOutcome execute(
+            com.agentflow.agent.task.execution.TaskExecutionRequest request
+    ) {
+        return Objects.requireNonNull(taskExecutor, "Task snapshot executor is not configured").execute(request);
     }
 
     @Override
@@ -94,7 +118,7 @@ public final class DefaultAgentEngine implements AgentEngine {
             int finalOutputCap = budget.beginFinalAnswerCall();
             LlmChatResult finalAnswer = invokeLlm(
                     context,
-                    promptBuilder.buildFinalAnswerMessages(context, finalDecision.answerDraft()),
+                    promptBuilder.buildFinalAnswerMessages(context, finalDecision.answerPlan()),
                     finalOutputCap
             );
             return new AgentExecutionResult(

@@ -97,14 +97,14 @@ class DefaultAgentEngineTest {
         ));
         List<LlmChatResult> script = List.of(
                 result("""
-                        {"type":"TOOL_CALL","toolCode":"order_query",\
+                        {"type":"CALL_TOOL","toolCode":"order_query",\
                         "arguments":{"orderNo":"order_1024"},"reason":"Check order"}
                         """, 10),
                 result("""
-                        {"type":"TOOL_CALL","toolCode":"payment_log_query",\
+                        {"type":"CALL_TOOL","toolCode":"payment_log_query",\
                         "arguments":{"errorCode":"E_PAY_TIMEOUT"},"reason":"Check logs"}
                         """, 10),
-                result("{\"type\":\"FINAL_ANSWER\",\"answerDraft\":\"The evidence is sufficient\"}", 10),
+                result("{\"type\":\"FINISH\",\"answerPlan\":\"The evidence is sufficient\"}", 10),
                 result("Payment failed because the gateway timed out. Retry after checking gateway health.", 10)
         );
         AtomicInteger responseIndex = new AtomicInteger();
@@ -192,7 +192,7 @@ class DefaultAgentEngineTest {
         assertThat(thirdThinking.path("observations").get(1).path("data").path("logs")).hasSize(1);
 
         JsonNode finalPayload = userPayload(requests.get(3));
-        assertThat(finalPayload.path("answerDraft").textValue()).isEqualTo("The evidence is sufficient");
+        assertThat(finalPayload.path("answerPlan").textValue()).isEqualTo("The evidence is sufficient");
         assertThat(finalPayload.path("observations")).hasSize(2);
         assertThat(finalPayload.has("availableTools")).isFalse();
 
@@ -261,7 +261,7 @@ class DefaultAgentEngineTest {
     void shouldGenerateAnAnswerWithoutCallingAnyTool() {
         when(toolDefinitionService.listActive()).thenReturn(List.of());
         when(llmGateway.chat(any())).thenReturn(
-                result("{\"type\":\"FINAL_ANSWER\",\"answerDraft\":\"Answer directly\"}", 10),
+                result("{\"type\":\"FINISH\",\"answerPlan\":\"Answer directly\"}", 10),
                 result("Direct final answer", 10)
         );
 
@@ -281,9 +281,9 @@ class DefaultAgentEngineTest {
     @Test
     void shouldRejectInvalidJsonUnknownToolsAndNonObjectArgumentsWithoutToolIo() {
         List<String> invalid = List.of(
-                "prefix {\"type\":\"FINAL_ANSWER\",\"answerDraft\":\"x\"}",
-                "{\"type\":\"TOOL_CALL\",\"toolCode\":\"unknown\",\"arguments\":{},\"reason\":\"x\"}",
-                "{\"type\":\"TOOL_CALL\",\"toolCode\":\"order_query\",\"arguments\":[],\"reason\":\"x\"}"
+                "prefix {\"type\":\"FINISH\",\"answerPlan\":\"x\"}",
+                "{\"type\":\"CALL_TOOL\",\"toolCode\":\"unknown\",\"arguments\":{},\"reason\":\"x\"}",
+                "{\"type\":\"CALL_TOOL\",\"toolCode\":\"order_query\",\"arguments\":[],\"reason\":\"x\"}"
         );
 
         for (String content : invalid) {
@@ -303,7 +303,7 @@ class DefaultAgentEngineTest {
     void shouldSendObjectArgumentsThroughToolRuntimeAndSanitizeSchemaRejection() {
         String secret = "prompt-body secret-handler internal-database";
         when(llmGateway.chat(any())).thenReturn(result("""
-                {"type":"TOOL_CALL","toolCode":"order_query",\
+                {"type":"CALL_TOOL","toolCode":"order_query",\
                 "arguments":{"orderNo":""},"reason":"Try query"}
                 """, 10));
         when(toolRuntime.execute(any()))
@@ -338,7 +338,7 @@ class DefaultAgentEngineTest {
         when(agentAppMapper.selectVisibleOwnedById(AGENT_ID, USER_ID))
                 .thenReturn(agent("ACTIVE", 1, 0, 1_000, 120));
         when(llmGateway.chat(any())).thenReturn(result("""
-                {"type":"TOOL_CALL","toolCode":"order_query",\
+                {"type":"CALL_TOOL","toolCode":"order_query",\
                 "arguments":{"orderNo":"order_1024"},"reason":"Query"}
                 """, 10));
 
@@ -356,7 +356,7 @@ class DefaultAgentEngineTest {
         when(agentAppMapper.selectVisibleOwnedById(AGENT_ID, USER_ID))
                 .thenReturn(agent("ACTIVE", 2, 1, 256, 120));
         when(llmGateway.chat(any())).thenReturn(new LlmChatResult(
-                "{\"type\":\"TOOL_CALL\",\"toolCode\":\"order_query\",\"arguments\":{},\"reason\":\"x\"}",
+                "{\"type\":\"CALL_TOOL\",\"toolCode\":\"order_query\",\"arguments\":{},\"reason\":\"x\"}",
                 "resolved",
                 "stop",
                 LlmTokenUsage.known(200, 56, 256),
@@ -378,7 +378,7 @@ class DefaultAgentEngineTest {
     @Test
     void shouldStopImmediatelyWhenProviderUsageIsUnknown() {
         when(llmGateway.chat(any())).thenReturn(new LlmChatResult(
-                "{\"type\":\"FINAL_ANSWER\",\"answerDraft\":\"x\"}",
+                "{\"type\":\"FINISH\",\"answerPlan\":\"x\"}",
                 null,
                 null,
                 LlmTokenUsage.unknown(),
@@ -400,7 +400,7 @@ class DefaultAgentEngineTest {
         when(agentAppMapper.selectVisibleOwnedById(AGENT_ID, USER_ID))
                 .thenReturn(agent("ACTIVE", 2, 1, 1_000, 1));
         when(llmGateway.chat(any())).thenReturn(result("""
-                {"type":"TOOL_CALL","toolCode":"order_query",\
+                {"type":"CALL_TOOL","toolCode":"order_query",\
                 "arguments":{"orderNo":"order_1024"},"reason":"Query"}
                 """, 10));
         when(toolRuntime.execute(any())).thenAnswer(invocation -> {
@@ -429,7 +429,7 @@ class DefaultAgentEngineTest {
         when(llmGateway.chat(any())).thenAnswer(invocation -> {
             clock.advanceSeconds(1);
             return result("""
-                    {"type":"TOOL_CALL","toolCode":"order_query",\
+                    {"type":"CALL_TOOL","toolCode":"order_query",\
                     "arguments":{"orderNo":"order_1024"},"reason":"Query"}
                     """, 10);
         });

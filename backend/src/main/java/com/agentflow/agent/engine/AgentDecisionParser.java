@@ -18,7 +18,7 @@ public final class AgentDecisionParser {
     private static final Set<String> TOOL_CALL_FIELDS = Set.of(
             "type", "toolCode", "arguments", "reason"
     );
-    private static final Set<String> FINAL_ANSWER_FIELDS = Set.of("type", "answerDraft");
+    private static final Set<String> FINAL_ANSWER_FIELDS = Set.of("type", "answerPlan");
 
     private final ObjectMapper objectMapper;
 
@@ -39,8 +39,8 @@ public final class AgentDecisionParser {
 
             String type = requiredText(root, "type");
             return switch (type) {
-                case "TOOL_CALL" -> parseToolCall(root, availableTools);
-                case "FINAL_ANSWER" -> parseFinalAnswer(root);
+                case "CALL_TOOL" -> parseToolCall(root, availableTools);
+                case "FINISH" -> parseFinalAnswer(root);
                 default -> throw invalidDecision();
             };
         } catch (AgentExecutionException failure) {
@@ -61,6 +61,7 @@ public final class AgentDecisionParser {
             throw invalidDecision();
         }
         String reason = requiredText(root, "reason");
+        if (reason.length() > 256) throw invalidDecision();
 
         Map<String, AgentToolSpec> toolsByCode = new HashMap<>();
         for (AgentToolSpec tool : availableTools) {
@@ -77,7 +78,9 @@ public final class AgentDecisionParser {
 
     private static FinalAnswerDecision parseFinalAnswer(JsonNode root) {
         requireExactFields(root, FINAL_ANSWER_FIELDS);
-        return new FinalAnswerDecision(requiredText(root, "answerDraft"));
+        String plan = requiredText(root, "answerPlan");
+        if (plan.length() > 2048) throw invalidDecision();
+        return new FinalAnswerDecision(plan);
     }
 
     private static String requiredText(JsonNode root, String field) {

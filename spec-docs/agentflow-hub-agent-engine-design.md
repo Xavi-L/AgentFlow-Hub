@@ -222,7 +222,7 @@ WHERE id = :taskId
 - 创建 `ExecutionRecorder`；
 - 调用 AgentEngine；
 - 根据 outcome/exception 原子写入终态；
-- 在终态事务中写最终 task event；
+- 在同一完成事务中写最终答案、citations、全部 `ANSWER_CHUNK` 和 `TASK_COMPLETED`；
 - 确保最终答案先成为数据库事实，再被 SSE 观察到。
 
 ### 4.3 Runner 不负责
@@ -477,7 +477,10 @@ Final Generation 请求包含：
 - answerPlan 或预算终止原因；
 - citation IDs。
 
-最终生成只输出用户答案，不输出动作 JSON。V0.1 可以继续使用同步非流式 `LlmGateway.chat`；SSE 主要流式展示任务过程，最终答案可在生成完成后作为一个合并的 `ANSWER_CHUNK` 和 terminal task 结果发布，不伪装成 provider token streaming。
+最终生成只输出用户答案，不输出动作 JSON。V0.1 继续使用同步非流式 `LlmGateway.chat`。生成完成后，
+完整答案可写成一个 `ANSWER_CHUNK`；超过每条 payload 的 16 KiB JSON UTF-8 bytes 上限时安全分片。
+全部分片、最终答案、citations 与 `TASK_COMPLETED` 在同一个完成事务中发布，中间失败整组回滚。
+后续 SSE 可展示这些已提交事件；这不是 provider token streaming，V40 本身不提供 SSE 接口。
 
 ---
 
@@ -525,6 +528,8 @@ V0.1 约束：
 - usage 缺失时使用统一 tokenizer/estimator 记录 `ESTIMATED`，绝不按 0 处理；
 - 估算本身也必须写入 LLM log；
 - 已知或估算会超预算时，不发起调用；
+- 调用后若 provider 报告实际消费超过预算，先保留完整 usage，再停止后续调用并失败；不能裁成预算上限或记 0；
+- V20 只放宽 `FAILED/CANCELLED/TIMED_OUT` 的 token 上限 CHECK，以保存超额事实；成功任务仍要求总量不超过冻结预算，所有状态仍要求非负和加法一致；
 - 剩余预算不足以执行 Final Generation 时，以 `TOKEN_BUDGET_EXHAUSTED` 失败。
 
 ### 10.5 达到上限
@@ -693,8 +698,8 @@ TASK_TIMED_OUT
 - 事件 sequence 在单个 task 内严格递增，由 `agent_task.last_event_sequence` 和单一 `TaskEventAppender` 分配；
 - 事件代表已经提交或明确开始的事实；
 - `TOOL_FINISHED` 必须在 tool log 终态提交后可见；
-- `TASK_COMPLETED` 必须与 task.final_answer 同一终态事务提交；
-- `ANSWER_CHUNK` 可以批量合并；V0.1 同步 Final Generation 允许只发一个完整答案 chunk；
+- 全部 `ANSWER_CHUNK`、task.final_answer、citations、成功终态及 `TASK_COMPLETED` 必须在同一完成事务提交；
+- `ANSWER_CHUNK` 可合并，必要时以 16 KiB 的实际 JSON UTF-8 payload 上限分片；分片失败必须回滚完整答案发布，不得先提交部分分片；
 - SSE 只读取持久事件，不作为业务事实源；
 - event payload 不包含完整 Prompt、密钥或未脱敏工具结果。
 

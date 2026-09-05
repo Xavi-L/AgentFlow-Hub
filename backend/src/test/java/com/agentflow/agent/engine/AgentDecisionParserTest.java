@@ -22,7 +22,7 @@ class AgentDecisionParserTest {
     void shouldParseAndResolveAnExactToolCallAgainstTheSafeSnapshot() {
         AgentDecision decision = parser.parse("""
                 {
-                  "type":"TOOL_CALL",
+                  "type":"CALL_TOOL",
                   "toolCode":"order_query",
                   "arguments":{"orderNo":"order_1024"},
                   "reason":"Need the current order state"
@@ -40,7 +40,7 @@ class AgentDecisionParserTest {
     @Test
     void shouldParseAnExactFinalAnswerDecision() {
         AgentDecision decision = parser.parse(
-                "{\"type\":\"FINAL_ANSWER\",\"answerDraft\":\"Enough evidence\"}",
+                "{\"type\":\"FINISH\",\"answerPlan\":\"Enough evidence\"}",
                 List.of(orderTool)
         );
 
@@ -51,19 +51,19 @@ class AgentDecisionParserTest {
     void shouldRejectMalformedExtraDuplicateUnknownAndUnavailableDecisionsUniformly() {
         List<String> invalid = List.of(
                 "not-json",
-                "```json\n{\"type\":\"FINAL_ANSWER\",\"answerDraft\":\"x\"}\n```",
-                "{\"type\":\"FINAL_ANSWER\",\"answerDraft\":\"x\"} trailing",
-                "{\"type\":\"OTHER\",\"answerDraft\":\"x\"}",
-                "{\"type\":\"FINAL_ANSWER\",\"answerDraft\":\"x\",\"extra\":true}",
-                "{\"type\":\"FINAL_ANSWER\",\"answerDraft\":\" \"}",
-                "{\"type\":7,\"answerDraft\":\"x\"}",
-                "{\"type\":\"FINAL_ANSWER\",\"type\":\"FINAL_ANSWER\",\"answerDraft\":\"x\"}",
-                "{\"type\":\"TOOL_CALL\",\"toolCode\":\"\",\"arguments\":{},\"reason\":\"x\"}",
-                "{\"type\":\"TOOL_CALL\",\"toolCode\":\"missing\",\"arguments\":{},\"reason\":\"x\"}",
-                "{\"type\":\"TOOL_CALL\",\"toolCode\":\"order_query\",\"arguments\":[],\"reason\":\"x\"}",
-                "{\"type\":\"TOOL_CALL\",\"toolCode\":\"order_query\",\"arguments\":null,\"reason\":\"x\"}",
-                "{\"type\":\"TOOL_CALL\",\"toolCode\":\"order_query\",\"arguments\":{},\"reason\":\" \"}",
-                "{\"type\":\"TOOL_CALL\",\"toolCode\":\"order_query\",\"arguments\":{},\"reason\":\"x\",\"extra\":1}"
+                "```json\n{\"type\":\"FINISH\",\"answerPlan\":\"x\"}\n```",
+                "{\"type\":\"FINISH\",\"answerPlan\":\"x\"} trailing",
+                "{\"type\":\"OTHER\",\"answerPlan\":\"x\"}",
+                "{\"type\":\"FINISH\",\"answerPlan\":\"x\",\"extra\":true}",
+                "{\"type\":\"FINISH\",\"answerPlan\":\" \"}",
+                "{\"type\":7,\"answerPlan\":\"x\"}",
+                "{\"type\":\"FINISH\",\"type\":\"FINISH\",\"answerPlan\":\"x\"}",
+                "{\"type\":\"CALL_TOOL\",\"toolCode\":\"\",\"arguments\":{},\"reason\":\"x\"}",
+                "{\"type\":\"CALL_TOOL\",\"toolCode\":\"missing\",\"arguments\":{},\"reason\":\"x\"}",
+                "{\"type\":\"CALL_TOOL\",\"toolCode\":\"order_query\",\"arguments\":[],\"reason\":\"x\"}",
+                "{\"type\":\"CALL_TOOL\",\"toolCode\":\"order_query\",\"arguments\":null,\"reason\":\"x\"}",
+                "{\"type\":\"CALL_TOOL\",\"toolCode\":\"order_query\",\"arguments\":{},\"reason\":\" \"}",
+                "{\"type\":\"CALL_TOOL\",\"toolCode\":\"order_query\",\"arguments\":{},\"reason\":\"x\",\"extra\":1}"
         );
 
         for (String content : invalid) {

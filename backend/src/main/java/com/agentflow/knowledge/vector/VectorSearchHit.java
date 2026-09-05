@@ -10,8 +10,13 @@ import java.util.UUID;
 public record VectorSearchHit(
         String vectorId,
         long chunkId,
-        double score
+        double score,
+        String contentHash
 ) {
+    public VectorSearchHit(String vectorId, long chunkId, double score) {
+        this(vectorId, chunkId, score, null);
+    }
+
     public VectorSearchHit {
         Objects.requireNonNull(vectorId, "vectorId must not be null");
         try {

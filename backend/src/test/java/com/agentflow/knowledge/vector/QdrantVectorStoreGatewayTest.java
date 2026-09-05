@@ -23,6 +23,50 @@ import org.springframework.web.client.ResourceAccessException;
 class QdrantVectorStoreGatewayTest {
 
     @Test
+    void snapshotQueryFiltersExactDocumentGenerationPairsAndRequestsContentHash() {
+        QdrantProperties properties = properties();
+        RestClient.Builder builder = RestClient.builder().baseUrl(properties.getBaseUrl());
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        QdrantVectorStoreGateway gateway = new QdrantVectorStoreGateway(properties, builder.build());
+        server.expect(requestTo("http://qdrant.test/collections/agentflow_chunks_te_v4_3"))
+                .andRespond(withSuccess(collectionResponse(), MediaType.APPLICATION_JSON));
+        server.expect(requestTo("http://qdrant.test/collections/agentflow_chunks_te_v4_3/points/query"))
+                .andExpect(content().json("""
+                        {
+                          "query":[0.125,-0.5,0.75],
+                          "filter":{
+                            "must":[
+                              {"key":"userId","match":{"value":101}},
+                              {"key":"knowledgeBaseId","match":{"value":201}}
+                            ],
+                            "should":[
+                              {"must":[{"key":"documentId","match":{"value":301}},
+                                       {"key":"vectorGeneration","match":{"value":7}}]},
+                              {"must":[{"key":"documentId","match":{"value":302}},
+                                       {"key":"vectorGeneration","match":{"value":8}}]}
+                            ]
+                          },
+                          "limit":20,
+                          "with_payload":["chunkId","contentHash"],
+                          "with_vector":false
+                        }
+                        """))
+                .andRespond(withSuccess("""
+                        {"result":{"points":[
+                          {"id":"6f221541-64ae-8c32-9f22-c44f515cd6a0","score":0.9,
+                           "payload":{"chunkId":401,"contentHash":"snapshot-hash"}}
+                        ]}}
+                        """, MediaType.APPLICATION_JSON));
+        List<VectorSearchHit> hits = gateway.search(new VectorSearchRequest(
+                new EmbeddingVector(List.of(0.125f, -0.5f, 0.75f)), 101L, 201L, 20,
+                List.of(new VectorSearchRequest.DocumentGeneration(301, 7),
+                        new VectorSearchRequest.DocumentGeneration(302, 8))));
+        assertThat(hits).containsExactly(new VectorSearchHit(
+                "6f221541-64ae-8c32-9f22-c44f515cd6a0", 401, 0.9, "snapshot-hash"));
+        server.verify();
+    }
+
+    @Test
     void shouldCreateTheConfiguredCollectionThenUpsertTheStablePointId() {
         QdrantProperties properties = properties();
         RestClient.Builder builder = RestClient.builder().baseUrl(properties.getBaseUrl());

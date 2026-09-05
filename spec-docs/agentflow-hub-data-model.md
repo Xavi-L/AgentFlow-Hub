@@ -491,11 +491,17 @@ phase IN (PREPARING, RETRIEVING, DECIDING, EXECUTING_TOOL, GENERATING)
 - `TIMED_OUT`：terminationReason=`DEADLINE_EXCEEDED`；
 - used counters 非负且不超过配置上限；
 - token 三字段非负且 `total_tokens = input_tokens + output_tokens`；
+- `QUEUED/RUNNING/COMPLETED` 的 `total_tokens <= max_total_tokens`；
+- `FAILED/CANCELLED/TIMED_OUT` 允许保存真实或保守估算的超额消费，仍须满足 token 非负与加法一致性；
 - `last_event_sequence >= 0`；
 - citations 为 JSON array；
 - execution_snapshot 为 JSON object；
 - `max_tool_calls < max_decision_turns`；
 - `reserved_final_tokens < max_total_tokens`。
+
+V40 使用追加迁移 `V20__preserve_task_token_overruns.sql` 调整 token CHECK，不回改 V18。
+预算是调用准入和成功终态的防线，不能为了满足上限而丢失已经发生的模型消费。调用后发现超额时，
+Engine 保留实际 usage 并停止后续调用，由 Runner 写入失败、取消或超时终态；不得截断为预算上限或改记 0。
 
 ### 6.4 索引
 
@@ -716,7 +722,11 @@ VALUES (:taskId, :returnedSequence, :eventType, :payload, CURRENT_TIMESTAMP);
 
 `last_event_sequence` 是事件游标，不等同于 task 乐观锁 `version`；单独 append 展示事件时不自动修改 `version`。
 
-Event 是 SSE 的持久投影，不复制完整 Trace。`ANSWER_CHUNK` 需要合并和大小限制。
+Event 是供后续 SSE 使用的持久投影，不复制完整 Trace。V40 的同步 Final Generation 完成后，
+`ANSWER_CHUNK` 按每条 payload 的实际 JSON UTF-8 bytes 限制为 16 KiB，必要时按 Unicode code point
+分片，`chunkIndex` 从 0 连续递增。所有答案分片、`agent_task.final_answer`、citations、成功终态和
+`TASK_COMPLETED` 必须在同一个完成事务中提交；任意中间分片失败时整组回滚，不留下部分可见答案。
+这不是 provider token streaming，V40 不提供 SSE 接口。
 
 ---
 

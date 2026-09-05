@@ -85,7 +85,7 @@ public final class BudgetGuard {
         totalTokens = nextTotal;
     }
 
-    /** Accepts one already parsed and available TOOL_CALL immediately before runtime I/O. */
+    /** Accepts one already parsed and available CALL_TOOL immediately before runtime I/O. */
     public void beginToolCall() {
         ensureExternalCallAllowed();
         if (toolCallsUsed >= maxToolCalls) {

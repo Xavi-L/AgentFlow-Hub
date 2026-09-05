@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import java.util.Objects;
 
-/** Scriptable M4C outcome seam; it is not an AgentEngine result adapter yet. */
+/** Engine execution facts; only TaskRunner may settle the persistent task outcome. */
 public record TaskExecutionOutcome(
         TaskExecutionResultType resultType,
         TaskTerminationReason terminationReason,

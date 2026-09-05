@@ -1,6 +1,7 @@
 package com.agentflow.knowledge.repository;
 
 import com.agentflow.knowledge.model.KnowledgeChunk;
+import com.agentflow.knowledge.vector.VectorSearchRequest.DocumentGeneration;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import java.util.List;
@@ -149,6 +150,49 @@ public interface KnowledgeChunkMapper extends BaseMapper<KnowledgeChunk> {
     List<KnowledgeChunk> selectRetrievableChunks(
             @Param("knowledgeBaseId") Long knowledgeBaseId,
             @Param("userId") Long userId,
+            @Param("chunkIds") List<Long> chunkIds
+    );
+
+    /** Task corpus fence. No Agent binding or current replacement generation is resolved here. */
+    @Results({@Result(property = "documentFileName", column = "document_file_name")})
+    @Select("""
+            <script>
+            SELECT kc.*, kd.file_name AS document_file_name
+            FROM knowledge_chunk kc
+            JOIN knowledge_document kd
+              ON kd.id = kc.document_id
+             AND kd.knowledge_base_id = kc.knowledge_base_id
+             AND kd.user_id = kc.user_id
+            JOIN knowledge_base kb
+              ON kb.id = kd.knowledge_base_id
+             AND kb.user_id = kd.user_id
+            WHERE kc.user_id = #{userId}
+              AND kc.knowledge_base_id = #{knowledgeBaseId}
+              AND kb.status = 'ACTIVE'
+              AND kb.deleted_at IS NULL
+              AND kd.parse_status = 'COMPLETED'
+              AND kd.deleted_at IS NULL
+              AND kc.vectorization_status = 'COMPLETED'
+              AND kc.vector_generation = kd.vector_generation
+              AND kc.chunk_strategy_version = #{chunkStrategyVersion}
+              AND kc.content_hash IS NOT NULL
+              AND kc.vector_id IS NOT NULL
+              AND
+              <foreach collection="documents" item="document" open="(" separator=" OR " close=")">
+                (kc.document_id = #{document.documentId}
+                 AND kc.vector_generation = #{document.vectorGeneration})
+              </foreach>
+              AND kc.id IN
+              <foreach collection="chunkIds" item="chunkId" open="(" separator="," close=")">
+                #{chunkId}
+              </foreach>
+            </script>
+            """)
+    List<KnowledgeChunk> selectSnapshotRetrievableChunks(
+            @Param("userId") long userId,
+            @Param("knowledgeBaseId") long knowledgeBaseId,
+            @Param("documents") List<DocumentGeneration> documents,
+            @Param("chunkStrategyVersion") String chunkStrategyVersion,
             @Param("chunkIds") List<Long> chunkIds
     );
 }

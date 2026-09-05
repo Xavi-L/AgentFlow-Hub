@@ -41,7 +41,10 @@ public final class InMemoryVectorStoreGateway implements VectorStoreGateway {
 
     private static boolean matchesScope(VectorStoreRecord record, VectorSearchRequest request) {
         return payloadLongEquals(record, "userId", request.userId())
-                && payloadLongEquals(record, "knowledgeBaseId", request.knowledgeBaseId());
+                && payloadLongEquals(record, "knowledgeBaseId", request.knowledgeBaseId())
+                && (request.documents().isEmpty() || request.documents().stream().anyMatch(document ->
+                        payloadLongEquals(record, "documentId", document.documentId())
+                                && payloadLongEquals(record, "vectorGeneration", document.vectorGeneration())));
     }
 
     private static boolean matchesDocumentScope(VectorStoreRecord record, VectorDocumentScope scope) {
@@ -66,7 +69,8 @@ public final class InMemoryVectorStoreGateway implements VectorStoreGateway {
         return new VectorSearchHit(
                 record.vectorId(),
                 number.longValue(),
-                cosineSimilarity(queryVector, record.vector())
+                cosineSimilarity(queryVector, record.vector()),
+                record.payload().get("contentHash") instanceof String hash ? hash : null
         );
     }
 

@@ -17,6 +17,9 @@ import com.agentflow.agent.task.service.CreateAgentTaskCommand;
 import com.agentflow.agent.trace.dto.TaskTraceView;
 import com.agentflow.common.error.BusinessException;
 import com.agentflow.common.error.ErrorCode;
+import com.agentflow.tool.ToolDefinition;
+import com.agentflow.tool.ToolDefinitionService;
+import com.agentflow.tool.ToolSchemaFingerprint;
 import com.agentflow.tool.ToolExecutionCommand;
 import com.agentflow.tool.ToolExecutionResult;
 import com.agentflow.tool.ToolRuntime;
@@ -88,6 +91,8 @@ class AgentExecutionTracePostgresIntegrationTest {
     @Autowired
     private ToolRuntime toolRuntime;
     @Autowired
+    private ToolDefinitionService toolDefinitionService;
+    @Autowired
     private OuterTransactionProbe outerTransactionProbe;
 
     @MockBean
@@ -137,11 +142,11 @@ class AgentExecutionTracePostgresIntegrationTest {
     }
 
     @Test
-    void shouldApplyV1ThroughV19AndEnforceCoreStepAndLlmChecks() throws Exception {
+    void shouldApplyCurrentMigrationsAndEnforceCoreStepAndLlmChecks() throws Exception {
         assertThat(jdbc.queryForObject(
                 "SELECT count(*) FROM flyway_schema_history WHERE success",
                 Integer.class
-        )).isEqualTo(19);
+        )).isEqualTo(20);
         assertThat(jdbc.queryForObject(
                 """
                 SELECT count(*)
@@ -384,6 +389,8 @@ class AgentExecutionTracePostgresIntegrationTest {
 
     @Test
     void shouldReturnAnOwnerScopedImmutableTraceInStableSemanticOrder() {
+        AgentTaskExecutionSnapshot frozen = snapshotWithCurrentTool();
+        when(snapshotResolver.resolve(USER_ID, AGENT_ID)).thenReturn(frozen);
         AgentTask task = claim(createTask("aggregate", "aggregate"));
         ExecutionRecorder recorder = recorderFactory.open(task.getId());
         StepHandle retrievalStep = recorder.startStep(StepType.PRE_RETRIEVAL, "Retrieve");
@@ -404,7 +411,12 @@ class AgentExecutionTracePostgresIntegrationTest {
                 TOOL_ID,
                 task.getId(),
                 toolStep.stepId(),
-                objectMapper.createObjectNode().put("orderNo", "order_1024")
+                USER_ID,
+                AGENT_ID,
+                frozen,
+                objectMapper.createObjectNode().put("orderNo", "order_1024"),
+                task.getStartedAt().toInstant().plusSeconds(frozen.agent().timeoutSeconds()),
+                () -> { }
         ));
         assertThat(toolResult.success()).isTrue();
         recorder.recordLlmCall(successfulLlm(
@@ -443,6 +455,17 @@ class AgentExecutionTracePostgresIntegrationTest {
         assertThatThrownBy(() -> traceQueryService.findOwnedTrace(OTHER_USER_ID, task.getId()))
                 .isInstanceOfSatisfying(BusinessException.class, ex ->
                         assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.COMMON_NOT_FOUND));
+    }
+
+    private AgentTaskExecutionSnapshot snapshotWithCurrentTool() {
+        ToolDefinition current = toolDefinitionService.findActiveById(TOOL_ID).orElseThrow();
+        AgentTaskExecutionSnapshot base = snapshot(AGENT_ID);
+        var tool = new AgentTaskExecutionSnapshot.ToolSnapshot(
+                current.id().toString(), current.toolCode(), current.name(), current.description(),
+                current.inputSchema(), ToolSchemaFingerprint.sha256(current.inputSchema()),
+                current.config().path("implementationVersion").asText("builtin-v1"), current.timeoutMs());
+        return new AgentTaskExecutionSnapshot(base.snapshotVersion(), base.agent(), base.runtime(),
+                base.chatModel(), base.retrieval(), List.of(tool));
     }
 
     private AgentTask createTask(String key, String input) {

@@ -51,8 +51,8 @@ agentflow:
       max-pool-size: 4
       queue-capacity: 100
     execution:
-      # M4E replaces this fail-closed seam with the real Engine integration.
-      mode: unavailable
+      # V40 executes the frozen task snapshot through AgentEngine.
+      mode: engine
   document:
     storage:
       # Keep runtime uploads outside this Git workspace. Override with

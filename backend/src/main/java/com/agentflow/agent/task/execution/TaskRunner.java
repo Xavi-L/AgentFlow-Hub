@@ -2,7 +2,6 @@ package com.agentflow.agent.task.execution;
 
 import com.agentflow.agent.snapshot.AgentTaskExecutionSnapshot;
 import com.agentflow.agent.task.model.AgentTask;
-import com.agentflow.agent.task.model.TaskPhase;
 import com.agentflow.agent.task.model.TaskStatus;
 import com.agentflow.agent.task.service.AgentTaskLifecycleTransactionService;
 import com.agentflow.agent.task.service.AgentTaskQueryService;
@@ -18,8 +17,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Claims one task, invokes the scriptable M4C delegate outside JDBC transactions, and commits
- * exactly one conditional terminal transition. V36 AgentEngine integration remains M4E.
+ * Claims one task, invokes the snapshot Engine outside JDBC transactions, and owns
+ * the conditional terminal transition and atomic answer publication.
  */
 @Component
 public class TaskRunner {
@@ -58,6 +57,7 @@ public class TaskRunner {
         }
 
         Instant deadlineAt = null;
+        TaskExecutionOutcome observedOutcome = null;
         try {
             AgentTaskExecutionSnapshot snapshot = parseAndValidateSnapshot(task);
             deadlineAt = task.getStartedAt().toInstant().plusSeconds(snapshot.agent().timeoutSeconds());
@@ -65,18 +65,10 @@ public class TaskRunner {
                 return;
             }
             if (deadlineReached(deadlineAt)) {
-                lifecycleTransactions.timeOut(taskId, TaskExecutionOutcome.timedOut());
-                return;
-            }
-            if (!lifecycleTransactions.changePhase(taskId, TaskPhase.GENERATING)) {
-                finishCancellationIfRequested(taskId, TaskTokenUsage.UNKNOWN_ZERO, 0, 0);
-                return;
-            }
-            if (finishCancellationIfRequested(taskId, TaskTokenUsage.UNKNOWN_ZERO, 0, 0)) {
-                return;
-            }
-            if (deadlineReached(deadlineAt)) {
-                lifecycleTransactions.timeOut(taskId, TaskExecutionOutcome.timedOut());
+                TaskExecutionOutcome timeout = TaskExecutionOutcome.timedOut();
+                if (!lifecycleTransactions.timeOut(taskId, timeout)) {
+                    settleLostRace(taskId, timeout);
+                }
                 return;
             }
             if (TransactionSynchronizationManager.isActualTransactionActive()) {
@@ -89,6 +81,7 @@ public class TaskRunner {
                     task.getAgentId(),
                     task.getUserInput(),
                     snapshot,
+                    task.getReservedFinalTokens(),
                     deadlineAt,
                     () -> queryService.hasCancellationRequest(taskId)
             );
@@ -96,10 +89,11 @@ public class TaskRunner {
                     executionDelegate.execute(request),
                     "TaskExecutionDelegate returned null"
             );
+            observedOutcome = outcome;
             settle(taskId, deadlineAt, outcome);
         } catch (Exception executionFailure) {
             log.warn("Task {} execution failed before a terminal transition", taskId, executionFailure);
-            settleUnexpectedFailure(taskId, deadlineAt);
+            settleUnexpectedFailure(taskId, deadlineAt, observedOutcome);
         }
     }
 
@@ -113,7 +107,9 @@ public class TaskRunner {
             return;
         }
         if (deadlineReached(deadlineAt)) {
-            lifecycleTransactions.timeOut(taskId, asTimedOut(outcome));
+            if (!lifecycleTransactions.timeOut(taskId, asTimedOut(outcome))) {
+                settleLostRace(taskId, outcome);
+            }
             return;
         }
 
@@ -128,19 +124,29 @@ public class TaskRunner {
         }
     }
 
-    private void settleUnexpectedFailure(long taskId, Instant deadlineAt) {
+    private void settleUnexpectedFailure(long taskId, Instant deadlineAt, TaskExecutionOutcome observed) {
+        TaskTokenUsage usage = observed == null ? TaskTokenUsage.UNKNOWN_ZERO : observed.tokenUsage();
+        int decisions = observed == null ? 0 : observed.decisionTurnsUsed();
+        int tools = observed == null ? 0 : observed.toolCallsUsed();
         try {
-            if (finishCancellationIfRequested(taskId, TaskTokenUsage.UNKNOWN_ZERO, 0, 0)) {
+            if (finishCancellationIfRequested(taskId, usage, decisions, tools)) {
                 return;
             }
             if (deadlineAt != null && deadlineReached(deadlineAt)) {
-                lifecycleTransactions.timeOut(taskId, TaskExecutionOutcome.timedOut());
+                TaskExecutionOutcome timeout = TaskExecutionOutcome.timedOut(decisions, tools, usage);
+                if (!lifecycleTransactions.timeOut(taskId, timeout)) {
+                    settleLostRace(taskId, timeout);
+                }
                 return;
             }
-            lifecycleTransactions.fail(
+            if (!lifecycleTransactions.fail(
                     taskId,
-                    TaskExecutionOutcome.failed("TASK_INTERNAL_ERROR", "Task execution failed")
-            );
+                    TaskExecutionOutcome.failed(
+                            com.agentflow.agent.task.model.TaskTerminationReason.SYSTEM_ERROR,
+                            "TASK_INTERNAL_ERROR", "Task execution failed", decisions, tools, usage)
+            )) {
+                finishCancellationIfRequested(taskId, usage, decisions, tools);
+            }
         } catch (RuntimeException terminalFailure) {
             log.error("Task {} could not persist its failure terminal state", taskId, terminalFailure);
         }
@@ -157,13 +163,18 @@ public class TaskRunner {
         }
         AgentTask current = queryService.findById(taskId);
         if (current != null && TaskStatus.RUNNING.name().equals(current.getStatus())) {
-            lifecycleTransactions.fail(
+            if (!lifecycleTransactions.fail(
                     taskId,
                     TaskExecutionOutcome.failed(
+                            com.agentflow.agent.task.model.TaskTerminationReason.SYSTEM_ERROR,
                             "TASK_INTERNAL_ERROR",
-                            "Task execution outcome could not be applied"
+                            "Task execution outcome could not be applied",
+                            outcome.decisionTurnsUsed(), outcome.toolCallsUsed(), outcome.tokenUsage()
                     )
-            );
+            )) {
+                finishCancellationIfRequested(taskId, outcome.tokenUsage(),
+                        outcome.decisionTurnsUsed(), outcome.toolCallsUsed());
+            }
         }
     }
 
@@ -203,6 +214,9 @@ public class TaskRunner {
                     || !Objects.equals(task.getMaxDecisionTurns(), snapshot.agent().maxDecisionTurns())
                     || !Objects.equals(task.getMaxToolCalls(), snapshot.agent().maxToolCalls())
                     || !Objects.equals(task.getMaxTotalTokens(), snapshot.agent().maxTotalTokens())
+                    || task.getReservedFinalTokens() == null
+                    || task.getReservedFinalTokens() < 1
+                    || task.getReservedFinalTokens() >= task.getMaxTotalTokens()
                     || snapshot.agent().timeoutSeconds() < 1) {
                 throw new IllegalStateException("Persisted execution snapshot does not match task budgets");
             }

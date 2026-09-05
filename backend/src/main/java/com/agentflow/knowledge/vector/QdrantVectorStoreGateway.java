@@ -88,7 +88,8 @@ public final class QdrantVectorStoreGateway implements VectorStoreGateway {
         body.put("query", safeRequest.vector().values());
         body.put("filter", scopeFilter(safeRequest));
         body.put("limit", safeRequest.limit());
-        body.put("with_payload", List.of("chunkId"));
+        body.put("with_payload", safeRequest.documents().isEmpty()
+                ? List.of("chunkId") : List.of("chunkId", "contentHash"));
         body.put("with_vector", false);
 
         try {
@@ -235,10 +236,19 @@ public final class QdrantVectorStoreGateway implements VectorStoreGateway {
     }
 
     private static Map<String, Object> scopeFilter(VectorSearchRequest request) {
-        return Map.of("must", List.of(
+        Map<String, Object> filter = new LinkedHashMap<>();
+        filter.put("must", List.of(
                 matchFilter("userId", request.userId()),
                 matchFilter("knowledgeBaseId", request.knowledgeBaseId())
         ));
+        if (!request.documents().isEmpty()) {
+            // Each OR branch is a document/generation pair, never two independent allowlists.
+            filter.put("should", request.documents().stream().map(document -> Map.of("must", List.of(
+                    matchFilter("documentId", document.documentId()),
+                    matchFilter("vectorGeneration", document.vectorGeneration())
+            ))).toList());
+        }
+        return filter;
     }
 
     private static Map<String, Object> documentScopeFilter(VectorDocumentScope scope) {
@@ -284,7 +294,9 @@ public final class QdrantVectorStoreGateway implements VectorStoreGateway {
             if (!score.isNumber() || !Double.isFinite(score.doubleValue())) {
                 throw new IllegalStateException("Qdrant query result has a non-finite score");
             }
-            hits.add(new VectorSearchHit(point.path("id").asText(), chunkId.longValue(), score.doubleValue()));
+            JsonNode hash = point.path("payload").path("contentHash");
+            hits.add(new VectorSearchHit(point.path("id").asText(), chunkId.longValue(), score.doubleValue(),
+                    hash.isTextual() ? hash.textValue() : null));
         }
         return List.copyOf(hits);
     }

@@ -4,6 +4,9 @@
 > PostgreSQL 18.4 上 V39 Trace 6/6、V38 生命周期 8/8；不包含真实 LLM、Qdrant 或 provider E2E。
 > 起始基线：`main@77ed0fd`（V38/M4C）。本切片修改 schema，但不要求真实 LLM、Qdrant 或 provider。
 
+> V40 衔接：本文记录 V39 的基础能力与当时验收。当前真实任务执行接入见
+> `41_AGENT_TASK_EXECUTION_PACKAGE_INTERFACE.md`；V39 的四参数 task command 现仅保留日志构造兼容。
+
 ## 1. 切片目标与路线位置
 
 V39 对应路线图 M4D，在 V38 的持久 `agent_task` 与单一 `TaskEventAppender` 之上，先建立
@@ -304,6 +307,8 @@ taskScoped(toolId, taskId, stepId, arguments)
 ```
 
 构造时即校验 taskId/stepId 必须同时为空或同时为正数；数据库 pair CHECK/FK 是第二道防线。
+V40 实际执行还必须传入 owner、agent、完整 execution snapshot、deadline 和共享取消检查；
+上述四参数 factory 可供旧日志构造使用，不能直接执行当前持久任务。
 AgentTask 工具路径在 handler I/O 前先完成 sanitizer、大小检查和 RUNNING tool log 的独立提交。
 arguments/result 快照使用安全副本，不能因为脱敏而改写实际传给受控 handler 的原始已验证参数。
 
@@ -399,7 +404,8 @@ content/metadata snapshot 共同保留，而不是把历史强绑到当前行。
 
 回答：静默截断会让审计内容失真，直接截断 JSON bytes 还可能产生非法 JSON。V39 在脱敏后按实际 UTF-8
 序列化 bytes fail-fast；预调用失败阻止外部 I/O，调用后失败不把超限内容写库，也不回滚此前已提交
-Trace。未来若引入结构化截断，必须作为新契约显式记录 truncation 元数据。
+Trace。V40 已在检索 evidence 装配和工具 observation 投影中加入有界截断及显式标记，
+详见 41 契约；Recorder 自身继续 fail-fast，不静默改写传入的审计快照。
 
 ### 问题 6：V39 的 Trace 查询为什么不提供 Controller？
 

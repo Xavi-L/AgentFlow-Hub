@@ -4,6 +4,10 @@
 > 首个 AgentEngine 核心切片。JDK 21、显式 Mockito javaagent 聚焦测试与完整 Maven suite 均已
 > 执行；未新增公共 HTTP API、任务表、Trace、RAG 或 SSE，也未调用真实外部 LLM provider。
 
+> V40 衔接：本文保留 V36 独立 `execute(AgentExecutionCommand)` 的实现与历史验收边界。共享决策协议已升级为
+> `CALL_TOOL / FINISH` 和 `answerPlan`；持久任务使用 `execute(TaskExecutionRequest)`，其 RAG、预算估算、
+> Trace、deadline 与答案原子发布见 `41_AGENT_TASK_EXECUTION_PACKAGE_INTERFACE.md`。
+
 ## 1. 切片目标与路线位置
 
 V36 建立同步、进程内、非持久化的最小 Agent 决策循环：加载当前 owner 的 live Agent 配置，冻结
@@ -155,7 +159,7 @@ data
 
 ```json
 {
-  "type": "TOOL_CALL",
+  "type": "CALL_TOOL",
   "toolCode": "order_query",
   "arguments": {
     "orderNo": "order_1024"
@@ -164,12 +168,12 @@ data
 }
 ```
 
-最终回答决策：
+结束工具循环的决策（仅提供生成计划）：
 
 ```json
 {
-  "type": "FINAL_ANSWER",
-  "answerDraft": "现有信息已经足以生成最终结论"
+  "type": "FINISH",
+  "answerPlan": "现有信息已经足以生成最终结论"
 }
 ```
 
@@ -177,7 +181,7 @@ data
 
 - JSON 前后正文、Markdown fence、多个根值或语法错误；
 - 重复字段、未知 type、未知字段、缺失字段或非字符串字段；
-- 空白工具名、空白 reason、空白 answerDraft；
+- 空白工具名、空白 reason、空白 answerPlan；
 - 非对象 `arguments`；
 - 不在本次安全工具快照中的 `toolCode`。
 
@@ -185,8 +189,8 @@ data
 V36 不启用原生 `tool_calls`，也不实现格式修复调用；非法 decision 立即失败。因此不存在被误称为 V35
 Gateway 自动重试的第二次 provider 请求。
 
-收到 `FINAL_ANSWER` 后，引擎不会直接返回 `answerDraft`。它构造独立的三消息 Final Answer Prompt：
-Agent system prompt、固定最终生成规则，以及包含原用户输入、answerDraft、全部安全 observations 的 JSON
+收到 `FINISH` 后，引擎不会直接返回 `answerPlan`。它构造独立的三消息 Final Answer Prompt：
+Agent system prompt、固定最终生成规则，以及包含原用户输入、answerPlan、全部安全 observations 的 JSON
 数据；第二次 `LlmGateway.chat` 的纯文本 content 才是最终结果。
 
 ## 6. 同步执行流程
@@ -200,19 +204,19 @@ AgentEngine.execute(command)
   -> 加载并投影 ACTIVE 安全工具快照
   -> Thinking LlmGateway.chat
   -> AgentDecisionParser
-       -> TOOL_CALL
+       -> CALL_TOOL
             -> 预算接受并计数
             -> ToolRuntime.execute
             -> summary/data 写入 observation
             -> 下一轮 Thinking
-       -> FINAL_ANSWER
+       -> FINISH
             -> Final Answer Prompt
             -> LlmGateway.chat
             -> 返回 AgentExecutionResult
 ```
 
 `maxSteps` 保证循环最终终止。一次 decision LLM 调用计一个 step；最终纯文本生成调用消耗 token 与
-deadline，但不再计 decision step。模型可以第一轮直接返回 `FINAL_ANSWER`，因此工具调用次数可以为零。
+deadline，但不再计 decision step。模型可以第一轮直接返回 `FINISH`，因此工具调用次数可以为零。
 
 ## 7. BudgetGuard 精确语义
 
@@ -317,9 +321,9 @@ Failures: 0, Errors: 0, Skipped: 0
 2. 执行期间修改原 Agent 对象不改变已冻结 model、采样参数、Prompt 与预算；
 3. system prompt、固定规则、用户输入、安全工具与 observations 分区；
 4. 工具 JSON 对象只有 `toolId/toolCode/name/description/inputSchema`，内部字段不进入 Prompt；
-5. `order_query -> payment_log_query -> FINAL_ANSWER -> final generation` 脚本化闭环；
+5. `order_query -> payment_log_query -> FINISH -> final generation` 脚本化闭环；
 6. 工具 summary/data 在下一轮 Thinking 和 Final Answer Prompt 中可见；
-7. 首轮 `FINAL_ANSWER` 的零工具路径；
+7. 首轮 `FINISH` 的零工具路径；
 8. 前后正文、Markdown fence、重复/未知字段、未知 type/tool、非对象 arguments 的严格拒绝；
 9. 对象 arguments 确实进入 `ToolRuntime`，schema rejection 被安全映射；
 10. step/tool/token/deadline 耗尽后不再调用后续外部组件；
@@ -362,17 +366,20 @@ V36 新测试使用 mock `LlmGateway` 与 `ToolRuntime` 做确定性编排，证
 既不是模型选择工具所必需，也可能暴露实现或连接信息。V36 先投影为五字段 `AgentToolSpec`，并对 schema 做
 defensive copy。模型只选 `toolCode`，执行仍由 `ToolRuntime` 重新确认 ACTIVE 定义并走 builtin allowlist。
 
-### 问题 3：为什么 FINAL_ANSWER decision 后还要再调用一次模型？
+### 问题 3：为什么 FINISH decision 后还要再调用一次模型？
 
-**回答：** Thinking 响应受严格 JSON 协议约束，`answerDraft` 只表示“证据足够”和生成计划，不适合作为最终
+**回答：** Thinking 响应受严格 JSON 协议约束，`answerPlan` 只表示“证据足够”和生成计划，不适合作为最终
 用户文案。独立 Final Answer Prompt 能带入完整 observations 并要求只输出最终文本。该调用不再计 decision
 step，但仍消耗 token、受剩余 output cap 与整体 deadline 约束。
 
-### 问题 4：unknown usage 为什么必须失败，而不能用 maxOutputTokens 或 0 估算？
+### 问题 4：V36 独立入口与 V40 持久任务如何处理 unknown usage？
 
 **回答：** `maxOutputTokens` 只限制输出，不包含输入 Prompt token；0 又会把“provider 未报告”伪造成“真实
 零消耗”。继续循环将无法证明没有超过任务 `maxTokens`。V36 因此在任一次 LLM 调用 usage unknown 时立即以
 `TOKEN_USAGE_UNKNOWN` 停止。token estimator 或 provider-specific fallback 未纳入本切片。
+
+V40 持久任务使用输入 Prompt 加输出的统一保守估算，记录 `ESTIMATED`；混合精确调用时汇总为
+`MIXED`。这个行为由 task snapshot 执行器承担，不把 V36 的旧预算边界当作当前持久任务契约。
 
 ### 问题 5：V36 的 timeout 能保证阻塞调用在 deadline 时立即终止吗？
 

@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 /** Short, independent task state transitions paired atomically with their durable events. */
 @Service
 public class AgentTaskLifecycleTransactionService {
+    private static final int ANSWER_EVENT_MAX_BYTES = 16 * 1024;
     private final AgentTaskMapper taskMapper;
     private final TaskEventAppender eventAppender;
     private final ObjectMapper objectMapper;
@@ -124,12 +125,55 @@ public class AgentTaskLifecycleTransactionService {
         if (affected != 1) {
             return false;
         }
+        appendAnswerChunks(taskId, outcome.finalAnswer());
         eventAppender.append(
                 taskId,
                 TaskEventType.TASK_COMPLETED,
                 terminalPayload(TaskStatus.COMPLETED, outcome.terminationReason().name())
         );
         return true;
+    }
+
+    /** All chunks are part of the same complete() transaction as the answer and terminal event. */
+    private void appendAnswerChunks(long taskId, String answer) {
+        int offset = 0;
+        int chunkIndex = 0;
+        while (offset < answer.length()) {
+            StringBuilder chunk = new StringBuilder();
+            // Exact serialized JSON measurement includes escaping, UTF-8 and event metadata.
+            int bytes = serializedByteSize(answerChunk(chunkIndex, ""));
+            while (offset < answer.length()) {
+                int codePoint = answer.codePointAt(offset);
+                String character = new String(Character.toChars(codePoint));
+                int encodedBytes = serializedByteSize(character) - 2;
+                if (bytes + encodedBytes > ANSWER_EVENT_MAX_BYTES) {
+                    break;
+                }
+                chunk.append(character);
+                bytes += encodedBytes;
+                offset += Character.charCount(codePoint);
+            }
+            if (chunk.isEmpty()) {
+                throw new IllegalStateException("Answer character exceeds event payload limit");
+            }
+            eventAppender.append(taskId, TaskEventType.ANSWER_CHUNK,
+                    answerChunk(chunkIndex++, chunk.toString()));
+        }
+    }
+
+    private int serializedByteSize(Object value) {
+        try {
+            return objectMapper.writeValueAsBytes(value).length;
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("Answer event could not be serialized", ex);
+        }
+    }
+
+    private ObjectNode answerChunk(int index, String text) {
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("chunkIndex", index);
+        payload.put("text", text);
+        return payload;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
