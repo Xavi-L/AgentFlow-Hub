@@ -15,6 +15,8 @@ import com.agentflow.user.security.AuthenticatedUser;
 import java.time.OffsetDateTime;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -96,7 +98,8 @@ public class KnowledgeBaseService {
      * others' resources; DISABLED items remain visible so their owner can later manage
      * or re-enable them.
      */
-    @Transactional(readOnly = true)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true,
+            isolation = Isolation.REPEATABLE_READ)
     public PageResult<KnowledgeBaseResponse> listOwnedBy(
             AuthenticatedUser currentUser,
             PageRequest pageRequest
@@ -134,7 +137,8 @@ public class KnowledgeBaseService {
      * same 404, so this detail endpoint cannot enumerate resources. DISABLED is not a soft
      * deletion and its existing metadata remains readable through {@link KnowledgeBaseResponse}.
      */
-    @Transactional(readOnly = true)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true,
+            isolation = Isolation.REPEATABLE_READ)
     public KnowledgeBaseResponse getOwnedById(
             AuthenticatedUser currentUser,
             Long knowledgeBaseId

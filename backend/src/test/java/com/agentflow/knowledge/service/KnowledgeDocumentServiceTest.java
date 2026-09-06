@@ -23,6 +23,9 @@ import com.agentflow.knowledge.model.KnowledgeBase;
 import com.agentflow.knowledge.model.KnowledgeDocument;
 import com.agentflow.knowledge.repository.KnowledgeBaseMapper;
 import com.agentflow.knowledge.repository.KnowledgeDocumentMapper;
+import com.agentflow.knowledge.repository.KnowledgeDocumentReadMapper;
+import com.agentflow.knowledge.readiness.DocumentReadinessRow;
+import com.agentflow.knowledge.readiness.RetrievalReadiness;
 import com.agentflow.knowledge.storage.DocumentStorage;
 import com.agentflow.knowledge.storage.DocumentUploadLimitProperties;
 import com.agentflow.knowledge.storage.StoredDocument;
@@ -72,6 +75,9 @@ class KnowledgeDocumentServiceTest {
 
     @Mock
     private KnowledgeDocumentMapper knowledgeDocumentMapper;
+
+    @Mock
+    private KnowledgeDocumentReadMapper knowledgeDocumentReadMapper;
 
     @Mock
     private DocumentStorage documentStorage;
@@ -326,6 +332,8 @@ class KnowledgeDocumentServiceTest {
         persisted.setStorageObjectKey("users/101/knowledge-bases/201/documents/opaque-object.md");
         persisted.setParseError("Internal parser diagnostic");
         when(knowledgeDocumentMapper.selectVisibleOwnedById(301L, 101L)).thenReturn(persisted);
+        when(knowledgeDocumentReadMapper.selectReadinessByDocumentIds(101L, List.of(301L)))
+                .thenReturn(List.of(readinessRow(301L, "ACTIVE")));
 
         KnowledgeDocumentResponse response = knowledgeDocumentService.getOwnedById(
                 currentUser(),
@@ -338,6 +346,9 @@ class KnowledgeDocumentServiceTest {
         assertThat(response.fileType()).isEqualTo("MD");
         assertThat(response.fileSize()).isEqualTo(5L);
         assertThat(response.parseStatus()).isEqualTo("FAILED");
+        assertThat(response.vectorGeneration()).isZero();
+        assertThat(response.vectorization().completed()).isZero();
+        assertThat(response.retrievalReadiness()).isEqualTo(RetrievalReadiness.FAILED);
         assertThat(response.createdAt()).isEqualTo(persisted.getCreatedAt());
         assertThat(response.updatedAt()).isEqualTo(persisted.getUpdatedAt());
         verify(knowledgeDocumentMapper).selectVisibleOwnedById(301L, 101L);
@@ -351,6 +362,8 @@ class KnowledgeDocumentServiceTest {
         when(knowledgeDocumentMapper.selectVisibleOwnedById(301L, 101L)).thenReturn(
                 document(301L, 201L, "historical-rules.txt", "TXT")
         );
+        when(knowledgeDocumentReadMapper.selectReadinessByDocumentIds(101L, List.of(301L)))
+                .thenReturn(List.of(readinessRow(301L, "DISABLED")));
 
         KnowledgeDocumentResponse response = knowledgeDocumentService.getOwnedById(
                 currentUser(),
@@ -358,6 +371,7 @@ class KnowledgeDocumentServiceTest {
         );
 
         assertThat(response.fileName()).isEqualTo("historical-rules.txt");
+        assertThat(response.retrievalReadiness()).isEqualTo(RetrievalReadiness.NOT_READY);
         verify(knowledgeDocumentMapper).selectVisibleOwnedById(301L, 101L);
         verify(knowledgeBaseMapper, never()).selectOne(any());
     }
@@ -517,6 +531,8 @@ class KnowledgeDocumentServiceTest {
     @Test
     void shouldListOnlyTheCurrentOwnersDocumentsAfterCheckingTheParentKnowledgeBase() {
         when(knowledgeBaseMapper.selectOne(any())).thenReturn(knowledgeBase(201L, "DISABLED"));
+        when(knowledgeDocumentReadMapper.selectReadinessByDocumentIds(101L, List.of(302L, 301L)))
+                .thenReturn(List.of(readinessRow(301L, "DISABLED"), readinessRow(302L, "DISABLED")));
         when(knowledgeDocumentMapper.selectPage(
                 org.mockito.ArgumentMatchers.<IPage<KnowledgeDocument>>any(),
                 org.mockito.ArgumentMatchers.<Wrapper<KnowledgeDocument>>any()
@@ -549,6 +565,21 @@ class KnowledgeDocumentServiceTest {
                 .containsExactly("MD", "TXT");
         assertThat(result.getTotal()).isEqualTo(3L);
         assertThat(result.isHasNext()).isTrue();
+        verify(knowledgeDocumentReadMapper).selectReadinessByDocumentIds(101L, List.of(302L, 301L));
+    }
+
+    @Test
+    void shouldSkipChunkAggregationForAnEmptyPage() {
+        when(knowledgeBaseMapper.selectOne(any())).thenReturn(knowledgeBase(201L, "ACTIVE"));
+        PageResult<KnowledgeDocumentResponse> result = knowledgeDocumentService.listOwnedByKnowledgeBase(
+                currentUser(), 201L, new PageRequest(1, 20));
+        assertThat(result.getItems()).isEmpty();
+        verifyNoInteractions(knowledgeDocumentReadMapper, documentStorage);
+    }
+
+    private static DocumentReadinessRow readinessRow(Long documentId, String status) {
+        return new DocumentReadinessRow(documentId, status, "dashscope", "text-embedding-v4", 800, 120,
+                0, 0, 0, 0, 0, null);
     }
 
     private static void initializeLambdaCache(Class<?> mapperType, Class<?> entityType) {
@@ -584,6 +615,7 @@ class KnowledgeDocumentServiceTest {
         document.setMimeType("TXT".equals(type) ? "text/plain" : "text/markdown");
         document.setFileSize(5L);
         document.setParseStatus("PENDING");
+        document.setVectorGeneration(0L);
         document.setCreatedAt(now);
         document.setUpdatedAt(now);
         return document;

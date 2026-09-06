@@ -16,6 +16,7 @@ import com.agentflow.agent.snapshot.AgentTaskExecutionSnapshot.RuntimeSnapshot;
 import com.agentflow.agent.snapshot.AgentTaskExecutionSnapshot.ToolSnapshot;
 import com.agentflow.common.error.BusinessException;
 import com.agentflow.common.error.ErrorCode;
+import com.agentflow.knowledge.readiness.KnowledgeReadConfiguration;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -45,8 +46,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AgentTaskSnapshotResolver {
     public static final String SNAPSHOT_VERSION = "agent-task-snapshot-v1";
-    public static final String CHUNK_STRATEGY_VERSION = "structured-token-v1";
-    public static final String EMBEDDING_PROFILE_CODE = "dashscope-te-v4-1024-cosine";
+    public static final String CHUNK_STRATEGY_VERSION = KnowledgeReadConfiguration.CHUNK_STRATEGY_VERSION;
+    public static final String EMBEDDING_PROFILE_CODE = KnowledgeReadConfiguration.EMBEDDING_PROFILE_CODE;
     public static final String CHAT_PROFILE_CODE = "openai-compatible-default";
     private static final String IMPLEMENTATION_VERSION = "builtin-v1";
     private static final Map<String, String> ALLOWED_TOOL_HANDLERS = Map.of(
@@ -233,10 +234,10 @@ public class AgentTaskSnapshotResolver {
     }
 
     private static void requireFixedEmbeddingProfile(BoundKnowledgeBaseRow knowledgeBase) {
-        if (!"dashscope".equals(knowledgeBase.getEmbeddingProvider())
-                || !"text-embedding-v4".equals(knowledgeBase.getEmbeddingModel())
-                || !Integer.valueOf(800).equals(knowledgeBase.getChunkSize())
-                || !Integer.valueOf(120).equals(knowledgeBase.getChunkOverlap())) {
+        if (KnowledgeReadConfiguration.embeddingProfileCode(
+                knowledgeBase.getEmbeddingProvider(), knowledgeBase.getEmbeddingModel()) == null
+                || KnowledgeReadConfiguration.chunkStrategyVersion(
+                knowledgeBase.getChunkSize(), knowledgeBase.getChunkOverlap()) == null) {
             throw invalidBinding("Knowledge base embedding profile is unsupported");
         }
     }

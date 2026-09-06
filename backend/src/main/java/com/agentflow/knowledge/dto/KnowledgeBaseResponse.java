@@ -1,6 +1,8 @@
 package com.agentflow.knowledge.dto;
 
 import com.agentflow.knowledge.model.KnowledgeBase;
+import com.agentflow.knowledge.readiness.KnowledgeReadConfiguration;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.OffsetDateTime;
 
 /**
@@ -21,8 +23,29 @@ public record KnowledgeBaseResponse(
         Integer chunkOverlap,
         String status,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt
+        OffsetDateTime updatedAt,
+        @JsonInclude(JsonInclude.Include.ALWAYS) String embeddingProfileCode,
+        @JsonInclude(JsonInclude.Include.ALWAYS) String chunkStrategyVersion
 ) {
+    /** Preserves existing callers while deriving the added fields from their real configuration. */
+    public KnowledgeBaseResponse(
+            String id,
+            String name,
+            String description,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer chunkSize,
+            Integer chunkOverlap,
+            String status,
+            OffsetDateTime createdAt,
+            OffsetDateTime updatedAt
+    ) {
+        this(id, name, description, embeddingProvider, embeddingModel, chunkSize, chunkOverlap,
+                status, createdAt, updatedAt,
+                KnowledgeReadConfiguration.embeddingProfileCode(embeddingProvider, embeddingModel),
+                KnowledgeReadConfiguration.chunkStrategyVersion(chunkSize, chunkOverlap));
+    }
+
     /**
      * 中文：BIGINT ID 对外转为字符串，避免 JavaScript Number 的精度丢失。
      * English: Converts the BIGINT ID to a string for clients, avoiding JavaScript Number

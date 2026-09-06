@@ -1,6 +1,9 @@
 package com.agentflow.knowledge.dto;
 
 import com.agentflow.knowledge.model.KnowledgeDocument;
+import com.agentflow.knowledge.readiness.DocumentReadinessRow;
+import com.agentflow.knowledge.readiness.RetrievalReadiness;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.OffsetDateTime;
 
 /**
@@ -18,8 +21,27 @@ public record KnowledgeDocumentResponse(
         Long fileSize,
         String parseStatus,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt
+        OffsetDateTime updatedAt,
+        @JsonInclude(JsonInclude.Include.NON_NULL) Long vectorGeneration,
+        @JsonInclude(JsonInclude.Include.NON_NULL) DocumentVectorizationResponse vectorization,
+        @JsonInclude(JsonInclude.Include.NON_NULL) RetrievalReadiness retrievalReadiness
 ) {
+    /** Existing write acknowledgements keep their original shape; GET enriches from a DB snapshot. */
+    public KnowledgeDocumentResponse(String id, String knowledgeBaseId, String fileName, String fileType,
+            Long fileSize, String parseStatus, OffsetDateTime createdAt, OffsetDateTime updatedAt) {
+        this(id, knowledgeBaseId, fileName, fileType, fileSize, parseStatus, createdAt, updatedAt,
+                null, null, null);
+    }
+
+    public static KnowledgeDocumentResponse from(KnowledgeDocument document, DocumentReadinessRow readiness) {
+        return new KnowledgeDocumentResponse(
+                String.valueOf(document.getId()), String.valueOf(document.getKnowledgeBaseId()),
+                document.getFileName(), document.getFileType(), document.getFileSize(), document.getParseStatus(),
+                document.getCreatedAt(), document.getUpdatedAt(), document.getVectorGeneration(),
+                readiness.vectorization(), readiness.readiness(document.getParseStatus())
+        );
+    }
+
     public static KnowledgeDocumentResponse from(KnowledgeDocument document) {
         return new KnowledgeDocumentResponse(
                 String.valueOf(document.getId()),

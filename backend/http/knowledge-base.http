@@ -47,6 +47,10 @@ X-Trace-Id: af-manual-kb-detail-001
     client.assert(response.body.code === "OK", "Expected code OK");
     client.assert(response.body.data.id === client.global.get("agentflowKnowledgeBaseId"), "Expected created ID");
     client.assert(response.body.data.name === "支付业务知识库", "Expected created metadata");
+    client.assert(response.body.data.embeddingProfileCode === "dashscope-te-v4-1024-cosine",
+      "Expected profile parsed from canonical persisted provider/model");
+    client.assert(response.body.data.chunkStrategyVersion === "structured-token-v1",
+      "Expected strategy parsed from canonical persisted size/overlap");
     client.assert(response.body.data.userId === undefined, "Must not expose owner ID");
     client.assert(response.body.data.deletedAt === undefined, "Must not expose deletion marker");
   });

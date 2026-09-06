@@ -12,6 +12,8 @@ import com.agentflow.knowledge.model.KnowledgeBase;
 import com.agentflow.knowledge.model.KnowledgeDocument;
 import com.agentflow.knowledge.repository.KnowledgeBaseMapper;
 import com.agentflow.knowledge.repository.KnowledgeDocumentMapper;
+import com.agentflow.knowledge.repository.KnowledgeDocumentReadMapper;
+import com.agentflow.knowledge.readiness.DocumentReadinessRow;
 import com.agentflow.knowledge.storage.DocumentStorage;
 import com.agentflow.knowledge.storage.DocumentUploadLimitProperties;
 import com.agentflow.knowledge.storage.StoredDocument;
@@ -20,11 +22,17 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.OffsetDateTime;
 import java.util.Locale;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
@@ -48,17 +56,20 @@ public class KnowledgeDocumentService {
 
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final KnowledgeDocumentMapper knowledgeDocumentMapper;
+    private final KnowledgeDocumentReadMapper knowledgeDocumentReadMapper;
     private final DocumentStorage documentStorage;
     private final DocumentUploadLimitProperties documentUploadLimitProperties;
 
     public KnowledgeDocumentService(
             KnowledgeBaseMapper knowledgeBaseMapper,
             KnowledgeDocumentMapper knowledgeDocumentMapper,
+            KnowledgeDocumentReadMapper knowledgeDocumentReadMapper,
             DocumentStorage documentStorage,
             DocumentUploadLimitProperties documentUploadLimitProperties
     ) {
         this.knowledgeBaseMapper = knowledgeBaseMapper;
         this.knowledgeDocumentMapper = knowledgeDocumentMapper;
+        this.knowledgeDocumentReadMapper = knowledgeDocumentReadMapper;
         this.documentStorage = documentStorage;
         this.documentUploadLimitProperties = Objects.requireNonNull(
                 documentUploadLimitProperties,
@@ -132,7 +143,7 @@ public class KnowledgeDocumentService {
      * deleted-parent cases to Document not found. This method neither opens the source file nor
      * triggers parsing, state changes, or cleanup.
      */
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ, propagation = Propagation.REQUIRES_NEW)
     public KnowledgeDocumentResponse getOwnedById(
             AuthenticatedUser currentUser,
             Long documentId
@@ -147,7 +158,7 @@ public class KnowledgeDocumentService {
         if (document == null) {
             throw new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Document not found");
         }
-        return KnowledgeDocumentResponse.from(document);
+        return readResponses(currentUser.id(), List.of(document)).getFirst();
     }
 
     /**
@@ -198,7 +209,7 @@ public class KnowledgeDocumentService {
      * owner but accepts no new uploads, consistent with the existing owner-management
      * semantics for DISABLED knowledge bases.
      */
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ, propagation = Propagation.REQUIRES_NEW)
     public PageResult<KnowledgeDocumentResponse> listOwnedByKnowledgeBase(
             AuthenticatedUser currentUser,
             Long knowledgeBaseId,
@@ -223,11 +234,23 @@ public class KnowledgeDocumentService {
         );
 
         return PageResult.of(
-                databasePage.getRecords().stream().map(KnowledgeDocumentResponse::from).toList(),
+                readResponses(currentUser.id(), databasePage.getRecords()),
                 pageRequest.getPage(),
                 pageRequest.getPageSize(),
                 databasePage.getTotal()
         );
+    }
+
+    private List<KnowledgeDocumentResponse> readResponses(Long userId, List<KnowledgeDocument> documents) {
+        if (documents.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, DocumentReadinessRow> aggregates = knowledgeDocumentReadMapper.selectReadinessByDocumentIds(
+                userId, documents.stream().map(KnowledgeDocument::getId).toList()
+        ).stream().collect(Collectors.toMap(DocumentReadinessRow::documentId, Function.identity()));
+        return documents.stream().map(document -> KnowledgeDocumentResponse.from(document,
+                Objects.requireNonNull(aggregates.get(document.getId()),
+                        "Visible document must have an aggregate in the same read snapshot"))).toList();
     }
 
     private KnowledgeBase requireOwnedKnowledgeBase(

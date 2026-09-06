@@ -48,8 +48,12 @@ X-Trace-Id: af-manual-document-detail-001
       "Expected the current knowledge base ID");
     client.assert(response.body.data.parseStatus === "PENDING", "Expected PENDING before processing");
     client.assert(Object.keys(response.body.data).sort().join(",")
-      === "createdAt,fileName,fileSize,fileType,id,knowledgeBaseId,parseStatus,updatedAt",
-      "V21 must expose exactly the safe document metadata fields");
+      === "createdAt,fileName,fileSize,fileType,id,knowledgeBaseId,parseStatus,retrievalReadiness,updatedAt,vectorGeneration,vectorization",
+      "V44 GET preserves safe metadata and adds the readiness read model");
+    client.assert(response.body.data.vectorGeneration === 0, "Expected initial generation");
+    client.assert(response.body.data.retrievalReadiness === "NOT_READY", "Parsing has not completed");
+    client.assert(Object.values(response.body.data.vectorization).every(function (count) { return count === 0; }),
+      "Expected no persisted chunks before processing");
   });
 %}
 

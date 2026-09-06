@@ -143,6 +143,22 @@ class AgentTaskSnapshotResolverTest {
     }
 
     @Test
+    void shouldKeepRejectingNoncanonicalChunkConfiguration() {
+        BoundKnowledgeBaseRow knowledgeBase = knowledgeBase(201L);
+        knowledgeBase.setChunkSize(400);
+        when(agentAppMapper.selectVisibleOwnedByIdForSnapshot(301L, 101L)).thenReturn(activeAgent());
+        when(knowledgeBindingMapper.selectActiveBoundKnowledgeBases(301L, 101L))
+                .thenReturn(List.of(knowledgeBase));
+        when(knowledgeBindingMapper.selectReadyDocumentGenerations(301L, 101L))
+                .thenReturn(List.of(readyDocument(201L, 501L, 0L)));
+
+        assertThatThrownBy(() -> resolver.resolve(101L, 301L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.AGENT_BINDING_INVALID));
+    }
+
+    @Test
     void shouldUseRepeatableReadForTheDatabaseOnlySnapshotBoundary() throws Exception {
         Transactional transactional = AgentTaskSnapshotResolver.class
                 .getMethod("resolve", Long.class, Long.class)
