@@ -1,6 +1,6 @@
 package com.agentflow.agent.task.service;
 
-/** Internal M4C command. HTTP Idempotency-Key mapping belongs to M4F. */
+/** Internal creation command; V41 maps the authenticated owner and HTTP Idempotency-Key. */
 public record CreateAgentTaskCommand(
         long userId,
         long agentId,

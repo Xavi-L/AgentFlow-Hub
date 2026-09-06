@@ -1,13 +1,14 @@
 package com.agentflow.agent.task.repository;
 
 import com.agentflow.agent.task.model.AgentTaskEvent;
+import java.util.List;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
-/** SQL used only by TaskEventAppender to allocate and persist event sequences. */
+/** Durable event writes and ordered reads; only TaskEventAppender allocates sequences. */
 @Mapper
 public interface AgentTaskEventMapper {
 
@@ -29,4 +30,16 @@ public interface AgentTaskEventMapper {
             )
             """)
     int insertEvent(@Param("event") AgentTaskEvent event);
+
+    @Select("""
+            SELECT id, task_id, sequence_no, event_type, payload::text AS payload, created_at
+            FROM agent_task_event
+            WHERE task_id = #{taskId}
+              AND sequence_no > #{afterSequence}
+            ORDER BY sequence_no ASC, id ASC
+            """)
+    @Options(useCache = false)
+    List<AgentTaskEvent> selectByTaskIdAfterSequence(
+            @Param("taskId") long taskId, @Param("afterSequence") long afterSequence
+    );
 }

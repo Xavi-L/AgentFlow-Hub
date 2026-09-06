@@ -1,7 +1,11 @@
 package com.agentflow.agent.trace;
 
 import com.agentflow.agent.task.model.AgentTask;
+import com.agentflow.agent.task.dto.AgentTaskResponseMapper;
+import com.agentflow.agent.task.dto.SafeTaskEventProjector;
+import com.agentflow.agent.task.repository.AgentTaskEventMapper;
 import com.agentflow.agent.task.repository.AgentTaskMapper;
+import com.agentflow.agent.trace.dto.PublicTaskTraceResponse;
 import com.agentflow.agent.trace.dto.TaskTraceView;
 import com.agentflow.agent.trace.model.AgentStepRecord;
 import com.agentflow.agent.trace.model.LlmCallLogRecord;
@@ -28,7 +32,7 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Owner-scoped, repeatable-read aggregation skeleton for internal task Trace consumers. */
+/** Owner-scoped aggregation; each entry point owns a single independent read snapshot. */
 @Service
 public class TaskTraceQueryService {
     private final AgentTaskMapper taskMapper;
@@ -38,6 +42,10 @@ public class TaskTraceQueryService {
     private final RagRetrievalHitLogMapper ragHitMapper;
     private final ToolCallLogMapper toolCallMapper;
     private final ObjectMapper objectMapper;
+    private final AgentTaskEventMapper eventMapper;
+    private final SafeTaskEventProjector eventProjector;
+    private final AgentTaskResponseMapper taskResponseMapper;
+    private final PublicTaskTraceProjector publicProjector;
 
     public TaskTraceQueryService(
             AgentTaskMapper taskMapper,
@@ -46,7 +54,11 @@ public class TaskTraceQueryService {
             RagRetrievalLogMapper ragRetrievalMapper,
             RagRetrievalHitLogMapper ragHitMapper,
             ToolCallLogMapper toolCallMapper,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            AgentTaskEventMapper eventMapper,
+            SafeTaskEventProjector eventProjector,
+            AgentTaskResponseMapper taskResponseMapper,
+            PublicTaskTraceProjector publicProjector
     ) {
         this.taskMapper = Objects.requireNonNull(taskMapper, "taskMapper must not be null");
         this.stepMapper = Objects.requireNonNull(stepMapper, "stepMapper must not be null");
@@ -58,6 +70,10 @@ public class TaskTraceQueryService {
         this.ragHitMapper = Objects.requireNonNull(ragHitMapper, "ragHitMapper must not be null");
         this.toolCallMapper = Objects.requireNonNull(toolCallMapper, "toolCallMapper must not be null");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
+        this.eventMapper = Objects.requireNonNull(eventMapper, "eventMapper must not be null");
+        this.eventProjector = Objects.requireNonNull(eventProjector, "eventProjector must not be null");
+        this.taskResponseMapper = Objects.requireNonNull(taskResponseMapper, "taskResponseMapper must not be null");
+        this.publicProjector = Objects.requireNonNull(publicProjector, "publicProjector must not be null");
     }
 
     @Transactional(
@@ -66,6 +82,26 @@ public class TaskTraceQueryService {
             isolation = Isolation.REPEATABLE_READ
     )
     public TaskTraceView findOwnedTrace(long userId, long taskId) {
+        return aggregateTrace(requireOwnedTask(userId, taskId));
+    }
+
+    @Transactional(
+            propagation = Propagation.REQUIRES_NEW,
+            readOnly = true,
+            isolation = Isolation.REPEATABLE_READ
+    )
+    public PublicTaskTraceResponse findOwnedPublicTrace(long userId, long taskId) {
+        AgentTask task = requireOwnedTask(userId, taskId);
+        TaskTraceView trace = aggregateTrace(task);
+        return new PublicTaskTraceResponse(
+                taskResponseMapper.toResponse(task),
+                publicProjector.executionSnapshot(task.getExecutionSnapshot()),
+                publicProjector.steps(trace),
+                eventMapper.selectByTaskIdAfterSequence(taskId, 0).stream().map(eventProjector::toResponse).toList()
+        );
+    }
+
+    private AgentTask requireOwnedTask(long userId, long taskId) {
         if (userId <= 0 || taskId <= 0) {
             throw new IllegalArgumentException("userId and taskId must be positive");
         }
@@ -73,7 +109,11 @@ public class TaskTraceQueryService {
         if (task == null) {
             throw new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Agent task not found");
         }
+        return task;
+    }
 
+    private TaskTraceView aggregateTrace(AgentTask task) {
+        long taskId = task.getId();
         List<AgentStepRecord> steps = stepMapper.selectByTaskIdOrdered(taskId);
         Map<Long, List<TaskTraceView.LlmCall>> llmByStep = groupLlmCalls(taskId);
         Map<Long, List<TaskTraceView.RagRetrieval>> ragByStep = groupRagRetrievals(taskId);

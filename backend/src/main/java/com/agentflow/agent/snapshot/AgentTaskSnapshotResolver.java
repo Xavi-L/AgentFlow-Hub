@@ -83,7 +83,7 @@ public class AgentTaskSnapshotResolver {
     public AgentTaskExecutionSnapshot resolve(Long userId, Long agentId) {
         requirePositive(userId, "userId");
         requirePositive(agentId, "agentId");
-        AgentApp agent = agentAppMapper.selectVisibleOwnedByIdForUpdate(agentId, userId);
+        AgentApp agent = agentAppMapper.selectVisibleOwnedByIdForSnapshot(agentId, userId);
         if (agent == null) {
             throw new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Agent not found");
         }

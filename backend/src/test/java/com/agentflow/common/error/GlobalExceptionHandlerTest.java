@@ -4,11 +4,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.agentflow.common.api.ApiResponse;
 import com.agentflow.common.web.TraceIdHolder;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 class GlobalExceptionHandlerTest {
     private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
@@ -56,6 +61,20 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().getCode()).isEqualTo("USER_ACCOUNT_ALREADY_EXISTS");
         assertThat(response.getBody().getMessage())
                 .isEqualTo("Username or email is already in use");
+    }
+
+    @Test
+    void shouldMapUnregisteredRoutesAndMissingStaticResourcesToTheSame404() {
+        for (Exception exception : List.of(
+                new NoHandlerFoundException("GET", "/api/v1/tasks/401/events", new HttpHeaders()),
+                new NoResourceFoundException(HttpMethod.GET, "api/v1/tasks/401/events"))) {
+            ResponseEntity<ApiResponse<Void>> response = handler.handleMissingRoute(exception);
+
+            assertThat(response.getStatusCode().value()).isEqualTo(404);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getCode()).isEqualTo("COMMON_NOT_FOUND");
+            assertThat(response.getBody().getMessage()).isEqualTo("Resource not found");
+        }
     }
 
     @Test

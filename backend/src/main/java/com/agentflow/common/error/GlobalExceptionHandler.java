@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * 中文：把 Controller 调用链中的异常统一翻译为稳定的 HTTP + JSON 契约。
@@ -126,6 +128,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({MethodArgumentTypeMismatchException.class, ConstraintViolationException.class})
     public ResponseEntity<ApiResponse<Void>> handleParameterBindingException(Exception ex) {
         return buildResponse(ErrorCode.COMMON_PARAM_INVALID, ErrorCode.COMMON_PARAM_INVALID.getMessage());
+    }
+
+    /** Unmapped REST paths remain 404 even when Spring's static-resource fallback handles them. */
+    @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
+    public ResponseEntity<ApiResponse<Void>> handleMissingRoute(Exception ex) {
+        return buildResponse(ErrorCode.COMMON_NOT_FOUND, ErrorCode.COMMON_NOT_FOUND.getMessage());
     }
 
     /**

@@ -40,6 +40,12 @@ class AgentAppMapperTest {
         assertThat(sql.getParameterMappings())
                 .extracting(ParameterMapping::getProperty)
                 .containsExactly("agentId", "userId");
+
+        BoundSql snapshot = configuration.getMappedStatement(
+                AgentAppMapper.class.getName() + ".selectVisibleOwnedByIdForSnapshot"
+        ).getBoundSql(Map.of("agentId", 301L, "userId", 101L));
+        assertThat(snapshot.getSql()).contains("WHERE id = ?", "AND user_id = ?",
+                "AND deleted_at IS NULL", "FOR NO KEY UPDATE");
     }
 
     @Test

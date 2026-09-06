@@ -1,0 +1,104 @@
+# V41 REST checks for IntelliJ HTTP Client. This file is a request template, not passed evidence.
+# First login through user-auth.http, create an ACTIVE Agent, bind a READY knowledge base and tools.
+# Set agentflowAgentId / agentflowAccessToken locally. No credentials belong in this file.
+# Change requestKey for a genuinely new task. Reuse keeps the original task and never reruns it.
+
+@baseUrl = http://localhost:8080
+@requestKey = v41-payment-diagnosis-001
+
+### Create a task: 201 first time (or 200 if this exact key/request has already been used).
+POST {{baseUrl}}/api/v1/agents/{{agentflowAgentId}}/tasks
+Authorization: Bearer {{agentflowAccessToken}}
+Idempotency-Key: {{requestKey}}
+Content-Type: application/json
+
+{"userInput":"查询订单 ORD20260001 的支付失败原因"}
+
+> {%
+  client.test("task admitted or idempotently reused", function () {
+    client.assert(response.status === 201 || response.status === 200, "Expected 201/200");
+    client.assert(typeof response.body.data.taskId === "string", "Expected string taskId");
+    client.global.set("agentflowTaskId", response.body.data.taskId);
+  });
+%}
+
+### Same key and exact request: 200, same ID, no new execution.
+POST {{baseUrl}}/api/v1/agents/{{agentflowAgentId}}/tasks
+Authorization: Bearer {{agentflowAccessToken}}
+Idempotency-Key: {{requestKey}}
+Content-Type: application/json
+
+{"userInput":"查询订单 ORD20260001 的支付失败原因"}
+
+> {%
+  client.test("reuse the original task", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.data.taskId === client.global.get("agentflowTaskId"), "Expected same ID");
+  });
+%}
+
+### Same key with different request: 409 TASK_IDEMPOTENCY_CONFLICT.
+POST {{baseUrl}}/api/v1/agents/{{agentflowAgentId}}/tasks
+Authorization: Bearer {{agentflowAccessToken}}
+Idempotency-Key: {{requestKey}}
+Content-Type: application/json
+
+{"userInput":"不同请求"}
+
+### Persisted status, counters, answer and citations. RUNNING usage is not live telemetry.
+GET {{baseUrl}}/api/v1/tasks/{{agentflowTaskId}}
+Authorization: Bearer {{agentflowAccessToken}}
+
+### Own history, default 20, ordered by createdAt DESC and taskId DESC.
+GET {{baseUrl}}/api/v1/tasks
+Authorization: Bearer {{agentflowAccessToken}}
+
+### Bound page size (100), no filters.
+GET {{baseUrl}}/api/v1/tasks?page=1&pageSize=1000
+Authorization: Bearer {{agentflowAccessToken}}
+
+### One consistent database snapshot: task, executionSnapshot, steps/logs and events.
+GET {{baseUrl}}/api/v1/tasks/{{agentflowTaskId}}/trace
+Authorization: Bearer {{agentflowAccessToken}}
+
+> {%
+  client.test("Trace task and events use the same snapshot", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    var trace = response.body.data;
+    var events = trace.events;
+    client.assert(trace.task.lastEventSequence === events.length, "Expected complete contiguous history");
+    for (var i = 0; i < events.length; i++) {
+      client.assert(events[i].sequenceNo === i + 1, "Expected ordered sequence");
+    }
+    if (trace.task.status === "COMPLETED") {
+      var answer = events.filter(e => e.eventType === "ANSWER_CHUNK").map(e => e.payload.text).join("");
+      client.assert(answer === trace.task.finalAnswer, "Expected exact persisted answer");
+      client.assert(events[events.length - 1].eventType === "TASK_COMPLETED", "Expected terminal event");
+    }
+  });
+%}
+
+### Cancellation: queued -> CANCELLED; running can still return RUNNING; terminal is idempotent 200.
+POST {{baseUrl}}/api/v1/tasks/{{agentflowTaskId}}/cancel
+Authorization: Bearer {{agentflowAccessToken}}
+
+### Missing key: 400 COMMON_PARAM_INVALID.
+POST {{baseUrl}}/api/v1/agents/{{agentflowAgentId}}/tasks
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+
+{"userInput":"missing key"}
+
+### Caller cannot inject owner or runtime configuration: 400 COMMON_REQUEST_BODY_INVALID.
+POST {{baseUrl}}/api/v1/agents/{{agentflowAgentId}}/tasks
+Authorization: Bearer {{agentflowAccessToken}}
+Idempotency-Key: v41-invalid-owner
+Content-Type: application/json
+
+{"userInput":"invalid override", "userId":"1"}
+
+### Replace token locally with another test user's token: 404 COMMON_NOT_FOUND.
+GET {{baseUrl}}/api/v1/tasks/{{agentflowTaskId}}/trace
+Authorization: Bearer {{agentflowOtherAccessToken}}
+
+# V42 will add /events subscriptions. V41 intentionally supplies no subscription URL.

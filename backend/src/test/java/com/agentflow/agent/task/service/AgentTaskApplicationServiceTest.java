@@ -41,7 +41,10 @@ class AgentTaskApplicationServiceTest {
         AgentTask existing = task(91L, fingerprint(command));
         when(queryService.findByUserAndClientRequestId(11L, "key-1")).thenReturn(existing);
 
-        assertThat(service.createTask(command)).isSameAs(existing);
+        existing.setStatus("QUEUED");
+        CreateAgentTaskResult result = service.createTaskWithResult(command);
+        assertThat(result.task()).isSameAs(existing);
+        assertThat(result.created()).isFalse();
         verify(creationTransactions, never()).createNew(command, existing.getRequestFingerprint());
     }
 
@@ -68,15 +71,54 @@ class AgentTaskApplicationServiceTest {
         when(creationTransactions.createNew(command, fingerprint))
                 .thenThrow(new DuplicateKeyException("concurrent unique key"));
 
-        assertThat(service.createTask(command)).isSameAs(winner);
+        CreateAgentTaskResult result = service.createTaskWithResult(command);
+        assertThat(result.task()).isSameAs(winner);
+        assertThat(result.created()).isFalse();
         verify(queryService, org.mockito.Mockito.times(2))
                 .findByUserAndClientRequestId(11L, "key-1");
+    }
+
+    @Test
+    void shouldReportSuccessfulInsertAsCreatedIndependentOfTaskStatus() {
+        CreateAgentTaskCommand command = command("new payload");
+        AgentTask created = task(93L, fingerprint(command));
+        created.setStatus("FAILED"); // A fast after-commit dispatch rejection cannot turn 201 into 200.
+        when(creationTransactions.createNew(command, fingerprint(command))).thenReturn(created);
+
+        CreateAgentTaskResult result = service.createTaskWithResult(command);
+        assertThat(result.created()).isTrue();
+        assertThat(result.task()).isSameAs(created);
+    }
+
+    @Test
+    void shouldRejectDifferentConcurrentWinnerAndPropagateUnrelatedConstraintFailure() {
+        CreateAgentTaskCommand command = command("same payload");
+        var failure = new DuplicateKeyException("concurrent unique key");
+        when(creationTransactions.createNew(command, fingerprint(command))).thenThrow(failure);
+        when(queryService.findByUserAndClientRequestId(11L, "key-1"))
+                .thenReturn(null, task(94L, fingerprint(command("other payload"))));
+        assertThatThrownBy(() -> service.createTaskWithResult(command))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.TASK_IDEMPOTENCY_CONFLICT));
+
+        when(queryService.findByUserAndClientRequestId(11L, "key-1")).thenReturn(null);
+        assertThatThrownBy(() -> service.createTaskWithResult(command)).isSameAs(failure);
     }
 
     private String fingerprint(CreateAgentTaskCommand command) {
         return new TaskRequestFingerprint(new ObjectMapper())
                 .calculate(command.agentId(), command.userInput())
                 .sha256();
+    }
+
+    @Test
+    void shouldRejectTextThatPostgresCannotPersistBeforeFingerprintOrDatabaseAccess() {
+        assertThatThrownBy(() -> service.createTaskWithResult(command("input\0suffix")))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.COMMON_PARAM_INVALID));
+        org.mockito.Mockito.verifyNoInteractions(queryService, creationTransactions);
     }
 
     private static CreateAgentTaskCommand command(String input) {

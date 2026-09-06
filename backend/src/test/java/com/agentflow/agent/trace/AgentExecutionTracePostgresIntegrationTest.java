@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
 
 import com.agentflow.agent.snapshot.AgentTaskExecutionSnapshot;
 import com.agentflow.agent.snapshot.AgentTaskSnapshotResolver;
@@ -11,10 +12,23 @@ import com.agentflow.agent.task.dispatch.TaskDispatcher;
 import com.agentflow.agent.task.model.AgentTask;
 import com.agentflow.agent.task.model.TaskEventType;
 import com.agentflow.agent.task.model.TokenUsageQuality;
+import com.agentflow.agent.task.execution.TaskExecutionOutcome;
+import com.agentflow.agent.task.dto.AgentTaskResponseMapper;
+import com.agentflow.agent.task.dto.SafeTaskEventProjector;
+import com.agentflow.agent.task.dto.SafeTaskEventResponse;
+import com.agentflow.agent.task.repository.AgentTaskMapper;
+import com.agentflow.agent.task.repository.AgentTaskEventMapper;
 import com.agentflow.agent.task.service.AgentTaskApplicationService;
 import com.agentflow.agent.task.service.AgentTaskLifecycleTransactionService;
 import com.agentflow.agent.task.service.CreateAgentTaskCommand;
+import com.agentflow.agent.task.service.TaskEventQueryService;
 import com.agentflow.agent.trace.dto.TaskTraceView;
+import com.agentflow.agent.trace.dto.PublicTaskTraceResponse;
+import com.agentflow.agent.trace.repository.AgentStepMapper;
+import com.agentflow.agent.trace.repository.LlmCallLogMapper;
+import com.agentflow.agent.trace.repository.RagRetrievalLogMapper;
+import com.agentflow.agent.trace.repository.RagRetrievalHitLogMapper;
+import com.agentflow.tool.repository.ToolCallLogMapper;
 import com.agentflow.common.error.BusinessException;
 import com.agentflow.common.error.ErrorCode;
 import com.agentflow.tool.ToolDefinition;
@@ -40,16 +54,21 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.ApplicationContext;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
+import org.springframework.transaction.interceptor.TransactionInterceptor;
+import org.springframework.transaction.PlatformTransactionManager;
 
 /** Focused PostgreSQL evidence for M4D locks, constraints, and short transactions. */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
@@ -94,6 +113,8 @@ class AgentExecutionTracePostgresIntegrationTest {
     private ToolDefinitionService toolDefinitionService;
     @Autowired
     private OuterTransactionProbe outerTransactionProbe;
+    @Autowired
+    private ApplicationContext applicationContext;
 
     @MockBean
     private AgentTaskSnapshotResolver snapshotResolver;
@@ -453,6 +474,84 @@ class AgentExecutionTracePostgresIntegrationTest {
         returnedSummary.put("mutated", true);
         assertThat(trace.steps().get(1).summary().has("mutated")).isFalse();
         assertThatThrownBy(() -> traceQueryService.findOwnedTrace(OTHER_USER_ID, task.getId()))
+                .isInstanceOfSatisfying(BusinessException.class, ex ->
+                        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.COMMON_NOT_FOUND));
+    }
+
+    @Test
+    void shouldKeepPublicTaskStepsAndEventsInOneSnapshotAcrossConcurrentCompletion() throws Exception {
+        AgentTask task = claim(createTask("public-snapshot", "snapshot query"));
+        ExecutionRecorder recorder = recorderFactory.open(task.getId());
+        StepHandle existingStep = recorder.startStep(StepType.LLM_DECISION, "Before read snapshot");
+        AgentTaskMapper actualTaskMapper = applicationContext.getBean(AgentTaskMapper.class);
+        AgentTask before = actualTaskMapper.selectOwnedById(task.getId(), USER_ID);
+        AgentTaskMapper readBoundary = mock(AgentTaskMapper.class);
+
+        try (ExecutorService writer = Executors.newSingleThreadExecutor()) {
+            when(readBoundary.selectOwnedById(task.getId(), USER_ID)).thenAnswer(call -> {
+                AgentTask selected = actualTaskMapper.selectOwnedById(task.getId(), USER_ID);
+                assertThat(jdbc.queryForObject("SHOW transaction_isolation", String.class))
+                        .isEqualTo("repeatable read");
+                writer.submit(() -> {
+                    complete(recorder, existingStep, "finished after first SELECT");
+                    StepHandle newStep = recorder.startStep(StepType.LLM_FINAL_GENERATION, "After read snapshot");
+                    complete(recorder, newStep, "answer generated");
+                    assertThat(taskLifecycleTransactions.complete(task.getId(), TaskExecutionOutcome.completed("new answer")))
+                            .isTrue();
+                }).get(10, TimeUnit.SECONDS);
+                return selected;
+            });
+
+            TaskTraceQueryService target = new TaskTraceQueryService(
+                    readBoundary, applicationContext.getBean(AgentStepMapper.class),
+                    applicationContext.getBean(LlmCallLogMapper.class),
+                    applicationContext.getBean(RagRetrievalLogMapper.class),
+                    applicationContext.getBean(RagRetrievalHitLogMapper.class),
+                    applicationContext.getBean(ToolCallLogMapper.class), objectMapper,
+                    applicationContext.getBean(AgentTaskEventMapper.class),
+                    applicationContext.getBean(SafeTaskEventProjector.class),
+                    applicationContext.getBean(AgentTaskResponseMapper.class),
+                    applicationContext.getBean(PublicTaskTraceProjector.class)
+            );
+            // Apply the production method's actual transaction annotation to the read-interleaving seam.
+            ProxyFactory proxyFactory = new ProxyFactory(target);
+            proxyFactory.setProxyTargetClass(true);
+            proxyFactory.addAdvice(new TransactionInterceptor(
+                    applicationContext.getBean(PlatformTransactionManager.class),
+                    new AnnotationTransactionAttributeSource()
+            ));
+            TaskTraceQueryService reader = (TaskTraceQueryService) proxyFactory.getProxy();
+            PublicTaskTraceResponse during = reader.findOwnedPublicTrace(USER_ID, task.getId());
+            assertThat(during.task().status()).isEqualTo("RUNNING");
+            assertThat(during.task().finalAnswer()).isNull();
+            assertThat(during.steps()).singleElement().satisfies(step -> {
+                assertThat(step.id()).isEqualTo(Long.toString(existingStep.stepId()));
+                assertThat(step.status()).isEqualTo("RUNNING");
+            });
+            assertThat(during.events()).extracting(SafeTaskEventResponse::sequenceNo)
+                    .allMatch(sequence -> sequence <= before.getLastEventSequence());
+            assertThat(during.events().getLast().sequenceNo()).isEqualTo(during.task().lastEventSequence());
+            assertThat(during.events()).extracting(SafeTaskEventResponse::eventType)
+                    .doesNotContain("ANSWER_CHUNK", "TASK_COMPLETED");
+        }
+
+        PublicTaskTraceResponse after = traceQueryService.findOwnedPublicTrace(USER_ID, task.getId());
+        assertThat(after.task().status()).isEqualTo("COMPLETED");
+        assertThat(after.task().finalAnswer()).isEqualTo("new answer");
+        assertThat(after.steps()).hasSize(2).allSatisfy(step -> assertThat(step.status()).isEqualTo("SUCCESS"));
+        assertThat(after.events().getLast().eventType()).isEqualTo("TASK_COMPLETED");
+        assertThat(after.events().getLast().sequenceNo()).isEqualTo(after.task().lastEventSequence());
+        TaskEventQueryService eventQueries = applicationContext.getBean(TaskEventQueryService.class);
+        var replay = eventQueries.findOwnedEventsAfter(USER_ID, task.getId(), before.getLastEventSequence());
+        assertThat(replay).isNotEmpty().allSatisfy(event -> {
+            assertThat(event.sequenceNo()).isGreaterThan(before.getLastEventSequence());
+            assertThat(event.taskId()).isEqualTo(task.getId().toString());
+        });
+        assertThat(replay.getLast().sequenceNo()).isEqualTo(after.task().lastEventSequence());
+        assertThatThrownBy(() -> eventQueries.findOwnedEventsAfter(OTHER_USER_ID, task.getId(), 0))
+                .isInstanceOfSatisfying(BusinessException.class, ex ->
+                        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.COMMON_NOT_FOUND));
+        assertThatThrownBy(() -> traceQueryService.findOwnedPublicTrace(OTHER_USER_ID, task.getId()))
                 .isInstanceOfSatisfying(BusinessException.class, ex ->
                         assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.COMMON_NOT_FOUND));
     }

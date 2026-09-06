@@ -33,6 +33,11 @@ public class AgentTaskApplicationService {
     }
 
     public AgentTask createTask(CreateAgentTaskCommand command) {
+        return createTaskWithResult(command).task();
+    }
+
+    /** The outcome follows the winning INSERT, never the task's asynchronous status. */
+    public CreateAgentTaskResult createTaskWithResult(CreateAgentTaskCommand command) {
         validate(command);
         String fingerprint = fingerprintFactory.calculate(command.agentId(), command.userInput()).sha256();
 
@@ -41,11 +46,11 @@ public class AgentTaskApplicationService {
                 command.clientRequestId()
         );
         if (existing != null) {
-            return sameRequestOrConflict(existing, fingerprint);
+            return new CreateAgentTaskResult(sameRequestOrConflict(existing, fingerprint), false);
         }
 
         try {
-            return creationTransactionService.createNew(command, fingerprint);
+            return new CreateAgentTaskResult(creationTransactionService.createNew(command, fingerprint), true);
         } catch (DataIntegrityViolationException ex) {
             // The failed PostgreSQL transaction has already unwound through its proxy here.
             // Recovery must use AgentTaskQueryService's independent REQUIRES_NEW transaction.
@@ -56,7 +61,7 @@ public class AgentTaskApplicationService {
             if (concurrentWinner == null) {
                 throw ex;
             }
-            return sameRequestOrConflict(concurrentWinner, fingerprint);
+            return new CreateAgentTaskResult(sameRequestOrConflict(concurrentWinner, fingerprint), false);
         }
     }
 
@@ -82,11 +87,13 @@ public class AgentTaskApplicationService {
         }
         if (command.clientRequestId() == null
                 || command.clientRequestId().isBlank()
+                || command.clientRequestId().indexOf('\0') >= 0
                 || command.clientRequestId().length() > MAX_CLIENT_REQUEST_ID_LENGTH) {
-            throw invalid("clientRequestId must contain 1 to 128 characters");
+            throw invalid("clientRequestId must contain 1 to 128 non-NUL characters");
         }
-        if (command.userInput() == null || command.userInput().isBlank()) {
-            throw invalid("userInput must not be blank");
+        if (command.userInput() == null || command.userInput().isBlank()
+                || command.userInput().indexOf('\0') >= 0) {
+            throw invalid("userInput must not be blank or contain NUL");
         }
     }
 

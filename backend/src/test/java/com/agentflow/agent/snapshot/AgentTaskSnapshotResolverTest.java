@@ -58,7 +58,7 @@ class AgentTaskSnapshotResolverTest {
                 "{\"b\":1,\"a\":2}",
                 "{\"handler\":\"orderQueryTool\",\"readonly\":true}"
         );
-        when(agentAppMapper.selectVisibleOwnedByIdForUpdate(301L, 101L)).thenReturn(agent);
+        when(agentAppMapper.selectVisibleOwnedByIdForSnapshot(301L, 101L)).thenReturn(agent);
         when(knowledgeBindingMapper.selectActiveBoundKnowledgeBases(301L, 101L))
                 .thenReturn(List.of(knowledgeBase));
         when(knowledgeBindingMapper.selectReadyDocumentGenerations(301L, 101L))
@@ -102,7 +102,7 @@ class AgentTaskSnapshotResolverTest {
 
     @Test
     void shouldFailBeforeTaskCreationWhenNoBoundDocumentIsReady() {
-        when(agentAppMapper.selectVisibleOwnedByIdForUpdate(301L, 101L)).thenReturn(activeAgent());
+        when(agentAppMapper.selectVisibleOwnedByIdForSnapshot(301L, 101L)).thenReturn(activeAgent());
         when(knowledgeBindingMapper.selectActiveBoundKnowledgeBases(301L, 101L))
                 .thenReturn(List.of(knowledgeBase(201L)));
         when(knowledgeBindingMapper.selectReadyDocumentGenerations(301L, 101L))
@@ -118,7 +118,7 @@ class AgentTaskSnapshotResolverTest {
     void shouldRejectDisabledAgentBeforeReadingBindings() {
         AgentApp agent = activeAgent();
         agent.setStatus("DISABLED");
-        when(agentAppMapper.selectVisibleOwnedByIdForUpdate(301L, 101L)).thenReturn(agent);
+        when(agentAppMapper.selectVisibleOwnedByIdForSnapshot(301L, 101L)).thenReturn(agent);
 
         assertThatThrownBy(() -> resolver.resolve(101L, 301L))
                 .isInstanceOf(BusinessException.class)
@@ -130,7 +130,7 @@ class AgentTaskSnapshotResolverTest {
     void shouldRejectAnIncompatibleEmbeddingProfile() {
         BoundKnowledgeBaseRow knowledgeBase = knowledgeBase(201L);
         knowledgeBase.setEmbeddingModel("text-embedding-v3");
-        when(agentAppMapper.selectVisibleOwnedByIdForUpdate(301L, 101L)).thenReturn(activeAgent());
+        when(agentAppMapper.selectVisibleOwnedByIdForSnapshot(301L, 101L)).thenReturn(activeAgent());
         when(knowledgeBindingMapper.selectActiveBoundKnowledgeBases(301L, 101L))
                 .thenReturn(List.of(knowledgeBase));
         when(knowledgeBindingMapper.selectReadyDocumentGenerations(301L, 101L))

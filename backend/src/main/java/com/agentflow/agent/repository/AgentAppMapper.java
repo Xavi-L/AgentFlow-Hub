@@ -75,6 +75,25 @@ public interface AgentAppMapper extends BaseMapper<AgentApp> {
             @Param("userId") Long userId
     );
 
+    /**
+     * Snapshot creation changes no Agent key. Keep configuration/binding writers excluded while
+     * allowing task foreign-key KEY SHARE checks, so a duplicate INSERT cannot deadlock a Runner.
+     */
+    @Select("""
+            SELECT id, name, description, system_prompt, model_provider, model_name,
+                   temperature, top_p, max_steps, max_tool_calls, max_tokens,
+                   timeout_seconds, status, created_at, updated_at
+            FROM agent_app
+            WHERE id = #{agentId}
+              AND user_id = #{userId}
+              AND deleted_at IS NULL
+            FOR NO KEY UPDATE
+            """)
+    AgentApp selectVisibleOwnedByIdForSnapshot(
+            @Param("agentId") Long agentId,
+            @Param("userId") Long userId
+    );
+
     /** Writes only V32's public configuration allowlist and the server-owned update timestamp. */
     @Update("""
             UPDATE agent_app

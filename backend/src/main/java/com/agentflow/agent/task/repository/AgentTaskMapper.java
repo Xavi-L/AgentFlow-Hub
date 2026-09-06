@@ -2,6 +2,7 @@ package com.agentflow.agent.task.repository;
 
 import com.agentflow.agent.task.model.AgentTask;
 import java.time.OffsetDateTime;
+import java.util.List;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Options;
@@ -12,6 +13,23 @@ import org.apache.ibatis.annotations.Update;
 /** PostgreSQL state transitions for the M4C task root. */
 @Mapper
 public interface AgentTaskMapper {
+
+    @Select("""
+            SELECT id, agent_id, status, phase, termination_reason, user_input,
+                   created_at, updated_at, completed_at
+            FROM agent_task
+            WHERE user_id = #{userId}
+            ORDER BY created_at DESC, id DESC
+            LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<AgentTask> selectOwnedPage(
+            @Param("userId") long userId,
+            @Param("limit") int limit,
+            @Param("offset") long offset
+    );
+
+    @Select("SELECT COUNT(*) FROM agent_task WHERE user_id = #{userId}")
+    long countOwned(@Param("userId") long userId);
 
     @Insert("""
             INSERT INTO agent_task (
