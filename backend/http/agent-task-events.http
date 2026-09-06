@@ -1,0 +1,129 @@
+# V42 recoverable SSE checks. This is a request template, not passed acceptance evidence.
+# Login using user-auth.http; create an ACTIVE Agent with READY knowledge/tool bindings.
+# Set agentflowAgentId, agentflowAccessToken and agentflowOtherAccessToken locally.
+# Use a client supporting Authorization headers and streaming bodies (e.g. curl -N or fetch).
+# Do not use GET task.lastEventSequence as a client acknowledgement.
+
+@baseUrl = http://localhost:8080
+@requestKey = v42-payment-diagnosis-001
+# Set only after your client has completely applied the corresponding event.
+@lastProcessedSequence = 1
+
+### Create using the existing V41 endpoint; first request 201, exact-key reuse 200.
+POST {{baseUrl}}/api/v1/agents/{{agentflowAgentId}}/tasks
+Authorization: Bearer {{agentflowAccessToken}}
+Idempotency-Key: {{requestKey}}
+Content-Type: application/json
+
+{"userInput":"查询订单 ORD20260001 的支付失败原因"}
+
+> {%
+  client.test("task admitted or idempotently reused", function () {
+    client.assert(response.status === 201 || response.status === 200, "Expected 201/200");
+    client.global.set("agentflowTaskId", response.body.data.taskId);
+  });
+%}
+
+### Delayed subscription: even after task completion, sequence 1 is TASK_CREATED.
+# Persisted frames: id=<sequence>, event=<existing event type>, data has no ApiResponse wrapper.
+# A terminal task closes after its entire history is replayed. Heartbeat comments have no id.
+GET {{baseUrl}}/api/v1/tasks/{{agentflowTaskId}}/events?afterSequence=0
+Accept: text/event-stream
+Authorization: Bearer {{agentflowAccessToken}}
+
+### Default cursor is also 0.
+GET {{baseUrl}}/api/v1/tasks/{{agentflowTaskId}}/events
+Accept: text/event-stream
+Authorization: Bearer {{agentflowAccessToken}}
+
+### Reconnect after interrupting the first stream. Update lastProcessedSequence manually first.
+# Replayed frames begin strictly after your last completely processed sequence.
+GET {{baseUrl}}/api/v1/tasks/{{agentflowTaskId}}/events?afterSequence={{lastProcessedSequence}}
+Accept: text/event-stream
+Authorization: Bearer {{agentflowAccessToken}}
+Last-Event-ID: {{lastProcessedSequence}}
+
+### Header-only reconnect has the same meaning.
+GET {{baseUrl}}/api/v1/tasks/{{agentflowTaskId}}/events
+Accept: text/event-stream
+Authorization: Bearer {{agentflowAccessToken}}
+Last-Event-ID: {{lastProcessedSequence}}
+
+### Conflict: 400 COMMON_PARAM_INVALID before opening an SSE stream.
+GET {{baseUrl}}/api/v1/tasks/{{agentflowTaskId}}/events?afterSequence=0
+Accept: text/event-stream
+Authorization: Bearer {{agentflowAccessToken}}
+Last-Event-ID: 1
+
+### Repeated query, even with identical values: 400 COMMON_PARAM_INVALID.
+GET {{baseUrl}}/api/v1/tasks/{{agentflowTaskId}}/events?afterSequence=0&afterSequence=0
+Accept: text/event-stream
+Authorization: Bearer {{agentflowAccessToken}}
+
+### Repeated header, even with identical values: 400 COMMON_PARAM_INVALID.
+GET {{baseUrl}}/api/v1/tasks/{{agentflowTaskId}}/events
+Accept: text/event-stream
+Authorization: Bearer {{agentflowAccessToken}}
+Last-Event-ID: 0
+Last-Event-ID: 0
+
+### Negative cursor: 400 COMMON_PARAM_INVALID.
+GET {{baseUrl}}/api/v1/tasks/{{agentflowTaskId}}/events?afterSequence=-1
+Accept: text/event-stream
+Authorization: Bearer {{agentflowAccessToken}}
+
+### Malformed cursor: 400 COMMON_PARAM_INVALID.
+GET {{baseUrl}}/api/v1/tasks/{{agentflowTaskId}}/events?afterSequence=1e1
+Accept: text/event-stream
+Authorization: Bearer {{agentflowAccessToken}}
+
+### Overflow: 400 COMMON_PARAM_INVALID.
+GET {{baseUrl}}/api/v1/tasks/{{agentflowTaskId}}/events?afterSequence=9223372036854775808
+Accept: text/event-stream
+Authorization: Bearer {{agentflowAccessToken}}
+
+### Ahead of this task's persisted cursor: 400 COMMON_PARAM_INVALID.
+GET {{baseUrl}}/api/v1/tasks/{{agentflowTaskId}}/events?afterSequence=9223372036854775807
+Accept: text/event-stream
+Authorization: Bearer {{agentflowAccessToken}}
+
+### Cross-user access: 404 COMMON_NOT_FOUND before opening an SSE stream.
+GET {{baseUrl}}/api/v1/tasks/{{agentflowTaskId}}/events?afterSequence=0
+Accept: text/event-stream
+Authorization: Bearer {{agentflowOtherAccessToken}}
+
+### Unknown task: same 404 COMMON_NOT_FOUND.
+GET {{baseUrl}}/api/v1/tasks/9223372036854775807/events?afterSequence=0
+Accept: text/event-stream
+Authorization: Bearer {{agentflowAccessToken}}
+
+### After receiving a terminal event, GET the authoritative stored answer.
+GET {{baseUrl}}/api/v1/tasks/{{agentflowTaskId}}
+Authorization: Bearer {{agentflowAccessToken}}
+
+### Compare persisted Trace history with deduplicated SSE frames and exact answer chunks.
+GET {{baseUrl}}/api/v1/tasks/{{agentflowTaskId}}/trace
+Authorization: Bearer {{agentflowAccessToken}}
+
+> {%
+  client.test("terminal history and answer agree", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    var trace = response.body.data;
+    var events = trace.events;
+    client.assert(trace.task.lastEventSequence === events.length, "Expected complete fixture history");
+    for (var i = 0; i < events.length; i++) {
+      client.assert(events[i].sequenceNo === i + 1, "Expected contiguous persisted sequence");
+    }
+    if (trace.task.status === "COMPLETED") {
+      var answer = events.filter(e => e.eventType === "ANSWER_CHUNK").map(e => e.payload.text).join("");
+      client.assert(answer === trace.task.finalAnswer, "Expected exact answer, including whitespace/Unicode");
+      client.assert(events[events.length - 1].eventType === "TASK_COMPLETED", "Expected terminal event");
+    }
+  });
+%}
+
+# In the automated isolated-PostgreSQL acceptance, corrupt only disposable fixtures to check gaps.
+# Initial gap: 409 TASK_EVENT_SEQUENCE_GAP. Midstream gap: id-less STREAM_ERROR then close.
+# Never delete production/development events to run the gap scenario.
+# Resource limits, real disconnect, batch boundaries and cleanup need the automated HTTP harness;
+# a manually issued successful request alone is not evidence of those behaviors.

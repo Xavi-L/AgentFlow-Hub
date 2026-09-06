@@ -307,7 +307,7 @@ class AgentTaskApiPostgresIntegrationTest {
         assertThat(create(ownerToken, AGENT, "x".repeat(129), INPUT).getStatusCode().value()).isEqualTo(400);
         assertThat(create(ownerToken, AGENT, "empty-input", " ").getStatusCode().value()).isEqualTo(400);
         assertThat(create(ownerToken, AGENT, "nul-input", "invalid\u0000input").getStatusCode().value()).isEqualTo(400);
-        assertThat(get(ownerToken, "/tasks/" + taskId + "/events").getStatusCode().value()).isEqualTo(404);
+        // Recoverable SSE is exercised with a real streaming client in the V42 acceptance class.
         assertThat(jdbc.queryForObject("SELECT count(*) FROM agent_task", Integer.class)).isEqualTo(1);
     }
 

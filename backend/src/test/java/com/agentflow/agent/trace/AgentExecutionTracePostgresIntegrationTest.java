@@ -567,6 +567,55 @@ class AgentExecutionTracePostgresIntegrationTest {
                 base.chatModel(), base.retrieval(), List.of(tool));
     }
 
+    @Test
+    void shouldReadEventBatchStateAndWatermarkInOneSnapshotAcrossConcurrentCompletion() throws Exception {
+        AgentTask task = claim(createTask("event-batch-snapshot", "snapshot query"));
+        AgentTaskMapper actualTaskMapper = applicationContext.getBean(AgentTaskMapper.class);
+        AgentTask before = actualTaskMapper.selectOwnedById(task.getId(), USER_ID);
+        AgentTaskMapper readBoundary = mock(AgentTaskMapper.class);
+
+        try (ExecutorService writer = Executors.newSingleThreadExecutor()) {
+            when(readBoundary.selectOwnedById(task.getId(), USER_ID)).thenAnswer(call -> {
+                AgentTask selected = actualTaskMapper.selectOwnedById(task.getId(), USER_ID);
+                assertThat(jdbc.queryForObject("SHOW transaction_isolation", String.class))
+                        .isEqualTo("repeatable read");
+                assertThat(jdbc.queryForObject("SHOW transaction_read_only", String.class)).isEqualTo("on");
+                writer.submit(() -> {
+                    assertThat(taskLifecycleTransactions.complete(task.getId(),
+                            TaskExecutionOutcome.completed("answer committed during the batch read"))).isTrue();
+                }).get(10, TimeUnit.SECONDS);
+                return selected;
+            });
+            TaskEventQueryService target = new TaskEventQueryService(readBoundary,
+                    applicationContext.getBean(AgentTaskEventMapper.class),
+                    applicationContext.getBean(SafeTaskEventProjector.class));
+            ProxyFactory proxyFactory = new ProxyFactory(target);
+            proxyFactory.setProxyTargetClass(true);
+            proxyFactory.addAdvice(new TransactionInterceptor(
+                    applicationContext.getBean(PlatformTransactionManager.class),
+                    new AnnotationTransactionAttributeSource()));
+            TaskEventQueryService reader = (TaskEventQueryService) proxyFactory.getProxy();
+
+            var during = reader.findOwnedBatch(USER_ID, task.getId(), 0, 2);
+            assertThat(during.status().name()).isEqualTo("RUNNING");
+            assertThat(during.lastEventSequence()).isEqualTo(before.getLastEventSequence());
+            assertThat(during.events()).extracting(SafeTaskEventResponse::eventType)
+                    .containsExactly("TASK_CREATED", "TASK_STARTED");
+            assertThat(during.events().getLast().sequenceNo()).isEqualTo(during.lastEventSequence());
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
+                    .isActualTransactionActive()).isFalse();
+        }
+
+        var after = applicationContext.getBean(TaskEventQueryService.class)
+                .findOwnedBatch(USER_ID, task.getId(), before.getLastEventSequence(), 2);
+        assertThat(after.status().isTerminal()).isTrue();
+        assertThat(after.events()).extracting(SafeTaskEventResponse::eventType)
+                .containsExactly("ANSWER_CHUNK", "TASK_COMPLETED");
+        assertThat(after.events().getLast().sequenceNo()).isEqualTo(after.lastEventSequence());
+        assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
+                .isActualTransactionActive()).isFalse();
+    }
+
     private AgentTask createTask(String key, String input) {
         return taskApplicationService.createTask(new CreateAgentTaskCommand(
                 USER_ID,

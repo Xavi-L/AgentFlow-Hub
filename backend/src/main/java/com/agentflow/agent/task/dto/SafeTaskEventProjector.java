@@ -1,10 +1,12 @@
 package com.agentflow.agent.task.dto;
 
 import com.agentflow.agent.task.model.AgentTaskEvent;
+import com.agentflow.agent.task.model.TaskEventType;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.util.List;
 import org.springframework.stereotype.Component;
 
 /** Never returns the persistence entity or its unprojected JSON payload. */
@@ -20,9 +22,18 @@ public class SafeTaskEventProjector {
 
     public SafeTaskEventResponse toResponse(AgentTaskEvent event) {
         JsonNode payload = payloadProjector.parse(event.getPayload());
+        if (!payload.isObject()) {
+            throw new IllegalStateException("Persisted task event payload must be an object");
+        }
+        TaskEventType eventType;
+        try {
+            eventType = TaskEventType.valueOf(event.getEventType());
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalStateException("Persisted task event type is not supported", ex);
+        }
         // Answer text is the caller-visible result, not runtime metadata. Keep it byte-for-byte
         // consistent with task.finalAnswer, including JSON-looking text split across chunks.
-        if ("ANSWER_CHUNK".equals(event.getEventType()) && payload.isObject()) {
+        if (eventType == TaskEventType.ANSWER_CHUNK) {
             try {
                 JsonNode originalText = objectMapper.readTree(event.getPayload()).get("text");
                 if (originalText != null && originalText.isTextual()) {
@@ -32,9 +43,47 @@ public class SafeTaskEventProjector {
                 throw new IllegalStateException("Persisted task event is invalid JSON", ex);
             }
         }
+        // Freeze the public protocol at the producer's business fields. Historical/custom metadata
+        // and newly added persistence fields do not become public without an explicit protocol edit.
+        ObjectNode publicPayload = objectMapper.createObjectNode();
+        for (String field : fields(eventType)) {
+            JsonNode value = payload.get(field);
+            if (value != null) {
+                if (!validFieldType(field, value)) {
+                    throw new IllegalStateException("Persisted task event field has an invalid type");
+                }
+                publicPayload.set(field, value.deepCopy());
+            }
+        }
         return new SafeTaskEventResponse(
                 event.getId().toString(), event.getTaskId().toString(), event.getSequenceNo(),
-                event.getEventType(), payload, event.getCreatedAt()
+                event.getEventType(), publicPayload, event.getCreatedAt()
         );
+    }
+
+    private static List<String> fields(TaskEventType type) {
+        return switch (type) {
+            case TASK_CREATED -> List.of("status");
+            case TASK_STARTED -> List.of("status", "phase");
+            case PHASE_CHANGED -> List.of("phase");
+            case RAG_FINISHED -> List.of("stepId", "validHitCount", "candidateCount", "staleHitCount");
+            case DECISION_FINISHED -> List.of("stepId", "totalTokens", "usageQuality", "decisionType");
+            case TOOL_STARTED -> List.of("stepId", "toolCode", "reused");
+            case TOOL_FINISHED -> List.of("stepId", "toolCode", "reused", "status", "errorCode");
+            case FINAL_GENERATION_STARTED -> List.of("maxOutputTokens");
+            case ANSWER_CHUNK -> List.of("chunkIndex", "text");
+            case TASK_COMPLETED, TASK_CANCELLED, TASK_TIMED_OUT -> List.of("status", "terminationReason");
+            case TASK_FAILED -> List.of("status", "terminationReason", "errorCode");
+        };
+    }
+
+    private static boolean validFieldType(String field, JsonNode value) {
+        return switch (field) {
+            case "validHitCount", "candidateCount", "staleHitCount", "totalTokens",
+                    "maxOutputTokens", "chunkIndex" -> value.isIntegralNumber();
+            case "reused" -> value.isBoolean();
+            case "errorCode" -> value.isNull() || value.isTextual();
+            default -> value.isTextual();
+        };
     }
 }

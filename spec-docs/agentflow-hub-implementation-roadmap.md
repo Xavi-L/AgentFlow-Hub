@@ -335,8 +335,10 @@ rag_retrieval_hit
 ## 8. M4F：Task API 与可恢复 SSE
 
 实施拆分：V41/M4F-A 交付 Task REST API 与公开 Trace（契约
-`slice-docs/42_AGENT_TASK_API_PACKAGE_INTERFACE.md`）；V42 交付可恢复 SSE。
-V41 内部提供安全事件投影与游标读取，但不开放 `/events` 或订阅地址。两片完成才算完整 M4F。
+`slice-docs/42_AGENT_TASK_API_PACKAGE_INTERFACE.md`）；V42/M4F-B 交付可恢复 SSE（契约
+`slice-docs/43_AGENT_TASK_SSE_PACKAGE_INTERFACE.md`），复用并扩展 V41 安全事件投影与游标读取。
+2026-09-06 两片均已完成验收，M4F 完成：真实 HTTP SSE/JWT、Runner、Engine、ToolRuntime 与 PostgreSQL，
+全量 691/691 通过；模型和向量仍使用可控替身，不构成真实 provider/Qdrant E2E。
 
 ### API
 

@@ -63,6 +63,18 @@ class AgentTaskMapperContractTest {
         ).doesNotContainIgnoringCase("max(");
     }
 
+    @Test
+    void shouldBoundEventReplayByTheReadSnapshotWatermarkAndPageLimit() {
+        MybatisConfiguration configuration = configuration(AgentTaskEventMapper.class);
+        String sql = configuration.getMappedStatement(
+                AgentTaskEventMapper.class.getName() + ".selectBatchByTaskIdAfterSequence"
+        ).getBoundSql(Map.of("taskId", 1L, "afterSequence", 2L, "lastEventSequence", 9L, "limit", 3))
+                .getSql();
+
+        assertThat(sql).contains("task_id = ?", "sequence_no > ?", "sequence_no <= ?",
+                "ORDER BY sequence_no ASC, id ASC", "LIMIT ?");
+    }
+
     private static MybatisConfiguration configuration(Class<?> mapper) {
         MybatisConfiguration configuration = new MybatisConfiguration();
         configuration.addMapper(mapper);

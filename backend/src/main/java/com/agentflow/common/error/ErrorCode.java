@@ -29,6 +29,9 @@ public enum ErrorCode {
             409
     ),
     TASK_DISPATCH_REJECTED("TASK_DISPATCH_REJECTED", "Task dispatch was rejected", 503),
+    TASK_EVENT_SEQUENCE_GAP("TASK_EVENT_SEQUENCE_GAP", "Persisted task event sequence has a gap", 409),
+    TASK_SSE_CAPACITY_EXCEEDED("TASK_SSE_CAPACITY_EXCEEDED", "Task event connection limit reached", 503),
+    TASK_SSE_EVENT_TOO_LARGE("TASK_SSE_EVENT_TOO_LARGE", "Task event exceeds the transport byte limit", 500),
     RAG_KNOWLEDGE_NOT_READY("RAG_KNOWLEDGE_NOT_READY", "Agent knowledge is not ready", 409),
     KNOWLEDGE_BASE_NOT_ACTIVE("KNOWLEDGE_BASE_NOT_ACTIVE", "Knowledge base is not active", 409),
     KNOWLEDGE_CONTEXT_EMPTY(

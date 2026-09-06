@@ -237,7 +237,7 @@ class AgentTaskControllerTest {
     }
 
     @Test
-    void shouldNotPublishAnEventsRouteInV41() throws Exception {
+    void shouldLeaveEventsToTheSeparateSseController() throws Exception {
         authenticate();
         mockMvc().perform(get("/api/v1/tasks/401/events"))
                 .andExpect(status().isNotFound())

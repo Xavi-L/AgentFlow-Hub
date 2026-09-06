@@ -45,6 +45,17 @@ agentflow:
       large-max-bytes: 262144
       rag-hit-content-max-bytes: 16384
   task:
+    sse:
+      # V42 transport resources are independent of the Runner. Bytes are serialized UTF-8 frames.
+      max-connections: 128
+      max-connections-per-user: 8
+      batch-size: 64
+      max-pending-bytes: 262144
+      poll-interval-ms: 250
+      heartbeat-interval-ms: 15000
+      connection-timeout-ms: 300000
+      send-timeout-ms: 10000
+      poll-workers: 4
     dispatcher:
       # V38 single-instance bounded executor defaults.
       core-pool-size: 2

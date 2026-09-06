@@ -42,4 +42,19 @@ public interface AgentTaskEventMapper {
     List<AgentTaskEvent> selectByTaskIdAfterSequence(
             @Param("taskId") long taskId, @Param("afterSequence") long afterSequence
     );
+
+    @Select("""
+            SELECT id, task_id, sequence_no, event_type, payload::text AS payload, created_at
+            FROM agent_task_event
+            WHERE task_id = #{taskId}
+              AND sequence_no > #{afterSequence}
+              AND sequence_no <= #{lastEventSequence}
+            ORDER BY sequence_no ASC, id ASC
+            LIMIT #{limit}
+            """)
+    @Options(useCache = false)
+    List<AgentTaskEvent> selectBatchByTaskIdAfterSequence(
+            @Param("taskId") long taskId, @Param("afterSequence") long afterSequence,
+            @Param("lastEventSequence") long lastEventSequence, @Param("limit") int limit
+    );
 }

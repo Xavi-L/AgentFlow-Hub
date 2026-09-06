@@ -111,8 +111,8 @@ class PublicTaskTraceProjectorTest {
             var result = events.toResponse(event);
             answer.append(result.payload().path("text").textValue());
             assertThat(result.id()).isEqualTo("9007199254740993");
-            assertThat(result.payload().path("stepId").textValue()).isEqualTo("92");
-            assertThat(result.payload().path("apiKey").textValue()).isEqualTo("[REDACTED]");
+            assertThat(result.payload().has("stepId")).isFalse();
+            assertThat(result.payload().has("apiKey")).isFalse();
         }
         assertThat(answer.toString()).isEqualTo(String.join("", chunks));
     }
