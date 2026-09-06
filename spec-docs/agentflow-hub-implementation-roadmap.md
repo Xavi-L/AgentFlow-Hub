@@ -2,11 +2,15 @@
 
 > 文档状态：**NORMATIVE**  
 > 权威范围：从当前 V36 基线到 V0.1/V1.x 的施工顺序、依赖和验收门槛  
-> 最近审查基线：`main@f276549`（V36）
+> 最近审查基线：`main@8d63ced`（V42）；第 1 节保留 V36 时的施工起点。
 
 ---
 
 ## 1. 当前判断
+
+2026-09-06 更新：V37–V42 已完成绑定快照、Task/Runner、任务 Trace、快照驱动执行、Task REST 与可恢复 SSE。
+V43/M4G-A 已完成最小任务前端及受控浏览器恢复验收，具体证据见第 9 节引用的契约；
+其余管理页面和真实 provider/Qdrant E2E 待后续。以下清单记录 V36 施工起点，不作为当前缺失能力清单。
 
 截至 V36，项目已经完成大量基础能力，但还没有完成 V0.1 Agent 闭环。
 
@@ -385,6 +389,33 @@ V0.1 使用数据库事件日志读取：
 
 ## 9. M4G：最小前端与真实 E2E
 
+M4G 分片推进，以下完整页面与真实 E2E 仍是整个 M4G 的目标。
+
+### M4G-A / V43：最小任务运行前端与恢复闭环
+
+冻结契约：`slice-docs/44_FRONTEND_TASK_RUNTIME_PACKAGE_INTERFACE.md`。
+2026-09-06 已实现并通过本片验收：前端边界测试 23/23、构建通过，独立 PostgreSQL/真实浏览器 3/3。
+采用 Vue 3 / TypeScript / Vite，只实现：
+
+- 路由、API 客户端、JWT 登录、退出和认证失效状态清理；
+- 选择已有 Agent、自己的任务列表、提交输入，结果未知时复用原 Idempotency-Key；
+- Task 状态、阶段、时间线、答案、引用和取消，区分服务端与连接状态；
+- Bearer SSE、无损 ID/游标、严格 sequence 去重、成功处理后推进游标、有界重连、gap 停止与离页释放；
+- 刷新时用已有公开 Trace events 重建，继续订阅，终态以 GET task 的答案和引用收敛；
+- 只读聚合 Trace（steps、RAG、LLM、工具与事件）。
+
+核心验收使用真实浏览器、JWT、后端 Runner/Engine/ToolRuntime 和 PostgreSQL，
+模型与向量继续可控：登录 → 预配置 Agent 创建 → 持久事件 → 断网重连与刷新 → 终态 →
+答案、引用与 Trace 一致。验收状态与复现证据以 V43 契约为准。
+
+本片不实现知识库上传管理、Agent 配置编辑、真实 provider/Qdrant E2E、新增后端公开接口、
+provider streaming、多轮对话或任务执行重试。V43 完成只计 M4G-A，不等于整个 M4G 或 V0.1 Release Gate。
+
+### M4G 后续切片
+
+补齐知识库管理、Agent 配置与下面列出的真实 provider/Qdrant E2E。
+当前创建响应没有 `eventsUrl`，工具事件提供 `stepId`；前端只消费已存在的公开 DTO，不依赖目标字段。
+
 ### 页面
 
 ```text
@@ -400,7 +431,7 @@ Task Trace
 - Idempotency-Key；
 - server status/phase 与 client uiState 分离；
 - serverLastEventSequence 与 lastProcessedSequence 分离；
-- 新 task 从 afterSequence=0 replay；
+- 新 task 从 0 完整恢复事件；V43 先重建 Trace，再从已处理游标 SSE replay；
 - SSE sequence reducer；
 - reconnect；
 - refresh snapshot；

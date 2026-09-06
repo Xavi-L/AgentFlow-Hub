@@ -2,7 +2,7 @@
 
 > 文档状态：**NORMATIVE**  
 > 权威范围：V0.1 页面边界、后端状态映射、SSE 恢复、事件 reducer 和展示规则  
-> 最近审查基线：`main@f276549`（V36）  
+> 最近审查基线：`main@8d63ced`（V42）；V43/M4G-A 范围冻结于 2026-09-06。
 > 前端不得重新定义 TaskStatus、TaskPhase 或 RetrievalReadiness。
 
 ---
@@ -21,6 +21,23 @@ V0.1 前端只负责证明核心 Agent 闭环可用、可观察、可恢复：
 ```
 
 前端不是当前项目的主要差异化能力。使用简单、稳定的表格、表单、抽屉和时间线，不建设复杂工作台、流程编辑器或仪表盘。
+
+### 1.1 V43 / M4G-A 当前实现边界
+
+本设计保留完整 V0.1 目标；V43 只实现最小任务运行前端与恢复闭环，契约见
+`slice-docs/44_FRONTEND_TASK_RUNTIME_PACKAGE_INTERFACE.md`：
+
+- 前端基础、登录、JWT、退出与认证失效状态清理；
+- 选择已有 Agent、自己的任务列表、提交输入及结果未知时复用原 Idempotency-Key；
+- Task 状态、阶段、持久事件时间线、答案、引用与取消；
+- Bearer SSE、无损 sequence、去重、处理后推进游标、有界重连、gap 停止应用与离页清理；
+- 刷新时用公开 Trace 的 events 重建，终态用 GET task 的答案与引用收敛；
+- 已有聚合接口的只读 Trace。
+
+第 4.2、4.3、13、14 节的知识库管理和 Agent 配置页面留给后续切片。
+V43 使用真实浏览器、后端执行组件和 PostgreSQL，模型与向量允许可控替身；
+真实 provider/Qdrant E2E 仍是后续 M4G 与 V0.1 Release Gate 的独立要求。
+V43 不增加后端公开接口、不实现任务执行重试、多轮对话或 provider streaming。
 
 ---
 
@@ -104,7 +121,8 @@ CLOSED
 - 登录成功保存 access token；
 - token 过期时清除本地状态并跳转；
 - 不实现 refresh token UI；
-- logout 为清除本地 token。
+- logout 清除 token、用户、Agent/任务/Trace 缓存、待确认创建请求及运行页状态，并终止请求、SSE 与重连计时器；
+- REST/SSE 401 与本地过期采用相同清理路径；旧会话晚到的响应不得写回新会话。
 
 ### 4.2 知识库页
 
@@ -181,6 +199,7 @@ maxToolCalls < maxDecisionTurns
 
 ```text
 /agents/:agentId/run
+/tasks
 /tasks/:taskId
 ```
 
@@ -221,7 +240,7 @@ V0.1 使用 tabs 或折叠面板：
 
 ### 5.1 请求
 
-每次用户点击发送时生成不可复用的 opaque idempotency key：
+每次用户明确发起一个新 task 时生成新的 opaque idempotency key：
 
 ```ts
 const idempotencyKey = crypto.randomUUID()
@@ -245,17 +264,24 @@ taskId
 status
 phase
 serverLastEventSequence
-eventsUrl
 idempotencyKey
 ```
 
-`serverLastEventSequence` 表示服务端已经提交到哪里，不代表客户端已经处理到哪里。新 task 的本地 `lastProcessedSequence` 初始化为 `0`，随后连接 `afterSequence=0`，让数据库 replay 发送 `TASK_CREATED` 以及连接建立前产生的所有早期事件。
+当前创建响应为 `AgentTaskResponse`，没有 `eventsUrl`。前端根据 taskId 构造
+`/api/v1/tasks/{taskId}/events`；新建返回 201，幂等复用返回 200，冲突返回 409。
+
+`serverLastEventSequence` 表示服务端已经提交到哪里，不代表客户端已经处理到哪里。新 task 的本地
+`lastProcessedSequence` 初始化为 `0`。V43 进入运行页时先 GET 公开 Trace，从 0 严格校验并应用
+其中完整 events，再从实际已处理游标连接 SSE；Trace 读取之后提交的事件由 SSE replay 补发。
+若采用直接订阅方式则必须从 `afterSequence=0` 开始，两种方式都不能丢失 TASK_CREATED 等早期事件。
 
 不得直接把创建响应的 `lastEventSequence` 复制到 `lastProcessedSequence`，否则客户端会跳过尚未读取的事件。
 
 ### 5.3 网络结果未知
 
-POST 超时或连接断开时，不立即生成新 key 重试。使用原 key 重发创建请求，后端应返回同一 task 或明确冲突。
+POST 超时或连接断开时，不立即生成新 key 重试。保留原 key、agentId 和原始 userInput（包括空白），
+重发完全相同的请求，后端返回同一 task 或明确冲突。刷新后也保留当前会话的待确认请求，
+退出、认证失效或切换用户时清除；不能把未知结果自动解释为创建失败。
 
 ---
 
@@ -267,8 +293,8 @@ POST 超时或连接断开时，不立即生成新 key 重试。使用原 key �
 interface TaskRuntimeState {
   task: AgentTaskDetail | null
   uiState: TaskUiState
-  serverLastEventSequence: number
-  lastProcessedSequence: number
+  serverLastEventSequence: string
+  lastProcessedSequence: string
   timeline: TaskTimelineItem[]
   draftAnswer: string
   finalAnswer: string | null
@@ -278,7 +304,9 @@ interface TaskRuntimeState {
 }
 ```
 
-ID 一律使用 `string`，不得转换为 JavaScript number。
+ID 与游标一律保存为十进制 `string`，不得经 JavaScript number 中转。后端业务 ID 已为字符串，
+但 `lastEventSequence`、`sequenceNo` 与 STREAM_ERROR 的游标仍是 JSON numeric long；
+REST 和 SSE 均须从响应原文无损解析，再使用 BigInt 比较/加一。普通 `JSON.parse` 后转字符串无法恢复已丢失精度。
 
 `serverLastEventSequence` 只用于判断服务端是否还有未处理事件；SSE cursor 始终使用 `lastProcessedSequence`。
 
@@ -307,35 +335,43 @@ await fetchEventSource(
 
 收到事件时：
 
-1. 严格解析 `event.id` 和 data.sequenceNo；
-2. 二者必须相同；
+1. 从原始 JSON 无损解析 `event.id` 和 data.sequenceNo，只接受 ASCII 十进制整数及 signed long 范围；
+2. 二者必须相同，data.taskId 必须属于当前任务，SSE event 名必须等于 data.eventType；
 3. `sequenceNo <= lastProcessedSequence`：忽略；
 4. `sequenceNo == lastProcessedSequence + 1`：应用；
-5. 出现 gap：停止增量应用，调用 events/trace snapshot 恢复；
+5. 出现 gap 或非法事件：停止增量应用并释放连接，展示错误；用户点击“刷新并恢复”后通过已有 GET trace 重建，完整性校验仍失败则继续停止，不跳过缺口；
 6. 应用成功后再更新 lastProcessedSequence；
 7. 同时更新 serverLastEventSequence 的最大值。
 
 不能只依赖浏览器库“应该不会重复”。
 
+Trace event 的时间字段为 `createdAt`，SSE data 为 `timestamp`，恢复时需显式适配。
+SSE comment 不推进游标；无 id 的 `STREAM_ERROR` 是连接控制帧，不是 TaskStatus 或持久事件。
+不得用其 `lastSentSequence` 更新客户端已处理游标。服务端首批 gap 为 409 JSON；建流后的 gap 为控制帧或 EOF。
+
 ### 7.3 断线重连
 
-- 指数退避，但设置最大间隔；
+- 指数退避，设置最大间隔及累计尝试上限；达到上限显示断线状态并保留手动恢复入口；
 - 始终携带 lastProcessedSequence；
 - 401 不自动无限重连，清除 token；
 - 404 表示 task 不可见，停止；
-- terminal task 在处理完 terminal event 后不再重连；
-- 重连失败时仍允许用户刷新 task detail。
+- terminal task 在处理完 terminal event 并完成 GET 收敛后不再重连；
+- EOF 本身不代表任务完成，未确认终态时按已处理游标有界重连；
+- 重连失败时仍允许用户刷新 task detail；离开运行页、切换任务或会话时终止连接及计时器。
 
 ### 7.4 页面刷新
 
 刷新流程：
 
-1. GET task detail；
-2. GET trace 或完整 events snapshot；
-3. 按 sequence 重建 timeline，并将 `lastProcessedSequence` 设置为**实际成功应用的最大 sequence**；
-4. 以 task.finalAnswer/citations 为权威；
-5. 若 task 非终态，从 lastProcessedSequence 建立 SSE；
-6. GET 与 SSE 之间产生的事件由 replay 补发。
+1. GET `/api/v1/tasks/{taskId}/trace`，取同一快照的 task/events（当前没有独立完整 events snapshot REST 接口）；
+2. 按 sequence 重建 timeline，并将 `lastProcessedSequence` 设置为**实际成功应用的最大 sequence**；
+3. 若 trace.task 非终态，从 lastProcessedSequence 建立 SSE；
+4. GET 与 SSE 之间产生的事件由 replay 补发；
+5. 若已终态，GET task 并再次读取 Trace，核对状态、游标、答案、引用一致后，以 GET task 的 finalAnswer/citations 收敛。
+
+Trace 自带 task、events，属于同一读快照。重建时从 0 验证连续 events，只有成功应用到该快照
+`trace.task.lastEventSequence` 才能宣称完整恢复。不同 GET 返回可能跨越终态，不能用较旧响应覆盖已知终态。
+Trace 已终态时仍须重建历史，并 GET task 确认最终答案/引用；终态 GET 暂时失败时显示“待同步”，允许重试 GET。
 
 不得直接将 task.lastEventSequence 当成已处理 cursor，除非对应事件列表已经全部成功应用。
 
@@ -362,10 +398,10 @@ SSE draft 永远不是最终数据源。
 | `TASK_CREATED` | 建立 timeline 起点 |
 | `TASK_STARTED` | 显示开始执行 |
 | `PHASE_CHANGED` | 更新当前 phase，不重复创建大量相同行 |
-| `RAG_FINISHED` | 显示命中数量、耗时和 citation 摘要 |
+| `RAG_FINISHED` | 显示 validHitCount、candidateCount、staleHitCount；耗时和引用详情从 Trace 读取 |
 | `DECISION_FINISHED` | 显示 `CALL_TOOL` 或 `FINISH`，不显示隐藏推理 |
 | `TOOL_STARTED` | 新增工具调用进行中项 |
-| `TOOL_FINISHED` | 按 toolCallId 更新对应项 |
+| `TOOL_FINISHED` | 按 stepId 更新对应项，事件没有 toolCallId |
 | `FINAL_GENERATION_STARTED` | 显示生成中 |
 | `ANSWER_CHUNK` | 追加临时答案，可为完整答案单块 |
 | `TASK_COMPLETED` | 拉取 task，展示成功/受预算限制原因 |
@@ -449,30 +485,35 @@ UI 需要在答案顶部显示非阻断提示，不能把这两种完成伪装�
 
 ## 11. 引用展示
 
-最终答案中的 `[C1]` 映射到 task.citations：
+最终答案中的 `[S1]` 等 marker 按实际 citationId 映射到 task.citations。当前 V40 输出字段为：
 
 ```text
 citationId
-fileName
-titlePath
-score
-contentPreview
 chunkId
 documentId
+vectorGeneration
 ```
+
+当前 task.citations 不含 fileName/titlePath/score/contentPreview。需要展示证据正文或 score 时，
+通过公开 Trace 的 `steps[].ragRetrievals[].hits[]` 按 citationId 关联 `contentSnapshot`、`score`、
+`metadataSnapshot`，不得假设 metadata 一定含文件名或标题。
 
 交互：
 
 - 点击 marker 打开 evidence drawer；
 - 只显示后端验证过的 citation；
 - citation 不存在时前端不自行猜测；
-- contentPreview 有长度限制；
-- 可跳转到对应文档/chunk；
-- 源文档已删除时仍显示 Trace snapshot，并标注“历史快照”。
+- 证据正文默认折叠并控制显示长度；
+- V43 只展示引用与 Trace 历史快照，不提供尚未实现的文档/chunk 页面跳转；
+- 历史证据显示为“历史快照”，缺失的 metadata 显示缺省值，不推断源文档是否已删除。
 
 ---
 
 ## 12. Trace 页面
+
+只消费 `GET /api/v1/tasks/{taskId}/trace` 的公开聚合：`task`、`executionSnapshot`、`steps`、`events`。
+LLM/RAG/tool 记录嵌套在各 step 的 `llmCalls`、`ragRetrievals`、`toolCalls` 中，页面可投影成独立面板，
+不假设存在独立 Trace 子接口或顶层 `rag`、`llmCalls`。可展示的字段以当前公开 DTO 为准。
 
 ### Overview
 
@@ -578,12 +619,13 @@ errorCode
 safe message
 Task ID
 查看 Trace
-重试为新 Task
+新建独立 Task（后续可选交互）
 ```
 
 不得只显示“请求失败”。
 
-重试 task 时生成新的 Idempotency-Key；网络结果未知的创建请求重发时使用原 key，两者必须区分。
+V43 不提供任务执行重试。用户从入口主动提交独立新任务时生成新的 Idempotency-Key；
+网络结果未知的创建请求重发时使用原 key，两者必须区分。
 
 错误 UI 不显示 stack、provider body、SQL、内部 URL 或本地路径。
 
@@ -612,15 +654,15 @@ V0.1 完成后再考虑：
 
 必须验证：
 
-1. BIGINT ID 不发生 JS 精度丢失；
+1. BIGINT ID、REST/SSE numeric long 游标不发生 JS 精度丢失；
 2. POST 网络未知时使用原 Idempotency-Key；
-3. 新 task 从 afterSequence=0 读取尚未处理事件；
+3. 新 task 从 0 重建完整 Trace events，再从已处理游标 SSE replay，保留所有早期事件；
 4. serverLastEventSequence 与 lastProcessedSequence 不混用；
 5. Server status、phase 和 client uiState 分离；
 6. TIMED_OUT 单独展示；
 7. parseStatus 与 retrievalReadiness 分开展示；
 8. SSE 重复事件被忽略；
-9. sequence gap 会触发恢复而不是继续错误追加；
+9. sequence gap 停止应用并提供手动“刷新并恢复”，不能继续错误追加；
 10. 页面刷新后 timeline/final answer 可恢复；
 11. terminal 后以 task.finalAnswer 覆盖 draft；
 12. cancel 不提前伪造终态；
@@ -628,3 +670,7 @@ V0.1 完成后再考虑：
 14. Trace 不泄漏内部配置或 chain-of-thought；
 15. V0.1 不伪装 provider token streaming；
 16. V0.1 主流程只需要少量页面即可完整演示。
+
+V43/M4G-A 验收适用以上任务运行相关项；第 7 项知识库状态页面及完整 V0.1 页面主流程留给后续。
+V43 核心证据必须覆盖真实浏览器登录 → 预配置 Agent 创建任务 → 持久事件 → 断网重连与刷新 →
+终态 → 答案、引用与 Trace 一致，同时明确模型/向量替身边界；不以此宣称整个 M4G 或 V0.1 完成。
