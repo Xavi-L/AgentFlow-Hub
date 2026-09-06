@@ -12,7 +12,7 @@ export const http = axios.create({ baseURL: API_BASE, timeout: 20000, responseTy
 const activeRequests = new Set<AbortController>()
 onSessionClear(() => { activeRequests.forEach((controller) => controller.abort()); activeRequests.clear() })
 
-async function request<T>(method: 'GET' | 'POST', url: string, body?: unknown, options: { signal?: AbortSignal; key?: string; public?: boolean } = {}): Promise<T> {
+export async function request<T>(method: 'GET' | 'POST', url: string, body?: unknown, options: { signal?: AbortSignal; key?: string; public?: boolean } = {}): Promise<T> {
   const version = sessionRevision()
   if (!options.public && !hasSession()) throw new ApiError('请先登录', 401, 'AUTH_UNAUTHENTICATED')
   const token = session.token

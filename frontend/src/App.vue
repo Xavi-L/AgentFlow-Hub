@@ -8,6 +8,7 @@ import { session, clearSession } from './lib/session'
       <RouterLink to="/tasks" class="brand"><span class="brand-symbol">A</span> AgentFlow <span class="brand-hub">HUB</span></RouterLink>
       <nav v-if="session.token" aria-label="主导航">
         <RouterLink to="/tasks">任务</RouterLink>
+        <RouterLink to="/knowledge-bases">知识库</RouterLink>
         <span class="account">{{ session.user?.displayName || session.user?.username }}</span>
         <button class="text-button" @click="clearSession()">退出登录</button>
       </nav>

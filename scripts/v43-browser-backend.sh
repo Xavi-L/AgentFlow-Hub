@@ -39,8 +39,9 @@ mvn -q -DskipTests test-compile dependency:build-classpath -Dmdep.includeScope=t
   -Dagentflow.task.sse.heartbeat-interval-ms=300 -Dagentflow.task.sse.connection-timeout-ms=60000 \
   -Dmybatis-plus.configuration.log-impl=org.apache.ibatis.logging.nologging.NoLoggingImpl \
   -Dlogging.level.com.agentflow=WARN "-Dserver.port=$http_port" -Dserver.address=127.0.0.1 \
+  "-Dagentflow.document.storage.root=$run_dir/documents" \
   "-Dv43.control-dir=$run_dir" -cp "target/test-classes:target/classes:$(cat "$run_dir/classpath.txt")" \
-  com.agentflow.acceptance.V43BrowserFixture >"$run_dir/backend.log" 2>&1 &
+  "${V43_FIXTURE_CLASS:-com.agentflow.acceptance.V43BrowserFixture}" >"$run_dir/backend.log" 2>&1 &
 backend_pid=$!
 echo "V43_CONTROL_DIR=$run_dir"
 echo "Backend log: $run_dir/backend.log"

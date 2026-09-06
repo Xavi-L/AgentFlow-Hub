@@ -34,10 +34,23 @@ V0.1 前端只负责证明核心 Agent 闭环可用、可观察、可恢复：
 - 刷新时用公开 Trace 的 events 重建，终态用 GET task 的答案与引用收敛；
 - 已有聚合接口的只读 Trace。
 
-第 4.2、4.3、13、14 节的知识库管理和 Agent 配置页面留给后续切片。
+V43 未覆盖第 4.2、4.3、13、14 节的知识库管理和 Agent 配置页面；知识库部分由下述 V45 承接。
 V43 使用真实浏览器、后端执行组件和 PostgreSQL，模型与向量允许可控替身；
 真实 provider/Qdrant E2E 仍是后续 M4G 与 V0.1 Release Gate 的独立要求。
 V43 不增加后端公开接口、不实现任务执行重试、多轮对话或 provider streaming。
+
+### 1.2 V45 / M4G-B2 最小知识库管理边界
+
+冻结契约：`slice-docs/46_KNOWLEDGE_FRONTEND_PACKAGE_INTERFACE.md`；基于 V44 的公开 Readiness 读模型。
+增加知识库分页列表/详情/创建、TXT/MD 单文件上传、既有知识库级解析/向量化操作，
+以及文档分页列表、状态详情、当前 generation、四项计数与五种 Readiness。
+创建仅提交名称和描述；profile/strategy 只读且不兼容时明确提示，只有 READY 显示可用于 Agent。
+上传只产生 PENDING，轮询 GET 不启动解析/向量化；手动刷新与有界轮询不会伪造失败。
+离页/退出取消请求并隔离晚到响应，创建/上传结果未知时不自动重发。
+验收使用真实浏览器、JWT、PostgreSQL、文件解析与受控 embedding/vector，并保留 V43 回归。
+本片不含 Agent 配置、检索调试、编辑/删除/重处理、全库筛选统计、新后端接口、迁移或自动入库调度。
+部署为 remote 时既有向量化仍调用配置服务；真实模型/Qdrant E2E 保留后续。
+具体运行证据以 V45 契约为准。
 
 ---
 

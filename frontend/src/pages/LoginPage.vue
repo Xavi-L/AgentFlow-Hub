@@ -9,10 +9,12 @@ const username = ref(''), password = ref(''), busy = ref(false), error = ref('')
 async function login() {
   if (busy.value) return
   busy.value = true; error.value = ''
+  // setSession clears the previous session and may navigate away from this route.
+  const redirect = route.query.redirect
+  const target = typeof redirect === 'string' && /^\/(tasks|agents|knowledge-bases)(\/|\?|$)/.test(redirect) ? redirect : '/tasks'
   try {
     await api.login(username.value, password.value)
     password.value = ''
-    const target = typeof route.query.redirect === 'string' && /^\/(tasks|agents)(\/|$)/.test(route.query.redirect) ? route.query.redirect : '/tasks'
     await router.replace(target)
   } catch (e) { error.value = message(e) } finally { busy.value = false }
 }

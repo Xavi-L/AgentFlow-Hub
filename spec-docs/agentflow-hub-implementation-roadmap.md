@@ -411,9 +411,18 @@ M4G 分片推进，以下完整页面与真实 E2E 仍是整个 M4G 的目标。
 本片不实现知识库上传管理、Agent 配置编辑、真实 provider/Qdrant E2E、新增后端公开接口、
 provider streaming、多轮对话或任务执行重试。V43 完成只计 M4G-A，不等于整个 M4G 或 V0.1 Release Gate。
 
+### M4G-B1 / V44 与 M4G-B2 / V45：知识库就绪读模型与最小管理前端
+
+V44 契约：`slice-docs/45_KNOWLEDGE_READINESS_PACKAGE_INTERFACE.md`，补充只读 profile/strategy、
+当前 generation 四项计数和五种 Readiness。V45 契约：`slice-docs/46_KNOWLEDGE_FRONTEND_PACKAGE_INTERFACE.md`，
+消费 V44 读模型，实现知识库分页列表/详情/创建、TXT/MD 单文件上传、显式解析/向量化、文档分页状态。
+上传只产生 PENDING，GET 轮询不自动入库；超时结果待确认，创建和上传不自动重发。
+验收区分真实浏览器/JWT/PostgreSQL/文件解析与受控 embedding/vector，并保留 V43 回归，实际证据见对应契约。
+Agent 配置、检索调试、编辑/删除/重处理、全库筛选统计、自动调度及真实 provider/Qdrant E2E 未纳入 V45。
+
 ### M4G 后续切片
 
-补齐知识库管理、Agent 配置与下面列出的真实 provider/Qdrant E2E。
+继续推进 Agent 配置与下面列出的真实 provider/Qdrant E2E；知识库管理的扩展能力另行冻结范围。
 当前创建响应没有 `eventsUrl`，工具事件提供 `stepId`；前端只消费已存在的公开 DTO，不依赖目标字段。
 
 ### 页面

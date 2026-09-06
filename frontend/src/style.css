@@ -631,3 +631,34 @@ main{
     grid-template-columns:minmax(0,1fr)
   }
 }
+
+/* Knowledge management shares the task runtime's visual language. */
+.knowledge-grid{display:grid;grid-template-columns:minmax(290px,.75fr) minmax(420px,1.4fr);gap:26px}
+.knowledge-overview,.ingestion-panel,.document-list,.document-detail{margin-bottom:24px}
+.config-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 28px;margin:0}
+.config-grid dt,.vector-counts dt{font-size:.8125rem;color:var(--muted)}
+.config-grid dd{margin:5px 0 0;font-size:.875rem;overflow-wrap:anywhere}
+.config-warning{color:#9a5526;font-size:.8125rem}
+.form-hint{font-size:.8125rem;margin-top:18px}
+.ingestion-steps{display:grid;grid-template-columns:1.05fr 1fr 1fr;gap:28px;margin-top:24px}
+.ingestion-steps>div,.ingestion-steps>form{min-width:0}
+.ingestion-steps>div{border-left:1px solid var(--border);padding-left:28px}
+.ingestion-steps h3{margin-top:24px;margin-bottom:12px}
+.ingestion-steps p{font-size:.875rem;min-height:67px}
+.ingestion-steps input{font-size:.8125rem;padding:9px;max-width:100%;margin-bottom:18px}
+.document-row{border-top:1px solid var(--border);padding:23px 0}
+.document-row .task-row-head{align-items:start;margin-bottom:18px}
+.document-row .text-button{white-space:nowrap}
+.document-file-meta{display:block;margin-top:5px}
+.document-status .metadata{margin-top:14px}
+.vector-counts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0 0;max-width:660px}
+.vector-counts>div{padding:10px 14px;background:#f5f8fa;border-radius:6px}
+.vector-counts dd{margin:3px 0 0;font-size:1.05rem;overflow-wrap:anywhere}
+.ready-label{font-size:.8125rem;color:var(--accent);align-self:center}
+.status[data-status="READY"]{background:#e4f3ed;color:#18644d}
+.status[data-status="INDEXING"]{background:#eaf2ff;color:#255fa2}
+.status[data-status="DEGRADED"]{background:#fdf3db;color:#805f1c}
+.poll-message{font-size:.8125rem}
+.knowledge-row strong{overflow-wrap:anywhere}
+@media(max-width:900px){.knowledge-grid{grid-template-columns:1fr}.ingestion-steps{grid-template-columns:1fr}.ingestion-steps>div{border-left:0;border-top:1px solid var(--border);padding:24px 0 0}.ingestion-steps p{min-height:0}}
+@media(max-width:600px){.config-grid{grid-template-columns:1fr}.vector-counts{grid-template-columns:repeat(2,minmax(0,1fr))}.topbar{height:auto;min-height:78px;flex-wrap:wrap;padding:16px 20px}nav{gap:16px}.account{padding-left:16px}}

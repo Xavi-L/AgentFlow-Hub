@@ -22,8 +22,9 @@ cleanup() {
 trap cleanup EXIT INT TERM
 bash "$repo_dir/scripts/v43-browser-backend.sh" >"$V43_CONTROL_DIR/launcher.log" 2>&1 &
 backend_launcher_pid=$!
+ready_file=${V43_READY_FILE:-backend-ready}
 for ((attempt=0; attempt<120; attempt++)); do
-  [[ -f "$V43_CONTROL_DIR/backend-ready" ]] && break
+  [[ -f "$V43_CONTROL_DIR/$ready_file" ]] && break
   if ! kill -0 "$backend_launcher_pid" 2>/dev/null; then
     cat "$V43_CONTROL_DIR/launcher.log" >&2
     [[ ! -f "$V43_CONTROL_DIR/backend.log" ]] || tail -60 "$V43_CONTROL_DIR/backend.log" >&2
@@ -31,7 +32,7 @@ for ((attempt=0; attempt<120; attempt++)); do
   fi
   sleep 1
 done
-if [[ ! -f "$V43_CONTROL_DIR/backend-ready" ]]; then
+if [[ ! -f "$V43_CONTROL_DIR/$ready_file" ]]; then
   echo "Backend did not become ready; inspect $V43_CONTROL_DIR" >&2
   exit 1
 fi

@@ -1,4 +1,4 @@
-# V43 real browser acceptance
+# V43 / V45 real browser acceptance
 
 Run `npm ci` in `frontend` first. Java 21, Maven and PostgreSQL binaries are required.
 Set `JAVA_HOME` and `PG_BIN` for your machine; on macOS the launcher locates Java 21
@@ -46,3 +46,22 @@ terminal answer/citation/Trace agreement, cancellation, logout and real JWT reje
 This proves the bounded M4G-A browser recovery loop. It does not prove live-provider
 or Qdrant E2E, provider streaming, task execution retry, multi-turn conversations,
 or remaining frontend management pages.
+
+## V45 knowledge management
+
+Run `bash scripts/v45-browser-acceptance.sh` from the repository root. This uses
+the same launcher with a fresh PostgreSQL cluster, real JWT and file parsing/storage,
+and the V45 test-source provider fixture. Default ports are 5175 / 18045 / 55445;
+override them with `V45_FRONTEND_PORT`, `V45_BACKEND_PORT`, and `V45_PG_PORT`.
+The script runs `knowledge.spec.ts` and all three V43 task runtime regressions.
+V45 tests are skipped when using the original V43 fixture.
+
+Coverage includes TXT/MD upload -> PENDING -> explicit parsing -> INDEXING -> explicit
+vectorization -> READY, public GET/detail agreement, both paginated lists, all five
+Readiness states, current/old and large generations, incompatible/disabled knowledge
+bases, real UTF-8 parsing failure, controlled embedding failure, lost committed write
+responses across reload, a real 20-second browser timeout after parsing commits,
+bounded polling, out-of-order pages, abort on leaving, logout, 404 and real JWT rejection.
+`knowledge-evidence.json` and screenshots distinguish the real path from seeded states
+and browser network fault injection. Embedding/vector remain controlled; this does not
+prove live-provider/Qdrant E2E. Temporary source storage stays inside the fixture directory.
