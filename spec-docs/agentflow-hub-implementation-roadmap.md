@@ -420,9 +420,18 @@ V44 契约：`slice-docs/45_KNOWLEDGE_READINESS_PACKAGE_INTERFACE.md`，补充�
 验收区分真实浏览器/JWT/PostgreSQL/文件解析与受控 embedding/vector，并保留 V43 回归，实际证据见对应契约。
 Agent 配置、检索调试、编辑/删除/重处理、全库筛选统计、自动调度及真实 provider/Qdrant E2E 未纳入 V45。
 
+### M4G-C / V46：最小 Agent 配置前端
+
+契约：`slice-docs/47_AGENT_FRONTEND_PACKAGE_INTERFACE.md`。增加 Agent 分页列表/详情/创建、配置编辑、
+启停与既有知识库/工具绑定 GET/PUT；从详情进入已有任务运行页。配置与两类绑定分别保存，
+保留草稿与跨页/失效绑定 ID，隔离晚到响应；未知写入先读回核对，不自动重发。
+provider 固定 `openai-compatible`，工具仅 `order_query`、`payment_log_query`，使用公开预算字段。
+真实浏览器/JWT/PostgreSQL 下验证页面创建 Agent 至答案/Trace，模型/向量受控，保留 V43/V45 回归。
+运行证据见契约；不含 Agent 删除、Prompt 版本、新后端接口/迁移或执行引擎改造。
+
 ### M4G 后续切片
 
-继续推进 Agent 配置与下面列出的真实 provider/Qdrant E2E；知识库管理的扩展能力另行冻结范围。
+继续推进下面列出的真实 provider/Qdrant E2E；Agent 与知识库管理的扩展能力另行冻结范围。
 当前创建响应没有 `eventsUrl`，工具事件提供 `stepId`；前端只消费已存在的公开 DTO，不依赖目标字段。
 
 ### 页面

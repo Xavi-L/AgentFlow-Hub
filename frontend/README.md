@@ -1,4 +1,4 @@
-# AgentFlow Hub 前端：V43 / M4G-A 与 V45 / M4G-B2
+# AgentFlow Hub 前端：V43、V45 与 V46
 
 Vue 3 + TypeScript + Vite 的最小任务前端。登录、已有 Agent 任务入口、任务列表/运行恢复、最终答案与引用、只读 Trace。
 接口契约见 [`44_FRONTEND_TASK_RUNTIME_PACKAGE_INTERFACE.md`](../slice-docs/44_FRONTEND_TASK_RUNTIME_PACKAGE_INTERFACE.md)。
@@ -9,6 +9,11 @@ V45 增加 `/knowledge-bases` 与 `/knowledge-bases/:kbId`：分页列表、创�
 上传只产生 PENDING；需要显式点击解析和向量化。仅 READY 显示可用于 Agent。
 创建与上传结果未知时不会自动重发，刷新/离页后保留待确认标记；用户核对后才能主动允许新的提交。
 部署为 remote 时，向量化仍会调用配置的 embedding/vector 服务。
+
+V46 / M4G-C 增加 `/agents` 与 `/agents/:agentId`：分页列表、创建、配置编辑、启停和知识库/工具绑定，
+从详情进入既有运行页。配置、知识库绑定、工具绑定分别保存，草稿跨离页/刷新保留且退出时清除；
+未知写入先 GET 核对，不自动重发。知识库选择保留跨页和失效 ID，绑定成功不表示 READY。
+契约见 [`47_AGENT_FRONTEND_PACKAGE_INTERFACE.md`](../slice-docs/47_AGENT_FRONTEND_PACKAGE_INTERFACE.md)。
 
 ## 本地开发
 
@@ -56,7 +61,7 @@ PostgreSQL 路径可通过 `PG_BIN` 指定，Java 路径可通过 `JAVA_HOME` �
 
 验收使用真实 JWT、HTTP、TaskRunner、AgentEngine、快照 RAG、ToolRuntime、持久 Trace/SSE 和
 PostgreSQL；模型、embedding、向量检索使用可控实现。V43 脚本证明 **M4G-A**，不证明真实
-provider/Qdrant E2E；Agent 编辑、多轮对话和执行重试仍是本前端的范围外能力。
+provider/Qdrant E2E；Agent 编辑由 V46 承接，多轮对话和执行重试仍在本前端范围外。
 
 V45 的独立验收（含 V43 的三个浏览器回归）在仓库根目录运行：
 
@@ -69,3 +74,14 @@ bash scripts/v45-browser-acceptance.sh
 文件存储也放在独立临时目录；无新增测试 HTTP 接口。V45 使用真实浏览器/JWT/PostgreSQL/文件解析，
 embedding/vector 受控；异常状态部分来自数据库夹具，请求故障/竞态由浏览器注入。
 日志、截图及 `knowledge-evidence.json` 保留在脚本打印的证据目录，结束自动清理进程。
+
+V46 的受控浏览器验收包含 V43 与 V45 回归：
+
+```bash
+bash scripts/v46-browser-acceptance.sh
+```
+
+默认端口为前端 `5176`、后端 `18046`、PostgreSQL `55446`，可使用 `V46_FRONTEND_PORT`、
+`V46_BACKEND_PORT`、`V46_PG_PORT` 覆盖；`V46_CONTROL_DIR` 必须指向全新临时目录。
+验收覆盖页面创建 Agent、三个独立保存、任务答案与 Trace、启停不取消已有任务、分页/失效选择、
+未知结果与晚到响应。模型、embedding/vector 继续受控；不证明真实模型/Qdrant E2E。

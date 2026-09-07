@@ -54,6 +54,18 @@ V43 不增加后端公开接口、不实现任务执行重试、多轮对话或 
 
 ---
 
+### 1.3 V46 / M4G-C 最小 Agent 配置边界
+
+契约：`slice-docs/47_AGENT_FRONTEND_PACKAGE_INTERFACE.md`。增加 `/agents` 与 `/agents/:agentId`，
+提供分页列表、详情、创建、配置编辑、启停和既有知识库/工具绑定 GET/PUT，详情链接既有运行页。
+provider 固定 `openai-compatible`，模型名称自由填写部署支持值；使用公开 `maxSteps/maxTokens`，
+校验 `maxToolCalls < maxSteps`，不增加模型目录或 profile 接口。
+知识库分页保留跨页选择和失效 ID，工具只允许已有列表中的 `order_query` 与 `payment_log_query`。
+配置与两类绑定分别保存；保留草稿、隔离晚到响应、离页/退出取消请求，未知写入只读回核对且不自动重发。
+绑定成功不等于 READY，启停不取消已有任务。受控浏览器验收使用真实 JWT/PostgreSQL 与现有执行组件，
+模型/向量受控并保留 V43/V45 回归，具体记录见契约。Agent 删除、Prompt 版本、工具调试、任意 provider/HTTP/MCP、
+新后端接口/迁移、执行引擎改造和真实模型/Qdrant E2E 均未纳入 V46。
+
 ## 2. 技术栈
 
 ```text

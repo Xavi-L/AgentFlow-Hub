@@ -12,7 +12,8 @@ export const http = axios.create({ baseURL: API_BASE, timeout: 20000, responseTy
 const activeRequests = new Set<AbortController>()
 onSessionClear(() => { activeRequests.forEach((controller) => controller.abort()); activeRequests.clear() })
 
-export async function request<T>(method: 'GET' | 'POST', url: string, body?: unknown, options: { signal?: AbortSignal; key?: string; public?: boolean } = {}): Promise<T> {
+export async function request<T>(method: 'GET' | 'POST' | 'PATCH' | 'PUT', url: string, body?: unknown, options: { signal?: AbortSignal; key?: string; public?: boolean } = {}): Promise<T> {
+  const write = method !== 'GET'
   const version = sessionRevision()
   if (!options.public && !hasSession()) throw new ApiError('请先登录', 401, 'AUTH_UNAUTHENTICATED')
   const token = session.token
@@ -30,17 +31,17 @@ export async function request<T>(method: 'GET' | 'POST', url: string, body?: unk
     let envelope: Envelope<T>
     try { envelope = parseJson(response.data) as Envelope<T> } catch {
       if (response.status === 401 && !options.public && session.token === token) clearSession()
-      throw new ApiError('服务器响应无法解析', response.status, 'INVALID_RESPONSE', method === 'POST' && response.status !== 401)
+      throw new ApiError('服务器响应无法解析', response.status, 'INVALID_RESPONSE', write && response.status !== 401)
     }
     if (response.status === 401 && !options.public && session.token === token) clearSession()
     if (response.status < 200 || response.status >= 300 || envelope.code !== 'OK') {
-      throw new ApiError(envelope.message || `请求失败 (${response.status})`, response.status, envelope.code || 'HTTP_ERROR', method === 'POST' && response.status >= 500)
+      throw new ApiError(envelope.message || `请求失败 (${response.status})`, response.status, envelope.code || 'HTTP_ERROR', write && response.status >= 500)
     }
     return envelope.data
   } catch (error) {
     if (error instanceof ApiError) throw error
     if (version !== sessionRevision()) throw new ApiError('登录状态已改变', 0, 'SESSION_CHANGED')
-    throw new ApiError(axios.isCancel(error) ? '请求已取消' : '网络连接失败，服务器结果尚未确认', 0, axios.isCancel(error) ? 'ABORTED' : 'NETWORK_ERROR', method === 'POST')
+    throw new ApiError(axios.isCancel(error) ? '请求已取消' : '网络连接失败，服务器结果尚未确认', 0, axios.isCancel(error) ? 'ABORTED' : 'NETWORK_ERROR', write)
   } finally {
     activeRequests.delete(controller)
     options.signal?.removeEventListener('abort', abort)

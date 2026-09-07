@@ -6,12 +6,16 @@ import TaskPage from './pages/TaskPage.vue'
 import TracePage from './pages/TracePage.vue'
 import KnowledgeBasesPage from './pages/KnowledgeBasesPage.vue'
 import KnowledgeBasePage from './pages/KnowledgeBasePage.vue'
+import AgentsPage from './pages/AgentsPage.vue'
+import AgentPage from './pages/AgentPage.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/login', component: LoginPage },
     { path: '/tasks', component: TasksPage },
+    { path: '/agents', component: AgentsPage },
+    { path: '/agents/:agentId', component: AgentPage },
     { path: '/knowledge-bases', component: KnowledgeBasesPage },
     { path: '/knowledge-bases/:kbId', component: KnowledgeBasePage },
     { path: '/agents/:agentId/run', component: TasksPage },

@@ -48,7 +48,7 @@ async function submit(retry = false) {
           <option v-for="agent in agents" :key="agent.id" :value="agent.id" :disabled="agent.status !== 'ACTIVE'">{{ agent.name }}{{ agent.status !== 'ACTIVE' ? '（已停用）' : '' }}</option>
         </select>
         <button v-if="agentHasNext" type="button" class="text-button" @click="loadAgents(agentPage + 1)">加载更多 Agent</button>
-        <p v-if="!loading && !agents.length" class="muted">暂无 Agent。请先由管理员完成配置。</p>
+        <p v-if="!loading && !agents.length" class="muted">暂无 Agent。<RouterLink to="/agents" class="text-button">创建并配置 Agent</RouterLink></p>
         <label for="user-input">任务输入</label><textarea id="user-input" v-model="input" rows="7" placeholder="例如：分析订单支付失败的原因，并给出处理建议。" :disabled="submission.busy || !!submission.pending" required />
         <div v-if="submission.pending" class="notice" role="status">
           <strong>上次提交尚待确认</strong><p>继续查询原请求会使用相同的幂等键和原始输入。</p>
