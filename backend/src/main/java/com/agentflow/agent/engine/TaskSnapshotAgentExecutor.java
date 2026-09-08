@@ -49,10 +49,16 @@ public final class TaskSnapshotAgentExecutor {
     private final TaskPromptBuilder prompts;
     private final ObjectMapper mapper;
     private final Clock clock;
+    private final int decisionMaxOutputTokens;
+    private final boolean decisionJsonSchemaEnabled;
+    private final String decisionResponseFormat;
+    private final String thinkingMode;
+    private final Integer finalMaxOutputTokens;
 
     public TaskSnapshotAgentExecutor(SnapshotRagService ragService, LlmGateway gateway, ToolRuntime tools,
             ExecutionRecorderFactory recorderFactory, AgentTaskLifecycleTransactionService lifecycle,
-            AgentDecisionParser parser, TaskPromptBuilder prompts, ObjectMapper mapper, Clock clock) {
+            AgentDecisionParser parser, TaskPromptBuilder prompts, ObjectMapper mapper, Clock clock,
+            TaskExecutionProperties executionProperties) {
         this.ragService = ragService;
         this.gateway = gateway;
         this.tools = tools;
@@ -62,12 +68,22 @@ public final class TaskSnapshotAgentExecutor {
         this.prompts = prompts;
         this.mapper = mapper;
         this.clock = clock;
+        this.decisionMaxOutputTokens = executionProperties.getDecisionMaxOutputTokens();
+        this.decisionJsonSchemaEnabled = executionProperties.isDecisionJsonSchemaEnabled();
+        if (!executionProperties.isDecisionFormatExclusive()) {
+            throw new IllegalArgumentException("decision JSON schema and JSON object modes are mutually exclusive");
+        }
+        this.decisionResponseFormat = executionProperties.isDecisionJsonObjectEnabled() ? "json_object" : null;
+        this.thinkingMode = executionProperties.isProviderThinkingDisabled() ? "disabled" : null;
+        this.finalMaxOutputTokens = executionProperties.getFinalMaxOutputTokens();
     }
 
     public TaskExecutionOutcome execute(TaskExecutionRequest request) {
         State state = new State(request);
         try {
             validate(request);
+            state.decisionResponseSchema = decisionJsonSchemaEnabled
+                    ? AgentDecisionResponseSchema.fromTools(mapper, request.executionSnapshot().tools()) : null;
             state.recorder = recorderFactory.open(request.taskId());
             state.boundary();
             SnapshotRagResult rag = retrieve(state);
@@ -91,7 +107,8 @@ public final class TaskSnapshotAgentExecutor {
                         request.executionSnapshot().agent().maxToolCalls() - state.toolCalls);
                 int finalInput = TaskTokenEstimator.inputTokens(
                         prompts.finalAnswer(request, rag, state.observations, plan));
-                int cap = outputCap(state, messages, finalInput + request.finalTokenReserve(), 512);
+                int cap = outputCap(state, messages, finalInput + request.finalTokenReserve(),
+                        decisionMaxOutputTokens, state.decisionResponseSchema);
                 phase(state, TaskPhase.DECIDING);
                 AgentDecision decision = callLlm(state, messages, cap, LlmCallType.DECISION,
                         text -> parser.parse(text, allowedTools));
@@ -107,7 +124,10 @@ public final class TaskSnapshotAgentExecutor {
                 plan = "Give a limited answer from existing facts; execution stopped because " + reason.name();
             }
             List<LlmMessage> messages = prompts.finalAnswer(request, rag, state.observations, plan);
-            int cap = outputCap(state, messages, 0, request.finalTokenReserve());
+            // Optional extra output uses remaining budget; only the persisted reserve is guaranteed.
+            int desiredFinalCap = finalMaxOutputTokens == null ? request.finalTokenReserve()
+                    : Math.max(request.finalTokenReserve(), finalMaxOutputTokens);
+            int cap = outputCap(state, messages, 0, desiredFinalCap, null);
             // A final call must retain the entire frozen output reserve, not a silently reduced cap.
             if (cap < request.finalTokenReserve()) throw tokenExhausted();
             phase(state, TaskPhase.GENERATING);
@@ -173,8 +193,10 @@ public final class TaskSnapshotAgentExecutor {
         StepHandle step = startStep(state, type.requiredStepType(),
                 type == LlmCallType.DECISION ? "Model decision" : "Final answer generation");
         var model = state.request.executionSnapshot().chatModel();
+        LlmResponseSchema responseSchema = type == LlmCallType.DECISION ? state.decisionResponseSchema : null;
         LlmChatRequest request = new LlmChatRequest(model.provider(), model.model(), messages,
-                model.temperature(), model.topP(), cap);
+                model.temperature(), model.topP(), cap, responseSchema,
+                type == LlmCallType.DECISION ? decisionResponseFormat : null, thinkingMode);
         JsonNode requestJson = mapper.valueToTree(request);
         long started = System.nanoTime();
         LlmChatResult result = null;
@@ -190,7 +212,7 @@ public final class TaskSnapshotAgentExecutor {
                 return gateway.chat(request);
             }, state.request.deadlineAt(), clock, state::boundary);
             if (result == null) throw new TaskExecutionAbort("AGENT_LLM_FAILED", "Model call returned no result");
-            callUsage = measuredUsage(result, messages);
+            callUsage = measuredUsage(result, messages, responseSchema);
             state.account(callUsage);
             state.boundary();
             if (state.usage().totalTokens() > state.request.executionSnapshot().agent().maxTotalTokens()) {
@@ -208,7 +230,7 @@ public final class TaskSnapshotAgentExecutor {
             }
             if (callUsage == null) {
                 // A provider failure may still have consumed tokens; budget it conservatively.
-                callUsage = new TaskTokenUsage(TaskTokenEstimator.inputTokens(messages), cap,
+                callUsage = new TaskTokenUsage(estimatedInputTokens(messages, responseSchema), cap,
                         TokenUsageQuality.ESTIMATED);
                 state.account(callUsage);
             }
@@ -299,9 +321,10 @@ public final class TaskSnapshotAgentExecutor {
         state.recorder.appendEvent(event(TaskEventType.TOOL_FINISHED, eventData.put("status", "SUCCESS")));
     }
 
-    private int outputCap(State state, List<LlmMessage> messages, int reserved, int desired) {
+    private int outputCap(State state, List<LlmMessage> messages, int reserved, int desired,
+            LlmResponseSchema responseSchema) {
         state.boundary();
-        int input = TaskTokenEstimator.inputTokens(messages);
+        int input = estimatedInputTokens(messages, responseSchema);
         long available = (long) state.request.executionSnapshot().agent().maxTotalTokens()
                 - state.usage().totalTokens() - input - reserved;
         long contextAvailable = (long) state.request.executionSnapshot().chatModel().contextWindow() - input;
@@ -310,7 +333,14 @@ public final class TaskSnapshotAgentExecutor {
         return result;
     }
 
-    private TaskTokenUsage measuredUsage(LlmChatResult result, List<LlmMessage> messages) {
+    private int estimatedInputTokens(List<LlmMessage> messages, LlmResponseSchema responseSchema) {
+        // Some providers include the schema in model input; reserve/account it conservatively.
+        return Math.addExact(TaskTokenEstimator.inputTokens(messages), responseSchema == null ? 0
+                : TaskTokenEstimator.textTokens(mapper.valueToTree(responseSchema).toString()));
+    }
+
+    private TaskTokenUsage measuredUsage(LlmChatResult result, List<LlmMessage> messages,
+            LlmResponseSchema responseSchema) {
         LlmTokenUsage usage = result.usage();
         if (usage != null && usage.known()) {
             if ((long) usage.inputTokens() + usage.outputTokens() != usage.totalTokens()) {
@@ -319,7 +349,7 @@ public final class TaskSnapshotAgentExecutor {
             }
             return new TaskTokenUsage(usage.inputTokens(), usage.outputTokens(), TokenUsageQuality.EXACT);
         }
-        return new TaskTokenUsage(TaskTokenEstimator.inputTokens(messages),
+        return new TaskTokenUsage(estimatedInputTokens(messages, responseSchema),
                 TaskTokenEstimator.textTokens(result.content()), TokenUsageQuality.ESTIMATED);
     }
 
@@ -483,6 +513,7 @@ public final class TaskSnapshotAgentExecutor {
 
     private final class State {
         private final TaskExecutionRequest request;
+        private LlmResponseSchema decisionResponseSchema;
         private ExecutionRecorder recorder;
         private StepHandle activeStep;
         private int turns;

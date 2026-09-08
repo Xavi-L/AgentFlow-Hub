@@ -64,6 +64,16 @@ agentflow:
     execution:
       # V40 executes the frozen task snapshot through AgentEngine.
       mode: engine
+      # Per-decision ceiling (1..16384), still constrained by task/context budgets and final reserve.
+      decision-max-output-tokens: ${AGENTFLOW_TASK_DECISION_MAX_OUTPUT_TOKENS:512}
+      # Opt in only for providers verified against the unchanged decision schema; final stays text.
+      decision-json-schema-enabled: ${AGENTFLOW_TASK_DECISION_JSON_SCHEMA_ENABLED:false}
+      # JSON mode is an explicit alternative to schema mode; the strict decision parser still applies.
+      decision-json-object-enabled: ${AGENTFLOW_TASK_DECISION_JSON_OBJECT_ENABLED:false}
+      # Only enable for a provider verified to accept thinking.type=disabled.
+      provider-thinking-disabled: ${AGENTFLOW_TASK_PROVIDER_THINKING_DISABLED:false}
+      # Optional final ceiling (1..16384); empty preserves the frozen reserve as the output cap.
+      final-max-output-tokens: ${AGENTFLOW_TASK_FINAL_MAX_OUTPUT_TOKENS:}
   document:
     storage:
       # Keep runtime uploads outside this Git workspace. Override with

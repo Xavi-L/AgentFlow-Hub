@@ -54,10 +54,15 @@ public class TracePayloadSanitizer {
             "requestedmodel",
             "temperature",
             "topp",
-            "maxoutputtokens"
+            "maxoutputtokens",
+            "responseschema",
+            "responseformat",
+            "thinkingmode"
     );
     private static final Set<String> LLM_MESSAGE_FIELDS = Set.of("role", "content");
     private static final Set<String> LLM_MESSAGE_ROLES = Set.of("SYSTEM", "USER", "ASSISTANT");
+    private static final Set<String> LLM_RESPONSE_SCHEMA_FIELDS = Set.of("name", "schema");
+    private static final Pattern LLM_RESPONSE_SCHEMA_NAME = Pattern.compile("[A-Za-z0-9_-]{1,64}");
     private static final Pattern SENSITIVE_KEY_VALUE = Pattern.compile(
             "(?is)\\b(?:authorization|proxy[-_ ]authorization|cookie|set[-_ ]cookie|"
                     + "api[-_ ]?key|x[-_ ]api[-_ ]key|password|secret|client[-_ ]secret|"
@@ -120,12 +125,20 @@ public class TracePayloadSanitizer {
                         field.getValue(),
                         label + "." + field.getKey()
                 );
+                case "responseschema" -> sanitizeLlmResponseSchema(field.getValue(), label + "." + field.getKey());
+                case "responseformat" -> requireExactText(
+                        field.getValue(), "json_object", label + "." + field.getKey());
+                case "thinkingmode" -> requireExactText(
+                        field.getValue(), "disabled", label + "." + field.getKey());
                 default -> throw new IllegalStateException("Unhandled LLM request snapshot field");
             };
             projected.set(field.getKey(), safeValue);
         }
         if (!hasMessages) {
             throw new IllegalArgumentException(label + " must contain messages");
+        }
+        if (seen.contains("responseformat") && seen.contains("responseschema")) {
+            throw new IllegalArgumentException(label + " responseFormat and responseSchema are mutually exclusive");
         }
         return sanitizeToJson(projected, properties.getLargeMaxBytes(), label);
     }
@@ -251,6 +264,29 @@ public class TracePayloadSanitizer {
         if (value == null || !value.isTextual() || value.textValue().isBlank()) {
             throw new IllegalArgumentException(label + " must be non-blank text");
         }
+        return value.deepCopy();
+    }
+
+    private static JsonNode requireExactText(JsonNode value, String expected, String label) {
+        if (value == null || !value.isTextual() || !expected.equals(value.textValue())) {
+            throw new IllegalArgumentException(label + " must be " + expected);
+        }
+        return value.deepCopy();
+    }
+
+    private static JsonNode sanitizeLlmResponseSchema(JsonNode value, String label) {
+        requireObject(value, label);
+        Set<String> fields = new HashSet<>();
+        value.fieldNames().forEachRemaining(fields::add);
+        if (!fields.equals(LLM_RESPONSE_SCHEMA_FIELDS)) {
+            throw new IllegalArgumentException(label + " requires exactly name and schema");
+        }
+        JsonNode name = value.path("name");
+        if (!name.isTextual() || !LLM_RESPONSE_SCHEMA_NAME.matcher(name.textValue()).matches()) {
+            throw new IllegalArgumentException(label + ".name must contain 1 to 64 letters, digits, underscores or hyphens");
+        }
+        requireObject(value.get("schema"), label + ".schema");
+        // The enclosing request pass recursively redacts this copy and enforces the total byte ceiling.
         return value.deepCopy();
     }
 

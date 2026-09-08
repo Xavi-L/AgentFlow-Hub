@@ -76,6 +76,8 @@ class SpringAiOpenAiCompatibleLlmGatewayTest {
         assertThat(options.getInternalToolExecutionEnabled()).isFalse();
         assertThat(options.getTools()).isNull();
         assertThat(options.getToolCallbacks()).isEmpty();
+        assertThat(options.getResponseFormat()).isNull();
+        assertThat(options.getExtraBody()).isNull();
 
         assertThat(result.content()).isEqualTo("  exact provider answer  ");
         assertThat(result.resolvedModel()).isEqualTo("resolved-model");

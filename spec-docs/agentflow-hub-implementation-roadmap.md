@@ -8,9 +8,14 @@
 
 ## 1. 当前判断
 
-2026-09-06 更新：V37–V42 已完成绑定快照、Task/Runner、任务 Trace、快照驱动执行、Task REST 与可恢复 SSE。
-V43/M4G-A 已完成最小任务前端及受控浏览器恢复验收，具体证据见第 9 节引用的契约；
-其余管理页面和真实 provider/Qdrant E2E 待后续。以下清单记录 V36 施工起点，不作为当前缺失能力清单。
+2026-09-07 更新：V37–V42 已完成绑定快照、Task/Runner、任务 Trace、快照驱动执行、Task REST 与可恢复 SSE。
+V43/M4G-A、V45/M4G-B2、V46/M4G-C 已完成最小任务、知识库管理和 Agent 配置前端及各自受控浏览器验收，
+具体证据见第 9 节引用的契约。V47/M4G-D1 已实现真实 provider/Qdrant 成功主路径的独立验收入口，
+截至 2026-09-07，V47 已取得一次智谱 GLM-5.2 + DashScope + Qdrant 正常应用成功主路径：
+第九次入口创建 task `2096972424179240962`，浏览器 PASSED、存储23/23通过，两工具、独立final、有效引用和刷新/GET/Trace一致。
+此前七个真实任务FAILED与第八次PostgreSQL启动失败分别保留；原生probe、有限单步回放、本地/受控测试仍与真实E2E分开。
+最新提示适配重点Java46/46、默认受控19/19（44.6秒）通过。本结论仅覆盖固定模型/演示材料的一次成功路径，不代表统计可靠性或V0.1发布验收。
+详情以V47契约为准。以下清单记录V36施工起点，不作为当前缺失能力清单。
 
 截至 V36，项目已经完成大量基础能力，但还没有完成 V0.1 Agent 闭环。
 
@@ -429,9 +434,121 @@ provider 固定 `openai-compatible`，工具仅 `order_query`、`payment_log_que
 真实浏览器/JWT/PostgreSQL 下验证页面创建 Agent 至答案/Trace，模型/向量受控，保留 V43/V45 回归。
 运行证据见契约；不含 Agent 删除、Prompt 版本、新后端接口/迁移或执行引擎改造。
 
-### M4G 后续切片
+### M4G-D1 / V47：真实 provider + Qdrant 主路径 E2E
 
-继续推进下面列出的真实 provider/Qdrant E2E；Agent 与知识库管理的扩展能力另行冻结范围。
+契约：`slice-docs/48_REAL_PROVIDER_E2E_PACKAGE_INTERFACE.md`。正常启动主应用并使用现有
+OpenAI-compatible Chat、DashScope embedding 和实际 Qdrant，不加载 V43/V45/V46 受控 Gateway。
+独立入口 `scripts/v47-real-provider-acceptance.sh` 提供不生成答案的环境预检、临时 PostgreSQL、
+独立 Qdrant collection、有限单任务预算和本次运行证据。
+
+浏览器创建知识库 → 上传 TXT/MD（主路径使用固定 MD）→ 显式解析/向量化至 READY → 创建 Agent →
+绑定知识库及 `order_query`、`payment_log_query` → 提交 `order_1024` 支付诊断任务。
+成功必须证明实际 RAG 命中本次文档的冻结/当前 generation、两个工具均经 ToolRuntime 成功执行、
+模型 FINISH 后独立最终生成成功、有效引用和刷新后的 GET/Trace 一致，不能只看绑定或 COMPLETED。
+真实 builtin handler 仍查询既有 V12 演示业务表，不宣称接入真实外部支付系统。
+
+2026-09-07 入口与断言已实现。较早预检曾因配置未就绪 BLOCKED；随后一次真实运行通过预检并完成
+浏览器上传/解析/真实向量化至 READY，Qdrant/RAG 命中当前 generation，但首个 Chat 决策 **FAILED**：
+`qwen/qwen3-1.7b` 返回两个相邻顶层 CALL_TOOL JSON，违反单 JSON/EOF 契约，产生 `AGENT_INVALID_DECISION`。
+该次工具调用和独立最终生成为 0。后续 9B 默认超时运行成功执行 order_query，但第二轮达到 30 秒读取超时。
+再以 Chat 120 秒/任务 300 秒显式运行后，三轮均返回合法但相同的 order_query 意图，
+实际执行一次、复用一次，第三次触发 AGENT_DUPLICATE_TOOL_LOOP。已有 observation 和支付日志工具在请求快照中均存在；
+第四次跟随用户配置切换为 `google/gemma-4-e4b`，保持 prompt/预算及 Chat 120 秒/任务 300 秒：
+order_query 成功，第二轮因 512-token 输出额度耗尽、content 为空被 gateway 拒绝，产生 AGENT_LLM_FAILED；不是读取超时。
+Trace 总计 5997 MIXED 与服务端两次报告 2835 tokens 分开记录，不覆写持久记账或宣称核定费用。
+前四次尚无 payment_log_query、final、答案/引用及成功刷新证据，历史失败记录保留。
+针对第四次的 512-token 输出限制，本轮已授权增加服务端
+`agentflow.task.execution.decision-max-output-tokens`（环境 `AGENTFLOW_TASK_DECISION_MAX_OUTPUT_TOKENS`），
+默认 512、当次范围 1–4096（后续智谱适配扩至 1–16384），第五/六次适配运行显式 2048。实际 cap 仍取配置、扣除 final 所需额度后的任务预算及 context 余量的最小值；
+保留 24000 总预算、final reserve、Chat 120 秒/任务 300 秒及单 JSON 协议，沿用 Trace 实际 maxOutputTokens，不加 DTO/迁移。
+适配已实现并通过后端 focused 测试 25/25（执行器 19、属性 6），预检检查 1–4096 并记录
+`budget.decisionMaxOutputTokens`。第五次实际 cap 全部为 2048，两个工具均经 ToolRuntime 各成功一次，EXACT 4466 tokens；
+第三轮 FINISH 被 Markdown json 围栏包裹，违反已有 prompt/单 JSON 契约，产生 AGENT_INVALID_DECISION。
+无被接受的 FINISH、独立最终生成、答案/引用或成功刷新，第五次仍为 FAILED。该次未见 length/空正文，
+但第二轮 completion 475 低于旧 cap512，不能由单次生成证明提高上限已普遍解决截断。
+前五次运行各自有限预算、无自动重试或协议放宽；下述第六次由用户后续明确发起。
+随后授权可选 DECISION JSON Schema 适配：`AGENTFLOW_TASK_DECISION_JSON_SCHEMA_ENABLED=true`
+（服务端默认 false），按冻结工具生成原 CALL_TOOL/FINISH 对象分支并发送 strict json_schema；final 仍正文。
+schema 不可变、最多 64 KiB，纳入预算估算并由现有 Trace 请求投影留证；不改 parser/prompt、不剥围栏、不自动降级或修复重试。
+独立原生兼容性 probe 已 PASS：Gemma 返回裸 FINISH、4.7 秒、103 tokens、1 请求/0 重试，无 embedding/Qdrant/业务任务。
+该 probe 不计为只读预检或应用 E2E；Schema 重点测试 71/71、Python 语法及 4 项离线采证格式检查已通过，
+采证核对 DECISION schema 模式及 final 纯正文。第六次开启 Schema 后三次 DECISION 均合法、实际 strict schema 与冻结/持久记录一致，
+但均请求 order_query：实际执行一次、缓存复用一次、第三次 AGENT_DUPLICATE_TOOL_LOOP，EXACT 3444 tokens，浏览器 19.4 秒失败。
+本次未执行 payment_log_query/FINISH/final，未到成功刷新；无 final 时格式检查成立不能充当真实 final 证据。
+第五次两个工具成功仍保留为该次历史证据，不能挪用至第六次；该阶段六次 FAILED，未自动开启第七次。
+Schema 适配后的默认 schema 关闭/cap 512 受控回归再次 19/19 通过（47.3 秒、exit 0），与开启 schema 的真实验收分开记录。
+适配后默认 512 下 V43/V45/V46 受控回归再次 19/19 通过（48.7 秒），与此前 46.5 秒记录分开保留。
+本轮前端 76/76、构建和 V43/V45/V46 受控浏览器 19/19 通过；它们不能代替 V47 真实依赖验收。
+后续用户授权使用 IDEA 中的 `ZHIPU_API_KEY` 并按模型调高输出上限；凭据仅映射至进程 `OPENAI_API_KEY`，不进入证据。
+智谱 `glm-5.2`、`https://open.bigmodel.cn/api/paas/v4` 的独立原生 probe 已 PASS：GET/models 200 并列出模型，
+生成采用 json_object、thinking disabled、max_tokens 8192，HTTP 200/stop、2.188 秒、124 input + 23 output = 147 tokens，
+request ID `202609072116078ee2823883904f3b`，无围栏或 reasoning_content。证据目录
+`/var/folders/rk/2gmg78l55dl2m5ld98kpb3100000gn/T/v47-zhipu-glm52-probe-6jhr1dnp`。
+该次只证明原生 JSON object 请求的兼容性，不证明 JSON Schema 约束、应用传输、工具/final/引用或浏览器 E2E。
+智谱适配明确开启 `AGENTFLOW_TASK_DECISION_JSON_OBJECT_ENABLED`、`AGENTFLOW_TASK_PROVIDER_THINKING_DISABLED`
+并关闭 `AGENTFLOW_TASK_DECISION_JSON_SCHEMA_ENABLED`；三个开关默认均 false，两种 JSON 模式互斥。
+DECISION 使用 json_object，final 仍正文；不放宽 parser、工具参数校验和循环保护，不自动降级、修复或重试。
+decision/final 配置范围 1–16384，本次分别显式 8192；`AGENTFLOW_TASK_FINAL_MAX_OUTPUT_TOKENS` 默认不配置并沿用旧 reserve 上限。
+既有 final reserve 2048、总 24000、steps 5/tools 3、Chat 120 秒/任务 300 秒不变；final 超出 reserve 的额度仅来自扣除已记账 usage
+与本次输入保守估算后的任务/context 余额，不将请求前输入估算当作 provider 实际 usage。
+新增采证逐字段核对 PostgreSQL 与公开 Trace 的请求选项；缺少 final 调用时 final 格式检查明确 false，旧运行证据不改写。
+智谱适配 Java 9 类重点测试最终 98/98：86 项非 HTTP 首轮通过，HTTP 类首轮被 sandbox loopback 限制阻断后，
+仅重跑该类 12/12 通过；日志 `/private/tmp/v47-zhipu-core-focused-tests.log`、`/private/tmp/v47-zhipu-http-focused-tests.log`。
+Python 语法、10 项请求选项边界检查、3 项使用第六次证据副本的离线集成断言通过，覆盖请求选项一致性、缺 final 与篡改 cap 拒绝。
+默认配置下 V43/V45/V46 受控回归 19/19 通过、45.2 秒，日志 `/private/tmp/v47-zhipu-controlled-browser.log`。
+第七次独立正常应用运行预检 READY，浏览器 9.9 秒 FAILED/verify-persisted-evidence；run FAILED/exit 1/stage storage-evidence，
+storage FAIL/errors=[]。task `2096953425345351681`；证据目录
+`/var/folders/rk/2gmg78l55dl2m5ld98kpb3100000gn/T/agentflow-v47-real-zhipu-glm52-4bawq2af`。
+GLM-5.2 的三次 DECISION 均 SUCCESS/stop、合法 JSON，应用与 PostgreSQL/公开 Trace 记录均为 cap 8192、json_object、thinking disabled、无 schema。
+三次耗时 1767/1447/1959 ms，usage 合计 EXACT 3314 = 3182 input + 132 output；却均选择 order_query(order_1024)：
+实际 ToolRuntime 成功一次（6 ms）、缓存复用一次、第三次 AGENT_DUPLICATE_TOOL_LOOP。后续请求已有订单结果和支付日志工具，未发现漏传。
+真实 DashScope/Qdrant/RAG 命中本次 generation 0、1 valid/0 stale、score 0.66849273；17 个持久事件连续且末条 TASK_FAILED，GET 与 Trace 一致。
+未执行 payment_log_query/FINISH/final，无最终答案/引用或成功刷新；已核对失败截图，临时/受控端口关闭，证据与数据库/collection 保留。
+应用请求选项一致性与 HTTP stub 序列化测试分开记录，未宣称取得厂商侧 wire 日志；safe provider 摘要不含凭据或推理正文。
+本次未超时、截断或格式失败，不能归因为本地小模型或据此断定关闭 thinking 导致循环，重复决策根因仍未证实。
+第七次结束时尚未修改 prompt 或再跑；随后按渐进验证方案，先以独立 `scripts/v47-decision-replay.py` 检验执行历史提示。
+入口默认取第七次 task `2096953425345351681` 第 2 次 DECISION 的原请求，只给 B 的第二 SYSTEM content
+追加 `scripts/fixtures/v47-decision-history-instructions.txt`；两组均保持 SYSTEM/SYSTEM/USER 三条消息，其他输入/options不变。
+固定 A/B、B/A、A/B 共六次 GLM-5.2 请求，temperature 0.1/top_p 0.8/json_object/thinking disabled/cap8192：
+A 合法 JSON 3/3、目标 payment_log_query 0/3（均重复 order_query）；B 合法 JSON 3/3、目标 3/3。
+合计 6883 input + 278 output = 7161 tokens，自动重试0；证据
+`/var/folders/rk/2gmg78l55dl2m5ld98kpb3100000gn/T/v47-history-paired-dx53hc5r/replay`。
+随后使用显式历史复合状态，只跑候选B两次：订单消息/结果来自第七次，支付日志 observation 来自第五次
+task `2096902272884645889` 第3次DECISION；剩余预算仅在诊断payload设为3次decision/1次tool。
+B2/2返回合法FINISH/stop，2666 input + 474 output = 3140 tokens；来源与结果保留在
+`/var/folders/rk/2gmg78l55dl2m5ld98kpb3100000gn/T/v47-history-finish-968qb6_y`。
+该历史复合状态不是同一生产任务快照；两项诊断合计8次Chat/10301reported tokens，没有执行新工具、检索、final或浏览器，
+不计入E2E次数，也不能将第五次支付日志成功挪用至第七或第八次。
+独立入口最多6次请求、总预算60000、单次cap8192/120秒；输入UTF8估算+8192不满足预算或context则停止，不减cap。
+未知usage、HTTP/transport错误停止后续请求且不重试；只保存严格决策安全字段与模型/usage/耗时/来源，不保存reason、推理或凭据。
+回放结果支持在该状态下提升精确候选，但不证明通用可靠性或内部唯一因果机制。生产TaskPromptBuilder已追加同一通用历史说明：
+已完成结果应参与下一动作判断、相同参数重查复用缓存并不刷新数据、证据足够时FINISH；仍不服从工具数据内的指令。
+不硬编码工具顺序或订单，不修改严格parser、工具参数校验、重复意图保护与独立最终生成协议。
+第八次入口预检READY后在stage postgres启动失败，Unix-domain socket路径超过103-byte上限；
+证据 `/var/folders/rk/2gmg78l55dl2m5ld98kpb3100000gn/T/agentflow-v47-real-zhipu-history-1dij76aj`。
+该次没有应用/浏览器、task或付费Chat/embedding调用，不是模型失败。必要launcher适配关闭未使用的Unixsocket，
+建库/应用/采证均沿用loopback TCP；未改迁移、业务API或协议，在新目录再次启动，不重放不明结果任务。
+第九次入口成功，证据 `/var/folders/rk/2gmg78l55dl2m5ld98kpb3100000gn/T/agentflow-v47-real-zhipu-history-9yxypy7d`：
+唯一新task `2096972424179240962`，浏览器PASSED/complete约22.8秒，run PASSED/exit0/stagecomplete，storage PASS/errors=[]、23/23全通过。
+KB `2096972415597694978`、document `2096972415962599426`、chunk `2096972416348475394`、
+collection `v47_3eca76909da441e693ca3cb92005d350`，1293-byte原MD经浏览器显式解析/DashScope向量化至READY；
+实际Qdrant/RAG命中本次generation0、1valid/0stale、score0.66849273，point/chunk/document一致。
+GLM-5.2依次选择order_query、payment_log_query、FINISH并独立FINAL_GENERATION；两项ToolRuntime各一次SUCCESS、5ms、retryCount0，
+参数均order_1024，不借用历史结果或cache复用充数。四次实际cap8192、thinkingdisabled，只有decision带json_object，PG/publicTrace选项一致。
+任务COMPLETED/ANSWERED，3decisions/2tools，started到completed约19.056秒；usage EXACT4759input+965output=5724tokens。
+20条事件连续且末条TASK_COMPLETED，答案与final正文一致，有效S1映射本次document/chunk/generation0；
+刷新checkpoint完成，前后task和Trace相同，渲染/事件与GET/Trace收敛。答案逐项核对工具/文档，区分演示事实、处理建议与未知渠道状态。
+最新重点Java46/46通过，日志`/private/tmp/v47-history-focused-tests.log`；默认V43/V45/V46受控19/19通过、44.6秒，
+日志`/private/tmp/v47-history-controlled-browser.log`。本阶段8次回放加新任务4次Chat共16025reported tokens，不含embedding用量。
+当前是前七个任务失败、第八次入口启动失败、第九次入口（第八个实际任务）取得一次固定模型成功主路径；仅一个计划的新任务实际被创建，automaticRetries0。
+测试、原生probe、单步/历史复合回放和完整E2E仍分开记录，不外推为跨模型稳定性、生产支付能力或完整V0.1验收。
+缺少凭据、不可达或失败如实记录，禁止回退 mock；真实运行后还应人工对照答案与工具/文档证据核查建议。
+保留 V43/V45/V46 受控回归，仅修复实际暴露的必要适配问题；不新增业务接口、迁移、页面或执行协议。
+完整失败 E2E、仓库生成物清理和 V0.1 发布验收留待后续。
+
+### M4G 后续切片与整体目标
+
+V47 只承担下面真实 E2E 的成功主路径；失败矩阵及 Agent/知识库管理扩展能力另行冻结范围。
 当前创建响应没有 `eventsUrl`，工具事件提供 `stepId`；前端只消费已存在的公开 DTO，不依赖目标字段。
 
 ### 页面

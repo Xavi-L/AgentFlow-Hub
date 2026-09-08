@@ -9,6 +9,7 @@ import java.net.UnknownHostException;
 import java.net.http.HttpTimeoutException;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -25,6 +26,7 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.openai.api.ResponseFormat;
 import org.springframework.ai.retry.NonTransientAiException;
 import org.springframework.ai.retry.TransientAiException;
 import org.springframework.web.client.ResourceAccessException;
@@ -129,14 +131,30 @@ public final class SpringAiOpenAiCompatibleLlmGateway implements LlmGateway {
     }
 
     private static OpenAiChatOptions requestOptions(LlmChatRequest request) {
-        return OpenAiChatOptions.builder()
+        var options = OpenAiChatOptions.builder()
                 .model(request.modelName())
                 .temperature(request.temperature().doubleValue())
                 .topP(request.topP().doubleValue())
                 .maxTokens(request.maxOutputTokens())
                 .N(1)
-                .internalToolExecutionEnabled(false)
-                .build();
+                .internalToolExecutionEnabled(false);
+        if (request.responseFormat() != null) {
+            options.responseFormat(ResponseFormat.builder().type(ResponseFormat.Type.JSON_OBJECT).build());
+        } else if (request.responseSchema() != null) {
+            LlmResponseSchema schema = request.responseSchema();
+            options.responseFormat(ResponseFormat.builder()
+                    .type(ResponseFormat.Type.JSON_SCHEMA)
+                    .jsonSchema(ResponseFormat.JsonSchema.builder()
+                            .name(schema.name())
+                            .schema(schema.schema().toString())
+                            .strict(true)
+                            .build())
+                    .build());
+        }
+        if (request.thinkingMode() != null) {
+            options.extraBody(Map.of("thinking", Map.of("type", request.thinkingMode())));
+        }
+        return options.build();
     }
 
     private static List<Message> toSpringAiMessages(List<LlmMessage> messages) {

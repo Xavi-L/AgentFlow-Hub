@@ -13,6 +13,7 @@ import com.agentflow.agent.task.service.AgentTaskLifecycleTransactionService;
 import com.agentflow.agent.trace.*;
 import com.agentflow.infra.llm.*;
 import com.agentflow.tool.*;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -27,6 +28,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 class TaskSnapshotAgentExecutorTest {
@@ -63,12 +66,11 @@ class TaskSnapshotAgentExecutorTest {
             String code = command.toolId() == 11L ? "order_query" : "payment_log_query";
             return ToolExecutionResult.success(code, "Known result", mapper.createObjectNode().put("status", "OK"), 2);
         });
-        executor = new TaskSnapshotAgentExecutor(rag, gateway, tools, factory, lifecycle,
-                new AgentDecisionParser(mapper), new TaskPromptBuilder(mapper), mapper, clock);
+        executor = executor(new TaskExecutionProperties());
     }
 
     @Test
-    void executesFrozenRagDecisionToolsAndSeparateFinalGenerationWithOrderedFacts() {
+    void executesFrozenRagDecisionToolsAndSeparateFinalGenerationWithOrderedFacts() throws Exception {
         when(rag.retrieve(any(), any())).thenReturn(evidence());
         script(call("order_query", "{\"orderNo\":\"A\"}"), call("payment_log_query", "{}"), finish(), "Answer [S1]");
         TaskExecutionRequest request = request(5, 3, 50000);
@@ -91,12 +93,57 @@ class TaskSnapshotAgentExecutorTest {
         ArgumentCaptor<LlmChatRequest> requests = ArgumentCaptor.forClass(LlmChatRequest.class);
         verify(gateway, times(4)).chat(requests.capture());
         assertThat(requests.getAllValues()).allSatisfy(modelRequest -> {
+            assertThat(modelRequest.responseSchema()).isNull();
+            assertThat(modelRequest.responseFormat()).isNull();
+            assertThat(modelRequest.thinkingMode()).isNull();
             assertThat(modelRequest.modelProvider()).isEqualTo("frozen-provider");
             assertThat(modelRequest.modelName()).isEqualTo("frozen-model");
             assertThat(modelRequest.messages().get(0).content()).isEqualTo("Frozen task system prompt");
             assertThat(modelRequest.messages().get(2).content()).contains("S1", "UNTRUSTED_DATA");
         });
+        assertThat(requests.getAllValues().subList(0, 3)).allSatisfy(modelRequest -> {
+            assertThat(modelRequest.messages().get(1).role()).isEqualTo(LlmMessageRole.SYSTEM);
+            assertThat(modelRequest.messages().get(1).content()).contains(
+                    "already completed successfully", "what information is still missing",
+                    "reused=true", "it does not refresh data", "return FINISH for separate final generation");
+        });
+        JsonNode firstPayload = mapper.readTree(requests.getAllValues().get(0).messages().get(2).content());
+        JsonNode secondPayload = mapper.readTree(requests.getAllValues().get(1).messages().get(2).content());
+        JsonNode thirdPayload = mapper.readTree(requests.getAllValues().get(2).messages().get(2).content());
+        assertThat(firstPayload.path("observations").size()).isZero();
+        assertThat(firstPayload.path("availableTools").size()).isEqualTo(2);
+        assertThat(firstPayload.path("availableTools").get(1).path("toolCode").asText()).isEqualTo("payment_log_query");
+        assertThat(secondPayload.path("observations").size()).isEqualTo(1);
+        JsonNode orderObservation = secondPayload.path("observations").get(0);
+        assertThat(orderObservation.path("toolCode").asText()).isEqualTo("order_query");
+        assertThat(thirdPayload.path("observations").size()).isEqualTo(2);
+        assertThat(thirdPayload.path("observations").get(0)).isEqualTo(orderObservation);
+        JsonNode paymentObservation = thirdPayload.path("observations").get(1);
+        assertThat(paymentObservation.path("toolCode").asText()).isEqualTo("payment_log_query");
+        assertThat(List.of(orderObservation, paymentObservation)).allSatisfy(observation -> {
+            assertThat(observation.path("type").asText()).isEqualTo("UNTRUSTED_TOOL_RESULT");
+            assertThat(observation.path("reused").isBoolean()).isTrue();
+            assertThat(observation.path("reused").booleanValue()).isFalse();
+            assertThat(observation.path("data").path("status").asText()).isEqualTo("OK");
+        });
+        assertThat(secondPayload.path("availableTools")).isEqualTo(firstPayload.path("availableTools"));
+        assertThat(thirdPayload.path("availableTools")).isEqualTo(firstPayload.path("availableTools"));
+        LlmChatRequest finalRequest = requests.getAllValues().getLast();
+        assertThat(finalRequest.messages().get(1).role()).isEqualTo(LlmMessageRole.SYSTEM);
+        assertThat(finalRequest.messages().get(1).content())
+                .contains("Generate only the user's final answer", "Do not output hidden chain-of-thought or action JSON")
+                .doesNotContain("already completed successfully", "reused=true", "return FINISH for separate final generation");
+        JsonNode finalPayload = mapper.readTree(finalRequest.messages().get(2).content());
+        assertThat(finalPayload.path("observations")).isEqualTo(thirdPayload.path("observations"));
+        assertThat(finalPayload.path("answerPlan").asText()).isEqualTo("Use existing evidence");
+        assertThat(finalPayload.has("availableTools")).isFalse();
+        assertThat(finalPayload.has("budget")).isFalse();
         assertThat(requests.getAllValues().getLast().maxOutputTokens()).isEqualTo(256);
+        assertThat(requests.getAllValues().subList(0, 3)).allSatisfy(modelRequest ->
+                assertThat(modelRequest.maxOutputTokens()).isEqualTo(512));
+        assertThat(llmLogs).extracting(log -> log.requestSnapshot().path("maxOutputTokens").asInt())
+                .containsExactly(512, 512, 512, 256);
+        assertThat(llmLogs).allSatisfy(log -> assertThat(log.requestSnapshot().has("responseSchema")).isFalse());
         ArgumentCaptor<TaskEventRecord> events = ArgumentCaptor.forClass(TaskEventRecord.class);
         verify(recorder, atLeastOnce()).appendEvent(events.capture());
         assertThat(events.getAllValues()).extracting(TaskEventRecord::eventType).containsExactly(
@@ -104,6 +151,304 @@ class TaskSnapshotAgentExecutorTest {
                 TaskEventType.TOOL_FINISHED, TaskEventType.DECISION_FINISHED, TaskEventType.TOOL_STARTED,
                 TaskEventType.TOOL_FINISHED, TaskEventType.DECISION_FINISHED, TaskEventType.FINAL_GENERATION_STARTED);
         verify(lifecycle, never()).complete(anyLong(), any());
+    }
+
+    @Test
+    void enabledDecisionSchemaUsesFrozenToolInputsAndLeavesIndependentFinalGenerationUnconstrained() throws Exception {
+        TaskExecutionProperties properties = new TaskExecutionProperties();
+        properties.setDecisionJsonSchemaEnabled(true);
+        executor = executor(properties);
+        properties.setDecisionJsonSchemaEnabled(false);
+        JsonNode orderSchema = mapper.readTree("""
+                {"type":"object","properties":{"orderNo":{"type":"string","maxLength":64}},
+                 "required":["orderNo"],"additionalProperties":false}
+                """);
+        JsonNode paymentSchema = mapper.readTree("""
+                {"type":"object","properties":{"orderNo":{"type":"string"},
+                 "limit":{"type":"integer","minimum":1,"maximum":20}},
+                 "required":["orderNo"],"additionalProperties":false}
+                """);
+        List<AgentTaskExecutionSnapshot.ToolSnapshot> frozenTools = List.of(
+                new AgentTaskExecutionSnapshot.ToolSnapshot("11", "order_query", "Order", "Get order",
+                        orderSchema, "hash-order", "builtin-v1", 1000),
+                new AgentTaskExecutionSnapshot.ToolSnapshot("12", "payment_log_query", "Payment", "Get payment",
+                        paymentSchema, "hash-payment", "builtin-v1", 1000));
+        TaskExecutionRequest request = request(5, 3, 24000, 100000, frozenTools);
+        when(rag.retrieve(any(), any())).thenReturn(evidence());
+        script(call("order_query", "{\"orderNo\":\"A\"}"),
+                call("payment_log_query", "{\"orderNo\":\"A\",\"limit\":5}"), finish(), "Answer [S1]");
+
+        TaskExecutionOutcome outcome = executor.execute(request);
+
+        assertThat(outcome.resultType()).isEqualTo(TaskExecutionResultType.COMPLETED);
+        assertThat(outcome.terminationReason()).isEqualTo(TaskTerminationReason.ANSWERED);
+        assertThat(outcome.decisionTurnsUsed()).isEqualTo(3);
+        assertThat(outcome.toolCallsUsed()).isEqualTo(2);
+        assertThat(outcome.citations().get(0).path("citationId").asText()).isEqualTo("S1");
+        verify(tools, times(2)).execute(any());
+        ArgumentCaptor<LlmChatRequest> requests = ArgumentCaptor.forClass(LlmChatRequest.class);
+        verify(gateway, times(4)).chat(requests.capture());
+        LlmResponseSchema responseSchema = requests.getAllValues().getFirst().responseSchema();
+        assertThat(responseSchema).isNotNull();
+        assertThat(responseSchema.name()).isEqualTo("agent_decision_v1");
+        assertThat(responseSchema.schema().path("type").asText()).isEqualTo("object");
+        JsonNode branches = responseSchema.schema().path("oneOf");
+        assertThat(branches).hasSize(3);
+        for (int index = 0; index < frozenTools.size(); index++) {
+            JsonNode branch = branches.get(index);
+            assertThat(branch.path("properties").size()).isEqualTo(4);
+            assertThat(branch.path("properties").path("type").path("const").asText()).isEqualTo("CALL_TOOL");
+            assertThat(branch.path("properties").path("toolCode").path("const").asText())
+                    .isEqualTo(frozenTools.get(index).toolCode());
+            assertThat(branch.path("properties").path("arguments")).isEqualTo(frozenTools.get(index).inputSchema());
+            assertThat(branch.path("required")).isEqualTo(mapper.valueToTree(List.of("type", "toolCode", "arguments", "reason")));
+            assertThat(branch.path("additionalProperties").asBoolean(true)).isFalse();
+        }
+        JsonNode finishBranch = branches.get(2);
+        assertThat(finishBranch.path("properties").size()).isEqualTo(2);
+        assertThat(finishBranch.path("properties").path("type").path("const").asText()).isEqualTo("FINISH");
+        assertThat(finishBranch.path("required")).isEqualTo(mapper.valueToTree(List.of("type", "answerPlan")));
+        assertThat(finishBranch.path("additionalProperties").asBoolean(true)).isFalse();
+        assertThat(requests.getAllValues().subList(0, 3)).allSatisfy(modelRequest ->
+                assertThat(modelRequest.responseSchema()).isEqualTo(responseSchema));
+        assertThat(requests.getAllValues().getLast().responseSchema()).isNull();
+        assertThat(requests.getAllValues().getLast().maxOutputTokens()).isEqualTo(request.finalTokenReserve());
+        assertThat(llmLogs).extracting(LlmCallRecord::callType).containsExactly(
+                LlmCallType.DECISION, LlmCallType.DECISION, LlmCallType.DECISION, LlmCallType.FINAL_GENERATION);
+        assertThat(llmLogs.subList(0, 3)).allSatisfy(log ->
+                assertThat(log.requestSnapshot().path("responseSchema")).isEqualTo(mapper.valueToTree(responseSchema)));
+        assertThat(llmLogs.getLast().requestSnapshot().has("responseSchema")).isFalse();
+    }
+
+    @Test
+    void jsonObjectDecisionsAndDisabledThinkingUseConfiguredCapsButKeepFinalGenerationAsText() {
+        TaskExecutionProperties properties = new TaskExecutionProperties();
+        properties.setDecisionJsonObjectEnabled(true);
+        properties.setProviderThinkingDisabled(true);
+        properties.setDecisionMaxOutputTokens(8192);
+        properties.setFinalMaxOutputTokens(8192);
+        executor = executor(properties);
+        properties.setDecisionJsonObjectEnabled(false);
+        properties.setProviderThinkingDisabled(false);
+        properties.setDecisionMaxOutputTokens(512);
+        properties.setFinalMaxOutputTokens(1);
+        when(rag.retrieve(any(), any())).thenReturn(evidence());
+        script(call("order_query", "{\"orderNo\":\"A\"}"),
+                call("payment_log_query", "{}"), finish(), "Answer [S1]");
+        TaskExecutionRequest request = request(5, 3, 24000);
+
+        TaskExecutionOutcome outcome = executor.execute(request);
+
+        assertThat(outcome.resultType()).isEqualTo(TaskExecutionResultType.COMPLETED);
+        assertThat(outcome.terminationReason()).isEqualTo(TaskTerminationReason.ANSWERED);
+        assertThat(outcome.toolCallsUsed()).isEqualTo(2);
+        assertThat(request.finalTokenReserve()).isEqualTo(256);
+        verify(tools, times(2)).execute(any());
+        ArgumentCaptor<LlmChatRequest> requests = ArgumentCaptor.forClass(LlmChatRequest.class);
+        verify(gateway, times(4)).chat(requests.capture());
+        assertThat(requests.getAllValues()).allSatisfy(modelRequest -> {
+            assertThat(modelRequest.maxOutputTokens()).isEqualTo(8192);
+            assertThat(modelRequest.thinkingMode()).isEqualTo("disabled");
+            assertThat(modelRequest.responseSchema()).isNull();
+        });
+        assertThat(requests.getAllValues().subList(0, 3)).allSatisfy(modelRequest ->
+                assertThat(modelRequest.responseFormat()).isEqualTo("json_object"));
+        assertThat(requests.getAllValues().getLast().responseFormat()).isNull();
+        assertThat(llmLogs).extracting(LlmCallRecord::callType).containsExactly(
+                LlmCallType.DECISION, LlmCallType.DECISION, LlmCallType.DECISION, LlmCallType.FINAL_GENERATION);
+        assertThat(llmLogs).allSatisfy(log -> {
+            assertThat(log.requestSnapshot().path("thinkingMode").asText()).isEqualTo("disabled");
+            assertThat(log.requestSnapshot().path("maxOutputTokens").asInt()).isEqualTo(8192);
+            assertThat(log.requestSnapshot().has("responseSchema")).isFalse();
+        });
+        assertThat(llmLogs.subList(0, 3)).allSatisfy(log ->
+                assertThat(log.requestSnapshot().path("responseFormat").asText()).isEqualTo("json_object"));
+        assertThat(llmLogs.getLast().requestSnapshot().has("responseFormat")).isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {512, 255})
+    void optionalFinalCapUsesRemainingBudgetButNeverDropsBelowTheFrozenReserve(int remainingForFinalOutput) {
+        TaskExecutionProperties properties = new TaskExecutionProperties();
+        properties.setFinalMaxOutputTokens(8192);
+        executor = executor(properties);
+        TaskExecutionRequest request = request(3, 2, 24000);
+        SnapshotRagResult empty = new SnapshotRagResult("", List.of(), 0, 0, "NONE");
+        int finalInput = TaskTokenEstimator.inputTokens(new TaskPromptBuilder(mapper)
+                .finalAnswer(request, empty, List.of(), "Use existing evidence"));
+        int usedByDecision = 24000 - finalInput - remainingForFinalOutput;
+        when(gateway.chat(any())).thenReturn(new LlmChatResult(finish(), "frozen-model", "stop",
+                        LlmTokenUsage.known(usedByDecision - 3, 3, usedByDecision), "decision", 5),
+                result("Useful final answer"));
+
+        TaskExecutionOutcome outcome = executor.execute(request);
+
+        if (remainingForFinalOutput >= request.finalTokenReserve()) {
+            assertThat(outcome.resultType()).isEqualTo(TaskExecutionResultType.COMPLETED);
+            ArgumentCaptor<LlmChatRequest> requests = ArgumentCaptor.forClass(LlmChatRequest.class);
+            verify(gateway, times(2)).chat(requests.capture());
+            assertThat(requests.getAllValues().getLast().maxOutputTokens()).isEqualTo(remainingForFinalOutput);
+            assertThat(llmLogs.getLast().requestSnapshot().path("maxOutputTokens").asInt())
+                    .isEqualTo(remainingForFinalOutput);
+        } else {
+            assertThat(outcome.terminationReason()).isEqualTo(TaskTerminationReason.TOKEN_BUDGET_EXHAUSTED);
+            verify(gateway).chat(any());
+            assertThat(llmLogs).singleElement().satisfies(log ->
+                    assertThat(log.callType()).isEqualTo(LlmCallType.DECISION));
+        }
+        assertThat(request.finalTokenReserve()).isEqualTo(256);
+    }
+
+    @Test
+    void optionalFinalCapIsAlsoConstrainedByTheFrozenContextWindow() {
+        TaskExecutionProperties properties = new TaskExecutionProperties();
+        properties.setDecisionMaxOutputTokens(8192);
+        properties.setFinalMaxOutputTokens(8192);
+        executor = executor(properties);
+        TaskExecutionRequest reference = request(3, 2, 24000);
+        SnapshotRagResult empty = new SnapshotRagResult("", List.of(), 0, 0, "NONE");
+        TaskPromptBuilder prompts = new TaskPromptBuilder(mapper);
+        int decisionInput = TaskTokenEstimator.inputTokens(prompts.decision(reference, empty, List.of(), 3, 2));
+        int finalInput = TaskTokenEstimator.inputTokens(
+                prompts.finalAnswer(reference, empty, List.of(), "Use existing evidence"));
+        int contextWindow = Math.max(decisionInput + 128, finalInput + reference.finalTokenReserve());
+        TaskExecutionRequest request = request(3, 2, 24000, contextWindow);
+        script(finish(), "Useful final answer");
+
+        TaskExecutionOutcome outcome = executor.execute(request);
+
+        assertThat(outcome.resultType()).isEqualTo(TaskExecutionResultType.COMPLETED);
+        ArgumentCaptor<LlmChatRequest> requests = ArgumentCaptor.forClass(LlmChatRequest.class);
+        verify(gateway, times(2)).chat(requests.capture());
+        int actualFinalCap = requests.getAllValues().getLast().maxOutputTokens();
+        assertThat(actualFinalCap).isEqualTo(contextWindow - finalInput).isLessThan(8192);
+        assertThat(actualFinalCap).isGreaterThanOrEqualTo(request.finalTokenReserve());
+        assertThat(requests.getAllValues()).allSatisfy(modelRequest ->
+                assertThat(TaskTokenEstimator.inputTokens(modelRequest.messages()) + modelRequest.maxOutputTokens())
+                        .isLessThanOrEqualTo(contextWindow));
+    }
+
+    @Test
+    void optionalFinalCapCannotReduceThePersistedReserve() {
+        TaskExecutionProperties properties = new TaskExecutionProperties();
+        properties.setFinalMaxOutputTokens(1);
+        executor = executor(properties);
+        TaskExecutionRequest request = request(3, 2, 24000);
+        script(finish(), "Useful final answer");
+
+        assertThat(executor.execute(request).resultType()).isEqualTo(TaskExecutionResultType.COMPLETED);
+
+        ArgumentCaptor<LlmChatRequest> requests = ArgumentCaptor.forClass(LlmChatRequest.class);
+        verify(gateway, times(2)).chat(requests.capture());
+        assertThat(requests.getAllValues().getLast().maxOutputTokens()).isEqualTo(request.finalTokenReserve());
+    }
+
+    @Test
+    void jsonObjectModeDoesNotRepairFencedDecisionsOrRetryTheProvider() {
+        TaskExecutionProperties properties = new TaskExecutionProperties();
+        properties.setDecisionJsonObjectEnabled(true);
+        executor = executor(properties);
+        script("```json\n" + finish() + "\n```");
+
+        TaskExecutionOutcome outcome = executor.execute(request(3, 2, 24000));
+
+        assertThat(outcome.errorCode()).isEqualTo("AGENT_INVALID_DECISION");
+        assertThat(outcome.finalAnswer()).isNull();
+        verify(gateway).chat(any());
+        verifyNoInteractions(tools);
+        assertThat(llmLogs).singleElement().satisfies(log -> {
+            assertThat(log.status()).isEqualTo(TraceRecordStatus.FAILED);
+            assertThat(log.responseText()).isNull();
+        });
+    }
+
+    @Test
+    void configuredDecisionCapIsFrozenAndRecordedWithoutChangingTheFinalReserve() {
+        int decisionCap = 2048;
+        TaskExecutionProperties properties = new TaskExecutionProperties();
+        properties.setDecisionMaxOutputTokens(decisionCap);
+        executor = executor(properties);
+        properties.setDecisionMaxOutputTokens(4096);
+        script(finish(), "Useful final answer");
+
+        TaskExecutionRequest request = request(3, 2, 24000);
+        TaskExecutionOutcome outcome = executor.execute(request);
+
+        assertThat(outcome.resultType()).isEqualTo(TaskExecutionResultType.COMPLETED);
+        assertThat(outcome.terminationReason()).isEqualTo(TaskTerminationReason.ANSWERED);
+        ArgumentCaptor<LlmChatRequest> requests = ArgumentCaptor.forClass(LlmChatRequest.class);
+        verify(gateway, times(2)).chat(requests.capture());
+        assertThat(requests.getAllValues()).extracting(LlmChatRequest::maxOutputTokens)
+                .containsExactly(decisionCap, request.finalTokenReserve());
+        assertThat(llmLogs).extracting(log -> log.requestSnapshot().path("maxOutputTokens").asInt())
+                .containsExactly(decisionCap, request.finalTokenReserve());
+        assertThat(llmLogs).extracting(LlmCallRecord::callType)
+                .containsExactly(LlmCallType.DECISION, LlmCallType.FINAL_GENERATION);
+        assertThat(request.finalTokenReserve()).isEqualTo(256);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void increasedDecisionCapStillReservesTheFinalPromptAndOutputUnderALowTotalBudget(boolean schemaEnabled) {
+        TaskExecutionProperties properties = new TaskExecutionProperties();
+        properties.setDecisionMaxOutputTokens(2048);
+        properties.setDecisionJsonSchemaEnabled(schemaEnabled);
+        executor = executor(properties);
+        TaskExecutionRequest reference = request(3, 2, 24000);
+        TaskPromptBuilder prompts = new TaskPromptBuilder(mapper);
+        SnapshotRagResult empty = new SnapshotRagResult("", List.of(), 0, 0, "NONE");
+        int decisionInput = TaskTokenEstimator.inputTokens(prompts.decision(reference, empty, List.of(), 3, 2))
+                + decisionSchemaTokens(reference, schemaEnabled);
+        int finalInput = TaskTokenEstimator.inputTokens(
+                prompts.finalAnswer(reference, empty, List.of(), "Use existing evidence"));
+        int totalBudget = decisionInput + finalInput + reference.finalTokenReserve() + 512;
+        TaskExecutionRequest request = request(3, 2, totalBudget);
+        script(finish(), "Useful final answer");
+
+        TaskExecutionOutcome outcome = executor.execute(request);
+
+        assertThat(outcome.resultType()).isEqualTo(TaskExecutionResultType.COMPLETED);
+        ArgumentCaptor<LlmChatRequest> requests = ArgumentCaptor.forClass(LlmChatRequest.class);
+        verify(gateway, times(2)).chat(requests.capture());
+        int actualDecisionCap = requests.getAllValues().getFirst().maxOutputTokens();
+        assertThat(actualDecisionCap).isBetween(1, 1023);
+        assertThat(actualDecisionCap + decisionInput + finalInput + request.finalTokenReserve())
+                .isLessThanOrEqualTo(totalBudget);
+        assertThat(requests.getAllValues().getLast().maxOutputTokens()).isEqualTo(request.finalTokenReserve());
+        assertThat(llmLogs).extracting(log -> log.requestSnapshot().path("maxOutputTokens").asInt())
+                .containsExactly(actualDecisionCap, request.finalTokenReserve());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void increasedDecisionCapStillFitsTheFrozenContextWindowWithoutReducingTheFinalReserve(boolean schemaEnabled) {
+        TaskExecutionProperties properties = new TaskExecutionProperties();
+        properties.setDecisionMaxOutputTokens(2048);
+        properties.setDecisionJsonSchemaEnabled(schemaEnabled);
+        executor = executor(properties);
+        TaskExecutionRequest reference = request(3, 2, 24000);
+        SnapshotRagResult empty = new SnapshotRagResult("", List.of(), 0, 0, "NONE");
+        int decisionInput = TaskTokenEstimator.inputTokens(
+                new TaskPromptBuilder(mapper).decision(reference, empty, List.of(), 3, 2))
+                + decisionSchemaTokens(reference, schemaEnabled);
+        TaskExecutionRequest request = request(3, 2, 24000, decisionInput + 128);
+        script(finish(), "Useful final answer");
+
+        TaskExecutionOutcome outcome = executor.execute(request);
+
+        assertThat(outcome.resultType()).isEqualTo(TaskExecutionResultType.COMPLETED);
+        ArgumentCaptor<LlmChatRequest> requests = ArgumentCaptor.forClass(LlmChatRequest.class);
+        verify(gateway, times(2)).chat(requests.capture());
+        assertThat(requests.getAllValues()).extracting(LlmChatRequest::maxOutputTokens)
+                .containsExactly(128, request.finalTokenReserve());
+        assertThat(requests.getAllValues()).allSatisfy(modelRequest ->
+                assertThat(TaskTokenEstimator.inputTokens(modelRequest.messages())
+                        + (modelRequest.responseSchema() == null ? 0
+                        : TaskTokenEstimator.textTokens(mapper.valueToTree(modelRequest.responseSchema()).toString()))
+                        + modelRequest.maxOutputTokens())
+                        .isLessThanOrEqualTo(request.executionSnapshot().chatModel().contextWindow()));
+        assertThat(llmLogs).extracting(log -> log.requestSnapshot().path("maxOutputTokens").asInt())
+                .containsExactly(128, request.finalTokenReserve());
     }
 
     @Test
@@ -130,20 +475,45 @@ class TaskSnapshotAgentExecutorTest {
         verify(tools, times(2)).execute(any());
     }
 
-    @Test
-    void canonicalDuplicateReusesSecondObservationAndRejectsThirdWithoutCallingRuntimeAgain() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void canonicalDuplicateReusesSecondObservationAndRejectsThirdWithoutCallingRuntimeAgain(boolean jsonObjectEnabled) throws Exception {
+        TaskExecutionProperties properties = new TaskExecutionProperties();
+        properties.setDecisionJsonObjectEnabled(jsonObjectEnabled);
+        executor = executor(properties);
         script(call("order_query", "{\"a\":1,\"b\":2}"), call("order_query", "{\"b\":2,\"a\":1}"),
                 call("order_query", "{\"a\":1,\"b\":2}"));
         TaskExecutionOutcome outcome = executor.execute(request(5, 4, 50000));
         assertThat(outcome.errorCode()).isEqualTo("AGENT_DUPLICATE_TOOL_LOOP");
         assertThat(outcome.decisionTurnsUsed()).isEqualTo(3);
         assertThat(outcome.toolCallsUsed()).isEqualTo(1);
+        assertThat(outcome.finalAnswer()).isNull();
         verify(tools).execute(any());
-        assertThat(llmLogs.getLast().requestSnapshot().toString()).contains("\\\"reused\\\":true");
+        ArgumentCaptor<LlmChatRequest> requests = ArgumentCaptor.forClass(LlmChatRequest.class);
+        verify(gateway, times(3)).chat(requests.capture());
+        JsonNode secondHistory = mapper.readTree(requests.getAllValues().get(1).messages().get(2).content()).path("observations");
+        JsonNode thirdHistory = mapper.readTree(requests.getAllValues().get(2).messages().get(2).content()).path("observations");
+        assertThat(secondHistory.size()).isEqualTo(1);
+        assertThat(thirdHistory.size()).isEqualTo(2);
+        assertThat(thirdHistory.get(0)).isEqualTo(secondHistory.get(0));
+        assertThat(secondHistory.get(0).path("reused").isBoolean()).isTrue();
+        assertThat(secondHistory.get(0).path("reused").booleanValue()).isFalse();
+        assertThat(thirdHistory.get(1).path("reused").isBoolean()).isTrue();
+        assertThat(thirdHistory.get(1).path("reused").booleanValue()).isTrue();
+        assertThat(thirdHistory.get(1).path("type").asText()).isEqualTo("UNTRUSTED_TOOL_RESULT");
+        assertThat(thirdHistory.get(1).path("toolCode").asText()).isEqualTo("order_query");
+        assertThat(thirdHistory.get(1).path("data")).isEqualTo(secondHistory.get(0).path("data"));
+        assertThat(thirdHistory.get(1).path("summary")).isEqualTo(secondHistory.get(0).path("summary"));
+        assertThat(llmLogs).extracting(LlmCallRecord::callType)
+                .containsExactly(LlmCallType.DECISION, LlmCallType.DECISION, LlmCallType.DECISION);
     }
 
-    @Test
-    void unknownUsageIsConservativelyEstimatedInTaskAndEachCallLog() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void unknownUsageIsConservativelyEstimatedInTaskAndEachCallLog(boolean schemaEnabled) {
+        TaskExecutionProperties properties = new TaskExecutionProperties();
+        properties.setDecisionJsonSchemaEnabled(schemaEnabled);
+        executor = executor(properties);
         when(gateway.chat(any())).thenReturn(new LlmChatResult(finish(), "frozen-model", "stop",
                 LlmTokenUsage.unknown(), "request-1", 12),
                 new LlmChatResult("Useful answer", "frozen-model", "stop", LlmTokenUsage.unknown(), "request-2", 14));
@@ -156,6 +526,16 @@ class TaskSnapshotAgentExecutorTest {
             assertThat(log.inputTokens()).isPositive();
             assertThat(log.outputTokens()).isPositive();
         });
+        ArgumentCaptor<LlmChatRequest> requests = ArgumentCaptor.forClass(LlmChatRequest.class);
+        verify(gateway, times(2)).chat(requests.capture());
+        LlmChatRequest decision = requests.getAllValues().getFirst();
+        int schemaInput = decision.responseSchema() == null ? 0
+                : TaskTokenEstimator.textTokens(mapper.valueToTree(decision.responseSchema()).toString());
+        assertThat(llmLogs.getFirst().inputTokens())
+                .isEqualTo(TaskTokenEstimator.inputTokens(decision.messages()) + schemaInput);
+        assertThat(schemaInput > 0).isEqualTo(schemaEnabled);
+        assertThat(llmLogs.getLast().inputTokens())
+                .isEqualTo(TaskTokenEstimator.inputTokens(requests.getAllValues().getLast().messages()));
     }
 
     @Test
@@ -301,19 +681,39 @@ class TaskSnapshotAgentExecutorTest {
     }
 
     private TaskExecutionRequest request(int decisions, int toolCalls, int tokens) {
+        return request(decisions, toolCalls, tokens, 100000);
+    }
+
+    private TaskExecutionRequest request(int decisions, int toolCalls, int tokens, int contextWindow) {
         var schema = mapper.createObjectNode().put("type", "object");
-        var snapshot = new AgentTaskExecutionSnapshot("agent-task-snapshot-v1",
-                new AgentTaskExecutionSnapshot.AgentSnapshot("8", "Frozen task system prompt", "ACTIVE", decisions, toolCalls, tokens, 60),
-                new AgentTaskExecutionSnapshot.RuntimeSnapshot("agent-decision-json-v1", "agent-runtime-rules-v1", "frozen-revision"),
-                new AgentTaskExecutionSnapshot.ChatModelSnapshot("openai-compatible-default", "frozen-provider", "frozen-model",
-                        BigDecimal.ZERO, BigDecimal.ONE, 100000, true),
-                new AgentTaskExecutionSnapshot.RetrievalSnapshot(List.of(), 5, BigDecimal.ZERO, false),
+        return request(decisions, toolCalls, tokens, contextWindow,
                 List.of(new AgentTaskExecutionSnapshot.ToolSnapshot("11", "order_query", "Order", "Get order",
                                 schema, "hash-order", "builtin-v1", 1000),
                         new AgentTaskExecutionSnapshot.ToolSnapshot("12", "payment_log_query", "Payment", "Get payment",
                                 schema, "hash-payment", "builtin-v1", 1000)));
+    }
+
+    private TaskExecutionRequest request(int decisions, int toolCalls, int tokens, int contextWindow,
+            List<AgentTaskExecutionSnapshot.ToolSnapshot> frozenTools) {
+        var snapshot = new AgentTaskExecutionSnapshot("agent-task-snapshot-v1",
+                new AgentTaskExecutionSnapshot.AgentSnapshot("8", "Frozen task system prompt", "ACTIVE", decisions, toolCalls, tokens, 60),
+                new AgentTaskExecutionSnapshot.RuntimeSnapshot("agent-decision-json-v1", "agent-runtime-rules-v1", "frozen-revision"),
+                new AgentTaskExecutionSnapshot.ChatModelSnapshot("openai-compatible-default", "frozen-provider", "frozen-model",
+                        BigDecimal.ZERO, BigDecimal.ONE, contextWindow, true),
+                new AgentTaskExecutionSnapshot.RetrievalSnapshot(List.of(), 5, BigDecimal.ZERO, false),
+                frozenTools);
         return new TaskExecutionRequest(101, 7, 8, "Investigate", snapshot, 256,
                 now.get().plusSeconds(60), cancelled::get);
+    }
+
+    private int decisionSchemaTokens(TaskExecutionRequest request, boolean schemaEnabled) {
+        return schemaEnabled ? TaskTokenEstimator.textTokens(mapper.valueToTree(
+                AgentDecisionResponseSchema.fromTools(mapper, request.executionSnapshot().tools())).toString()) : 0;
+    }
+
+    private TaskSnapshotAgentExecutor executor(TaskExecutionProperties properties) {
+        return new TaskSnapshotAgentExecutor(rag, gateway, tools, factory, lifecycle,
+                new AgentDecisionParser(mapper), new TaskPromptBuilder(mapper), mapper, clock, properties);
     }
 
     private SnapshotRagResult evidence() {

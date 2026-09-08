@@ -13,6 +13,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class PublicTaskTraceProjectorTest {
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
@@ -89,10 +91,97 @@ class PublicTaskTraceProjectorTest {
         assertThat(result.getFirst().id()).isEqualTo("9007199254740994");
         assertThat(result.getFirst().llmCalls().getFirst().id()).isEqualTo("9007199254740993");
         assertThat(result.getFirst().llmCalls().getFirst().requestSnapshot().toString()).doesNotContain("private");
+        assertThat(result.getFirst().llmCalls().getFirst().requestSnapshot().has("responseFormat")).isFalse();
+        assertThat(result.getFirst().llmCalls().getFirst().requestSnapshot().has("thinkingMode")).isFalse();
         assertThat(result.getFirst().llmCalls().getFirst().responseText()).doesNotContain("private");
         assertThat(result.getFirst().summary().path("stepId").textValue()).isEqualTo("9007199254740994");
         ((ObjectNode) result.getFirst().summary()).put("mutated", true);
         assertThat(result.getFirst().summary().has("mutated")).isFalse();
+    }
+
+    @Test
+    void shouldPublishTheSafeNamedResponseSchemaWithoutAdditionalWrapperConfiguration() throws Exception {
+        ObjectNode request = objectMapper.createObjectNode();
+        request.putArray("messages").addObject().put("role", "USER").put("content", "question");
+        request.set("responseSchema", objectMapper.readTree("""
+                {"name":"agent_decision-v1","schema":{"type":"object","additionalProperties":false,
+                  "properties":{"type":{"enum":["CALL_TOOL","FINISH"]}},
+                  "metadata":{"secret":"schema-private","items":[{"api_key":"nested-private"}]}},
+                 "providerConfiguration":"wrapper-private"}
+                """));
+        JsonNode original = request.deepCopy();
+        var call = new TaskTraceView.LlmCall(101L, "DECISION", "openai-compatible", "model", "model",
+                request, "{\"type\":\"FINISH\"}", "stop", "provider-id",
+                5, 3, 8, "EXACT", 2, "SUCCESS", null, null, OffsetDateTime.now());
+        var step = new TaskTraceView.Step(102L, 0, "LLM_DECISION", "SUCCESS", "Decision",
+                objectMapper.createObjectNode(), null, null, OffsetDateTime.now(), OffsetDateTime.now(),
+                2L, OffsetDateTime.now(), List.of(call), List.of(), List.of());
+
+        var projectedCall = traces.steps(new TaskTraceView(91, "RUNNING", List.of(step)))
+                .getFirst().llmCalls().getFirst();
+        JsonNode responseSchema = projectedCall.requestSnapshot().path("responseSchema");
+        assertThat(responseSchema.size()).isEqualTo(2);
+        assertThat(responseSchema.path("name").textValue()).isEqualTo("agent_decision-v1");
+        assertThat(responseSchema.path("schema").path("properties").path("type").path("enum").get(0).textValue())
+                .isEqualTo("CALL_TOOL");
+        assertThat(responseSchema.path("schema").path("additionalProperties").booleanValue()).isFalse();
+        assertThat(responseSchema.path("schema").path("metadata").path("secret").textValue()).isEqualTo("[REDACTED]");
+        assertThat(responseSchema.path("schema").path("metadata").path("items").get(0).path("api_key").textValue())
+                .isEqualTo("[REDACTED]");
+        assertThat(responseSchema.toString()).doesNotContain("private", "providerConfiguration");
+        ((ObjectNode) responseSchema).put("name", "changed");
+        assertThat(projectedCall.requestSnapshot().path("responseSchema").path("name").textValue())
+                .isEqualTo("agent_decision-v1");
+        assertThat(request).isEqualTo(original);
+    }
+
+    @Test
+    void shouldExposeJsonObjectAndDisabledThinkingWithoutExposingNestedThinkingContent() {
+        ObjectNode request = objectMapper.createObjectNode();
+        request.putArray("messages").addObject().put("role", "USER").put("content",
+                "{\"result\":\"ok\",\"nested\":[{\"thinking\":\"private\",\"api_key\":\"secret-key\"}]}");
+        request.put("responseFormat", "json_object").put("thinkingMode", "disabled");
+        request.putObject("providerConfiguration").put("thinking", "private");
+        JsonNode original = request.deepCopy();
+
+        JsonNode safe = projectRequest(request, "DECISION");
+
+        assertThat(safe.path("responseFormat").textValue()).isEqualTo("json_object");
+        assertThat(safe.path("thinkingMode").textValue()).isEqualTo("disabled");
+        assertThat(safe.has("responseSchema")).isFalse();
+        assertThat(safe.toString()).doesNotContain("private", "secret-key", "providerConfiguration");
+        assertThat(request).isEqualTo(original);
+
+        request.remove("responseFormat");
+        JsonNode finalRequest = projectRequest(request, "FINAL_GENERATION");
+        assertThat(finalRequest.path("thinkingMode").textValue()).isEqualTo("disabled");
+        assertThat(finalRequest.has("responseFormat")).isFalse();
+        assertThat(finalRequest.has("responseSchema")).isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"responseFormat", "thinkingMode"})
+    void shouldRejectMalformedFormatAndThinkingValuesInStoredRequests(String field) throws Exception {
+        for (String invalid : List.of("null", "{}", "[]", "true", "7", "\"\"", "\"enabled\"",
+                "\"JSON_OBJECT\"", "\"DISABLED\"", "\"disabled \"", "\"json_schema\"")) {
+            ObjectNode request = objectMapper.createObjectNode();
+            request.putArray("messages").addObject().put("role", "USER").put("content", "question");
+            request.set(field, objectMapper.readTree(invalid));
+            assertThatThrownBy(() -> projectRequest(request, "DECISION"))
+                    .as("%s=%s", field, invalid).isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Test
+    void shouldRejectConflictingResponseFormatsInStoredRequests() {
+        ObjectNode request = objectMapper.createObjectNode();
+        request.putArray("messages").addObject().put("role", "USER").put("content", "question");
+        request.put("responseFormat", "json_object");
+        request.putObject("responseSchema").put("name", "decision").putObject("schema");
+
+        assertThatThrownBy(() -> projectRequest(request, "DECISION"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("LLM request responseFormat and responseSchema are mutually exclusive");
     }
 
     @Test
@@ -115,5 +204,16 @@ class PublicTaskTraceProjectorTest {
             assertThat(result.payload().has("apiKey")).isFalse();
         }
         assertThat(answer.toString()).isEqualTo(String.join("", chunks));
+    }
+
+    private JsonNode projectRequest(ObjectNode request, String callType) {
+        var call = new TaskTraceView.LlmCall(101L, callType, "openai-compatible", "model", "model",
+                request, "answer", "stop", "provider-id", 5, 3, 8, "EXACT", 2,
+                "SUCCESS", null, null, OffsetDateTime.now());
+        var step = new TaskTraceView.Step(102L, 0, "LLM_DECISION", "SUCCESS", "Decision",
+                objectMapper.createObjectNode(), null, null, OffsetDateTime.now(), OffsetDateTime.now(),
+                2L, OffsetDateTime.now(), List.of(call), List.of(), List.of());
+        return traces.steps(new TaskTraceView(91, "RUNNING", List.of(step)))
+                .getFirst().llmCalls().getFirst().requestSnapshot();
     }
 }

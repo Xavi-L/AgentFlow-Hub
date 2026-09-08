@@ -27,7 +27,17 @@ public class PublicTaskTraceProjector {
         for (JsonNode step : safe) {
             for (JsonNode call : step.path("llmCalls")) {
                 ObjectNode request = pick(call.path("requestSnapshot"), "messages", "modelProvider", "modelName",
-                        "provider", "model", "requestedModel", "temperature", "topP", "maxOutputTokens");
+                        "provider", "model", "requestedModel", "temperature", "topP", "maxOutputTokens",
+                        "responseSchema", "responseFormat", "thinkingMode");
+                requireOptionalExactText(request, "responseFormat", "json_object");
+                requireOptionalExactText(request, "thinkingMode", "disabled");
+                if (request.has("responseFormat") && request.has("responseSchema")) {
+                    throw new IllegalArgumentException(
+                            "LLM request responseFormat and responseSchema are mutually exclusive");
+                }
+                if (request.has("responseSchema")) {
+                    request.set("responseSchema", pick(request.path("responseSchema"), "name", "schema"));
+                }
                 ArrayNode messages = objectMapper.createArrayNode();
                 for (JsonNode message : request.path("messages")) {
                     messages.add(pick(message, "role", "content"));
@@ -78,5 +88,14 @@ public class PublicTaskTraceProjector {
             }
         }
         return result;
+    }
+
+    private static void requireOptionalExactText(ObjectNode request, String field, String expected) {
+        if (request.has(field)) {
+            JsonNode value = request.get(field);
+            if (!value.isTextual() || !expected.equals(value.textValue())) {
+                throw new IllegalArgumentException("LLM request " + field + " must be " + expected);
+            }
+        }
     }
 }

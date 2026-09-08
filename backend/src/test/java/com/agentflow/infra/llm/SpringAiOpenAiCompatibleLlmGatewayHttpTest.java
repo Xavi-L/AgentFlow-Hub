@@ -7,6 +7,7 @@ import com.agentflow.config.OpenAiChatProperties;
 import com.agentflow.config.SpringAiConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -55,6 +56,9 @@ class SpringAiOpenAiCompatibleLlmGatewayHttpTest {
             assertThat(body.path("stream").booleanValue()).isFalse();
             assertThat(body.has("tools")).isFalse();
             assertThat(body.has("max_completion_tokens")).isFalse();
+            assertThat(body.has("response_format")).isFalse();
+            assertThat(body.has("thinking")).isFalse();
+            assertThat(body.has("extra_body")).isFalse();
             assertThat(body.path("messages")).hasSize(3);
             assertMessage(body, 0, "system", "system line 1\nsystem line 2");
             assertMessage(body, 1, "user", "  exact user body  ");
@@ -66,6 +70,116 @@ class SpringAiOpenAiCompatibleLlmGatewayHttpTest {
             assertThat(result.usage()).isEqualTo(LlmTokenUsage.known(17, 5, 22));
             assertThat(result.providerRequestId()).isEqualTo("chatcmpl-provider-42");
             assertThat(result.latencyMs()).isGreaterThanOrEqualTo(0);
+        }
+    }
+
+    @Test
+    void shouldSendJsonObjectAndDisabledThinkingWithoutLeakingModesIntoFollowingRequests() throws Exception {
+        try (LocalChatStub stub = new LocalChatStub()) {
+            stub.respond(200, successfulResponse(true), Duration.ZERO);
+            LlmGateway gateway = gateway(stub.baseUrl(), "", Duration.ofSeconds(2));
+            LlmChatRequest original = request();
+            gateway.chat(new LlmChatRequest(original.modelProvider(), original.modelName(), original.messages(),
+                    original.temperature(), original.topP(), 8192, null, "json_object", "disabled"));
+
+            JsonNode decisionBody = OBJECT_MAPPER.readTree(stub.capturedRequest().body());
+            assertThat(decisionBody.path("response_format")).isEqualTo(
+                    OBJECT_MAPPER.createObjectNode().put("type", "json_object"));
+            assertThat(decisionBody.path("thinking")).isEqualTo(
+                    OBJECT_MAPPER.createObjectNode().put("type", "disabled"));
+            assertThat(decisionBody.path("max_tokens").intValue()).isEqualTo(8192);
+            assertThat(decisionBody.has("extra_body")).isFalse();
+            assertThat(decisionBody.has("tools")).isFalse();
+
+            gateway.chat(new LlmChatRequest(original.modelProvider(), original.modelName(), original.messages(),
+                    original.temperature(), original.topP(), 8192, null, null, "disabled"));
+            JsonNode finalBody = OBJECT_MAPPER.readTree(stub.capturedRequest().body());
+            assertThat(finalBody.has("response_format")).isFalse();
+            assertThat(finalBody.path("thinking").path("type").asText()).isEqualTo("disabled");
+            assertThat(finalBody.path("max_tokens").intValue()).isEqualTo(8192);
+
+            gateway.chat(original);
+            JsonNode defaultBody = OBJECT_MAPPER.readTree(stub.capturedRequest().body());
+            assertThat(defaultBody.has("response_format")).isFalse();
+            assertThat(defaultBody.has("thinking")).isFalse();
+            assertThat(defaultBody.has("extra_body")).isFalse();
+            assertThat(stub.requestCount()).isEqualTo(3);
+        }
+    }
+
+    @Test
+    void shouldFailRejectedJsonObjectOptionsWithoutRetryOrDroppingTheRequestedModes() throws Exception {
+        try (LocalChatStub stub = new LocalChatStub()) {
+            stub.respond(400, "unsupported response_format or thinking option", Duration.ZERO);
+            LlmGateway gateway = gateway(stub.baseUrl(), "", Duration.ofSeconds(2));
+            LlmChatRequest original = request();
+            LlmChatRequest configured = new LlmChatRequest(original.modelProvider(), original.modelName(),
+                    original.messages(), original.temperature(), original.topP(), 8192,
+                    null, "json_object", "disabled");
+
+            assertThatThrownBy(() -> gateway.chat(configured))
+                    .isInstanceOfSatisfying(LlmGatewayException.class, failure -> {
+                        assertThat(failure.failureType()).isEqualTo(LlmFailureType.PROVIDER_REJECTED);
+                        assertThat(failure).hasNoCause();
+                    });
+
+            assertThat(stub.requestCount()).isEqualTo(1);
+            JsonNode body = OBJECT_MAPPER.readTree(stub.capturedRequest().body());
+            assertThat(body.path("response_format").path("type").asText()).isEqualTo("json_object");
+            assertThat(body.path("thinking").path("type").asText()).isEqualTo("disabled");
+        }
+    }
+
+    @Test
+    void shouldSendStrictSchemaOnTheOptedInRequestAndOmitItFromTheFollowingFinalRequest() throws Exception {
+        try (LocalChatStub stub = new LocalChatStub()) {
+            JsonNode response = OBJECT_MAPPER.readTree(successfulResponse(true));
+            String decision = "{\"type\":\"FINISH\",\"answerPlan\":\"Use the available evidence\"}";
+            ((ObjectNode) response.path("choices").path(0).path("message")).put("content", decision);
+            stub.respond(200, response.toString(), Duration.ZERO);
+            LlmGateway gateway = gateway(stub.baseUrl(), "", Duration.ofSeconds(2));
+            LlmChatRequest structuredRequest = structuredRequest();
+
+            LlmChatResult decisionResult = gateway.chat(structuredRequest);
+
+            JsonNode decisionBody = OBJECT_MAPPER.readTree(stub.capturedRequest().body());
+            JsonNode format = decisionBody.path("response_format");
+            assertThat(format.path("type").textValue()).isEqualTo("json_schema");
+            assertThat(format.path("json_schema").path("name").textValue()).isEqualTo("decision_test_v1");
+            assertThat(format.path("json_schema").path("strict").booleanValue()).isTrue();
+            assertThat(format.path("json_schema").path("schema")).isEqualTo(structuredRequest.responseSchema().schema());
+            assertThat(decisionBody.path("max_tokens").intValue()).isEqualTo(1024);
+            assertThat(decisionBody.has("tools")).isFalse();
+            assertThat(decisionResult.content()).isEqualTo(decision);
+
+            stub.respond(200, successfulResponse(true), Duration.ZERO);
+            LlmChatResult finalResult = gateway.chat(request("final-model", "0.1", "0.8", 2048));
+
+            JsonNode finalBody = OBJECT_MAPPER.readTree(stub.capturedRequest().body());
+            assertThat(finalBody.has("response_format")).isFalse();
+            assertThat(finalBody.path("model").textValue()).isEqualTo("final-model");
+            assertThat(finalBody.path("max_tokens").intValue()).isEqualTo(2048);
+            assertThat(finalResult.content()).isEqualTo("provider answer");
+            assertThat(stub.requestCount()).isEqualTo(2);
+        }
+    }
+
+    @Test
+    void shouldFailAnUnsupportedSchemaRequestWithoutRetryOrPlainTextFallback() throws Exception {
+        try (LocalChatStub stub = new LocalChatStub()) {
+            stub.respond(400, "provider does not support this response_format", Duration.ZERO);
+            LlmGateway gateway = gateway(stub.baseUrl(), "", Duration.ofSeconds(2));
+
+            assertThatThrownBy(() -> gateway.chat(structuredRequest()))
+                    .isInstanceOfSatisfying(LlmGatewayException.class, failure -> {
+                        assertThat(failure.failureType()).isEqualTo(LlmFailureType.PROVIDER_REJECTED);
+                        assertThat(failure).hasNoCause();
+                    });
+
+            assertThat(stub.requestCount()).isEqualTo(1);
+            JsonNode body = OBJECT_MAPPER.readTree(stub.capturedRequest().body());
+            assertThat(body.path("response_format").path("type").textValue()).isEqualTo("json_schema");
+            assertThat(body.path("response_format").path("json_schema").path("strict").booleanValue()).isTrue();
         }
     }
 
@@ -223,6 +337,24 @@ class SpringAiOpenAiCompatibleLlmGatewayHttpTest {
 
     private static LlmChatRequest request() {
         return request("request-model-a", "0.2", "0.8", 1024);
+    }
+
+    private static LlmChatRequest structuredRequest() throws IOException {
+        JsonNode schema = OBJECT_MAPPER.readTree("""
+                {
+                  "type":"object",
+                  "properties":{
+                    "type":{"const":"FINISH"},
+                    "answerPlan":{"type":"string","minLength":1,"maxLength":2048}
+                  },
+                  "required":["type","answerPlan"],
+                  "additionalProperties":false
+                }
+                """);
+        LlmChatRequest original = request();
+        return new LlmChatRequest(original.modelProvider(), original.modelName(), original.messages(),
+                original.temperature(), original.topP(), original.maxOutputTokens(),
+                new LlmResponseSchema("decision_test_v1", schema));
     }
 
     private static LlmChatRequest request(String model, String temperature, String topP, int maxOutputTokens) {

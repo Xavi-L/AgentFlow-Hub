@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -129,6 +130,142 @@ class TracePayloadSanitizerTest {
                 .sanitizeLlmRequestSnapshot(request, "LLM request");
 
         assertThat(objectMapper.readTree(safe)).isEqualTo(request);
+    }
+
+    @Test
+    void shouldPreserveTheOptionalNamedResponseSchemaAndRecursivelyRedactItWithoutMutation() throws Exception {
+        ObjectNode request = validLlmRequest();
+        request.set("responseSchema", objectMapper.readTree("""
+                {"name":"agent_decision-v1","schema":{"type":"object","required":["type"],
+                  "properties":{"type":{"enum":["CALL_TOOL","FINISH"]}},"additionalProperties":false,
+                  "metadata":{"api_key":"schema-private","nested":[{"reasoningContent":"hidden"}]}}}
+                """));
+        JsonNode original = request.deepCopy();
+
+        JsonNode safe = objectMapper.readTree(sanitizer(new TracePayloadProperties())
+                .sanitizeLlmRequestSnapshot(request, "LLM request"));
+
+        assertThat(safe.path("responseSchema").path("name").textValue()).isEqualTo("agent_decision-v1");
+        JsonNode schema = safe.path("responseSchema").path("schema");
+        assertThat(schema.path("required").get(0).textValue()).isEqualTo("type");
+        assertThat(schema.path("properties").path("type").path("enum").get(1).textValue()).isEqualTo("FINISH");
+        assertThat(schema.path("additionalProperties").booleanValue()).isFalse();
+        assertThat(schema.path("metadata").path("api_key").textValue()).isEqualTo(REDACTED);
+        assertThat(schema.path("metadata").path("nested").get(0).path("reasoningContent").textValue())
+                .isEqualTo(REDACTED);
+        assertThat(safe.toString()).doesNotContain("schema-private", "hidden");
+        assertThat(request).isEqualTo(original);
+    }
+
+    @Test
+    void shouldPreserveExplicitJsonObjectAndDisabledThinkingWhileRedactingThinkingContent() throws Exception {
+        ObjectNode request = validLlmRequest();
+        request.put("responseFormat", "json_object");
+        request.put("thinkingMode", "disabled");
+        ((ObjectNode) request.path("messages").get(0)).put("content",
+                "{\"result\":\"ok\",\"nested\":[{\"thinking\":\"private\",\"api_key\":\"secret-key\"}]}");
+        JsonNode original = request.deepCopy();
+
+        JsonNode safe = objectMapper.readTree(sanitizer(new TracePayloadProperties())
+                .sanitizeLlmRequestSnapshot(request, "LLM request"));
+
+        assertThat(safe.path("responseFormat").textValue()).isEqualTo("json_object");
+        assertThat(safe.path("thinkingMode").textValue()).isEqualTo("disabled");
+        assertThat(safe.has("responseSchema")).isFalse();
+        JsonNode content = objectMapper.readTree(safe.path("messages").get(0).path("content").textValue());
+        assertThat(content.path("nested").get(0).path("thinking").textValue()).isEqualTo(REDACTED);
+        assertThat(content.path("nested").get(0).path("api_key").textValue()).isEqualTo(REDACTED);
+        assertThat(safe.toString()).doesNotContain("private", "secret-key");
+        assertThat(request).isEqualTo(original);
+
+        request.remove("responseFormat");
+        JsonNode finalRequest = objectMapper.readTree(sanitizer(new TracePayloadProperties())
+                .sanitizeLlmRequestSnapshot(request, "LLM request"));
+        assertThat(finalRequest.path("thinkingMode").textValue()).isEqualTo("disabled");
+        assertThat(finalRequest.has("responseFormat")).isFalse();
+        assertThat(finalRequest.has("responseSchema")).isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"responseFormat", "thinkingMode"})
+    void shouldRejectUnsupportedFormatAndThinkingValues(String field) throws Exception {
+        for (String invalid : List.of("null", "{}", "[]", "true", "7", "\"\"", "\"enabled\"",
+                "\"JSON_OBJECT\"", "\"DISABLED\"", "\"disabled \"", "\"json_schema\"")) {
+            ObjectNode request = validLlmRequest();
+            request.set(field, objectMapper.readTree(invalid));
+            assertThatThrownBy(() -> sanitizer(new TracePayloadProperties())
+                    .sanitizeLlmRequestSnapshot(request, "LLM request"))
+                    .as("%s=%s", field, invalid).isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Test
+    void shouldRejectJsonObjectAndResponseSchemaTogetherIncludingNormalizedAliases() {
+        for (String field : List.of("responseFormat", "response_format")) {
+            ObjectNode request = validLlmRequest();
+            request.put(field, "json_object");
+            request.putObject("responseSchema").put("name", "decision").putObject("schema");
+            assertThatThrownBy(() -> sanitizer(new TracePayloadProperties())
+                    .sanitizeLlmRequestSnapshot(request, "LLM request"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("LLM request responseFormat and responseSchema are mutually exclusive");
+        }
+    }
+
+    @Test
+    void shouldIncludeJsonObjectAndThinkingConfigurationInTheTotalUtf8Limit() throws Exception {
+        ObjectNode request = validLlmRequest();
+        request.put("responseFormat", "json_object").put("thinkingMode", "disabled");
+        ((ObjectNode) request.path("messages").get(0)).put("content", "订单诊断");
+        int bytes = objectMapper.writeValueAsBytes(request).length;
+        TracePayloadProperties exact = new TracePayloadProperties();
+        exact.setLargeMaxBytes(bytes);
+        assertThat(objectMapper.readTree(sanitizer(exact).sanitizeLlmRequestSnapshot(request, "LLM request")))
+                .isEqualTo(request);
+
+        TracePayloadProperties tooSmall = new TracePayloadProperties();
+        tooSmall.setLargeMaxBytes(bytes - 1);
+        assertThatThrownBy(() -> sanitizer(tooSmall).sanitizeLlmRequestSnapshot(request, "LLM request"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("LLM request exceeds the configured UTF-8 byte limit");
+    }
+
+    @Test
+    void shouldRejectMalformedResponseSchemaWrappersNamesBodiesAndExtraFields() throws Exception {
+        List<String> malformed = List.of(
+                "null", "[]", "\"schema\"", "{}", "{\"name\":\"valid\"}", "{\"schema\":{}}",
+                "{\"name\":7,\"schema\":{}}", "{\"name\":\"\",\"schema\":{}}",
+                "{\"name\":\"has space\",\"schema\":{}}", "{\"name\":\"name.with.dot\",\"schema\":{}}",
+                "{\"name\":\"" + "n".repeat(65) + "\",\"schema\":{}}",
+                "{\"name\":\"valid\",\"schema\":null}", "{\"name\":\"valid\",\"schema\":[]}",
+                "{\"name\":\"valid\",\"schema\":true}", "{\"name\":\"valid\",\"schema\":{},\"strict\":true}",
+                "{\"Name\":\"valid\",\"schema\":{}}"
+        );
+        for (String wrapper : malformed) {
+            ObjectNode request = validLlmRequest();
+            request.set("responseSchema", objectMapper.readTree(wrapper));
+            assertThatThrownBy(() -> sanitizer(new TracePayloadProperties())
+                    .sanitizeLlmRequestSnapshot(request, "LLM request"))
+                    .as(wrapper).isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Test
+    void shouldIncludeResponseSchemaInTheExactSerializedUtf8RequestCeiling() throws Exception {
+        ObjectNode request = validLlmRequest();
+        request.putObject("responseSchema").put("name", "n".repeat(64))
+                .putObject("schema").put("type", "object").put("description", "结构约束");
+        int bytes = objectMapper.writeValueAsBytes(request).length;
+        TracePayloadProperties exact = new TracePayloadProperties();
+        exact.setLargeMaxBytes(bytes);
+        assertThat(objectMapper.readTree(sanitizer(exact).sanitizeLlmRequestSnapshot(request, "LLM request")))
+                .isEqualTo(request);
+
+        TracePayloadProperties tooSmall = new TracePayloadProperties();
+        tooSmall.setLargeMaxBytes(bytes - 1);
+        assertThatThrownBy(() -> sanitizer(tooSmall).sanitizeLlmRequestSnapshot(request, "LLM request"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("LLM request exceeds the configured UTF-8 byte limit");
     }
 
     @ParameterizedTest
