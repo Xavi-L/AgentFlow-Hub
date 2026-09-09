@@ -1,0 +1,20 @@
+# Build output and test reports
+target/
+out/
+node_modules/
+dist/
+test-results/
+playwright-report/
+__pycache__/
+*.py[cod]
+*.log
+
+# IDE and operating-system files
+.idea/
+*.iml
+.DS_Store
+
+# Local configuration; the committed template contains no credentials
+.env
+.env.*
+!.env.example
