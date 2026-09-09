@@ -544,11 +544,31 @@ GLM-5.2依次选择order_query、payment_log_query、FINISH并独立FINAL_GENERA
 测试、原生probe、单步/历史复合回放和完整E2E仍分开记录，不外推为跨模型稳定性、生产支付能力或完整V0.1验收。
 缺少凭据、不可达或失败如实记录，禁止回退 mock；真实运行后还应人工对照答案与工具/文档证据核查建议。
 保留 V43/V45/V46 受控回归，仅修复实际暴露的必要适配问题；不新增业务接口、迁移、页面或执行协议。
-完整失败 E2E、仓库生成物清理和 V0.1 发布验收留待后续。
+V47 未纳入的失败 E2E 由下述 V48 承接；仓库生成物清理和 V0.1 发布验收继续留待后续。
+
+### M4G-D2 / V48：任务失败与浏览器恢复 E2E
+
+2026-09-09 已按 `slice-docs/49_FAILURE_RECOVERY_E2E_PACKAGE_INTERFACE.md` 实现并完成受控验收。
+独立入口为 `bash scripts/v48-failure-recovery-acceptance.sh`，真实浏览器/JWT/新 PostgreSQL 与
+生产创建、快照、Runner、RAG、ToolRuntime、Trace、终态事件链路运行；仅 LLM、embedding/vector 和指定 handler 故障受控。
+覆盖非法决策、重复工具循环、参数拒绝/执行失败、检索异常、非法 final 引用、token、整体 deadline、取消，
+以及并发同 key、已提交后丢响应、真实 SSE 中断/游标 replay、offline/online、运行中/终态刷新与终态 GET 待同步。
+空检索允许继续工具，次数上限可进入受限 final，均保留为正确行为对照。
+
+浏览器 22/22（34.0 秒），PostgreSQL 803 项逐例及3项全局检查通过、collectorErrors=[]；
+实际22任务中5个正确成功对照，其余为预期失败/取消/超时。重复任务、工具/LLM调用、用量、唯一终态与答案发布均交叉核对。
+取消/超时的晚到 final 在线程退出后再次采证，未发布答案；SSE 从游标5实际补收序号6 TASK_FAILED。
+证据位于 `/private/var/folders/rk/2gmg78l55dl2m5ld98kpb3100000gn/T/agentflow-v48-browser.YJIcUU`，
+复现以仓库脚本为准。单例 smoke 与端口预检 BLOCKED 历史分开保留，均没有被冒充为全矩阵通过。
+前端76/76及build、后端重点42/42、V43/V45/V46浏览器19/19（50.9秒）、采证器4组离线反例通过。
+
+本片未修改生产执行路径、新API、迁移或页面；入口仅修复端口预检对已结束连接残留的误判。
+V47真实成功和失败历史独立保留，本轮未重跑付费provider；以后若修生产执行路径须预检并以新task补跑真实主路径。
+本片恢复仅为浏览器观察，不重启TaskRunner、不自动重试任务，不证明真实外部故障概率、线上可靠性或V0.1发布就绪。
 
 ### M4G 后续切片与整体目标
 
-V47 只承担下面真实 E2E 的成功主路径；失败矩阵及 Agent/知识库管理扩展能力另行冻结范围。
+V47 承担真实 E2E 成功主路径，V48 承担已冻结的受控失败与浏览器恢复矩阵；Agent/知识库管理扩展能力另行冻结范围。
 当前创建响应没有 `eventsUrl`，工具事件提供 `stepId`；前端只消费已存在的公开 DTO，不依赖目标字段。
 
 ### 页面

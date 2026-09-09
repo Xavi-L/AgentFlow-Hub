@@ -1,4 +1,4 @@
-# Browser acceptance: V43 / V45 / V46 controlled regression and V47 real providers
+# Browser acceptance: controlled regression, V47 real providers, V48 failure recovery
 
 Run `npm ci` in `frontend` first. Java 21, Maven and PostgreSQL binaries are required.
 Set `JAVA_HOME` and `PG_BIN` for your machine; on macOS the launcher locates Java 21
@@ -46,6 +46,43 @@ terminal answer/citation/Trace agreement, cancellation, logout and real JWT reje
 This proves the bounded M4G-A browser recovery loop. It does not prove live-provider
 or Qdrant E2E, provider streaming, task execution retry, multi-turn conversations,
 or remaining frontend management pages.
+
+## V48 task failures and browser observation recovery
+
+From the repository root:
+
+```sh
+bash scripts/v48-failure-recovery-acceptance.sh --case F01_JSON
+bash scripts/v48-failure-recovery-acceptance.sh
+```
+
+The first command is a single-case diagnostic and does not establish full V48 acceptance.
+The second runs the complete matrix from
+[`49_FAILURE_RECOVERY_E2E_PACKAGE_INTERFACE.md`](../../slice-docs/49_FAILURE_RECOVERY_E2E_PACKAGE_INTERFACE.md).
+Each invocation requires a fresh `V48_CONTROL_DIR` (automatically created by default).
+Ports default to frontend/backend/PostgreSQL 5178/18048/55448 and can be overridden by
+`V48_FRONTEND_PORT`, `V48_BACKEND_PORT`, and `V48_PG_PORT`. The database is always
+`agentflow_v48_browser`, with loopback-only disposable fixture credentials.
+
+The V48 test-source fixture controls LLM, embedding/vector faults and the selected
+builtin handler exception. JWT, task admission/snapshots, Runner, parser, RAG validation,
+ToolRuntime, PostgreSQL, persisted events, public GET/Trace, and the browser remain real.
+File gates provide entered/release/exited checkpoints, including late final responses
+after cancellation/deadline. Browser transport injection drops committed responses,
+changes offline state, or aborts the real SSE fetch; it never manufactures task events.
+Recovery observes the original task and does not restart execution.
+
+The printed directory retains `manifest.json`, `cases/<caseId>/calls.jsonl`, browser
+and PostgreSQL evidence, screenshots, logs, and `run-result.json`. Fixture credentials
+in the private local manifest are not copied into published case evidence. Expected
+task failures can be passing cases; missing cases/evidence or incorrect counts fail
+acceptance. Playwright and task execution retries are zero. Existing SSE reconnect
+and explicit same-key confirmation are recorded separately.
+
+V48 has its own exact Playwright test match and is excluded from the V43/V45/V46
+configuration. It never starts paid V47 provider tests. If a V48 fix changes production
+execution, rerun V47 preflight and the real main path using a fresh task; controlled
+PASS results cannot replace that required regression. Keep historical failures.
 
 ## V45 knowledge management
 
