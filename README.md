@@ -6,7 +6,9 @@ Spring Boot + Vue 的 Agent/RAG 演示项目：上传知识文档、配置 Agent
 已交付 V48：V43/V45/V46 提供受控前端回归，V47 保留一次真实模型 + DashScope + Qdrant
 成功主路径，V48 提供任务失败与浏览器观察恢复的受控矩阵。详细范围和历史证据见
 [实施路线图](spec-docs/agentflow-hub-implementation-roadmap.md) 与
-[浏览器验收说明](frontend/e2e/README.md)。V0.1 的完整 Release Gate 仍待最终验收。
+[浏览器验收说明](frontend/e2e/README.md)。2026-09-09 已完成
+[V0.1 的 13 项 Release Gate 总验收](release-docs/V0.1_RELEASE_GATE.md)，13/13 通过；
+结论限于规范的单知识库支付诊断演示，已知边界问题见报告，尚未创建 V0.1 tag。
 
 ## 环境
 
@@ -152,4 +154,5 @@ bash scripts/v47-real-provider-acceptance.sh
 
 根 `.gitignore` 排除 `target/`、`out/`、IDE/系统文件、前端依赖/构建/报告和本地 `.env` 文件。
 历史生成物已停止 Git 跟踪，本地文件保留；构建后产生这些文件不应污染 `git status`。
-本次整理属于交付收尾，不增加版本切片。正式 V0.1 tag 仍须完成路线图中的 13 项 Release Gate 总验收。
+交付收尾及总验收不增加版本切片。13 项门槛的证据、首次失败与修正后的复验见
+[总验收报告](release-docs/V0.1_RELEASE_GATE.md)；验收材料随仓库提交保存，V0.1 tag 尚未创建。

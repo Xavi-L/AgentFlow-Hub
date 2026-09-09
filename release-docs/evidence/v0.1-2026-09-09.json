@@ -1,0 +1,5097 @@
+{
+  "schemaVersion": 1,
+  "status": "PASSED",
+  "gateCount": 13,
+  "passedGateCount": 13,
+  "acceptedAt": "2026-09-09T08:50:26.681247+00:00",
+  "baseRevision": "c2ee3466e2a28ca27f7ac5063ba331d0aabbb13c",
+  "scope": "V0.1 fixed single-KB payment-diagnosis demonstration; controlled failure and observation recovery; no tag or release commit created",
+  "testOnlyCorrection": "backend/src/test/java/com/agentflow/agent/task/AgentTaskApiPostgresIntegrationTest.java",
+  "preexistingLocalChangesPreserved": [
+    "backend/http/user-auth.http",
+    "backend/src/main/resources/application-dev.yml"
+  ],
+  "frontend": {
+    "unitTests": 76,
+    "unitFailures": 0,
+    "buildExitCode": 0,
+    "controlledBrowserTests": 19,
+    "controlledBrowserFailures": 0,
+    "controlledBrowserSeconds": 46.4,
+    "logs": [
+      "/private/tmp/agentflow-release-frontend-tests.log",
+      "/private/tmp/agentflow-release-frontend-build.log",
+      "/private/tmp/agentflow-release-v46.log"
+    ]
+  },
+  "backend": {
+    "focusedAndPackage": {
+      "name": "focused-package",
+      "command": [
+        "mvn",
+        "-B",
+        "-f",
+        "backend/pom.xml",
+        "-Dtest=*MigrationContractTest,TaskSnapshotAgentExecutorTest,AgentDecisionParserTest,TaskExecutionPropertiesTest,AgentTaskSnapshotResolverTest,SnapshotRagServiceTest,TaskScopedToolRuntimeTest,DefaultToolRuntimeTest,ToolArgumentValidatorTest,OrderQueryToolHandlerTest,PaymentLogQueryToolHandlerTest,SpringAiOpenAiCompatibleLlmGatewayTest,SpringAiOpenAiCompatibleLlmGatewayHttpTest,AgentTaskCreationTransactionServiceTest,TaskRunnerTest,TaskSseTransportTest,PublicTaskTraceProjectorTest,AgentBindingServiceTest,TaskEventQueryServiceTest",
+        "package"
+      ],
+      "exitCode": 0,
+      "startedAt": "2026-09-09T08:41:35.921293+00:00",
+      "durationSeconds": 5.403,
+      "log": "/private/tmp/agentflow-release-focused-package.log",
+      "totals": {
+        "tests": 185,
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0
+      },
+      "suites": [
+        {
+          "name": "com.agentflow.agent.V16AgentAppMigrationContractTest",
+          "tests": 4,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldConstrainTextBudgetsStatusAndJsonShapeAtTheDatabaseBoundary",
+            "shouldCreateOnlyTheAgentRootResourceWithoutFutureM4TablesOrPromptVersionId",
+            "shouldFreezeTheServerOwnedColumnsDefaultsAndForeignKey",
+            "shouldIndexTheExactVisibleOwnerSortWithoutForcingUniqueNames"
+          ]
+        },
+        {
+          "name": "com.agentflow.agent.binding.V17AgentExecutionBindingsMigrationContractTest",
+          "tests": 1,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldCreateOnlyTheM4bDependenciesInDependencyOrder"
+          ]
+        },
+        {
+          "name": "com.agentflow.agent.binding.service.AgentBindingServiceTest",
+          "tests": 7,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldHideAbsentCrossOwnerAndSoftDeletedAgentsBeforeBindingReads",
+            "shouldReturnOnlyOrderedBindingIds",
+            "shouldReplaceKnowledgeBindingsAtomicallyAfterDeduplication",
+            "shouldRejectReportGenerateAndAnyOtherUnsupportedToolBeforeMutation",
+            "shouldPersistOnlyServerOwnedEnabledToolBindingsInRequestOrder",
+            "shouldAllowAnEmptyFullReplacementToClearBindings",
+            "shouldRejectAnyMissingCrossOwnerDeletedOrDisabledKnowledgeBaseBeforeMutation"
+          ]
+        },
+        {
+          "name": "com.agentflow.agent.engine.AgentDecisionParserTest",
+          "tests": 3,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldParseAnExactFinalAnswerDecision",
+            "shouldParseAndResolveAnExactToolCallAgainstTheSafeSnapshot",
+            "shouldRejectMalformedExtraDuplicateUnknownAndUnavailableDecisionsUniformly"
+          ]
+        },
+        {
+          "name": "com.agentflow.agent.engine.TaskExecutionPropertiesTest",
+          "tests": 13,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "bindsOptionalFinalOutputCapWithinServerBounds(int)[1]",
+            "bindsOptionalFinalOutputCapWithinServerBounds(int)[2]",
+            "bindsOptionalFinalOutputCapWithinServerBounds(int)[3]",
+            "defaultDecisionOutputCapRemains512",
+            "rejectsDecisionCapOutsideServerBoundsAtStartup(int)[1]",
+            "rejectsDecisionCapOutsideServerBoundsAtStartup(int)[2]",
+            "bindsExplicitProviderModesAndRejectsConflictingDecisionFormats",
+            "bindsOptInDecisionJsonSchemaWithoutChangingTheDefaultOutputCap",
+            "rejectsOptionalFinalOutputCapOutsideServerBounds(int)[1]",
+            "rejectsOptionalFinalOutputCapOutsideServerBounds(int)[2]",
+            "bindsExplicitDecisionCapIncludingBothAllowedBoundaries(int)[1]",
+            "bindsExplicitDecisionCapIncludingBothAllowedBoundaries(int)[2]",
+            "bindsExplicitDecisionCapIncludingBothAllowedBoundaries(int)[3]"
+          ]
+        },
+        {
+          "name": "com.agentflow.agent.engine.TaskSnapshotAgentExecutorTest",
+          "tests": 30,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "optionalFinalCapUsesRemainingBudgetButNeverDropsBelowTheFrozenReserve(int)[1]",
+            "optionalFinalCapUsesRemainingBudgetButNeverDropsBelowTheFrozenReserve(int)[2]",
+            "canonicalDuplicateReusesSecondObservationAndRejectsThirdWithoutCallingRuntimeAgain(boolean)[1]",
+            "canonicalDuplicateReusesSecondObservationAndRejectsThirdWithoutCallingRuntimeAgain(boolean)[2]",
+            "decisionBudgetForcesFinalWithoutAnotherDecisionRequest",
+            "jsonObjectDecisionsAndDisabledThinkingUseConfiguredCapsButKeepFinalGenerationAsText",
+            "emptyRagStillAllowsToolsAndToolBudgetForcesARestrictedFinal",
+            "executesFrozenRagDecisionToolsAndSeparateFinalGenerationWithOrderedFacts",
+            "malformedDecisionPersistsSafeFailedLogWithUsageAndLatencyWithoutRawResponse",
+            "fabricatedFinalCitationFailsAfterRecordingFinalUsage",
+            "actualOverBudgetUsageIsRetainedBeforeFailure",
+            "increasedDecisionCapStillFitsTheFrozenContextWindowWithoutReducingTheFinalReserve(boolean)[1]",
+            "increasedDecisionCapStillFitsTheFrozenContextWindowWithoutReducingTheFinalReserve(boolean)[2]",
+            "enabledDecisionSchemaUsesFrozenToolInputsAndLeavesIndependentFinalGenerationUnconstrained",
+            "malformedCitationBracketsCannotHideAnUnknownOrApparentlyValidInnerMarker",
+            "optionalFinalCapCannotReduceThePersistedReserve",
+            "toolRevocationAlsoBlocksReuseOfACachedObservation",
+            "deadlineAfterProviderResponsePreservesUsageAndStopsFurtherIo",
+            "unknownUsageIsConservativelyEstimatedInTaskAndEachCallLog(boolean)[1]",
+            "unknownUsageIsConservativelyEstimatedInTaskAndEachCallLog(boolean)[2]",
+            "unsupportedFrozenProtocolFailsBeforeAnyExternalCall",
+            "traceWriteFailureRetainsMeasuredUsageAndFailsTheRunningStep",
+            "blockedProviderCancellationReturnsWithEstimatedUsageAndNoNextAction",
+            "increasedDecisionCapStillReservesTheFinalPromptAndOutputUnderALowTotalBudget(boolean)[1]",
+            "increasedDecisionCapStillReservesTheFinalPromptAndOutputUnderALowTotalBudget(boolean)[2]",
+            "jsonObjectModeDoesNotRepairFencedDecisionsOrRetryTheProvider",
+            "cancellationAfterProviderResponsePreservesUsageAndStopsFurtherIo",
+            "optionalFinalCapIsAlsoConstrainedByTheFrozenContextWindow",
+            "configuredDecisionCapIsFrozenAndRecordedWithoutChangingTheFinalReserve",
+            "insufficientBudgetBlocksProviderBeforeFirstDecision"
+          ]
+        },
+        {
+          "name": "com.agentflow.agent.rag.SnapshotRagServiceTest",
+          "tests": 8,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "freezesCorpusAndKeepsOnlyCanonicalCurrentScopedHashMatchedContent",
+            "noCorpusMakesNoExternalCallsAndProfileMismatchFailsClosed",
+            "vectorFailureProducesSafeStableErrorAndChecksBoundaryAfterFailure",
+            "boundedMultiKnowledgeBaseSearchVisitsEveryScopeBeforeSelectingGlobalTopK",
+            "postEmbeddingCancellationPreventsVectorSearchEvenWhenProviderFails",
+            "revokedOrCleanedGenerationIsEmptyEvidenceAndDoesNotFallback",
+            "duplicateLocatorsKeepHighestValidScoreWithoutDuplicatingCitations",
+            "boundsEvidenceAndTraceContentAtUnicodeCodePointBoundaries"
+          ]
+        },
+        {
+          "name": "com.agentflow.agent.snapshot.AgentTaskSnapshotResolverTest",
+          "tests": 6,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldRejectAnIncompatibleEmbeddingProfile",
+            "shouldKeepRejectingNoncanonicalChunkConfiguration",
+            "shouldFailBeforeTaskCreationWhenNoBoundDocumentIsReady",
+            "shouldRejectDisabledAgentBeforeReadingBindings",
+            "shouldUseRepeatableReadForTheDatabaseOnlySnapshotBoundary",
+            "shouldResolveOneImmutableCanonicalExecutionSnapshot"
+          ]
+        },
+        {
+          "name": "com.agentflow.agent.task.V18AgentTaskMigrationContractTest",
+          "tests": 1,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldCreateTheCompleteM4cTaskAndEventContract"
+          ]
+        },
+        {
+          "name": "com.agentflow.agent.task.execution.TaskRunnerTest",
+          "tests": 1,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldFinishLateCancellationWhenTimeoutLosesItsCompareAndSetWithoutLosingUsage"
+          ]
+        },
+        {
+          "name": "com.agentflow.agent.task.service.AgentTaskCreationTransactionServiceTest",
+          "tests": 1,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldFreezeSnapshotBudgetsAndAppendCreatedBeforeRegisteringDispatch"
+          ]
+        },
+        {
+          "name": "com.agentflow.agent.task.service.TaskEventQueryServiceTest",
+          "tests": 8,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldRejectAMissingFirstSequenceBeforeExposingAnyPage",
+            "shouldKeepMissingAndCrossOwnerTasksIndistinguishableEvenWithAnAheadCursor",
+            "shouldAcceptAnEmptyPageAtTheWatermarkWithoutOverflowingTheCursor",
+            "shouldRejectNegativeAndAheadCursorsWithoutReadingEvents",
+            "shouldRejectAGapInsideAFullPageBeforeExposingItsPrefix",
+            "shouldReplayAcrossFullBatchBoundariesWithoutMistakingTheWatermarkForSentProgress",
+            "shouldRejectMissingTailAndEmptyPageBelowTheWatermark",
+            "shouldRejectUnboundedAndEmptyPageRequests"
+          ]
+        },
+        {
+          "name": "com.agentflow.agent.task.sse.TaskSseTransportTest",
+          "tests": 21,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldRefreshSlowClientDeadlineWhenEachWriteMakesProgress",
+            "shouldReleaseOnWriteFailureAndNeverCancelOrAdvanceTaskExecution",
+            "shouldCompleteTerminalEmptyReplayAndDisposeItsScheduledRead",
+            "shouldStopReadingAndReleaseStalledConnectionWithoutBlockingAnyWriterThread",
+            "shouldFitOnlyWholeFramesAndRoundTripUnicodeNewlinesAndJsonLookingAnswerText",
+            "shouldReleaseReservedSlotIfFirstFrameCannotFitBeforeStartingAsync",
+            "shouldResumeAtLastWholeFrameWhenTheByteCapCutsABatchShort",
+            "shouldResolveDefaultHeaderAndMatchingNumericCursors",
+            "shouldReportGapWithoutAnIdOrSendingPastTheMissingSequence",
+            "shouldRejectMalformedAndOverflowingCursor(String)[1]",
+            "shouldRejectMalformedAndOverflowingCursor(String)[2]",
+            "shouldRejectMalformedAndOverflowingCursor(String)[3]",
+            "shouldRejectMalformedAndOverflowingCursor(String)[4]",
+            "shouldRejectMalformedAndOverflowingCursor(String)[5]",
+            "shouldRejectMalformedAndOverflowingCursor(String)[6]",
+            "shouldRejectMalformedAndOverflowingCursor(String)[7]",
+            "shouldRejectMalformedAndOverflowingCursor(String)[8]",
+            "shouldRejectMalformedAndOverflowingCursor(String)[9]",
+            "shouldRejectMalformedAndOverflowingCursor(String)[10]",
+            "shouldRejectMalformedAndOverflowingCursor(String)[11]",
+            "shouldRejectMalformedAndOverflowingCursor(String)[12]"
+          ]
+        },
+        {
+          "name": "com.agentflow.agent.trace.PublicTaskTraceProjectorTest",
+          "tests": 9,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldExposeJsonObjectAndDisabledThinkingWithoutExposingNestedThinkingContent",
+            "shouldAllowlistSnapshotStructureIncludingNestedRuntimeAndToolConfiguration",
+            "shouldRejectConflictingResponseFormatsInStoredRequests",
+            "shouldPublishTheSafeNamedResponseSchemaWithoutAdditionalWrapperConfiguration",
+            "shouldExposeImmutableTypedStepsWithStringIdsAndAllowlistedLlmRequests",
+            "shouldKeepAnswerChunksExactlyConsistentWithFinalAnswerWhileMaskingEventMetadata",
+            "shouldRejectMalformedFormatAndThinkingValuesInStoredRequests(String)[1]",
+            "shouldRejectMalformedFormatAndThinkingValuesInStoredRequests(String)[2]",
+            "shouldMaskNestedSecretsAndStringifyBusinessIdsWithoutChangingUsageCounters"
+          ]
+        },
+        {
+          "name": "com.agentflow.agent.trace.V19AgentExecutionTraceMigrationContractTest",
+          "tests": 4,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldAttachToolCallsOnlyAsStandaloneOrACompleteTaskStepPair",
+            "shouldKeepRagSourceIdsAsSnapshotsAndAvoidASecondEventSequenceAllocator",
+            "shouldCreateTheFourTaskScopedTraceTablesAndStepKeys",
+            "shouldBindLlmCallTypeAndEverySpecializedLogToTheSameTaskStep"
+          ]
+        },
+        {
+          "name": "com.agentflow.infra.llm.SpringAiOpenAiCompatibleLlmGatewayHttpTest",
+          "tests": 12,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldClassifyAReadTimeoutAndStillIssueOnlyOneRequest",
+            "shouldClassifyAConnectionFailureAsTransport",
+            "shouldSerializeTheOpenAiCompatibleWireContractAndParseAllReturnedMetadata",
+            "shouldOmitAuthorizationForAnEmptyKeyAndKeepAbsentUsageUnknown",
+            "shouldFailRejectedJsonObjectOptionsWithoutRetryOrDroppingTheRequestedModes",
+            "shouldFailAnUnsupportedSchemaRequestWithoutRetryOrPlainTextFallback",
+            "shouldClassifyNonSuccessResponsesWithoutRetryingOrLeakingTheBody(int)[1]",
+            "shouldClassifyNonSuccessResponsesWithoutRetryingOrLeakingTheBody(int)[2]",
+            "shouldClassifyMalformedJsonNoChoiceMultipleChoicesAndBlankContent",
+            "shouldApplyModelAndSamplingOptionsIndependentlyForEveryCall",
+            "shouldSendJsonObjectAndDisabledThinkingWithoutLeakingModesIntoFollowingRequests",
+            "shouldSendStrictSchemaOnTheOptedInRequestAndOmitItFromTheFollowingFinalRequest"
+          ]
+        },
+        {
+          "name": "com.agentflow.infra.llm.SpringAiOpenAiCompatibleLlmGatewayTest",
+          "tests": 6,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldUseRequestLevelOptionsPreserveMessageOrderAndReturnMetadata",
+            "shouldKeepMissingUsageAndMissingOptionalMetadataUnknown",
+            "shouldDefensivelyCopyMessagesAndKeepUnknownDistinctFromZeroUsage",
+            "shouldRejectNullMultipleOrEmptyChoicesAsMalformedResponses",
+            "shouldClassifyAndSanitizeProviderTransportTimeoutAndParseFailures",
+            "shouldRejectEveryInvalidRequestBeforeCallingSpringAi"
+          ]
+        },
+        {
+          "name": "com.agentflow.tool.DefaultToolRuntimeTest",
+          "tests": 10,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldPersistCommonNotFoundAsFailedAndPreserveTheHttpFacingError",
+            "shouldExecuteReportThroughTheSharedRuntimeAndCompleteOneRunningLog",
+            "shouldExecuteAndCompleteOneRunningLog",
+            "shouldNotMisclassifySuccessLogFinalizationFailureAsAHandlerFailure",
+            "shouldHideUnknownExecutorDetailsBehindTheStableToolFailure",
+            "shouldRejectInvalidReportArrayBeforeCreatingARunningLog",
+            "shouldReturnToolNotFoundWithoutWritingALog",
+            "shouldNotInvokeTheHandlerWhenTheRunningLogCannotBePersisted",
+            "shouldRejectPaymentLimitOnlyBeforeCreatingARunningLog",
+            "shouldRejectResolvedInvalidArgumentsWithoutCreatingARunningLog"
+          ]
+        },
+        {
+          "name": "com.agentflow.tool.OrderQueryToolHandlerTest",
+          "tests": 1,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldDelegateToTheV26ServiceAndReturnOnlyItsSixSafeFields"
+          ]
+        },
+        {
+          "name": "com.agentflow.tool.PaymentLogQueryToolHandlerTest",
+          "tests": 4,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldDelegateEverySupportedFilterCombinationDirectlyToTheV26Service(String, String, String, Integer)[1]",
+            "shouldDelegateEverySupportedFilterCombinationDirectlyToTheV26Service(String, String, String, Integer)[2]",
+            "shouldDelegateEverySupportedFilterCombinationDirectlyToTheV26Service(String, String, String, Integer)[3]",
+            "shouldWrapOnlyTheSixSafeV26LogFields"
+          ]
+        },
+        {
+          "name": "com.agentflow.tool.TaskScopedToolRuntimeTest",
+          "tests": 10,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldPreserveCancellationRaisedAfterHandlerAndFinishLogFirst",
+            "shouldUseFrozenMetadataAndTimeoutWithoutReadingBindingsAndLogBeforeReturning",
+            "shouldBoundBlockedHandlerByCurrentEmergencyTimeoutCapAndInterruptIt",
+            "shouldRejectSchemaOrImplementationDriftBeforeTheHandler",
+            "shouldRejectMissingTaskSnapshotInsteadOfFallingBackToCurrentRegistry",
+            "shouldRevalidateCachedObservationWithoutAnActualCallOrCallLog",
+            "shouldRejectForgedHashAndMissingAllowlistEntry",
+            "shouldObserveCancellationWhileTheHandlerIsBlocked",
+            "shouldRejectExpiredDeadlineBeforeCallingHandler",
+            "shouldRejectDisabledOrDeletedToolDespiteItsPresenceInSnapshot"
+          ]
+        },
+        {
+          "name": "com.agentflow.tool.ToolArgumentValidatorTest",
+          "tests": 15,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldRejectInvalidSuggestionArraysAndElementsBeforeExecution",
+            "shouldSupportNestedObjectsAndIntegerBounds",
+            "shouldRejectPaymentLogArgumentsWhenNeitherAnyOfBranchMatches",
+            "shouldFailClosedForUnsupportedTypesInsteadOfSilentlyAcceptingThem",
+            "shouldAcceptTheSingleRequiredOrderNumber",
+            "shouldRejectWrongStringTypeEmptyAndWhitespaceOnlyValues",
+            "shouldRejectMissingNullAndNonObjectArguments",
+            "shouldRejectEveryInvalidReportStringBeforeExecution",
+            "shouldAcceptRequiredOnlyAndCompleteReportArguments",
+            "shouldStillValidateEveryProvidedPaymentLogPropertyBeforeExecution",
+            "shouldFailClosedForNestedOrNonRequiredOnlyAnyOfDefinitions",
+            "shouldRejectAdditionalFieldsWhenThePersistedSchemaForbidsThem",
+            "shouldAcceptEitherOrBothTopLevelRequiredOnlyAnyOfBranches",
+            "shouldFailClosedForUnsupportedArrayDefinitions",
+            "shouldApplyStringMaximumByUnicodeCodePoint"
+          ]
+        },
+        {
+          "name": "com.agentflow.tool.V13ToolMigrationContractTest",
+          "tests": 3,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldConstrainRunningAndTerminalLogShapesWhileOnlyReservingPendingAndTimeout",
+            "shouldCreateOnlyTheRegistryAndCallLogWithTheRequiredIndexes",
+            "shouldSeedExactlyTheNarrowOrderQueryDefinition"
+          ]
+        },
+        {
+          "name": "com.agentflow.tool.V14PaymentLogQueryToolMigrationContractTest",
+          "tests": 3,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldSeedTheExactPaymentLogRuntimeConfigurationAndRestrictedAnyOfSchema",
+            "shouldDescribeOnlyTheSafePaymentLogOutputFields",
+            "shouldOnlyInsertTheSecondBuiltInToolWithoutChangingExistingTablesOrFixtures"
+          ]
+        },
+        {
+          "name": "com.agentflow.tool.V15ReportGenerateToolMigrationContractTest",
+          "tests": 4,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldFreezeTheRestrictedStringAndSuggestionArrayBounds",
+            "shouldDescribeMarkdownAsTheOnlyOutputField",
+            "shouldOnlyInsertTheThirdBuiltInToolWithoutChangingTablesOrDemoFixtures",
+            "shouldSeedTheExactReportRuntimeConfiguration"
+          ]
+        }
+      ]
+    },
+    "postgresInitialFailurePreserved": {
+      "name": "postgres",
+      "command": [
+        "bash",
+        "scripts/v44-readiness-acceptance.sh",
+        "-Dtest=KnowledgeReadinessPostgresIntegrationTest,AgentTaskPostgresIntegrationTest,AgentTaskExecutionPostgresIntegrationTest,AgentTaskApiPostgresIntegrationTest,AgentTaskSsePostgresIntegrationTest"
+      ],
+      "exitCode": 1,
+      "startedAt": "2026-09-09T08:41:41.324730+00:00",
+      "durationSeconds": 23.989,
+      "log": "/private/tmp/agentflow-release-postgres.log",
+      "totals": {
+        "tests": 47,
+        "errors": 0,
+        "failures": 1,
+        "skipped": 0
+      },
+      "suites": [
+        {
+          "name": "com.agentflow.agent.task.AgentTaskApiPostgresIntegrationTest",
+          "tests": 6,
+          "errors": 0,
+          "failures": 1,
+          "skipped": 0,
+          "testCases": [
+            "shouldCreateExecuteAndExposeConsistentHistoricalTraceWithSafeStringIds",
+            "shouldKeepSnapshotAgentLockCompatibleWithForeignKeysWhileExcludingWriters",
+            "shouldReturnExactlyOne201ForConcurrentIdenticalHttpCreatesAndNeverRerun",
+            "shouldCancelQueuedImmediatelyAndRunningCooperativelyAndMakeTerminalCancelIdempotent",
+            "shouldUseJwtOwnershipAndHideForeignAndMissingResourcesWithTheSame404",
+            "shouldPageOnlyOwnTasksWithDefault20Maximum100AndCreationThenIdDescending"
+          ]
+        },
+        {
+          "name": "com.agentflow.agent.task.AgentTaskExecutionPostgresIntegrationTest",
+          "tests": 15,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldObserveEmergencyToolRevocation(String)[1]",
+            "shouldObserveEmergencyToolRevocation(String)[2]",
+            "shouldUseBoundedFinalGenerationAtToolLimit",
+            "shouldAllowEmptyRagWithoutFallingBackToCurrentCorpus(String)[1]",
+            "shouldAllowEmptyRagWithoutFallingBackToCurrentCorpus(String)[2]",
+            "shouldAllowEmptyRagWithoutFallingBackToCurrentCorpus(String)[3]",
+            "shouldAllowEmptyRagWithoutFallingBackToCurrentCorpus(String)[4]",
+            "shouldEstimateMissingUsageAndRejectUnknownFinalCitation",
+            "shouldPublishAllAnswerChunksAtomicallyAndRollbackInjectedMidBatchFailure",
+            "shouldPersistActualOverrunAndKeepSuccessfulTaskBudgetFence",
+            "shouldKeepUsageWhenCancellationOrDeadlineArrivesDuringModelCall(String)[1]",
+            "shouldKeepUsageWhenCancellationOrDeadlineArrivesDuringModelCall(String)[2]",
+            "shouldExecuteFrozenSnapshotWithOneRagTwoRealToolsAndOneFinalCall",
+            "shouldReuseSecondDuplicateAndFailThirdWithoutInventingToolLogs",
+            "shouldRecordInvalidDecisionUsageAndSafeDiagnostic"
+          ]
+        },
+        {
+          "name": "com.agentflow.agent.task.AgentTaskPostgresIntegrationTest",
+          "tests": 8,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldHandleQueuedAndRunningCancellationIdempotently",
+            "shouldCompensateRejectedAfterCommitDispatchWithoutLeavingQueuedTask",
+            "shouldAllowOnlyOneOfCompleteTimeoutAndCancelToWin",
+            "shouldPersistScriptedFailureTimeoutAndObservedCancellation",
+            "shouldKeepSequentialAndConcurrentCreationIdempotent",
+            "shouldAllocateContinuousEventSequencesUnderPostgresConcurrency",
+            "shouldApplyV1ThroughV18AndEnforceOwnerStatusAndJsonConstraints",
+            "shouldLetOnlyOneRunnerClaimAndCompleteOutsideTransactions"
+          ]
+        },
+        {
+          "name": "com.agentflow.agent.task.AgentTaskSsePostgresIntegrationTest",
+          "tests": 7,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldRejectUnauthorizedForeignMissingAndInvalidCursorsBeforeOpeningTheStream",
+            "shouldSendExplicitGapErrorAndNeverSkipForwardAcrossABatchBoundary",
+            "shouldReplaySafeHistoryAfterAssociatedResourcesAreDeleted",
+            "shouldReplayDelayedCreationResumeFromProcessedCursorAndMatchAnswerAndTraceAcrossBatches",
+            "shouldBoundGlobalAndUserConnectionsSendUnsequencedHeartbeatsAndReleaseDisconnectedSlots",
+            "shouldCloseAtConnectionDeadlineReleaseCapacityAndLeaveRunningTaskAlive",
+            "shouldRejectInitialAndTrailingGapsWithoutOpeningAStream"
+          ]
+        },
+        {
+          "name": "com.agentflow.knowledge.KnowledgeReadinessPostgresIntegrationTest",
+          "tests": 11,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldAggregateOnceForOnlyTheReturnedPageAndSkipEmptyPages",
+            "shouldResolveConfigurationIndependentlyAndFailUnsupportedCompletedDocuments",
+            "shouldKeepListAndDetailInOneSnapshotAcrossCommittedConcurrentChanges(SnapshotChange)[1]",
+            "shouldKeepListAndDetailInOneSnapshotAcrossCommittedConcurrentChanges(SnapshotChange)[2]",
+            "shouldKeepListAndDetailInOneSnapshotAcrossCommittedConcurrentChanges(SnapshotChange)[3]",
+            "shouldKeepListAndDetailInOneSnapshotAcrossCommittedConcurrentChanges(SnapshotChange)[4]",
+            "shouldKeepListAndDetailInOneSnapshotAcrossCommittedConcurrentChanges(SnapshotChange)[5]",
+            "shouldKeepListAndDetailInOneSnapshotAcrossCommittedConcurrentChanges(SnapshotChange)[6]",
+            "shouldExposeFiveStatesAndCurrentGenerationCountsThroughListAndDetail",
+            "shouldScopeOwnersParentsAndDeletionWhileKeepingDisabledManagementVisible",
+            "shouldRejectMixedAndUniformUnsupportedChunkStrategiesBeforeIndexingOrAdmission"
+          ]
+        }
+      ]
+    },
+    "postgresAfterTestCorrection": {
+      "name": "postgres-after-test-correction",
+      "exitCode": 0,
+      "mavenSeconds": 25.812,
+      "log": "/private/tmp/agentflow-release-postgres-rerun.log",
+      "databaseDirectory": "/private/tmp/agentflow-v44-readiness.V8tYMZ",
+      "command": [
+        "bash",
+        "scripts/v44-readiness-acceptance.sh",
+        "-Dtest=KnowledgeReadinessPostgresIntegrationTest,AgentTaskPostgresIntegrationTest,AgentTaskExecutionPostgresIntegrationTest,AgentTaskApiPostgresIntegrationTest,AgentTaskSsePostgresIntegrationTest",
+        "-DargLine=-javaagent:/Users/xavier/.m2/repository/org/mockito/mockito-core/5.17.0/mockito-core-5.17.0.jar"
+      ],
+      "environment": {
+        "TMPDIR": "/private/tmp"
+      },
+      "totals": {
+        "tests": 47,
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0
+      },
+      "suites": [
+        {
+          "name": "com.agentflow.knowledge.KnowledgeReadinessPostgresIntegrationTest",
+          "timestamp": null,
+          "tests": 11,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldAggregateOnceForOnlyTheReturnedPageAndSkipEmptyPages",
+            "shouldResolveConfigurationIndependentlyAndFailUnsupportedCompletedDocuments",
+            "shouldKeepListAndDetailInOneSnapshotAcrossCommittedConcurrentChanges(SnapshotChange)[1]",
+            "shouldKeepListAndDetailInOneSnapshotAcrossCommittedConcurrentChanges(SnapshotChange)[2]",
+            "shouldKeepListAndDetailInOneSnapshotAcrossCommittedConcurrentChanges(SnapshotChange)[3]",
+            "shouldKeepListAndDetailInOneSnapshotAcrossCommittedConcurrentChanges(SnapshotChange)[4]",
+            "shouldKeepListAndDetailInOneSnapshotAcrossCommittedConcurrentChanges(SnapshotChange)[5]",
+            "shouldKeepListAndDetailInOneSnapshotAcrossCommittedConcurrentChanges(SnapshotChange)[6]",
+            "shouldExposeFiveStatesAndCurrentGenerationCountsThroughListAndDetail",
+            "shouldScopeOwnersParentsAndDeletionWhileKeepingDisabledManagementVisible",
+            "shouldRejectMixedAndUniformUnsupportedChunkStrategiesBeforeIndexingOrAdmission"
+          ]
+        },
+        {
+          "name": "com.agentflow.agent.task.AgentTaskPostgresIntegrationTest",
+          "timestamp": null,
+          "tests": 8,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldHandleQueuedAndRunningCancellationIdempotently",
+            "shouldCompensateRejectedAfterCommitDispatchWithoutLeavingQueuedTask",
+            "shouldAllowOnlyOneOfCompleteTimeoutAndCancelToWin",
+            "shouldPersistScriptedFailureTimeoutAndObservedCancellation",
+            "shouldKeepSequentialAndConcurrentCreationIdempotent",
+            "shouldAllocateContinuousEventSequencesUnderPostgresConcurrency",
+            "shouldApplyV1ThroughV18AndEnforceOwnerStatusAndJsonConstraints",
+            "shouldLetOnlyOneRunnerClaimAndCompleteOutsideTransactions"
+          ]
+        },
+        {
+          "name": "com.agentflow.agent.task.AgentTaskExecutionPostgresIntegrationTest",
+          "timestamp": null,
+          "tests": 15,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldObserveEmergencyToolRevocation(String)[1]",
+            "shouldObserveEmergencyToolRevocation(String)[2]",
+            "shouldUseBoundedFinalGenerationAtToolLimit",
+            "shouldAllowEmptyRagWithoutFallingBackToCurrentCorpus(String)[1]",
+            "shouldAllowEmptyRagWithoutFallingBackToCurrentCorpus(String)[2]",
+            "shouldAllowEmptyRagWithoutFallingBackToCurrentCorpus(String)[3]",
+            "shouldAllowEmptyRagWithoutFallingBackToCurrentCorpus(String)[4]",
+            "shouldEstimateMissingUsageAndRejectUnknownFinalCitation",
+            "shouldPublishAllAnswerChunksAtomicallyAndRollbackInjectedMidBatchFailure",
+            "shouldPersistActualOverrunAndKeepSuccessfulTaskBudgetFence",
+            "shouldKeepUsageWhenCancellationOrDeadlineArrivesDuringModelCall(String)[1]",
+            "shouldKeepUsageWhenCancellationOrDeadlineArrivesDuringModelCall(String)[2]",
+            "shouldExecuteFrozenSnapshotWithOneRagTwoRealToolsAndOneFinalCall",
+            "shouldReuseSecondDuplicateAndFailThirdWithoutInventingToolLogs",
+            "shouldRecordInvalidDecisionUsageAndSafeDiagnostic"
+          ]
+        },
+        {
+          "name": "com.agentflow.agent.task.AgentTaskApiPostgresIntegrationTest",
+          "timestamp": null,
+          "tests": 6,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldCreateExecuteAndExposeConsistentHistoricalTraceWithSafeStringIds",
+            "shouldKeepSnapshotAgentLockCompatibleWithForeignKeysWhileExcludingWriters",
+            "shouldReturnExactlyOne201ForConcurrentIdenticalHttpCreatesAndNeverRerun",
+            "shouldCancelQueuedImmediatelyAndRunningCooperativelyAndMakeTerminalCancelIdempotent",
+            "shouldUseJwtOwnershipAndHideForeignAndMissingResourcesWithTheSame404",
+            "shouldPageOnlyOwnTasksWithDefault20Maximum100AndCreationThenIdDescending"
+          ]
+        },
+        {
+          "name": "com.agentflow.agent.task.AgentTaskSsePostgresIntegrationTest",
+          "timestamp": null,
+          "tests": 7,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "testCases": [
+            "shouldRejectUnauthorizedForeignMissingAndInvalidCursorsBeforeOpeningTheStream",
+            "shouldSendExplicitGapErrorAndNeverSkipForwardAcrossABatchBoundary",
+            "shouldReplaySafeHistoryAfterAssociatedResourcesAreDeleted",
+            "shouldReplayDelayedCreationResumeFromProcessedCursorAndMatchAnswerAndTraceAcrossBatches",
+            "shouldBoundGlobalAndUserConnectionsSendUnsequencedHeartbeatsAndReleaseDisconnectedSlots",
+            "shouldCloseAtConnectionDeadlineReleaseCapacityAndLeaveRunningTaskAlive",
+            "shouldRejectInitialAndTrailingGapsWithoutOpeningAStream"
+          ]
+        }
+      ]
+    }
+  },
+  "acceptancePredicateTests": {
+    "v47": 5,
+    "v48": 4,
+    "failures": 0
+  },
+  "realProvider": {
+    "evidenceDirectory": "/private/var/folders/rk/2gmg78l55dl2m5ld98kpb3100000gn/T/agentflow-v47-real.ouPRoo",
+    "run": {
+      "status": "PASSED",
+      "exitCode": 0,
+      "stage": "complete",
+      "collection": "v47_cb6d0626af67472885f77394383684ab",
+      "automaticRetries": 0
+    },
+    "preflightStatus": "PREFLIGHT_READY",
+    "browserSeconds": 30.1,
+    "taskId": "2097605938885128193",
+    "provider": "glm-5.2",
+    "budget": {
+      "maxSteps": 5,
+      "maxToolCalls": 3,
+      "maxTokens": 24000,
+      "timeoutSeconds": 300,
+      "taskSubmissions": 1
+    },
+    "task": {
+      "taskId": "2097605938885128193",
+      "agentId": "2097605935001202690",
+      "status": "COMPLETED",
+      "terminationReason": "ANSWERED",
+      "userInput": "帮我分析 order_1024 支付失败的原因，并给出处理建议。",
+      "maxDecisionTurns": 5,
+      "maxToolCalls": 3,
+      "maxTotalTokens": 24000,
+      "reservedFinalTokens": 2048,
+      "decisionTurnsUsed": 3,
+      "toolCallsUsed": 2,
+      "inputTokens": 4859,
+      "outputTokens": 986,
+      "totalTokens": 5845,
+      "tokenUsageQuality": "EXACT",
+      "finalAnswer": "## order_1024 支付失败原因分析\n\n### 一、演示业务事实（工具返回结果）\n\n**order_query 返回：**\n- 订单号：order_1024\n- 订单状态：CREATED\n- 支付状态：PAY_FAILED\n- 金额：199.00 CNY\n- 错误码：E_PAY_TIMEOUT\n\n**payment_log_query 返回：**\n- 订单号：order_1024\n- traceId：pay-trace-1024\n- 日志级别：ERROR\n- 错误码：E_PAY_TIMEOUT\n- 日志信息：Payment gateway response timeout after 3000ms\n- 发生时间：2026-05-01T12:00:00+08:00\n\n两项查询的错误码均为 **E_PAY_TIMEOUT**，表明支付请求在等待网关响应时超时（日志显示超时阈值为 3000ms）。\n\n### 二、文档建议\n\n根据支付超时诊断手册 [S1]：\n\n1. **错误码含义**：E_PAY_TIMEOUT 表示支付请求等待网关响应超时。超时本身不能证明付款已经扣款、未扣款或最终交易失败，也不能直接归因于余额不足 [S1]。\n\n2. **处理建议**：\n   - 先按订单号（order_1024）及 traceId（pay-trace-1024）核对支付网关/渠道的最终交易状态与对账结果 [S1]。\n   - 保留日志并排查链路延迟 [S1]。\n   - 状态未明确前不要直接再次扣款；确认未支付后再按业务幂等规则处理重试 [S1]。\n   - 若已扣款但订单未更新，应进入补单或人工核对流程，避免重复支付 [S1]。\n\n### 三、无法确认的信息\n\n以下信息当前未核实，不能作为事实陈述：\n\n- **渠道最终交易状态**：是否实际已扣款、未扣款或最终失败，尚未通过支付网关/渠道侧确认。\n- **对账结果**：尚未取得渠道对账数据。\n- **链路延迟具体原因**：超时根因（如网络、网关处理慢、服务异常等）未排查确认。\n- **系统接入与补单能力**：本系统是否已接入外部支付渠道或具备自动补单能力，均未知 [S1]。\n\n### 总结\n\norder_1024 的支付失败错误码为 **E_PAY_TIMEOUT**，订单与支付日志均返回该错误码。当前仅能确认系统侧记录了支付网关响应超时，渠道最终扣款状态尚未核实。建议在确认渠道未扣款后，按幂等规则重试；若已扣款但订单未更新，则进入补单或人工核对流程 [S1]。",
+      "citations": [
+        {
+          "chunkId": "2097605929162731521",
+          "citationId": "S1",
+          "documentId": "2097605928667803649",
+          "vectorGeneration": 0
+        }
+      ],
+      "startedAt": "2026-09-09T16:40:02.12947+08:00",
+      "completedAt": "2026-09-09T16:40:27.294154+08:00",
+      "lastEventSequence": 20,
+      "createdAt": "2026-09-09T16:40:02.121228+08:00",
+      "updatedAt": "2026-09-09T16:40:27.294154+08:00"
+    },
+    "documentReadiness": "READY",
+    "recordCounts": {
+      "hits": 1,
+      "steps": 7,
+      "tasks": 1,
+      "chunks": 1,
+      "documents": 1,
+      "llm_calls": 4,
+      "retrievals": 1,
+      "tool_calls": 2
+    },
+    "storageChecks": [
+      {
+        "code": "exactly_one_task",
+        "passed": true
+      },
+      {
+        "code": "browser_and_storage_identify_same_run",
+        "passed": true
+      },
+      {
+        "code": "completed_answered_order_task",
+        "passed": true
+      },
+      {
+        "code": "exclusive_decision_format",
+        "passed": true
+      },
+      {
+        "code": "decision_schema_mode_matches_requests",
+        "passed": true
+      },
+      {
+        "code": "decision_json_mode_matches_requests",
+        "passed": true
+      },
+      {
+        "code": "provider_thinking_mode_matches_requests",
+        "passed": true
+      },
+      {
+        "code": "decision_output_caps_within_configured_ceiling",
+        "passed": true
+      },
+      {
+        "code": "final_generation_keeps_text_format",
+        "passed": true
+      },
+      {
+        "code": "final_output_caps_preserve_reserve_and_ceiling",
+        "passed": true
+      },
+      {
+        "code": "public_trace_and_storage_request_options_agree",
+        "passed": true
+      },
+      {
+        "code": "independent_successful_final_generation",
+        "passed": true
+      },
+      {
+        "code": "successful_model_decisions",
+        "passed": true
+      },
+      {
+        "code": "model_explicitly_finished",
+        "passed": true
+      },
+      {
+        "code": "requested_models_match_frozen_provider",
+        "passed": true
+      },
+      {
+        "code": "persisted_usage_within_budget",
+        "passed": true
+      },
+      {
+        "code": "both_tools_persisted_with_task_and_step",
+        "passed": true
+      },
+      {
+        "code": "demo_business_results_are_present",
+        "passed": true
+      },
+      {
+        "code": "one_successful_real_profile_retrieval",
+        "passed": true
+      },
+      {
+        "code": "current_generation_hit_2097605940051144705",
+        "passed": true
+      },
+      {
+        "code": "answer_citations_match_current_hits",
+        "passed": true
+      },
+      {
+        "code": "qdrant_dense_1024_cosine_collection",
+        "passed": true
+      },
+      {
+        "code": "qdrant_current_hit_point_2097605940051144705",
+        "passed": true
+      }
+    ],
+    "qdrant": {
+      "collection": "v47_cb6d0626af67472885f77394383684ab",
+      "base_url": "http://127.0.0.1:6333",
+      "status": "green",
+      "points_count": 1,
+      "vectors": {
+        "size": 1024,
+        "distance": "Cosine"
+      }
+    },
+    "continuousEvents": 20,
+    "refreshedTaskAndTraceEqual": true,
+    "manualSemanticReview": {
+      "status": "PASSED",
+      "reviewedAgainst": "actual tool results and current RAG hit text",
+      "limitation": "Answer calls timeout after 3000ms a threshold; the log does not independently establish configured threshold. Original answer retained."
+    },
+    "invocationConfiguration": {
+      "OPENAI_BASE_URL": "https://open.bigmodel.cn/api/paas/v4",
+      "OPENAI_CHAT_MODEL": "glm-5.2",
+      "OPENAI_TIMEOUT": "PT120S",
+      "V47_TASK_TIMEOUT_SECONDS": "300",
+      "AGENTFLOW_TASK_DECISION_MAX_OUTPUT_TOKENS": "8192",
+      "AGENTFLOW_TASK_DECISION_JSON_SCHEMA_ENABLED": "false",
+      "AGENTFLOW_TASK_DECISION_JSON_OBJECT_ENABLED": "true",
+      "AGENTFLOW_TASK_PROVIDER_THINKING_DISABLED": "true",
+      "AGENTFLOW_TASK_FINAL_MAX_OUTPUT_TOKENS": "8192",
+      "DASHSCOPE_BASE_URL": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "DASHSCOPE_EMBEDDING_MODEL": "text-embedding-v4",
+      "DASHSCOPE_EMBEDDING_DIMENSIONS": "1024",
+      "QDRANT_BASE_URL": "http://127.0.0.1:6333",
+      "QDRANT_VECTOR_SIZE": "1024"
+    },
+    "credentialConfiguration": "OPENAI_API_KEY and DASHSCOPE_API_KEY supplied from existing local configuration only in process environment; values omitted"
+  },
+  "controlledFailureMatrix": {
+    "evidenceDirectory": "/private/var/folders/rk/2gmg78l55dl2m5ld98kpb3100000gn/T/agentflow-v48-browser.hq2trC",
+    "run": {
+      "status": "PASSED",
+      "exitCode": 0,
+      "stage": "complete",
+      "scope": "full-matrix",
+      "selectedCase": null,
+      "automaticExecutionRetries": 0,
+      "playwrightRetries": 0,
+      "boundary": "controlled LLM, embedding, vector and selected handler faults; real browser/JWT/PostgreSQL/execution",
+      "finishedAt": "2026-09-09T08:34:35.124430+00:00"
+    },
+    "browserSeconds": 34.5,
+    "caseCount": 22,
+    "caseCheckCount": 803,
+    "globalChecks": [
+      {
+        "code": "required_manifest_matrix_complete",
+        "passed": true
+      },
+      {
+        "code": "database_contains_exact_selected_tasks",
+        "passed": true,
+        "actualTaskCount": 22,
+        "expectedTaskCount": 22
+      },
+      {
+        "code": "all_execution_rows_belong_to_collected_tasks",
+        "passed": true
+      }
+    ],
+    "collectorErrors": [],
+    "cases": {
+      "F01_JSON": {
+        "status": "PASSED",
+        "taskId": "2097604427228561410",
+        "expected": {
+          "agentId": "480000000000000100",
+          "status": "FAILED",
+          "reason": "SYSTEM_ERROR",
+          "errorCode": "AGENT_INVALID_DECISION",
+          "decisions": 1,
+          "tools": 0,
+          "handlers": 0,
+          "finals": 0
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "AGENT_INVALID_DECISION"
+            },
+            "expected": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "AGENT_INVALID_DECISION"
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 0
+            },
+            "expected": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 0
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "failure_never_publishes_answer",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "invalid_decision_retains_failed_log_and_usage",
+            "passed": true
+          },
+          {
+            "code": "successful_retrieval_retained",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      },
+      "F01_SHAPE": {
+        "status": "PASSED",
+        "taskId": "2097604431217344513",
+        "expected": {
+          "agentId": "480000000000000101",
+          "status": "FAILED",
+          "reason": "SYSTEM_ERROR",
+          "errorCode": "AGENT_INVALID_DECISION",
+          "decisions": 1,
+          "tools": 0,
+          "handlers": 0,
+          "finals": 0
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "AGENT_INVALID_DECISION"
+            },
+            "expected": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "AGENT_INVALID_DECISION"
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 0
+            },
+            "expected": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 0
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "failure_never_publishes_answer",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "invalid_decision_retains_failed_log_and_usage",
+            "passed": true
+          },
+          {
+            "code": "successful_retrieval_retained",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      },
+      "F02": {
+        "status": "PASSED",
+        "taskId": "2097604434849611778",
+        "expected": {
+          "agentId": "480000000000000102",
+          "status": "FAILED",
+          "reason": "SYSTEM_ERROR",
+          "errorCode": "AGENT_DUPLICATE_TOOL_LOOP",
+          "decisions": 3,
+          "tools": 1,
+          "handlers": 1,
+          "finals": 0
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "AGENT_DUPLICATE_TOOL_LOOP"
+            },
+            "expected": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "AGENT_DUPLICATE_TOOL_LOOP"
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 3,
+              "tools": 1,
+              "handlers": 1,
+              "finals": 0
+            },
+            "expected": {
+              "decisions": 3,
+              "tools": 1,
+              "handlers": 1,
+              "finals": 0
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "failure_never_publishes_answer",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "prior_tool_success_retained_before_loop_failure",
+            "passed": true
+          },
+          {
+            "code": "successful_retrieval_retained",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      },
+      "F03": {
+        "status": "PASSED",
+        "taskId": "2097604438695788545",
+        "expected": {
+          "agentId": "480000000000000103",
+          "status": "FAILED",
+          "reason": "SYSTEM_ERROR",
+          "errorCode": "TOOL_ARGUMENT_INVALID",
+          "decisions": 1,
+          "tools": 1,
+          "handlers": 0,
+          "finals": 0
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "TOOL_ARGUMENT_INVALID"
+            },
+            "expected": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "TOOL_ARGUMENT_INVALID"
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 1,
+              "tools": 1,
+              "handlers": 0,
+              "finals": 0
+            },
+            "expected": {
+              "decisions": 1,
+              "tools": 1,
+              "handlers": 0,
+              "finals": 0
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "failure_never_publishes_answer",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "tool_failure_boundary",
+            "passed": true
+          },
+          {
+            "code": "successful_retrieval_retained",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      },
+      "F04": {
+        "status": "PASSED",
+        "taskId": "2097604442357415937",
+        "expected": {
+          "agentId": "480000000000000104",
+          "status": "FAILED",
+          "reason": "SYSTEM_ERROR",
+          "errorCode": "TOOL_EXECUTION_FAILED",
+          "decisions": 1,
+          "tools": 1,
+          "handlers": 1,
+          "finals": 0
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "TOOL_EXECUTION_FAILED"
+            },
+            "expected": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "TOOL_EXECUTION_FAILED"
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 1,
+              "tools": 1,
+              "handlers": 1,
+              "finals": 0
+            },
+            "expected": {
+              "decisions": 1,
+              "tools": 1,
+              "handlers": 1,
+              "finals": 0
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "failure_never_publishes_answer",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "tool_failure_boundary",
+            "passed": true
+          },
+          {
+            "code": "successful_retrieval_retained",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      },
+      "F05_EMBED": {
+        "status": "PASSED",
+        "taskId": "2097604446044209154",
+        "expected": {
+          "agentId": "480000000000000105",
+          "status": "FAILED",
+          "reason": "SYSTEM_ERROR",
+          "errorCode": "RAG_RETRIEVAL_FAILED",
+          "decisions": 0,
+          "tools": 0,
+          "handlers": 0,
+          "finals": 0
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "RAG_RETRIEVAL_FAILED"
+            },
+            "expected": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "RAG_RETRIEVAL_FAILED"
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 0,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 0
+            },
+            "expected": {
+              "decisions": 0,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 0
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "failure_never_publishes_answer",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "execution_period_retrieval_failure",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      },
+      "F05_VECTOR": {
+        "status": "PASSED",
+        "taskId": "2097604449311571969",
+        "expected": {
+          "agentId": "480000000000000106",
+          "status": "FAILED",
+          "reason": "SYSTEM_ERROR",
+          "errorCode": "RAG_RETRIEVAL_FAILED",
+          "decisions": 0,
+          "tools": 0,
+          "handlers": 0,
+          "finals": 0
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "RAG_RETRIEVAL_FAILED"
+            },
+            "expected": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "RAG_RETRIEVAL_FAILED"
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 0,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 0
+            },
+            "expected": {
+              "decisions": 0,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 0
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "failure_never_publishes_answer",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "execution_period_retrieval_failure",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      },
+      "F06_UNKNOWN": {
+        "status": "PASSED",
+        "taskId": "2097604452536991745",
+        "expected": {
+          "agentId": "480000000000000107",
+          "status": "FAILED",
+          "reason": "SYSTEM_ERROR",
+          "errorCode": "AGENT_INVALID_CITATION",
+          "decisions": 1,
+          "tools": 0,
+          "handlers": 0,
+          "finals": 1
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "AGENT_INVALID_CITATION"
+            },
+            "expected": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "AGENT_INVALID_CITATION"
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 1
+            },
+            "expected": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 1
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "failure_never_publishes_answer",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "successful_retrieval_retained",
+            "passed": true
+          },
+          {
+            "code": "invalid_final_citation_retains_failed_usage",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      },
+      "F06_MALFORMED": {
+        "status": "PASSED",
+        "taskId": "2097604456177647618",
+        "expected": {
+          "agentId": "480000000000000108",
+          "status": "FAILED",
+          "reason": "SYSTEM_ERROR",
+          "errorCode": "AGENT_INVALID_CITATION",
+          "decisions": 1,
+          "tools": 0,
+          "handlers": 0,
+          "finals": 1
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "AGENT_INVALID_CITATION"
+            },
+            "expected": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "AGENT_INVALID_CITATION"
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 1
+            },
+            "expected": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 1
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "failure_never_publishes_answer",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "successful_retrieval_retained",
+            "passed": true
+          },
+          {
+            "code": "invalid_final_citation_retains_failed_usage",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      },
+      "B01_PRE": {
+        "status": "PASSED",
+        "taskId": "2097604459772166146",
+        "expected": {
+          "agentId": "480000000000000109",
+          "status": "FAILED",
+          "reason": "TOKEN_BUDGET_EXHAUSTED",
+          "errorCode": "AGENT_TOKEN_BUDGET_EXHAUSTED",
+          "decisions": 0,
+          "tools": 0,
+          "handlers": 0,
+          "finals": 0
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "FAILED",
+              "termination_reason": "TOKEN_BUDGET_EXHAUSTED",
+              "error_code": "AGENT_TOKEN_BUDGET_EXHAUSTED"
+            },
+            "expected": {
+              "status": "FAILED",
+              "termination_reason": "TOKEN_BUDGET_EXHAUSTED",
+              "error_code": "AGENT_TOKEN_BUDGET_EXHAUSTED"
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 0,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 0
+            },
+            "expected": {
+              "decisions": 0,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 0
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "failure_never_publishes_answer",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "successful_retrieval_retained",
+            "passed": true
+          },
+          {
+            "code": "pre_request_budget_exhaustion_has_zero_unknown_usage",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      },
+      "B01_OVER": {
+        "status": "PASSED",
+        "taskId": "2097604463018557441",
+        "expected": {
+          "agentId": "480000000000000110",
+          "status": "FAILED",
+          "reason": "TOKEN_BUDGET_EXHAUSTED",
+          "errorCode": "AGENT_TOKEN_BUDGET_EXHAUSTED",
+          "decisions": 1,
+          "tools": 0,
+          "handlers": 0,
+          "finals": 0
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "FAILED",
+              "termination_reason": "TOKEN_BUDGET_EXHAUSTED",
+              "error_code": "AGENT_TOKEN_BUDGET_EXHAUSTED"
+            },
+            "expected": {
+              "status": "FAILED",
+              "termination_reason": "TOKEN_BUDGET_EXHAUSTED",
+              "error_code": "AGENT_TOKEN_BUDGET_EXHAUSTED"
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 0
+            },
+            "expected": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 0
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "failure_never_publishes_answer",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "successful_retrieval_retained",
+            "passed": true
+          },
+          {
+            "code": "reported_overrun_is_not_clamped",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      },
+      "B02": {
+        "status": "PASSED",
+        "taskId": "2097604466231394306",
+        "expected": {
+          "agentId": "480000000000000111",
+          "status": "TIMED_OUT",
+          "reason": "DEADLINE_EXCEEDED",
+          "errorCode": null,
+          "decisions": 1,
+          "tools": 0,
+          "handlers": 0,
+          "finals": 1
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "TIMED_OUT",
+              "termination_reason": "DEADLINE_EXCEEDED",
+              "error_code": null
+            },
+            "expected": {
+              "status": "TIMED_OUT",
+              "termination_reason": "DEADLINE_EXCEEDED",
+              "error_code": null
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 1
+            },
+            "expected": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 1
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "failure_never_publishes_answer",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "successful_retrieval_retained",
+            "passed": true
+          },
+          {
+            "code": "late_work_exited_before_final_evidence",
+            "passed": true
+          },
+          {
+            "code": "inflight_final_uses_estimated_usage",
+            "passed": true
+          },
+          {
+            "code": "overall_deadline_reached",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      },
+      "B03": {
+        "status": "PASSED",
+        "taskId": "2097604514088402946",
+        "expected": {
+          "agentId": "480000000000000112",
+          "status": "CANCELLED",
+          "reason": "USER_CANCELLED",
+          "errorCode": null,
+          "decisions": 1,
+          "tools": 0,
+          "handlers": 0,
+          "finals": 1
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "CANCELLED",
+              "termination_reason": "USER_CANCELLED",
+              "error_code": null
+            },
+            "expected": {
+              "status": "CANCELLED",
+              "termination_reason": "USER_CANCELLED",
+              "error_code": null
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 1
+            },
+            "expected": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 1
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "failure_never_publishes_answer",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "successful_retrieval_retained",
+            "passed": true
+          },
+          {
+            "code": "late_work_exited_before_final_evidence",
+            "passed": true
+          },
+          {
+            "code": "inflight_final_uses_estimated_usage",
+            "passed": true
+          },
+          {
+            "code": "cancellation_was_persisted",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      },
+      "C01": {
+        "status": "PASSED",
+        "taskId": "2097604519150927873",
+        "expected": {
+          "agentId": "480000000000000113",
+          "status": "COMPLETED",
+          "reason": "ANSWERED",
+          "errorCode": null,
+          "decisions": 2,
+          "tools": 1,
+          "handlers": 1,
+          "finals": 1
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "COMPLETED",
+              "termination_reason": "ANSWERED",
+              "error_code": null
+            },
+            "expected": {
+              "status": "COMPLETED",
+              "termination_reason": "ANSWERED",
+              "error_code": null
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 2,
+              "tools": 1,
+              "handlers": 1,
+              "finals": 1
+            },
+            "expected": {
+              "decisions": 2,
+              "tools": 1,
+              "handlers": 1,
+              "finals": 1
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "success_chunks_exactly_rebuild_final_answer",
+            "passed": true
+          },
+          {
+            "code": "success_citations_map_to_frozen_valid_hits",
+            "passed": true
+          },
+          {
+            "code": "successful_independent_final_generation",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "successful_retrieval_retained",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      },
+      "C02": {
+        "status": "PASSED",
+        "taskId": "2097604522900635650",
+        "expected": {
+          "agentId": "480000000000000114",
+          "status": "COMPLETED",
+          "reason": "MAX_DECISION_TURNS",
+          "errorCode": null,
+          "decisions": 4,
+          "tools": 2,
+          "handlers": 2,
+          "finals": 1
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "COMPLETED",
+              "termination_reason": "MAX_DECISION_TURNS",
+              "error_code": null
+            },
+            "expected": {
+              "status": "COMPLETED",
+              "termination_reason": "MAX_DECISION_TURNS",
+              "error_code": null
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 4,
+              "tools": 2,
+              "handlers": 2,
+              "finals": 1
+            },
+            "expected": {
+              "decisions": 4,
+              "tools": 2,
+              "handlers": 2,
+              "finals": 1
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "success_chunks_exactly_rebuild_final_answer",
+            "passed": true
+          },
+          {
+            "code": "success_citations_map_to_frozen_valid_hits",
+            "passed": true
+          },
+          {
+            "code": "successful_independent_final_generation",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "successful_retrieval_retained",
+            "passed": true
+          },
+          {
+            "code": "limit_final_does_not_invent_finish_decision",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      },
+      "C03": {
+        "status": "PASSED",
+        "taskId": "2097604526935556097",
+        "expected": {
+          "agentId": "480000000000000115",
+          "status": "COMPLETED",
+          "reason": "MAX_TOOL_CALLS",
+          "errorCode": null,
+          "decisions": 1,
+          "tools": 1,
+          "handlers": 1,
+          "finals": 1
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "COMPLETED",
+              "termination_reason": "MAX_TOOL_CALLS",
+              "error_code": null
+            },
+            "expected": {
+              "status": "COMPLETED",
+              "termination_reason": "MAX_TOOL_CALLS",
+              "error_code": null
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 1,
+              "tools": 1,
+              "handlers": 1,
+              "finals": 1
+            },
+            "expected": {
+              "decisions": 1,
+              "tools": 1,
+              "handlers": 1,
+              "finals": 1
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "success_chunks_exactly_rebuild_final_answer",
+            "passed": true
+          },
+          {
+            "code": "success_citations_map_to_frozen_valid_hits",
+            "passed": true
+          },
+          {
+            "code": "successful_independent_final_generation",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "successful_retrieval_retained",
+            "passed": true
+          },
+          {
+            "code": "limit_final_does_not_invent_finish_decision",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      },
+      "R01": {
+        "status": "PASSED",
+        "taskId": "2097604530408439809",
+        "expected": {
+          "agentId": "480000000000000116",
+          "status": "FAILED",
+          "reason": "SYSTEM_ERROR",
+          "errorCode": "AGENT_INVALID_DECISION",
+          "decisions": 1,
+          "tools": 0,
+          "handlers": 0,
+          "finals": 0
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "AGENT_INVALID_DECISION"
+            },
+            "expected": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "AGENT_INVALID_DECISION"
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 0
+            },
+            "expected": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 0
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "failure_never_publishes_answer",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "invalid_decision_retains_failed_log_and_usage",
+            "passed": true
+          },
+          {
+            "code": "successful_retrieval_retained",
+            "passed": true
+          },
+          {
+            "code": "idempotency_http_evidence_matches_single_execution",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      },
+      "R02": {
+        "status": "PASSED",
+        "taskId": "2097604534623715329",
+        "expected": {
+          "agentId": "480000000000000117",
+          "status": "FAILED",
+          "reason": "SYSTEM_ERROR",
+          "errorCode": "AGENT_INVALID_DECISION",
+          "decisions": 1,
+          "tools": 0,
+          "handlers": 0,
+          "finals": 0
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "AGENT_INVALID_DECISION"
+            },
+            "expected": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "AGENT_INVALID_DECISION"
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 0
+            },
+            "expected": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 0
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "failure_never_publishes_answer",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "invalid_decision_retains_failed_log_and_usage",
+            "passed": true
+          },
+          {
+            "code": "successful_retrieval_retained",
+            "passed": true
+          },
+          {
+            "code": "unknown_post_confirmation_reuses_persisted_key",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      },
+      "R03": {
+        "status": "PASSED",
+        "taskId": "2097604539237449730",
+        "expected": {
+          "agentId": "480000000000000118",
+          "status": "FAILED",
+          "reason": "SYSTEM_ERROR",
+          "errorCode": "AGENT_INVALID_DECISION",
+          "decisions": 1,
+          "tools": 0,
+          "handlers": 0,
+          "finals": 0
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "AGENT_INVALID_DECISION"
+            },
+            "expected": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "AGENT_INVALID_DECISION"
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 0
+            },
+            "expected": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 0
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "failure_never_publishes_answer",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "invalid_decision_retains_failed_log_and_usage",
+            "passed": true
+          },
+          {
+            "code": "successful_retrieval_retained",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      },
+      "R04_SUCCESS": {
+        "status": "PASSED",
+        "taskId": "2097604551975550978",
+        "expected": {
+          "agentId": "480000000000000119",
+          "status": "COMPLETED",
+          "reason": "ANSWERED",
+          "errorCode": null,
+          "decisions": 1,
+          "tools": 0,
+          "handlers": 0,
+          "finals": 1
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "COMPLETED",
+              "termination_reason": "ANSWERED",
+              "error_code": null
+            },
+            "expected": {
+              "status": "COMPLETED",
+              "termination_reason": "ANSWERED",
+              "error_code": null
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 1
+            },
+            "expected": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 1
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "success_chunks_exactly_rebuild_final_answer",
+            "passed": true
+          },
+          {
+            "code": "success_citations_map_to_frozen_valid_hits",
+            "passed": true
+          },
+          {
+            "code": "successful_independent_final_generation",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "successful_retrieval_retained",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      },
+      "R04_FAILED": {
+        "status": "PASSED",
+        "taskId": "2097604556056608769",
+        "expected": {
+          "agentId": "480000000000000120",
+          "status": "FAILED",
+          "reason": "SYSTEM_ERROR",
+          "errorCode": "AGENT_INVALID_DECISION",
+          "decisions": 1,
+          "tools": 0,
+          "handlers": 0,
+          "finals": 0
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "AGENT_INVALID_DECISION"
+            },
+            "expected": {
+              "status": "FAILED",
+              "termination_reason": "SYSTEM_ERROR",
+              "error_code": "AGENT_INVALID_DECISION"
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 0
+            },
+            "expected": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 0
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "failure_never_publishes_answer",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "invalid_decision_retains_failed_log_and_usage",
+            "passed": true
+          },
+          {
+            "code": "successful_retrieval_retained",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      },
+      "R05": {
+        "status": "PASSED",
+        "taskId": "2097604559999254529",
+        "expected": {
+          "agentId": "480000000000000121",
+          "status": "COMPLETED",
+          "reason": "ANSWERED",
+          "errorCode": null,
+          "decisions": 1,
+          "tools": 0,
+          "handlers": 0,
+          "finals": 1
+        },
+        "checks": [
+          {
+            "code": "exactly_one_task",
+            "passed": true,
+            "actual": 1,
+            "expected": 1
+          },
+          {
+            "code": "browser_passed",
+            "passed": true,
+            "actual": "PASSED",
+            "expected": "PASSED"
+          },
+          {
+            "code": "browser_assertions_present_and_passed",
+            "passed": true
+          },
+          {
+            "code": "browser_gates_settled",
+            "passed": true
+          },
+          {
+            "code": "run_identity",
+            "passed": true
+          },
+          {
+            "code": "independent_telemetry_correlates_to_task",
+            "passed": true
+          },
+          {
+            "code": "expected_terminal",
+            "passed": true,
+            "actual": {
+              "status": "COMPLETED",
+              "termination_reason": "ANSWERED",
+              "error_code": null
+            },
+            "expected": {
+              "status": "COMPLETED",
+              "termination_reason": "ANSWERED",
+              "error_code": null
+            }
+          },
+          {
+            "code": "frozen_budget_matches_created_task",
+            "passed": true
+          },
+          {
+            "code": "get_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "trace_task_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "refresh_matches_postgres",
+            "passed": true
+          },
+          {
+            "code": "steps_contiguous_and_finished",
+            "passed": true
+          },
+          {
+            "code": "public_steps_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "expected_persisted_and_handler_counts",
+            "passed": true,
+            "actual": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 1
+            },
+            "expected": {
+              "decisions": 1,
+              "tools": 0,
+              "handlers": 0,
+              "finals": 1
+            }
+          },
+          {
+            "code": "independent_gateway_counts",
+            "passed": true
+          },
+          {
+            "code": "usage_aggregates_preserve_actual_consumption",
+            "passed": true
+          },
+          {
+            "code": "all_gateway_entries_have_one_exit",
+            "passed": true
+          },
+          {
+            "code": "recorded_usage_matches_observed_or_estimated_boundary",
+            "passed": true
+          },
+          {
+            "code": "specialized_logs_link_to_real_steps",
+            "passed": true
+          },
+          {
+            "code": "tool_logs_have_no_retry_or_running_tail",
+            "passed": true
+          },
+          {
+            "code": "handler_entries_have_exits",
+            "passed": true
+          },
+          {
+            "code": "public_llmCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_toolCalls_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "public_ragRetrievals_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "event_sequence_contiguous_and_cursor_exact",
+            "passed": true
+          },
+          {
+            "code": "one_create_start_and_matching_final_event",
+            "passed": true
+          },
+          {
+            "code": "public_trace_events_match_postgres",
+            "passed": true
+          },
+          {
+            "code": "reuse_does_not_add_handler_or_log",
+            "passed": true
+          },
+          {
+            "code": "success_chunks_exactly_rebuild_final_answer",
+            "passed": true
+          },
+          {
+            "code": "success_citations_map_to_frozen_valid_hits",
+            "passed": true
+          },
+          {
+            "code": "successful_independent_final_generation",
+            "passed": true
+          },
+          {
+            "code": "one_execution_retrieval",
+            "passed": true
+          },
+          {
+            "code": "embedding_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "vector_boundary_called_once_without_retry",
+            "passed": true
+          },
+          {
+            "code": "retrieval_hit_counts_match_rows",
+            "passed": true
+          },
+          {
+            "code": "hits_match_current_source_and_frozen_generation",
+            "passed": true
+          },
+          {
+            "code": "successful_retrieval_retained",
+            "passed": true
+          }
+        ],
+        "collectorErrors": []
+      }
+    }
+  },
+  "repositoryArtifacts": {
+    "trackedFileCountAtAudit": 637,
+    "trackedGeneratedArtifacts": []
+  },
+  "knownNonblockingIssues": [
+    {
+      "id": "P2-01",
+      "finding": "Binding API accepts 50 KBs while snapshot RAG rejects more than 20.",
+      "evidenceLevel": "source audit; 21-KB case not dynamically executed",
+      "scopeDecision": "V0.1 Project Spec explicitly fixes the first demonstration to one KB; 21-50 KB support is not claimed."
+    }
+  ]
+}

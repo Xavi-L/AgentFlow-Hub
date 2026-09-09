@@ -10,6 +10,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.agentflow.agent.engine.TaskTokenEstimator;
 import com.agentflow.agent.snapshot.AgentTaskSnapshotResolver;
 import com.agentflow.infra.llm.LlmChatRequest;
 import com.agentflow.infra.llm.LlmChatResult;
@@ -35,6 +36,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.StreamSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -345,33 +347,120 @@ class AgentTaskApiPostgresIntegrationTest {
 
     @Test
     void shouldCancelQueuedImmediatelyAndRunningCooperativelyAndMakeTerminalCancelIdempotent() throws Exception {
-        CountDownLatch modelEntered = blockFirstModelThenFinish();
-        String running = data(create(ownerToken, AGENT, "cancel-running", INPUT), 201).path("taskId").asText();
-        assertThat(modelEntered.await(10, TimeUnit.SECONDS)).isTrue();
-        String queued = data(create(ownerToken, AGENT, "cancel-queued", INPUT), 201).path("taskId").asText();
-        assertThat(data(get(ownerToken, "/tasks/" + queued), 200).path("status").asText()).isEqualTo("QUEUED");
-        JsonNode cancelledQueued = data(cancel(ownerToken, queued), 200);
-        assertThat(cancelledQueued.path("status").asText()).isEqualTo("CANCELLED");
-        assertThat(cancelledQueued.path("cancelRequestedAt").isTextual()).isTrue();
-        JsonNode cancelling = data(cancel(ownerToken, running), 200);
-        assertThat(cancelling.path("status").asText()).isEqualTo("RUNNING");
-        assertThat(cancelling.path("cancelRequestedAt").isTextual()).isTrue();
-        assertThat(cancelling.path("totalTokens").asInt()).isZero();
-        JsonNode during = data(get(ownerToken, "/tasks/" + running + "/trace"), 200);
-        assertThat(during.path("task").path("status").asText()).isEqualTo("RUNNING");
-        assertThat(during.path("task").path("lastEventSequence").asLong()).isEqualTo(during.path("events").size());
-        releaseModel.countDown();
-        JsonNode cancelledRunning = terminal(running, "CANCELLED");
-        assertThat(cancelledRunning.path("totalTokens").asInt()).isEqualTo(15);
-        for (String id : List.of(queued, running)) {
-            JsonNode before = data(get(ownerToken, "/tasks/" + id), 200);
-            JsonNode again = data(cancel(ownerToken, id), 200);
-            assertThat(again).isEqualTo(before);
-            assertTraceEvents(data(get(ownerToken, "/tasks/" + id + "/trace"), 200), id, "TASK_CANCELLED");
+        CountDownLatch modelEntered = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        releaseModel = release;
+        AtomicReference<LlmChatRequest> blockedRequest = new AtomicReference<>();
+        AtomicReference<Thread> modelWorker = new AtomicReference<>();
+        AtomicReference<LlmChatResult> lateResult = new AtomicReference<>();
+        when(llm.chat(any())).thenAnswer(invocation -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            assertThat(modelWorker.compareAndSet(null, Thread.currentThread())).as("Only one model call may start").isTrue();
+            blockedRequest.set(invocation.getArgument(0));
+            modelEntered.countDown();
+            long expires = System.nanoTime() + WAIT.toNanos();
+            while (release.getCount() != 0) {
+                long remaining = expires - System.nanoTime();
+                if (remaining <= 0) throw new IllegalStateException("Late model gate timed out");
+                try {
+                    if (!release.await(remaining, TimeUnit.NANOSECONDS)) throw new IllegalStateException("Late model gate timed out");
+                } catch (InterruptedException ignored) {
+                    // Model I/O deliberately ignores cancellation until the test releases its late result.
+                }
+            }
+            LlmChatResult response = result(FINISH);
+            lateResult.set(response);
+            return response;
+        });
+        try {
+            String running = data(create(ownerToken, AGENT, "cancel-running", INPUT), 201).path("taskId").asText();
+            assertThat(modelEntered.await(10, TimeUnit.SECONDS)).isTrue();
+            String queued = data(create(ownerToken, AGENT, "cancel-queued", INPUT), 201).path("taskId").asText();
+            assertThat(data(get(ownerToken, "/tasks/" + queued), 200).path("status").asText()).isEqualTo("QUEUED");
+            JsonNode cancelledQueued = data(cancel(ownerToken, queued), 200);
+            assertThat(cancelledQueued.path("status").asText()).isEqualTo("CANCELLED");
+            assertThat(cancelledQueued.path("cancelRequestedAt").isTextual()).isTrue();
+            assertThat(cancelledQueued.path("totalTokens").asInt()).isZero();
+            JsonNode during = data(get(ownerToken, "/tasks/" + running + "/trace"), 200);
+            assertThat(during.path("task").path("status").asText()).isEqualTo("RUNNING");
+            assertThat(during.path("task").path("lastEventSequence").asLong()).isEqualTo(during.path("events").size());
+            JsonNode cancelling = data(cancel(ownerToken, running), 200);
+            assertThat(cancelling.path("status").asText()).isEqualTo("RUNNING");
+            assertThat(cancelling.path("cancelRequestedAt").isTextual()).isTrue();
+            assertThat(cancelling.path("totalTokens").asInt()).isZero();
+
+            // Cancellation completes before provider usage is available: charge input estimate + actual output cap.
+            JsonNode cancelledRunning = terminal(running, "CANCELLED");
+            assertThat(release.getCount()).isEqualTo(1);
+            assertThat(modelWorker.get().isAlive()).isTrue();
+            assertThat(lateResult.get()).isNull();
+            LlmChatRequest request = blockedRequest.get();
+            assertThat(request.responseSchema()).isNull();
+            int expectedInput = TaskTokenEstimator.inputTokens(request.messages());
+            int expectedOutput = request.maxOutputTokens();
+            int expectedTotal = Math.addExact(expectedInput, expectedOutput);
+            assertThat(cancelledRunning.path("inputTokens").asInt()).isEqualTo(expectedInput);
+            assertThat(cancelledRunning.path("outputTokens").asInt()).isEqualTo(expectedOutput);
+            assertThat(cancelledRunning.path("totalTokens").asInt()).isEqualTo(expectedTotal);
+            assertThat(cancelledRunning.path("tokenUsageQuality").asText()).isEqualTo("ESTIMATED");
+            assertThat(cancelledRunning.path("terminationReason").asText()).isEqualTo("USER_CANCELLED");
+            assertThat(cancelledRunning.path("decisionTurnsUsed").asInt()).isEqualTo(1);
+            assertThat(cancelledRunning.path("toolCallsUsed").asInt()).isZero();
+            assertThat(cancelledRunning.hasNonNull("finalAnswer")).isFalse();
+            assertThat(cancelledRunning.path("citations")).isEmpty();
+            JsonNode cancelledTrace = data(get(ownerToken, "/tasks/" + running + "/trace"), 200);
+            assertThat(cancelledTrace.path("task")).isEqualTo(cancelledRunning);
+            List<JsonNode> calls = cancelledTrace.findValues("llmCalls").stream()
+                    .flatMap(nodes -> StreamSupport.stream(nodes.spliterator(), false)).toList();
+            assertThat(calls).hasSize(1);
+            JsonNode call = calls.getFirst();
+            assertThat(call.path("callType").asText()).isEqualTo("DECISION");
+            assertThat(call.path("status").asText()).isEqualTo("FAILED");
+            assertThat(call.path("errorCode").asText()).isEqualTo("TASK_CANCELLED");
+            assertThat(call.path("inputTokens").asInt()).isEqualTo(expectedInput);
+            assertThat(call.path("outputTokens").asInt()).isEqualTo(expectedOutput);
+            assertThat(call.path("totalTokens").asInt()).isEqualTo(expectedTotal);
+            assertThat(call.path("usageQuality").asText()).isEqualTo("ESTIMATED");
+            assertThat(call.path("requestSnapshot").path("maxOutputTokens").asInt()).isEqualTo(expectedOutput);
+            assertThat(call.hasNonNull("responseText")).isFalse();
+            assertThat(jdbc.queryForMap("""
+                    SELECT input_tokens,output_tokens,total_tokens,usage_quality,status,error_code
+                    FROM llm_call_log WHERE task_id=?
+                    """, Long.valueOf(running)))
+                    .containsEntry("input_tokens", expectedInput).containsEntry("output_tokens", expectedOutput)
+                    .containsEntry("total_tokens", expectedTotal).containsEntry("usage_quality", "ESTIMATED")
+                    .containsEntry("status", "FAILED").containsEntry("error_code", "TASK_CANCELLED");
+            assertTraceEvents(cancelledTrace, running, "TASK_CANCELLED");
+            assertThat(StreamSupport.stream(cancelledTrace.path("events").spliterator(), false)
+                    .map(event -> event.path("eventType").asText()).toList())
+                    .containsOnlyOnce("TASK_CANCELLED")
+                    .doesNotContain("FINAL_GENERATION_STARTED", "ANSWER_CHUNK", "TASK_COMPLETED");
+
+            // Join the actual external-call worker, not a finally-block signal that precedes its return.
+            release.countDown();
+            modelWorker.get().join(5_000);
+            assertThat(modelWorker.get().isAlive()).isFalse();
+            assertThat(lateResult.get()).isNotNull();
+            assertThat(lateResult.get().usage().totalTokens()).isEqualTo(15);
+            assertThat(data(get(ownerToken, "/tasks/" + running), 200)).isEqualTo(cancelledRunning);
+            assertThat(data(get(ownerToken, "/tasks/" + running + "/trace"), 200)).isEqualTo(cancelledTrace);
+            for (String id : List.of(queued, running)) {
+                JsonNode before = data(get(ownerToken, "/tasks/" + id), 200);
+                JsonNode again = data(cancel(ownerToken, id), 200);
+                assertThat(again).isEqualTo(before);
+                assertTraceEvents(data(get(ownerToken, "/tasks/" + id + "/trace"), 200), id, "TASK_CANCELLED");
+            }
+            assertThat(jdbc.queryForList("SELECT event_type FROM agent_task_event WHERE task_id=?", String.class, Long.valueOf(queued)))
+                    .containsExactly("TASK_CREATED", "TASK_CANCELLED");
+            verify(llm, times(1)).chat(any());
+        } finally {
+            release.countDown();
+            Thread worker = modelWorker.get();
+            if (worker != null) {
+                worker.join(5_000);
+                assertThat(worker.isAlive()).as("Controlled provider must exit before database reset").isFalse();
+            }
         }
-        assertThat(jdbc.queryForList("SELECT event_type FROM agent_task_event WHERE task_id=?", String.class, Long.valueOf(queued)))
-                .containsExactly("TASK_CREATED", "TASK_CANCELLED");
-        verify(llm, times(1)).chat(any());
     }
 
     private void insertPageFixtures(long userId, long agentId, int count, long idBase) {

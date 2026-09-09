@@ -192,6 +192,19 @@ Maven 总耗时 14.299 秒；`git diff --check` 通过。
 以上证明可控模型/向量条件下真实 HTTP 与持久后端组件的行为；模型、embedding、vector 替身不构成
 真实 provider/Qdrant E2E 证据。手工 HTTP 模板已提供，但不把模板本身计入实际验收次数。
 
+### 2026-09-09 Release Gate 回归更新
+
+总验收首次执行当前五类 PostgreSQL 专项为 46/47；本类取消用例预期 15 tokens、实际 3198。
+源码核对确认：后续执行器已能在模型调用等待期间观察取消；没有收到 provider usage 时按输入估算
+加实际输出 cap 保守记账。旧用例在 POST cancel 后释放模型并要求精确 15，依赖返回与取消的竞速。
+
+本次仅修正该测试：模型在取消期间持续阻塞，先验证 CANCELLED 及 Task/Trace/数据库一致的
+ESTIMATED 用量，再释放晚到的 15-token 结果、等待实际 worker 退出，复读确认终态和 Trace 不变、
+没有 final/答案发布；保留排队取消及终态幂等断言。没有修改生产取消或计费逻辑。
+相同五类在新临时库复验 **47/47**，其中本类 **6/6**，无失败/错误/跳过。
+首轮失败、复跑日志和当前验收范围见[Release Gate 报告](../release-docs/V0.1_RELEASE_GATE.md)。
+此回归使用受控模型与真实 HTTP/PostgreSQL，不将后续执行器能力写作 V41 初次交付证明。
+
 ## 7. 明确不做
 
 SSE、`/events`/订阅地址、Last-Event-ID、前端、provider streaming、真实 provider/Qdrant E2E、
@@ -221,6 +234,9 @@ Controller 只映射该结果，既保留并发语义，也避免再次执行任
 
 回答：取消先持久化请求，Runner 在外部调用前后等安全边界观察并收敛到 CANCELLED。它不承诺立即中断
 外部调用。排队任务可立即条件取消；终态重复取消只返回当前状态，不制造第二个终态事件。
+后续执行器还会在等待模型时检查取消，但不保证外部 provider 真正停止。当前受控回归验证：没有收到
+usage 的在途调用记为 ESTIMATED，不能强行要求晚到响应的精确 token 数；实际 worker 退出后再次核对
+Task/Trace，晚到结果不得改写已持久化的取消终态、答案或用量。此证据不代表真实 provider 取消可靠性。
 
 **问题 5：安全 DTO 和写入时脱敏分别解决什么问题？**
 
