@@ -46,6 +46,20 @@ public final class V46BrowserFixture {
                         INSERT INTO agent_knowledge_binding(id,user_id,agent_id,knowledge_base_id)
                         VALUES (460000000000000101,?,460000000000000001,460000000000000100)
                         """, V43BrowserFixture.OWNER);
+                // V49 repair scenario: a legacy 21-binding configuration must remain readable in the UI.
+                jdbc.update("""
+                        INSERT INTO knowledge_base(id,user_id,name,created_at,updated_at)
+                        VALUES (460000000000000102,?,'Legacy overflow knowledge',
+                          TIMESTAMPTZ '2025-01-01 00:00:00Z',TIMESTAMPTZ '2025-01-01 00:00:00Z')
+                        """, V43BrowserFixture.OWNER);
+                for (int i = 0; i < 21; i++) {
+                    long kbId = i == 0 ? 430000000000000005L
+                            : (i == 20 ? 460000000000000102L : 450000000000000000L + i);
+                    jdbc.update("""
+                            INSERT INTO agent_knowledge_binding(id,user_id,agent_id,knowledge_base_id,priority)
+                            VALUES (?,?,460000000000000002,?,?)
+                            """, 490000000000001000L + i, V43BrowserFixture.OWNER, kbId, i);
+                }
                 Files.writeString(Path.of(System.getProperty("v43.control-dir")).resolve("agents-ready"), "V46");
             };
         }

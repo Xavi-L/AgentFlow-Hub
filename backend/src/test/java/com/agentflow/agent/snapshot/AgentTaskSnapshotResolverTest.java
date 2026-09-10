@@ -2,6 +2,9 @@ package com.agentflow.agent.snapshot;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.agentflow.agent.binding.model.BoundKnowledgeBaseRow;
@@ -17,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.stream.LongStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -112,6 +116,56 @@ class AgentTaskSnapshotResolverTest {
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
                         .isEqualTo(ErrorCode.RAG_KNOWLEDGE_NOT_READY));
+    }
+
+    @Test
+    void shouldFreezeAllTwentyBindingsWhenOneDocumentIsReady() {
+        List<Long> ids = LongStream.range(201, 221).boxed().toList();
+        when(agentAppMapper.selectVisibleOwnedByIdForSnapshot(301L, 101L)).thenReturn(activeAgent());
+        when(knowledgeBindingMapper.selectBoundKnowledgeBaseIds(301L, 101L)).thenReturn(ids);
+        when(knowledgeBindingMapper.selectActiveBoundKnowledgeBases(301L, 101L))
+                .thenReturn(ids.stream().map(AgentTaskSnapshotResolverTest::knowledgeBase).toList());
+        when(knowledgeBindingMapper.selectReadyDocumentGenerations(301L, 101L))
+                .thenReturn(List.of(readyDocument(201L, 501L, 0L)));
+
+        var snapshot = resolver.resolve(101L, 301L);
+
+        assertThat(snapshot.retrieval().knowledgeBases()).hasSize(20)
+                .extracting(AgentTaskExecutionSnapshot.KnowledgeBaseSnapshot::knowledgeBaseId)
+                .containsExactlyElementsOf(ids.stream().map(String::valueOf).toList());
+        assertThat(snapshot.retrieval().knowledgeBases().getFirst().documents()).hasSize(1);
+        assertThat(snapshot.retrieval().knowledgeBases().stream().skip(1))
+                .allSatisfy(kb -> assertThat(kb.documents()).isEmpty());
+    }
+
+    @Test
+    void shouldRejectTwentyOnePersistedBindingsBeforeActiveOrReadyFiltering() {
+        when(agentAppMapper.selectVisibleOwnedByIdForSnapshot(301L, 101L)).thenReturn(activeAgent());
+        when(knowledgeBindingMapper.selectBoundKnowledgeBaseIds(301L, 101L))
+                .thenReturn(LongStream.range(201, 222).boxed().toList());
+
+        assertThatThrownBy(() -> resolver.resolve(101L, 301L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        failure -> assertThat(failure.getErrorCode()).isEqualTo(ErrorCode.AGENT_BINDING_INVALID));
+
+        verify(knowledgeBindingMapper, never()).selectActiveBoundKnowledgeBases(301L, 101L);
+        verify(knowledgeBindingMapper, never()).selectReadyDocumentGenerations(301L, 101L);
+        verifyNoInteractions(toolBindingMapper);
+    }
+
+    @Test
+    void shouldDefensivelyRejectTwentyOneActiveBindingsBeforeReadyLookup() {
+        when(agentAppMapper.selectVisibleOwnedByIdForSnapshot(301L, 101L)).thenReturn(activeAgent());
+        when(knowledgeBindingMapper.selectBoundKnowledgeBaseIds(301L, 101L)).thenReturn(List.of(201L));
+        when(knowledgeBindingMapper.selectActiveBoundKnowledgeBases(301L, 101L))
+                .thenReturn(LongStream.range(201, 222).mapToObj(AgentTaskSnapshotResolverTest::knowledgeBase).toList());
+
+        assertThatThrownBy(() -> resolver.resolve(101L, 301L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        failure -> assertThat(failure.getErrorCode()).isEqualTo(ErrorCode.AGENT_BINDING_INVALID));
+
+        verify(knowledgeBindingMapper, never()).selectReadyDocumentGenerations(301L, 101L);
+        verifyNoInteractions(toolBindingMapper);
     }
 
     @Test

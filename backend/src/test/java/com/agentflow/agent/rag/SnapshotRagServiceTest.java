@@ -158,6 +158,23 @@ class SnapshotRagServiceTest {
     }
 
     @Test
+    void shouldRejectTwentyOneFrozenKnowledgeBasesBeforeAnyProviderCallWithoutTruncation() {
+        List<KnowledgeBaseSnapshot> knowledgeBases = java.util.stream.LongStream.range(201, 222)
+                .mapToObj(kbId -> new KnowledgeBaseSnapshot(Long.toString(kbId),
+                        AgentTaskSnapshotResolver.EMBEDDING_PROFILE_CODE,
+                        AgentTaskSnapshotResolver.CHUNK_STRATEGY_VERSION,
+                        kbId == 201 ? List.of(new DocumentGenerationSnapshot("301", 7)) : List.of()))
+                .toList();
+        RetrievalSnapshot snapshot = new RetrievalSnapshot(knowledgeBases, 5, BigDecimal.ZERO, false);
+
+        assertThatThrownBy(() -> service.retrieve(request(snapshot), () -> { }))
+                .isInstanceOf(SnapshotRagException.class);
+
+        assertThat(snapshot.knowledgeBases()).hasSize(21);
+        verifyNoInteractions(embeddings, vectors, chunks);
+    }
+
+    @Test
     void duplicateLocatorsKeepHighestValidScoreWithoutDuplicatingCitations() {
         KnowledgeChunk row = chunk(401, 301, 7, "canonical");
         when(vectors.search(any())).thenReturn(List.of(

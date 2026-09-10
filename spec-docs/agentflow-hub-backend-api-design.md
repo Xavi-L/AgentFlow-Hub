@@ -466,6 +466,15 @@ PUT 为全量替换，必须在一个事务中：
 - 替换 bindings；
 - 不改变已经创建的 task snapshot。
 
+后续 V49 将知识库写入、新任务快照与 RAG 执行的数量上限统一为 20，后端共用
+`AgentKnowledgeLimits.MAX_KNOWLEDGE_BINDINGS`。这是对 V37/V46 原始 50 项写入契约的修复，
+验证状态与证据见 [V49 切片说明](../slice-docs/50_KNOWLEDGE_BINDING_LIMIT_PACKAGE_INTERFACE.md)，不追溯改变原始验收记录。
+
+- PUT 的原始 `knowledgeBaseIds` 数组最多 20 项；空数组仍表示清空。数量检查先于去重，原始 21 项即返回
+  HTTP 400 / `COMMON_PARAM_INVALID`，旧绑定不变。
+- GET 完整返回已有绑定，前端继续兼容读取历史 21–50 项，供用户明确删减后全量保存；不自动截断或迁移。
+- 20 是数量上限，不替代 owner、ACTIVE、READY generation、profile 或预算校验。已有 task 的 snapshot 不因该修复被重写。
+
 ### 7.3 Tool Binding
 
 | 方法 | 路径 |
@@ -511,6 +520,12 @@ Content-Type: application/json
 - 新 task 返回 HTTP 201；
 - task、snapshot 和 `TASK_CREATED` event 已提交后才响应；
 - 线程池 dispatch 发生在事务提交后。
+
+V49 对**新建任务**在冻结快照前检查该 Agent 的全部持久知识库绑定总数，包括当前不活跃或已软删除
+知识库的残留绑定；不能只计过滤后的 ACTIVE/READY 集合。超过 20 时返回 HTTP 409 /
+`AGENT_BINDING_INVALID`，不新增 task/event、不 dispatch，也不调用模型、embedding 或工具。
+同 key、同 Agent、同原始输入的合法幂等复用仍先返回原 task，已有 task 的 GET/Trace 也不重新解析当前绑定；
+二者均不因当前绑定超限而被拒绝。修复历史配置需用户明确删减并保存，不自动修改既有任务或重试执行。
 
 创建响应：
 
@@ -783,6 +798,6 @@ Task status/phase/terminal update 与对应事件、event cursor increment 必�
 9. TASK_COMPLETED 时 GET task 已有 finalAnswer；
 10. Trace 能聚合同一 task 的所有专项日志；
 11. Knowledge 文档响应区分 parseStatus 和 retrievalReadiness；
-12. Agent 绑定 API 不能绑定跨 owner/disabled KB 或不允许的工具；
+12. Agent 绑定 API 不能绑定跨 owner/disabled KB 或不允许的工具；V49 还需验证知识库 PUT 原始 21 项以400/`COMMON_PARAM_INVALID`拒绝且旧绑定不变，历史21–50项仍可读取修复，新任务以全部持久绑定计数并在超限时以409/`AGENT_BINDING_INVALID`拒绝且无 task/event/dispatch；
 13. 已创建 task 不因普通 binding 修改改变能力集合；
 14. 工具和模型内部配置不经 API 泄漏。

@@ -1,5 +1,7 @@
 package com.agentflow.agent.snapshot;
 
+import static com.agentflow.agent.AgentKnowledgeLimits.MAX_KNOWLEDGE_BINDINGS;
+
 import com.agentflow.agent.binding.model.BoundKnowledgeBaseRow;
 import com.agentflow.agent.binding.model.BoundToolDefinitionRow;
 import com.agentflow.agent.binding.model.ReadyDocumentGenerationRow;
@@ -148,8 +150,11 @@ public class AgentTaskSnapshotResolver {
     }
 
     private RetrievalSnapshot resolveRetrieval(Long userId, Long agentId) {
+        // Keep legacy bindings readable for repair, but reject new tasks before any task/event/dispatch.
+        requireKnowledgeBindingLimit(knowledgeBindingMapper.selectBoundKnowledgeBaseIds(agentId, userId).size());
         List<BoundKnowledgeBaseRow> knowledgeBases =
                 knowledgeBindingMapper.selectActiveBoundKnowledgeBases(agentId, userId);
+        requireKnowledgeBindingLimit(knowledgeBases.size());
         List<ReadyDocumentGenerationRow> readyDocuments =
                 knowledgeBindingMapper.selectReadyDocumentGenerations(agentId, userId);
         Map<Long, List<ReadyDocumentGenerationRow>> documentsByKnowledgeBase = new HashMap<>();
@@ -271,6 +276,13 @@ public class AgentTaskSnapshotResolver {
     private static void requirePositive(Long value, String field) {
         if (value == null || value <= 0) {
             throw new BusinessException(ErrorCode.COMMON_PARAM_INVALID, field + " must be positive");
+        }
+    }
+
+    private static void requireKnowledgeBindingLimit(int count) {
+        if (count > MAX_KNOWLEDGE_BINDINGS) {
+            throw invalidBinding("Agent supports at most " + MAX_KNOWLEDGE_BINDINGS
+                    + " knowledge base bindings; remove excess bindings before creating a task");
         }
     }
 

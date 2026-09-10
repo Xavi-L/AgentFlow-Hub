@@ -8,7 +8,11 @@ Spring Boot + Vue 的 Agent/RAG 演示项目：上传知识文档、配置 Agent
 [实施路线图](spec-docs/agentflow-hub-implementation-roadmap.md) 与
 [浏览器验收说明](frontend/e2e/README.md)。2026-09-09 已完成
 [V0.1 的 13 项 Release Gate 总验收](release-docs/V0.1_RELEASE_GATE.md)，13/13 通过；
-结论限于规范的单知识库支付诊断演示，已知边界问题见报告，尚未创建 V0.1 tag。
+结论限于规范的单知识库支付诊断演示。2026-09-10 已推送 annotated tag `v0.1`，
+固定于 `1d062df`；范围和已知问题见[发布说明](release-docs/V0.1_RELEASE_NOTES.md)。
+随后完成 [V49 知识库绑定上限统一](slice-docs/50_KNOWLEDGE_BINDING_LIMIT_PACKAGE_INTERFACE.md)：
+写入、任务快照和执行统一为 20，历史超限配置保留完整读取和删减修复；重点测试、浏览器及新真实主路径回归通过。
+V49 是该 tag 之后的改动，不包含于 `v0.1`。
 
 ## 环境
 
@@ -155,4 +159,5 @@ bash scripts/v47-real-provider-acceptance.sh
 根 `.gitignore` 排除 `target/`、`out/`、IDE/系统文件、前端依赖/构建/报告和本地 `.env` 文件。
 历史生成物已停止 Git 跟踪，本地文件保留；构建后产生这些文件不应污染 `git status`。
 交付收尾及总验收不增加版本切片。13 项门槛的证据、首次失败与修正后的复验见
-[总验收报告](release-docs/V0.1_RELEASE_GATE.md)；验收材料随仓库提交保存，V0.1 tag 尚未创建。
+[总验收报告](release-docs/V0.1_RELEASE_GATE.md)；验收材料保存于 `1d062df`，annotated tag `v0.1`
+已推送并固定到该提交。后续 V49 的独立证据见[验收摘要](release-docs/evidence/v49-2026-09-10.json)。

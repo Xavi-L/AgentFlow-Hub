@@ -1,5 +1,7 @@
 package com.agentflow.agent.rag;
 
+import static com.agentflow.agent.AgentKnowledgeLimits.MAX_KNOWLEDGE_BINDINGS;
+
 import com.agentflow.agent.snapshot.AgentTaskExecutionSnapshot.KnowledgeBaseSnapshot;
 import com.agentflow.agent.snapshot.AgentTaskExecutionSnapshot.RetrievalSnapshot;
 import com.agentflow.agent.snapshot.AgentTaskSnapshotResolver;
@@ -148,7 +150,7 @@ public class SnapshotRagService {
                 || snapshot.similarityThreshold() == null
                 || snapshot.similarityThreshold().compareTo(BigDecimal.ONE.negate()) < 0
                 || snapshot.similarityThreshold().compareTo(BigDecimal.ONE) > 0
-                || snapshot.knowledgeBases().size() > 20) {
+                || snapshot.knowledgeBases().size() > MAX_KNOWLEDGE_BINDINGS) {
             throw new SnapshotRagException("Invalid frozen retrieval contract");
         }
         Set<Long> knowledgeBaseIds = new HashSet<>();

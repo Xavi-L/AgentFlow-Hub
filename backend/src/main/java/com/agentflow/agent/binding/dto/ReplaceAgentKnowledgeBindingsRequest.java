@@ -1,5 +1,7 @@
 package com.agentflow.agent.binding.dto;
 
+import static com.agentflow.agent.AgentKnowledgeLimits.MAX_KNOWLEDGE_BINDINGS;
+
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -10,7 +12,8 @@ import java.util.List;
 @JsonDeserialize(using = ReplaceAgentKnowledgeBindingsRequestDeserializer.class)
 public record ReplaceAgentKnowledgeBindingsRequest(
         @NotNull
-        @Size(max = 50, message = "knowledgeBaseIds must not contain more than 50 items")
+        @Size(max = MAX_KNOWLEDGE_BINDINGS,
+                message = "knowledgeBaseIds must not contain more than " + MAX_KNOWLEDGE_BINDINGS + " items")
         List<@Positive Long> knowledgeBaseIds
 ) {
     public ReplaceAgentKnowledgeBindingsRequest {

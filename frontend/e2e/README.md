@@ -112,14 +112,30 @@ regressions. Defaults are 5176 / 18046 / 55446; override with `V46_FRONTEND_PORT
 task execution, GET/Trace and unknown-write recovery use real HTTP/JWT/PostgreSQL;
 Chat, embedding and vector boundaries remain controlled.
 
+V49 adds a legacy 21-binding fixture to an existing pagination Agent. The browser
+keeps all bindings visible, blocks overflowing writes without an unknown outcome,
+removes one selection and saves exactly once; GET/reload and the independent
+configuration draft remain consistent. On 2026-09-10,
+`TMPDIR=/private/tmp bash scripts/v46-browser-acceptance.sh` passed 20/20 in 47.2 seconds.
+The added scenario does not execute a task or call a provider. Its
+`knowledge-binding-limit-evidence.json`, screenshot and durable summary are linked
+from the [V49 acceptance record](../../slice-docs/50_KNOWLEDGE_BINDING_LIMIT_PACKAGE_INTERFACE.md).
+
 ## V47 real-provider and Qdrant main-path E2E
 
-Current result (2026-09-07): one GLM-5.2/DashScope/Qdrant normal-application main path
+Latest follow-up (2026-09-10): V49 passed a fresh GLM-5.2/DashScope/Qdrant run with task
+`2098011391776641026`, 23/23 storage checks, both tools, independent final generation,
+valid citations and refresh/GET/Trace convergence. It used 5428 reported chat tokens,
+with one task submission and zero automatic retries. This remains a single-KB,
+fixed-model demonstration; the [V49 evidence](../../release-docs/evidence/v49-2026-09-10.json)
+is separate from the earlier [V0.1 Release Gate](../../release-docs/V0.1_RELEASE_GATE.md).
+
+Historical result (2026-09-07): one GLM-5.2/DashScope/Qdrant normal-application main path
 PASSED on launcher attempt nine, with both tools, independent final generation,
 valid citations and refresh/GET/Trace convergence; storage checks passed 23/23.
 The first seven actual tasks failed, and attempt eight failed before application
 startup without creating a task. Focused history-prompt tests passed 46/46 and the
-latest default controlled regression passed 19/19 in 44.6 seconds. This is one
+then-current default controlled regression passed 19/19 in 44.6 seconds. This is one
 fixed-model success, not a reliability assessment or V0.1 release acceptance.
 
 V47 has its own launcher and Playwright configuration. It starts

@@ -5,9 +5,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.agentflow.agent.engine.TaskTokenEstimator;
@@ -346,6 +348,84 @@ class AgentTaskApiPostgresIntegrationTest {
     }
 
     @Test
+    void shouldExecuteTwentyBindingsRejectLegacyTwentyOneWithoutSideEffectsAndAllowExplicitRepair() {
+        List<Long> twenty = new ArrayList<>();
+        twenty.add(KB);
+        for (long id = 5200; id < 5219; id++) {
+            jdbc.update("INSERT INTO knowledge_base(id,user_id,name) VALUES (?,?,?)", id, OWNER, "Additional KB " + id);
+            twenty.add(id);
+        }
+        JsonNode savedTwenty = data(putKnowledgeBindings(twenty), 200).path("knowledgeBaseIds");
+        assertThat(savedTwenty).hasSize(20);
+        assertThat(StreamSupport.stream(savedTwenty.spliterator(), false).map(JsonNode::asText).toList())
+                .containsExactlyElementsOf(twenty.stream().map(String::valueOf).toList());
+        assertThat(data(get(ownerToken, "/agents/" + AGENT + "/knowledge-bases"), 200).path("knowledgeBaseIds"))
+                .isEqualTo(savedTwenty);
+
+        // Only the original KB has one READY document; all twenty bindings must still fit the snapshot.
+        script(TOOL, FINISH, "At the binding limit [S1].", TOOL, FINISH, "After explicit repair [S1].");
+        String originalId = data(create(ownerToken, AGENT, "v49-before-legacy", INPUT), 201).path("taskId").asText();
+        JsonNode originalTask = terminal(originalId, "COMPLETED");
+        JsonNode originalTrace = data(get(ownerToken, "/tasks/" + originalId + "/trace"), 200);
+        assertThat(originalTrace.path("executionSnapshot").path("retrieval").path("knowledgeBases")).hasSize(20);
+        assertThat(originalTask.path("finalAnswer").asText()).isEqualTo("At the binding limit [S1].");
+        await().atMost(WAIT).untilAsserted(() -> assertThat(executor.getActiveCount()).isZero());
+        verify(llm, times(3)).chat(any());
+        verify(embeddings, times(1)).embed(any());
+        verify(vectors, times(1)).search(any());
+        clearInvocations(llm, embeddings, vectors);
+        Map<String, Object> rowsBeforeRejection = executionRowCounts();
+
+        long legacyKb = 5219L;
+        jdbc.update("INSERT INTO knowledge_base(id,user_id,name) VALUES (?,?,'Legacy twenty-first KB')", legacyKb, OWNER);
+        jdbc.update("""
+                INSERT INTO agent_knowledge_binding(id,user_id,agent_id,knowledge_base_id,priority)
+                VALUES (5299,?,?,?,20)
+                """, OWNER, AGENT, legacyKb);
+        List<Long> twentyOne = new ArrayList<>(twenty);
+        twentyOne.add(legacyKb);
+        JsonNode legacyIds = data(get(ownerToken, "/agents/" + AGENT + "/knowledge-bases"), 200).path("knowledgeBaseIds");
+        assertThat(legacyIds).hasSize(21);
+        assertThat(legacyIds.path(20).asText()).isEqualTo(Long.toString(legacyKb));
+        assertError(putKnowledgeBindings(twentyOne), 400, "COMMON_PARAM_INVALID");
+        assertThat(data(get(ownerToken, "/agents/" + AGENT + "/knowledge-bases"), 200).path("knowledgeBaseIds"))
+                .isEqualTo(legacyIds);
+        assertError(create(ownerToken, AGENT, "v49-reject-active", INPUT), 409, "AGENT_BINDING_INVALID");
+
+        // Inactive/deleted residual bindings count too; filtering them before the limit would reopen the hole.
+        jdbc.update("UPDATE knowledge_base SET status='DISABLED' WHERE id=?", legacyKb);
+        assertError(create(ownerToken, AGENT, "v49-reject-disabled", INPUT), 409, "AGENT_BINDING_INVALID");
+        jdbc.update("UPDATE knowledge_base SET status='ACTIVE',deleted_at=CURRENT_TIMESTAMP WHERE id=?", legacyKb);
+        assertError(create(ownerToken, AGENT, "v49-reject-deleted", INPUT), 409, "AGENT_BINDING_INVALID");
+        assertThat(data(get(ownerToken, "/agents/" + AGENT + "/knowledge-bases"), 200).path("knowledgeBaseIds"))
+                .isEqualTo(legacyIds);
+
+        JsonNode replay = data(create(ownerToken, AGENT, "v49-before-legacy", INPUT), 200);
+        assertThat(replay.path("taskId").asText()).isEqualTo(originalId);
+        assertThat(data(get(ownerToken, "/tasks/" + originalId), 200)).isEqualTo(originalTask);
+        assertThat(data(get(ownerToken, "/tasks/" + originalId + "/trace"), 200)).isEqualTo(originalTrace);
+        assertThat(executionRowCounts()).isEqualTo(rowsBeforeRejection);
+        assertThat(executor.getActiveCount()).isZero();
+        assertThat(executor.getThreadPoolExecutor().getQueue()).isEmpty();
+        verifyNoInteractions(llm, embeddings, vectors);
+
+        assertThat(data(putKnowledgeBindings(twenty), 200).path("knowledgeBaseIds")).isEqualTo(savedTwenty);
+        assertThat(data(get(ownerToken, "/agents/" + AGENT + "/knowledge-bases"), 200).path("knowledgeBaseIds"))
+                .isEqualTo(savedTwenty);
+        String repairedId = data(create(ownerToken, AGENT, "v49-after-repair", INPUT), 201).path("taskId").asText();
+        assertThat(repairedId).isNotEqualTo(originalId);
+        JsonNode repairedTask = terminal(repairedId, "COMPLETED");
+        assertThat(repairedTask.path("finalAnswer").asText()).isEqualTo("After explicit repair [S1].");
+        assertThat(repairedTask.path("toolCallsUsed").asInt()).isEqualTo(1);
+        assertThat(data(get(ownerToken, "/tasks/" + repairedId + "/trace"), 200)
+                .path("executionSnapshot").path("retrieval").path("knowledgeBases")).hasSize(20);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM agent_task", Integer.class)).isEqualTo(2);
+        verify(llm, times(3)).chat(any());
+        verify(embeddings, times(1)).embed(any());
+        verify(vectors, times(1)).search(any());
+    }
+
+    @Test
     void shouldCancelQueuedImmediatelyAndRunningCooperativelyAndMakeTerminalCancelIdempotent() throws Exception {
         CountDownLatch modelEntered = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
@@ -517,6 +597,23 @@ class AgentTaskApiPostgresIntegrationTest {
         if (key != null) headers.set("Idempotency-Key", key);
         return http.exchange("/api/v1/agents/" + agentId + "/tasks", HttpMethod.POST,
                 new HttpEntity<>(Map.of("userInput", input), headers), JsonNode.class);
+    }
+
+    private ResponseEntity<JsonNode> putKnowledgeBindings(List<Long> ids) {
+        return http.exchange("/api/v1/agents/" + AGENT + "/knowledge-bases", HttpMethod.PUT,
+                new HttpEntity<>(Map.of("knowledgeBaseIds", ids.stream().map(String::valueOf).toList()), headers(ownerToken)),
+                JsonNode.class);
+    }
+
+    private Map<String, Object> executionRowCounts() {
+        return jdbc.queryForMap("""
+                SELECT (SELECT count(*) FROM agent_task) AS tasks,
+                       (SELECT count(*) FROM agent_task_event) AS events,
+                       (SELECT count(*) FROM agent_step) AS steps,
+                       (SELECT count(*) FROM llm_call_log) AS llm_calls,
+                       (SELECT count(*) FROM rag_retrieval_log) AS retrievals,
+                       (SELECT count(*) FROM tool_call_log) AS tool_calls
+                """);
     }
 
     private ResponseEntity<JsonNode> get(String token, String path) {

@@ -1,5 +1,7 @@
 package com.agentflow.agent.binding.service;
 
+import static com.agentflow.agent.AgentKnowledgeLimits.MAX_KNOWLEDGE_BINDINGS;
+
 import com.agentflow.agent.binding.dto.AgentKnowledgeBindingsResponse;
 import com.agentflow.agent.binding.dto.AgentToolBindingsResponse;
 import com.agentflow.agent.binding.dto.ReplaceAgentKnowledgeBindingsRequest;
@@ -24,7 +26,6 @@ import org.springframework.transaction.annotation.Transactional;
 /** Full-replacement owner-scoped binding boundary for the V37 M4B slice. */
 @Service
 public class AgentBindingService {
-    private static final int MAX_KNOWLEDGE_BINDINGS = 50;
     private static final int MAX_TOOL_BINDINGS = 20;
 
     private final AgentAppMapper agentAppMapper;
@@ -150,7 +151,8 @@ public class AgentBindingService {
     private static List<Long> normalize(List<Long> ids, int maxSize) {
         Objects.requireNonNull(ids, "binding IDs must not be null");
         if (ids.size() > maxSize) {
-            throw new BusinessException(ErrorCode.COMMON_PARAM_INVALID, "Too many binding IDs");
+            throw new BusinessException(ErrorCode.COMMON_PARAM_INVALID,
+                    "Binding IDs must not contain more than " + maxSize + " items");
         }
         LinkedHashSet<Long> normalized = new LinkedHashSet<>();
         for (Long id : ids) {

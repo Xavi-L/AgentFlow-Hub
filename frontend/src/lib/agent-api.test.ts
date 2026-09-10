@@ -76,6 +76,36 @@ describe('Agent configuration and dependency boundaries', () => {
 })
 
 describe('Agent API wire contract', () => {
+  it.each([0, 20])('writes %i knowledge bindings without changing their priority order', async count => {
+    login()
+    const ids = Array.from({ length: count }, (_, index) => String(9007199254740993n + BigInt(index)))
+    const send = vi.spyOn(http, 'request').mockResolvedValue(reply({ knowledgeBaseIds: ids }))
+    expect((await agentApi.replaceKnowledgeBindings('7', ids)).knowledgeBaseIds).toEqual(ids)
+    expect(send).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      method: 'PUT', url: '/agents/7/knowledge-bases', data: { knowledgeBaseIds: ids },
+    }))
+  })
+
+  it('rejects 21 knowledge bindings locally without sending or reporting an unknown outcome', async () => {
+    login()
+    const ids = Array.from({ length: 21 }, (_, index) => String(index + 1))
+    const send = vi.spyOn(http, 'request')
+    await expect(agentApi.replaceKnowledgeBindings('7', ids)).rejects.toMatchObject({
+      status: 400, code: 'COMMON_PARAM_INVALID', outcomeUnknown: false, message: expect.stringContaining('最多 20 项'),
+    })
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it.each([21, 50])('keeps all %i historical knowledge bindings readable and removable in priority order', async count => {
+    login()
+    const ids = Array.from({ length: count }, (_, index) => String(9007199254740993n + BigInt(index)))
+    const send = vi.spyOn(http, 'request').mockResolvedValue(reply({ knowledgeBaseIds: ids }))
+    const restored = (await agentApi.getKnowledgeBindings('7')).knowledgeBaseIds
+    expect(restored).toEqual(ids)
+    expect(toggleBindingId(restored, ids.at(-1)!, false)).toEqual(ids.slice(0, -1))
+    expect(send).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ method: 'GET', url: '/agents/7/knowledge-bases' }))
+  })
+
   it('normalizes omitted NON_NULL descriptions in actual summary/detail response shapes', async () => {
     login()
     const summary = { id: '460000000000000021', name: 'Pagination Agent 20', modelProvider: 'openai-compatible',

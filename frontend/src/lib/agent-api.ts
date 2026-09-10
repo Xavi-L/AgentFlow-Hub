@@ -3,6 +3,7 @@ import { resourceId, sequence } from './sequence'
 import type { Page } from './types'
 
 export const AGENT_PROVIDER = 'openai-compatible' as const
+export const MAX_AGENT_KNOWLEDGE_BINDINGS = 20
 export interface AgentConfig {
   name: string; description: string | null; systemPrompt: string
   modelProvider: typeof AGENT_PROVIDER; modelName: string
@@ -172,12 +173,13 @@ export const agentApi = {
     }, true)
   },
   async getKnowledgeBindings(id: string, signal?: AbortSignal): Promise<KnowledgeBindings> {
+    // Historical 21–50 bindings must remain readable so users can explicitly remove the excess.
     return checked(await request('GET', `${agentPath(id)}/knowledge-bases`, undefined, { signal }),
       (value: KnowledgeBindings) => bindings(value.knowledgeBaseIds, 50))
   },
   async replaceKnowledgeBindings(id: string, ids: readonly string[], signal?: AbortSignal): Promise<KnowledgeBindings> {
-    return checked(await request('PUT', `${agentPath(id)}/knowledge-bases`, { knowledgeBaseIds: bindingBody(ids, 50) }, { signal }),
-      (value: KnowledgeBindings) => bindings(value.knowledgeBaseIds, 50), true)
+    return checked(await request('PUT', `${agentPath(id)}/knowledge-bases`, { knowledgeBaseIds: bindingBody(ids, MAX_AGENT_KNOWLEDGE_BINDINGS) }, { signal }),
+      (value: KnowledgeBindings) => bindings(value.knowledgeBaseIds, MAX_AGENT_KNOWLEDGE_BINDINGS), true)
   },
   async getToolBindings(id: string, signal?: AbortSignal): Promise<ToolBindings> {
     return checked(await request('GET', `${agentPath(id)}/tools`, undefined, { signal }),

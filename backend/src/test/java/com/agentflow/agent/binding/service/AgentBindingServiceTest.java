@@ -20,8 +20,12 @@ import com.agentflow.common.error.BusinessException;
 import com.agentflow.common.error.ErrorCode;
 import com.agentflow.user.security.AuthenticatedUser;
 import java.util.List;
+import java.util.Collections;
+import java.util.stream.LongStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -86,8 +90,45 @@ class AgentBindingServiceTest {
     }
 
     @Test
+    void shouldPersistAllTwentyKnowledgeBindingsWithoutTruncation() {
+        List<Long> ids = LongStream.range(201, 221).boxed().toList();
+        when(agentAppMapper.selectVisibleOwnedByIdForUpdate(301L, 101L)).thenReturn(agent());
+        when(knowledgeBindingMapper.selectBindableOwnedKnowledgeBaseIds(101L, ids)).thenReturn(ids);
+        when(knowledgeBindingMapper.insert(any(AgentKnowledgeBinding.class))).thenReturn(1);
+
+        var response = service.replaceKnowledgeBindings(user(), 301L, new ReplaceAgentKnowledgeBindingsRequest(ids));
+
+        assertThat(response.knowledgeBaseIds()).containsExactlyElementsOf(ids.stream().map(String::valueOf).toList());
+        ArgumentCaptor<AgentKnowledgeBinding> inserted = ArgumentCaptor.forClass(AgentKnowledgeBinding.class);
+        verify(knowledgeBindingMapper, org.mockito.Mockito.times(20)).insert(inserted.capture());
+        assertThat(inserted.getAllValues()).extracting(AgentKnowledgeBinding::getKnowledgeBaseId)
+                .containsExactlyElementsOf(ids);
+        assertThat(inserted.getAllValues().getLast().getPriority()).isEqualTo(19);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRejectTwentyOneRawKnowledgeIdsBeforeAnyBindingMutation(boolean repeatedIds) {
+        List<Long> ids = repeatedIds ? Collections.nCopies(21, 201L) : LongStream.range(201, 222).boxed().toList();
+        when(agentAppMapper.selectVisibleOwnedByIdForUpdate(301L, 101L)).thenReturn(agent());
+
+        assertThatThrownBy(() -> service.replaceKnowledgeBindings(user(), 301L,
+                new ReplaceAgentKnowledgeBindingsRequest(ids)))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        failure -> assertThat(failure.getErrorCode()).isEqualTo(ErrorCode.COMMON_PARAM_INVALID));
+
+        verifyNoInteractions(knowledgeBindingMapper, toolBindingMapper);
+    }
+
+    @Test
     void shouldAllowAnEmptyFullReplacementToClearBindings() {
         when(agentAppMapper.selectVisibleOwnedByIdForUpdate(301L, 101L)).thenReturn(agent());
+
+        assertThat(service.replaceKnowledgeBindings(user(), 301L,
+                new ReplaceAgentKnowledgeBindingsRequest(List.of())).knowledgeBaseIds()).isEmpty();
+        verify(knowledgeBindingMapper).deleteOwnedByAgent(301L, 101L);
+        verify(knowledgeBindingMapper, never()).selectBindableOwnedKnowledgeBaseIds(any(), any());
+        verify(knowledgeBindingMapper, never()).insert(any(AgentKnowledgeBinding.class));
 
         var response = service.replaceToolBindings(
                 user(),

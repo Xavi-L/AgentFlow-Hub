@@ -20,8 +20,12 @@ import com.agentflow.common.error.GlobalExceptionHandler;
 import com.agentflow.common.web.TraceIdFilter;
 import com.agentflow.user.security.AuthenticatedUser;
 import java.util.List;
+import java.util.Collections;
+import java.util.stream.LongStream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -78,6 +82,23 @@ class AgentBindingControllerTest {
                 .andExpect(jsonPath("$.data.toolIds[1]").value("270000000000000001"));
 
         verify(service).getToolBindings(currentUser, 301L);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRejectTwentyOneRawKnowledgeIdsWithStable400BeforeCallingService(boolean repeatedIds) throws Exception {
+        AgentBindingService service = Mockito.mock(AgentBindingService.class);
+        authenticate();
+        List<String> ids = repeatedIds ? Collections.nCopies(21, "201")
+                : LongStream.range(201, 222).mapToObj(Long::toString).toList();
+        String body = "{\"knowledgeBaseIds\":[\"" + String.join("\",\"", ids) + "\"]}";
+
+        mockMvc(service).perform(put("/api/v1/agents/301/knowledge-bases")
+                        .contentType("application/json").content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_PARAM_INVALID"));
+
+        verifyNoInteractions(service);
     }
 
     @Test

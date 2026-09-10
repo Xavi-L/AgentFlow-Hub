@@ -7,6 +7,8 @@ const ORIGINAL = '430000000000000003'
 const PAYMENT_KB = '430000000000000005'
 const INVALID_AGENT = '460000000000000001'
 const INVALID_KB = '460000000000000100'
+const LEGACY_BINDING_AGENT = '460000000000000002'
+const OVERFLOW_KB = '460000000000000102'
 const ORDER_TOOL = '270000000000000001'
 const PAYMENT_TOOL = '280000000000000001'
 const control = process.env.V43_CONTROL_DIR
@@ -405,4 +407,64 @@ test('leaving and logout abort pending Agent GETs; missing Agent and rejected JW
   await page.goto(`/agents/${ORIGINAL}`)
   await expect(page).toHaveURL(/\/login/)
   await expect(page.getByTestId('agent-config')).toHaveCount(0)
+})
+
+test('legacy 21 knowledge bindings remain visible and repair to 20 without uncertain or excess writes', async ({ page }, info) => {
+  const legacyIds = [PAYMENT_KB,
+    ...Array.from({ length: 19 }, (_, index) => String(450000000000000001n + BigInt(index))), OVERFLOW_KB]
+  const repairedIds = legacyIds.slice(0, 20)
+  const writes: { knowledgeBaseIds: string[] }[] = []
+  page.on('request', request => {
+    if (request.method() === 'PUT' && request.url().endsWith(`/agents/${LEGACY_BINDING_AGENT}/knowledge-bases`)) {
+      writes.push(request.postDataJSON() as { knowledgeBaseIds: string[] })
+    }
+  })
+  await login(page, `/agents/${LEGACY_BINDING_AGENT}`)
+  const originalAgent = await publicGet(page, `/agents/${LEGACY_BINDING_AGENT}`)
+  const knowledge = page.getByTestId('knowledge-bindings')
+  const selectedIds = () => knowledge.getByTestId('selected-kb').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-kb-id')!))
+  const save = knowledge.getByRole('button', { name: '保存知识库绑定', exact: true })
+  await expect.poll(selectedIds).toEqual(legacyIds)
+  await expect(knowledge).toContainText('已选 21 / 20')
+  await expect(knowledge.getByRole('alert')).toContainText('请移除超出部分后保存')
+  await expect(save).toBeDisabled()
+  await expect(knowledge.getByRole('button', { name: `移除知识库 ${OVERFLOW_KB}`, exact: true })).toBeEnabled()
+  expect((await publicGet(page, `/agents/${LEGACY_BINDING_AGENT}/knowledge-bases`)).knowledgeBaseIds).toEqual(legacyIds)
+  await page.reload()
+  await expect.poll(selectedIds).toEqual(legacyIds)
+  await expect(save).toBeDisabled()
+  await expect(page.getByTestId('unknown-knowledge')).toHaveCount(0)
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem('agentflow.agent-writes.v1') || '{}'))).toEqual({})
+  expect(writes).toEqual([])
+
+  await page.getByLabel('描述', { exact: true }).fill('Unsaved configuration survives V49 binding repair')
+  await knowledge.getByRole('button', { name: `移除知识库 ${OVERFLOW_KB}`, exact: true }).click()
+  await expect.poll(selectedIds).toEqual(repairedIds)
+  await expect(knowledge).toContainText('已选 20 / 20')
+  await expect(knowledge.getByRole('alert')).toHaveCount(0)
+  await expect(save).toBeEnabled()
+  // The historical extra KB is on page two; reaching 20 prevents adding it back, while selected rows stay removable.
+  await knowledge.getByRole('button', { name: '下一页', exact: true }).click()
+  await expect(knowledge.getByRole('checkbox', { name: 'Legacy overflow knowledge', exact: true })).toBeDisabled()
+  const selectedPayment = knowledge.getByRole('checkbox', { name: 'Payment knowledge', exact: true })
+  await expect(selectedPayment).toBeChecked()
+  await expect(selectedPayment).toBeEnabled()
+  await save.click()
+  await expect.poll(async () => (await publicGet(page, `/agents/${LEGACY_BINDING_AGENT}/knowledge-bases`)).knowledgeBaseIds).toEqual(repairedIds)
+  await expect(knowledge).toContainText('保存知识库绑定已确认')
+  expect(writes).toEqual([{ knowledgeBaseIds: repairedIds }])
+  expect((await publicGet(page, `/agents/${LEGACY_BINDING_AGENT}`)).description).toBe(originalAgent.description)
+  await expect(page.getByLabel('描述', { exact: true })).toHaveValue('Unsaved configuration survives V49 binding repair')
+  await page.reload()
+  await expect.poll(selectedIds).toEqual(repairedIds)
+  await expect(knowledge).toContainText('与已读绑定一致')
+  await expect(page.getByTestId('unknown-knowledge')).toHaveCount(0)
+  await expect(page.getByLabel('描述', { exact: true })).toHaveValue('Unsaved configuration survives V49 binding repair')
+  expect((await publicGet(page, `/agents/${LEGACY_BINDING_AGENT}/knowledge-bases`)).knowledgeBaseIds).toEqual(repairedIds)
+  expect(writes).toHaveLength(1)
+  await page.screenshot({ path: info.outputPath('knowledge-binding-limit.png'), fullPage: true })
+  await writeFile(info.outputPath('knowledge-binding-limit-evidence.json'), JSON.stringify({
+    agentId: LEGACY_BINDING_AGENT, originalBindingIds: legacyIds, repairedBindingIds: repairedIds, writes,
+    providerBoundary: 'Real browser JWT, public binding API and PostgreSQL; no task or provider call in this scenario',
+  }, null, 2))
 })

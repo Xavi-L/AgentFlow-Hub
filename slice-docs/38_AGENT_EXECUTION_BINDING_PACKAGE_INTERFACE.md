@@ -79,7 +79,14 @@ maxToolCalls < maxDecisionTurns
 ```
 
 严格反序列化会拒绝未知字段、缺失字段、非数组、数字型 ID、空白/零/负数和超出 BIGINT 的值。
-知识库最多 50 个，工具最多 20 个；重复 ID 按首次出现顺序去重。空数组表示清空全部对应绑定。
+V37 原始写入契约为知识库最多 50 个、工具最多 20 个；重复 ID 按首次出现顺序去重，空数组表示清空
+全部对应绑定。下文原始验收记录对应这一历史版本。
+
+后续 [V49 数量边界统一](50_KNOWLEDGE_BINDING_LIMIT_PACKAGE_INTERFACE.md) 将知识库 PUT 的**原始数组**上限
+收紧为 20，并以 `AgentKnowledgeLimits.MAX_KNOWLEDGE_BINDINGS` 统一写入、新任务快照与 RAG 执行的数量边界。
+原始数组为 21 项时，即使去重后不超过 20，也返回 HTTP 400 / `COMMON_PARAM_INVALID`，旧绑定不变；工具上限不变。
+GET 仍完整返回历史绑定，前端兼容读取历史 21–50 项供用户明确删减后全量保存，不自动截断或迁移。
+这些是 V49 当前实现契约，验证状态与证据见 V49 文档，不能由本片原始验收推定通过。
 
 PUT 在一个短事务内完成：
 
@@ -140,6 +147,12 @@ Embedding profile 只接受当前 canonical 数据库组合：DashScope `text-em
 overlap 120。工具 resolver 再次校验 exact `toolCode -> handler` allowlist、readonly、对象型 input schema、
 正 timeout，以及受控 `implementationVersion`。
 
+后续 V49 在读取 ACTIVE 知识库及 READY 文档前，先检查该 Agent 的持久绑定总数，包括当前不活跃或
+已软删除知识库的残留绑定；超过 20 时以 HTTP 409 / `AGENT_BINDING_INVALID` 拒绝新任务创建，不新增
+task/event、不 dispatch，也不调用模型、embedding 或工具。READY 过滤不能掩盖超限配置。
+已有 task 的 GET/Trace 和同 key、同 Agent、同原始输入的合法幂等复用仍返回原任务，不重新解析当前绑定。
+这属于后续 V49 的创建准入修复；V37 本身仍只提供 resolver，未纳入 task 创建与运行。
+
 `inputSchemaHash` 对递归按 key 排序后的 canonical JSON 计算 SHA-256；对象 key 顺序不同不会改变 hash，
 数组顺序保留。snapshot 及其列表不可变，`JsonNode` 在写入和读取时 defensive copy。普通 Agent、binding
 或源对象修改不会反向改变已经返回的 snapshot。
@@ -152,8 +165,9 @@ resolver 只返回待持久化值；M4C 必须在 task 创建事务中把它写�
 | 错误 | 条件 |
 | --- | --- |
 | `COMMON_NOT_FOUND` | owner/live Agent 不可见 |
+| `COMMON_PARAM_INVALID` | 后续 V49：知识库 PUT 原始数组超过 20 项，HTTP 400 |
 | `AGENT_DISABLED` | live Agent 为 DISABLED，不能生成执行快照 |
-| `AGENT_BINDING_INVALID` | 请求资源不合格，或 snapshot 依赖/profile/schema 不兼容 |
+| `AGENT_BINDING_INVALID` | 请求资源不合格，或 snapshot 依赖/profile/schema 不兼容；后续 V49 还包括新任务的持久知识库绑定总数超过 20，HTTP 409 |
 | `RAG_KNOWLEDGE_NOT_READY` | 所有绑定知识库都没有 READY document generation |
 
 PUT 在删除旧集合之前校验完整新集合；校验或 insert 失败会回滚整个事务，不留下部分替换结果。
@@ -221,13 +235,16 @@ chunk strategy column: NOT NULL
 
 回答：全量替换让客户端状态和数据库集合有单一确定含义。service 先锁 Agent、校验完整去重集合，再
 delete/insert；任一 ID 跨 owner、disabled、deleted 或 unsupported 都在 mutation 前失败，事务回滚避免
-部分新旧集合混合。
+部分新旧集合混合。V37 原始知识库上限是 50，后续 V49 将写入原始数组限制为 20，超限返回
+400/`COMMON_PARAM_INVALID`；GET 保留历史 21–50 项用于显式修复，不能静默裁剪后保存。
+V49 验收结果单列于其切片文档，不计入本片原始通过记录。
 
 ### 问题 3：READY document generation 如何定义？
 
 回答：文档必须 live、parse COMPLETED，当前 `vector_generation` 至少有一个 chunk，且所有 chunk 都已
 vectorization COMPLETED、strategy version 唯一。只完成部分 chunk 或只有旧 generation 都不算 READY；
-本切片不会静默回退。
+本切片不会静默回退。后续 V49 另在 READY 过滤前检查全部持久绑定是否超过 20，包括失活或软删残留；
+因此只剩少量 READY 知识库不能绕过新任务数量准入，已有 task 的读取与合法幂等复用不受该新建检查影响。
 
 ### 问题 4：为什么 snapshot 既保存 schema 又保存 schema hash 和 implementation version？
 

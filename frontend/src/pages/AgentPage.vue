@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { agentApi, buildAgentConfig, defaultAgentDraft, draftFromAgent, isSelectableTool, sameAgentConfig, sameBindingIds, toggleBindingId, validateAgentDraft, validateToolSelection, type AgentConfig, type AgentDetail, type AgentDraft, type ToolDefinition } from '../lib/agent-api'
+import { agentApi, buildAgentConfig, defaultAgentDraft, draftFromAgent, isSelectableTool, MAX_AGENT_KNOWLEDGE_BINDINGS, sameAgentConfig, sameBindingIds, toggleBindingId, validateAgentDraft, validateToolSelection, type AgentConfig, type AgentDetail, type AgentDraft, type ToolDefinition } from '../lib/agent-api'
 import { agentDrafts, agentMutation } from '../lib/agent-requests'
 import { compatible, knowledgeApi, type KnowledgeBase } from '../lib/knowledge-api'
 import { requestScope } from '../lib/knowledge-requests'
@@ -26,6 +26,8 @@ const configReadback = ref<AgentDetail>()
 const allowedTools = computed(() => tools.value.filter(isSelectableTool))
 const dirty = computed(() => !agent.value || !!validateAgentDraft(draft) || !sameAgentConfig(agent.value, buildAgentConfig(draft)))
 const kbDirty = computed(() => !sameBindingIds(selectedKbs.value, serverKbs.value))
+const kbSelectionError = computed(() => selectedKbs.value.length > MAX_AGENT_KNOWLEDGE_BINDINGS
+  ? `最多绑定 ${MAX_AGENT_KNOWLEDGE_BINDINGS} 个知识库，当前已选 ${selectedKbs.value.length} 个；请移除超出部分后保存。` : '')
 const toolsDirty = computed(() => !sameBindingIds(selectedTools.value, serverTools.value))
 const hasDraft = () => drafts.get<AgentDraft>('config') !== undefined
 
@@ -82,7 +84,7 @@ async function saveConfig() {
   if (value && scope.active()) updateConfig(value)
 }
 async function saveKnowledge() {
-  if (!kbLoaded.value) return
+  if (!kbLoaded.value || kbSelectionError.value) return
   scope.cancel('bindings-knowledge')
   const ids = [...selectedKbs.value]
   const value = await kbWrite.run('保存知识库绑定', ids, signal => agentApi.replaceKnowledgeBindings(id, ids, signal))
@@ -145,13 +147,14 @@ void refreshAgent(); void loadBindings('knowledge'); void loadBindings('tools');
         <section class="panel" data-testid="knowledge-bindings"><div class="task-row-head"><h2>知识库绑定</h2><span class="small-tag">{{ kbDirty ? '有未保存选择' : '与已读绑定一致' }}</span></div>
           <p class="muted form-hint">绑定成功不代表具备 READY 语料。请在知识库详情核对文档就绪状态；禁用或配置不兼容的库不能用于新任务。</p>
           <p v-if="kbError" class="error" role="alert">{{ kbError }}</p><button v-if="!kbLoaded" class="text-button" @click="loadBindings('knowledge')">重新读取知识库绑定</button>
-          <p class="label">已选 {{ selectedKbs.length }} / 50（含跨页选择，按选择顺序绑定）</p>
+          <p class="label">已选 {{ selectedKbs.length }} / {{ MAX_AGENT_KNOWLEDGE_BINDINGS }}（含跨页选择，按选择顺序绑定）</p>
+          <p v-if="kbSelectionError" class="error" role="alert">{{ kbSelectionError }}</p>
           <div class="selected-bindings"><div v-for="selected in selectedKbs" :key="selected" class="selected-binding" data-testid="selected-kb" :data-kb-id="selected"><span class="break">{{ kbNames[selected]?.name || '未在已加载列表中找到，可能已失效' }}<small class="mono">#{{ selected }}</small></span><button class="text-button" :aria-label="`移除知识库 ${selected}`" :disabled="!kbLoaded || kbWrite.state.busy" @click="selectedKbs = toggleBindingId(selectedKbs, selected, false)">移除</button></div></div>
           <button class="text-button" @click="loadKnowledge()">刷新知识库列表</button>
           <p v-if="optionError" class="error" role="alert">{{ optionError }}</p><p v-if="kbLoading" class="muted">正在读取知识库选项…</p>
-          <div class="binding-options" :aria-busy="kbLoading"><label v-for="kb in kbOptions?.items" :key="kb.id" class="binding-option"><input type="checkbox" :aria-label="kb.name" :checked="selectedKbs.includes(kb.id)" :disabled="!kbLoaded || kbWrite.state.busy || kbLoading || (!selectedKbs.includes(kb.id) && (kb.status !== 'ACTIVE' || !compatible(kb) || selectedKbs.length >= 50))" @change="selectedKbs = toggleBindingId(selectedKbs, kb.id, ($event.target as HTMLInputElement).checked)"><span class="break">{{ kb.name }}<small>{{ kb.status }} · {{ compatible(kb) ? '配置兼容，文档就绪状态待核对' : '配置不兼容' }}</small></span><RouterLink :to="`/knowledge-bases/${kb.id}`" class="text-button" :aria-label="`查看知识库 ${kb.name}`">查看</RouterLink></label></div>
+          <div class="binding-options" :aria-busy="kbLoading"><label v-for="kb in kbOptions?.items" :key="kb.id" class="binding-option"><input type="checkbox" :aria-label="kb.name" :checked="selectedKbs.includes(kb.id)" :disabled="!kbLoaded || kbWrite.state.busy || kbLoading || (!selectedKbs.includes(kb.id) && (kb.status !== 'ACTIVE' || !compatible(kb) || selectedKbs.length >= MAX_AGENT_KNOWLEDGE_BINDINGS))" @change="selectedKbs = toggleBindingId(selectedKbs, kb.id, ($event.target as HTMLInputElement).checked)"><span class="break">{{ kb.name }}<small>{{ kb.status }} · {{ compatible(kb) ? '配置兼容，文档就绪状态待核对' : '配置不兼容' }}</small></span><RouterLink :to="`/knowledge-bases/${kb.id}`" class="text-button" :aria-label="`查看知识库 ${kb.name}`">查看</RouterLink></label></div>
           <div class="pagination"><button class="secondary" :disabled="kbPage === 1" @click="loadKnowledge(kbPage - 1)">上一页</button><span>第 {{ kbPage }} 页</span><button class="secondary" :disabled="!kbOptions?.hasNext" @click="loadKnowledge(kbPage + 1)">下一页</button></div>
-          <button class="primary wide binding-save" :disabled="!kbLoaded || kbWrite.state.busy || !!kbWrite.unknown()" @click="saveKnowledge">保存知识库绑定</button>
+          <button class="primary wide binding-save" :disabled="!kbLoaded || !!kbSelectionError || kbWrite.state.busy || !!kbWrite.unknown()" @click="saveKnowledge">保存知识库绑定</button>
           <AgentWriteResult :mutation="kbWrite" section="knowledge" @readback="reconcileKnowledge" />
           <details v-if="kbLoaded"><summary>最近读取或确认的服务端绑定</summary><p class="mono break">{{ serverKbs.join('、') || '无绑定' }}</p></details>
         </section>
