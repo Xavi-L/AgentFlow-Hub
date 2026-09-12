@@ -734,3 +734,7 @@ RAG_INVALID_CITATION
 9. citation 只能引用本次 hit；
 10. 当前 vector ID v1 不被误称为支持双 generation 并存；
 11. 真实 Qdrant 检索能支持支付诊断 Agent 的完整闭环。
+
+## V0.2-B 任务检索工作边界
+
+任务 SnapshotRagService 的同步 embedding → 各知识库 vector search → canonical chunk 读取视为一个顺序工作体，由外层唯一许可拥有者限制实际在途工作；调用前后及各 embedding/vector 阶段之间检查取消/deadline，避免迟到 embedding 触发后续 vector。许可上限与退出规则引用 Engine V0.2-B。不扩大文档入库、upsert/deletion/reconciliation 范围，不声称取消能撤销供应商工作。

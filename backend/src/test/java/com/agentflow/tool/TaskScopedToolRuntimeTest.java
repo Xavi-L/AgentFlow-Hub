@@ -61,12 +61,17 @@ class TaskScopedToolRuntimeTest {
     @Test
     void shouldUseFrozenMetadataAndTimeoutWithoutReadingBindingsAndLogBeforeReturning() {
         ToolSnapshot frozen = frozen(current.inputSchema(), "builtin-v1", 400);
-        when(executor.execute(any(), any())).thenReturn(new BuiltinToolHandler.HandlerResult(
-                "safe result", mapper.createObjectNode().put("found", true)));
+        var worker = new java.util.concurrent.atomic.AtomicReference<Thread>();
+        when(executor.execute(any(), any())).thenAnswer(invocation -> {
+            worker.set(Thread.currentThread());
+            assertThat(worker.get().getName()).isEqualTo("agent-tool-21");
+            return new BuiltinToolHandler.HandlerResult("safe result", mapper.createObjectNode().put("found", true));
+        });
 
         ToolExecutionCommand command = command(frozen, NOW.plusSeconds(5), () -> { });
         ((com.fasterxml.jackson.databind.node.ObjectNode) arguments).put("orderNo", "mutated");
         ToolExecutionResult result = runtime.execute(command);
+        assertThat(worker.get().getName()).isEqualTo("agent-task-external-call");
 
         ArgumentCaptor<ToolDefinition> executed = ArgumentCaptor.forClass(ToolDefinition.class);
         ArgumentCaptor<JsonNode> supplied = ArgumentCaptor.forClass(JsonNode.class);
@@ -149,6 +154,22 @@ class TaskScopedToolRuntimeTest {
                         ex -> assertThat(ex.errorCode()).isEqualTo("TOOL_TIMEOUT"));
         verify(logs).recordRejected(any(), any(), any(), any());
         verifyNoInteractions(executor);
+    }
+
+    @Test
+    void ordinaryThreadInterruptionDoesNotInventPersistentUserCancellation() {
+        Thread.currentThread().interrupt();
+        try {
+            assertThatThrownBy(() -> runtime.execute(command(frozen(current.inputSchema(), "builtin-v1", 500),
+                    NOW.plusSeconds(5), () -> { })))
+                    .isInstanceOfSatisfying(ToolTaskExecutionException.class,
+                            failure -> assertThat(failure.errorCode()).isEqualTo("AGENT_EXECUTION_INTERRUPTED"));
+            verifyNoInteractions(executor);
+            verify(logs).recordFailed(eq(100L), any());
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        } finally {
+            Thread.interrupted();
+        }
     }
 
     @Test

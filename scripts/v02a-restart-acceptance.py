@@ -116,6 +116,9 @@ class External:
 
 
 class Acceptance:
+    fixture_main = 'com.agentflow.acceptance.V02ATaskRecoveryFixture'
+    external_factory = External
+
     def __init__(self, args):
         self.args = args
         self.run = Path(args.run_dir or tempfile.mkdtemp(prefix='agentflow-v02a-')).resolve()
@@ -200,7 +203,7 @@ class Acceptance:
         if extra:
             options.update(extra)
         argv = [str(self.java)] + [f'-D{k}={v}' for k, v in options.items()] + [
-            '-cp', classpath or self.classpath, 'com.agentflow.acceptance.V02ATaskRecoveryFixture']
+            '-cp', classpath or self.classpath, self.fixture_main]
         if cold_old_pid is not None:
             argv = ['python3', str(REPO / 'scripts/task-cold-cutover.py'), '--old-pid', str(cold_old_pid),
                     '--lock-path', str(self.run / 'domain.lock'), '--record', str(self.run / 'cold-cutover.json'), '--'] + argv
@@ -360,7 +363,7 @@ class Acceptance:
                       f"-h 127.0.0.1 -p {self.pgport} -c unix_socket_directories=''", '-w', 'start'])
         self.started_pg = True
         self.command([self.pg / 'createdb', '-h', '127.0.0.1', '-p', self.pgport, '-U', 'v02a_fixture', 'agentflow_v02a'])
-        self.external = External(self.run, self.extport)
+        self.external = self.external_factory(self.run, self.extport)
         self.boot()
         save(self.run / 'schema.json', self.query('SELECT version,description,success FROM flyway_schema_history ORDER BY installed_rank'))
 

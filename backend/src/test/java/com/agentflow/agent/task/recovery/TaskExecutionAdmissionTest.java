@@ -35,7 +35,7 @@ class TaskExecutionAdmissionTest {
         var directCreation = new AgentTaskCreationTransactionService(resolver, tasks, events, afterCommit,
                 new ObjectMapper(), Clock.systemUTC(), gate);
         var delegate = mock(com.agentflow.agent.task.execution.TaskExecutionDelegate.class);
-        var runner = new TaskRunner(lifecycle, query, delegate, new ObjectMapper(), Clock.systemUTC(), gate);
+        var runner = new TaskRunner(lifecycle, query, delegate, new ObjectMapper(), Clock.systemUTC(), gate, mock(com.agentflow.agent.task.execution.TaskSettlementService.class));
         var executor = mock(ThreadPoolTaskExecutor.class);
         var dispatcher = new BoundedTaskDispatcher(executor, runner, gate);
         for (Runnable entry : List.<Runnable>of(

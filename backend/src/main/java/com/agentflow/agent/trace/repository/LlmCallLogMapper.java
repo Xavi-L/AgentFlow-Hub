@@ -12,18 +12,26 @@ import org.apache.ibatis.annotations.Select;
 public interface LlmCallLogMapper {
 
     @Insert("""
+            WITH active_task AS (
+                SELECT id FROM agent_task WHERE id = #{taskId} AND status = 'RUNNING' FOR UPDATE
+            ), active_step AS (
+                SELECT id FROM agent_step
+                WHERE id = #{stepId} AND task_id = #{taskId} AND status = 'RUNNING'
+                  AND EXISTS (SELECT 1 FROM active_task)
+                FOR UPDATE
+            )
             INSERT INTO llm_call_log (
                 id, task_id, step_id, call_type, provider, requested_model, resolved_model,
                 request_snapshot, response_text, finish_reason, provider_request_id,
                 input_tokens, output_tokens, total_tokens, usage_quality, latency_ms,
                 status, error_code, error_message, created_at
-            ) VALUES (
+            ) SELECT
                 #{id}, #{taskId}, #{stepId}, #{callType}, #{provider}, #{requestedModel},
                 #{resolvedModel}, CAST(#{requestSnapshotJson,jdbcType=VARCHAR} AS JSONB),
                 #{responseText}, #{finishReason}, #{providerRequestId}, #{inputTokens},
                 #{outputTokens}, #{totalTokens}, #{usageQuality}, #{latencyMs}, #{status},
                 #{errorCode}, #{errorMessage}, #{createdAt}
-            )
+            WHERE EXISTS (SELECT 1 FROM active_step)
             """)
     int insertCall(LlmCallLogRecord record);
 

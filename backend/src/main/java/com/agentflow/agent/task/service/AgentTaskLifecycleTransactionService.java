@@ -15,6 +15,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.time.OffsetDateTime;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
@@ -72,7 +74,7 @@ public class AgentTaskLifecycleTransactionService {
         return true;
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 5)
     public boolean markDispatchRejected(long taskId) {
         if (taskMapper.failQueuedDispatch(taskId, now()) != 1) {
             return false;
@@ -113,6 +115,10 @@ public class AgentTaskLifecycleTransactionService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean complete(long taskId, TaskExecutionOutcome outcome) {
+        return completeAt(taskId, outcome, now());
+    }
+
+    private boolean completeAt(long taskId, TaskExecutionOutcome outcome, OffsetDateTime completedAt) {
         requireResultType(outcome, TaskExecutionResultType.COMPLETED);
         TaskTokenUsage usage = outcome.tokenUsage();
         int affected = taskMapper.completeRunning(
@@ -126,6 +132,7 @@ public class AgentTaskLifecycleTransactionService {
                 usage.quality().name(),
                 outcome.finalAnswer(),
                 toJson(outcome.citations()),
+                completedAt,
                 now()
         );
         if (affected != 1) {
@@ -137,6 +144,30 @@ public class AgentTaskLifecycleTransactionService {
                 TaskEventType.TASK_COMPLETED,
                 terminalPayload(TaskStatus.COMPLETED, outcome.terminationReason().name())
         );
+        return true;
+    }
+
+    /** One physical transaction arbitrates against durable cancellation and preserves observation time. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 5)
+    public boolean settleObserved(long taskId, TaskExecutionOutcome observed, Instant observedAt) {
+        Objects.requireNonNull(observed, "observed must not be null");
+        Objects.requireNonNull(observedAt, "observedAt must not be null");
+        AgentTask task = taskMapper.selectByIdForUpdate(taskId);
+        if (task == null) throw new IllegalStateException("Settlement task is missing");
+        if (TaskStatus.valueOf(task.getStatus()).isTerminal()) return true;
+        if (!TaskStatus.RUNNING.name().equals(task.getStatus())) {
+            throw new IllegalStateException("Settlement requires a running task");
+        }
+        OffsetDateTime completedAt = observedAt.atOffset(ZoneOffset.UTC);
+        TaskExecutionOutcome outcome = task.getCancelRequestedAt() == null ? observed
+                : TaskExecutionOutcome.cancelled(observed.decisionTurnsUsed(), observed.toolCallsUsed(), observed.tokenUsage());
+        boolean changed = switch (outcome.resultType()) {
+            case COMPLETED -> completeAt(taskId, outcome, completedAt);
+            case FAILED -> failAt(taskId, outcome, completedAt);
+            case TIMED_OUT -> timeOutAt(taskId, outcome, completedAt);
+            case CANCELLED -> finishCancellationAt(taskId, outcome, completedAt);
+        };
+        if (!changed) throw new IllegalStateException("Locked settlement transition was rejected");
         return true;
     }
 
@@ -184,6 +215,10 @@ public class AgentTaskLifecycleTransactionService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean fail(long taskId, TaskExecutionOutcome outcome) {
+        return failAt(taskId, outcome, now());
+    }
+
+    private boolean failAt(long taskId, TaskExecutionOutcome outcome, OffsetDateTime completedAt) {
         requireResultType(outcome, TaskExecutionResultType.FAILED);
         TaskTokenUsage usage = outcome.tokenUsage();
         int affected = taskMapper.failRunning(
@@ -197,6 +232,7 @@ public class AgentTaskLifecycleTransactionService {
                 usage.quality().name(),
                 outcome.errorCode(),
                 outcome.errorMessage(),
+                completedAt,
                 now()
         );
         if (affected != 1) {
@@ -210,6 +246,10 @@ public class AgentTaskLifecycleTransactionService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean timeOut(long taskId, TaskExecutionOutcome outcome) {
+        return timeOutAt(taskId, outcome, now());
+    }
+
+    private boolean timeOutAt(long taskId, TaskExecutionOutcome outcome, OffsetDateTime completedAt) {
         requireResultType(outcome, TaskExecutionResultType.TIMED_OUT);
         TaskTokenUsage usage = outcome.tokenUsage();
         int affected = taskMapper.timeOutRunning(
@@ -220,6 +260,7 @@ public class AgentTaskLifecycleTransactionService {
                 usage.outputTokens(),
                 usage.totalTokens(),
                 usage.quality().name(),
+                completedAt,
                 now()
         );
         if (affected != 1) {
@@ -235,6 +276,10 @@ public class AgentTaskLifecycleTransactionService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean finishCancellation(long taskId, TaskExecutionOutcome outcome) {
+        return finishCancellationAt(taskId, outcome, now());
+    }
+
+    private boolean finishCancellationAt(long taskId, TaskExecutionOutcome outcome, OffsetDateTime completedAt) {
         requireResultType(outcome, TaskExecutionResultType.CANCELLED);
         TaskTokenUsage usage = outcome.tokenUsage();
         int affected = taskMapper.finishRunningCancellation(
@@ -245,6 +290,7 @@ public class AgentTaskLifecycleTransactionService {
                 usage.outputTokens(),
                 usage.totalTokens(),
                 usage.quality().name(),
+                completedAt,
                 now()
         );
         if (affected != 1) {

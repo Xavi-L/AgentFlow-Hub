@@ -21,7 +21,7 @@ public class AgentTaskQueryService {
         return taskMapper.selectByUserAndClientRequestId(userId, clientRequestId);
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true, timeout = 5)
     public AgentTask findById(long taskId) {
         return taskMapper.selectById(taskId);
     }

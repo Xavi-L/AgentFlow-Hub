@@ -812,3 +812,7 @@ Task status/phase/terminal update 与对应事件、event cursor increment 必�
 Task 详情以及 `Trace.task` 新增可选 `recovery`，来自同一 `agent_task.recovery_metadata`；历史未恢复任务省略。完整字段与 usage 子对象见 Data Model V0.2-A 投影，ID 为字符串，不改变现有大整数无损和游标规则。恢复失败任务公开 errorCode 为 TASK_RESTART_INTERRUPTED 或 TASK_RESTART_DISPATCH_LOST；取消任务 errorCode=null，仍用 recovery.reasonCode 解释中断事实。
 
 SSE 沿用持久 TASK_FAILED/TASK_CANCELLED 和原 sequence。终态 payload 的 recovery 摘要仅包含 schemaVersion、recoveryRunId、previousStatus、reasonCode、recordCompleteness、counterCompleteness；不得携带完整日志。GET/Trace 为 recovery 完整对象的权威读取，不由 SSE 另算恢复状态。重连、刷新及原幂等请求仍指向原 task，不能触发第二次执行或 ANSWER_CHUNK。
+
+## V0.2-B API 投影：运行期保存降级
+
+终态保存耗尽/非暂时错误的安全运行诊断为 TASK_SETTLEMENT_PERSIST_FAILED，包含 task ID、次数、阶段；任务执行准入降级后既有写入口返回 503/TASK_EXECUTION_NOT_READY。此诊断不等于数据库 task.errorCode 已写入，不新增公开 TaskStatus 或执行重试接口。GET/Trace/SSE 继续读取真实持久事实，未知或未结束不能转换为成功。completedAt 对正常运行收尾表示首次完成观察时间，A recovery 的 completedAt 仍表示 recoveredAt。

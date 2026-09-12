@@ -222,6 +222,45 @@ class SnapshotRagServiceTest {
     }
 
     @Test
+    void monotonicTimeoutWithFrozenWallClockStopsLateEmbeddingBeforeVectorSearch() throws Exception {
+        var fixedClock = java.time.Clock.fixed(Instant.now(), java.time.ZoneOffset.UTC);
+        var calls = new com.agentflow.agent.engine.TaskExternalCallDeadline(
+                new com.agentflow.agent.engine.TaskExecutionProperties());
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        var bodyFinished = new java.util.concurrent.CountDownLatch(1);
+        when(embeddings.embed(any())).thenAnswer(invocation -> {
+            entered.countDown();
+            while (release.getCount() > 0) {
+                try { release.await(); } catch (InterruptedException ignored) { }
+            }
+            return new EmbeddingVector(Collections.nCopies(1024, 1.0f));
+        });
+        var failure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
+        Thread waiter = Thread.ofVirtual().start(() -> {
+            try {
+                calls.call(() -> {
+                    try { return service.retrieve(request(corpus()), calls::checkCurrentWorkBoundary); }
+                    finally { bodyFinished.countDown(); }
+                }, fixedClock.instant().plusMillis(300), fixedClock, () -> { });
+            } catch (Throwable ex) { failure.set(ex); }
+        });
+        try {
+            assertThat(entered.await(3, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            waiter.join(3_000);
+            assertThat(waiter.isAlive()).isFalse();
+            assertThat(failure.get()).isInstanceOf(RuntimeException.class)
+                    .hasMessage("Task deadline was exceeded");
+            assertThat(calls.activeWorkCount()).isEqualTo(1);
+            assertThat(calls.availablePermits()).isEqualTo(3);
+        } finally {
+            release.countDown();
+        }
+        assertThat(bodyFinished.await(3, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        verifyNoInteractions(vectors, chunks);
+    }
+
+    @Test
     void vectorFailureProducesSafeStableErrorAndChecksBoundaryAfterFailure() {
         AtomicInteger checks = new AtomicInteger();
         when(vectors.search(any())).thenThrow(new IllegalStateException("provider credential or raw body"));

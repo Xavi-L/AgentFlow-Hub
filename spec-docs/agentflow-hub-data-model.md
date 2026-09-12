@@ -953,3 +953,9 @@ recovery 对象字段冻结为：schemaVersion=`task-recovery-v1`、mode=`CONTRO
 V0.2-A 精化：原 step/tool 的 FAILED 约束要求 latency 非空，无法表达中断窗口的未知实际耗时。V22 仅对 `FAILED + TASK_RESTART_INTERRUPTED` 允许 latency 为 NULL，正常执行终态约束不放宽；恢复保留原 latency 与既有正文，不用开始到收尾的时间差伪造外部调用耗时。
 
 恢复证据不变量还包括：非终态若已有 recovery_metadata、终态事件或 ANSWER_CHUNK，拒绝收尾并保持门禁关闭，以免异常持久状态产生第二条终态或答案发布事实；已有成功 final LLM 日志本身不属于该异常。
+
+## V0.2-B 数据投影：终态保存与迟到写入
+
+沿用 V22 schema；不新建执行账本或持久重试队列，不回改 V1–V22。终态事务以首次完成观察时间填写 completedAt，不能因 100ms/500ms 退避改变 outcome/usage/计数或伪造超时；持久取消意图仍由行锁/条件更新仲裁。COMMIT 应答未知通过原 task 终态和事件回读确认，不再次累计用量或追加终态事件。
+
+工具调用日志仅允许 RUNNING 到终态，step 仅允许未结束到结束；迟到 handler 无权覆盖已结束记录，任务终态后也不能发布迟到成功事实。已有成功日志与已知用量保留，未知部分不补零或标完整。耗尽时只关闭进程准入并诊断，数据库无可确认终态时保持其实际状态，下一次 A 启动收尾继续适用。

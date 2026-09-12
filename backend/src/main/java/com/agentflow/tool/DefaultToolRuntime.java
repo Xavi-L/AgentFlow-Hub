@@ -1,23 +1,22 @@
 package com.agentflow.tool;
 
 import com.agentflow.agent.snapshot.AgentTaskExecutionSnapshot.ToolSnapshot;
+import com.agentflow.agent.engine.TaskExternalCallDeadline;
+import com.agentflow.agent.engine.TaskExecutionProperties;
 import com.agentflow.common.error.BusinessException;
 import com.agentflow.common.error.ErrorCode;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Synchronous runtime established in V27: resolve a visible database definition, validate
@@ -34,6 +33,7 @@ public class DefaultToolRuntime implements ToolRuntime {
     private final BuiltinToolExecutor builtinToolExecutor;
     private final ToolCallLogService toolCallLogService;
     private final Clock clock;
+    private final TaskExternalCallDeadline externalCalls;
 
     public DefaultToolRuntime(
             ToolDefinitionService toolDefinitionService,
@@ -42,6 +42,15 @@ public class DefaultToolRuntime implements ToolRuntime {
             ToolCallLogService toolCallLogService,
             Clock clock
     ) {
+        this(toolDefinitionService, toolArgumentValidator, builtinToolExecutor, toolCallLogService, clock,
+                new TaskExternalCallDeadline(new TaskExecutionProperties()));
+    }
+
+    @Autowired
+    public DefaultToolRuntime(ToolDefinitionService toolDefinitionService,
+            ToolArgumentValidator toolArgumentValidator, BuiltinToolExecutor builtinToolExecutor,
+            ToolCallLogService toolCallLogService, Clock clock, TaskExternalCallDeadline externalCalls) {
+        this.externalCalls = Objects.requireNonNull(externalCalls);
         this.toolDefinitionService = Objects.requireNonNull(
                 toolDefinitionService,
                 "toolDefinitionService must not be null"
@@ -208,56 +217,31 @@ public class DefaultToolRuntime implements ToolRuntime {
     private BuiltinToolHandler.HandlerResult executeWithinTaskDeadline(
             ToolExecutionCommand command, ToolDefinition tool
     ) {
-        long allowanceNanos = Math.min(TimeUnit.MILLISECONDS.toNanos(tool.timeoutMs()),
-                Duration.between(clock.instant(), command.taskScope().deadlineAt()).toNanos());
-        if (allowanceNanos <= 0) {
-            throw taskFailure("TOOL_TIMEOUT", "Tool deadline exceeded");
-        }
-        long startedNanos = System.nanoTime();
-        FutureTask<BuiltinToolHandler.HandlerResult> future = new FutureTask<>(() -> {
-            checkTaskBoundary(command);
+        var toolDeadline = clock.instant().plusMillis(tool.timeoutMs());
+        var deadline = toolDeadline.isBefore(command.taskScope().deadlineAt())
+                ? toolDeadline : command.taskScope().deadlineAt();
+        return externalCalls.call(() -> {
+            Thread worker = Thread.currentThread();
+            String previousName = worker.getName();
+            worker.setName("agent-tool-" + command.taskId());
             try {
-                return builtinToolExecutor.execute(tool, command.arguments());
-            } catch (BusinessException ex) {
-                throw ex;
-            } catch (Exception ex) {
-                log.error("Task tool execution failed: taskId={}, toolCode={}",
-                        command.taskId(), tool.toolCode(), ex);
-                throw taskFailure("TOOL_EXECUTION_FAILED", "Tool execution failed");
-            }
-        });
-        Thread.ofVirtual().name("agent-tool-" + command.taskId()).start(future);
-        try {
-            while (true) {
                 checkTaskBoundary(command);
-                long remaining = allowanceNanos - Math.max(0L, System.nanoTime() - startedNanos);
-                if (remaining <= 0) {
-                    throw taskFailure("TOOL_TIMEOUT", "Tool deadline exceeded");
-                }
                 try {
-                    BuiltinToolHandler.HandlerResult result = future.get(
-                            Math.min(remaining, TimeUnit.MILLISECONDS.toNanos(50)), TimeUnit.NANOSECONDS);
-                    if (Math.max(0L, System.nanoTime() - startedNanos) >= allowanceNanos) {
-                        throw taskFailure("TOOL_TIMEOUT", "Tool deadline exceeded");
-                    }
-                    return result;
-                } catch (TimeoutException ignored) {
-                    // Recheck the shared task cancellation signal during a blocked handler.
+                    return builtinToolExecutor.execute(tool, command.arguments());
+                } catch (BusinessException ex) {
+                    throw ex;
+                } catch (Exception ex) {
+                    // Only safe identifiers are diagnostic; raw handler/provider responses are not logged.
+                    log.error("Task tool execution failed: taskId={}, toolCode={}",
+                            command.taskId(), tool.toolCode());
+                    throw taskFailure("TOOL_EXECUTION_FAILED", "Tool execution failed");
                 }
+            } finally {
+                worker.setName(previousName);
             }
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            throw taskFailure("TASK_CANCELLED", "Task tool execution was interrupted");
-        } catch (ExecutionException ex) {
-            if (ex.getCause() instanceof RuntimeException runtimeException) {
-                throw runtimeException;
-            }
-            throw taskFailure("TOOL_EXECUTION_FAILED", "Tool execution failed");
-        } finally {
-            // Interrupt is best effort for a handler/driver that does not honor cancellation;
-            // this bounds the caller wait, not a guarantee of killing a database operation.
-            future.cancel(true);
-        }
+        }, deadline, clock, () -> checkTaskBoundary(command), ignored -> { },
+                () -> taskFailure("TOOL_TIMEOUT", "Tool deadline exceeded"),
+                () -> taskFailure("AGENT_EXECUTION_INTERRUPTED", "Task tool execution was interrupted"));
     }
 
     private void checkTaskBoundary(ToolExecutionCommand command) {

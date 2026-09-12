@@ -12,16 +12,24 @@ import org.apache.ibatis.annotations.Select;
 public interface RagRetrievalLogMapper {
 
     @Insert("""
+            WITH active_task AS (
+                SELECT id FROM agent_task WHERE id = #{taskId} AND status = 'RUNNING' FOR UPDATE
+            ), active_step AS (
+                SELECT id FROM agent_step
+                WHERE id = #{stepId} AND task_id = #{taskId} AND status = 'RUNNING'
+                  AND EXISTS (SELECT 1 FROM active_task)
+                FOR UPDATE
+            )
             INSERT INTO rag_retrieval_log (
                 id, task_id, step_id, query, embedding_profile_code, corpus_snapshot,
                 top_k, similarity_threshold, candidate_count, valid_hit_count, stale_hit_count,
                 latency_ms, status, error_code, error_message, created_at
-            ) VALUES (
+            ) SELECT
                 #{id}, #{taskId}, #{stepId}, #{query}, #{embeddingProfileCode},
                 CAST(#{corpusSnapshotJson,jdbcType=VARCHAR} AS JSONB), #{topK},
                 #{similarityThreshold}, #{candidateCount}, #{validHitCount}, #{staleHitCount},
                 #{latencyMs}, #{status}, #{errorCode}, #{errorMessage}, #{createdAt}
-            )
+            WHERE EXISTS (SELECT 1 FROM active_step)
             """)
     int insertRetrieval(RagRetrievalLogRecord record);
 

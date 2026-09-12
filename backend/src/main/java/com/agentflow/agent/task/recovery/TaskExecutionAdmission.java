@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class TaskExecutionAdmission {
     private boolean shuttingDown;
+    private boolean settlementFailed;
     private volatile String diagnostic = "STARTING";
     public boolean isReady() { return diagnostic == null; }
     public String diagnostic() { return diagnostic; }
@@ -18,10 +19,15 @@ public class TaskExecutionAdmission {
     }
     public synchronized void open() {
         if (shuttingDown) throw new IllegalStateException("Task admission cannot reopen during JVM shutdown");
+        if (settlementFailed) throw new IllegalStateException("Task admission requires restart after settlement failure");
         diagnostic = null;
     }
     public synchronized void close(String reason) {
         diagnostic = shuttingDown ? "SHUTTING_DOWN" : reason == null ? "NOT_READY" : reason;
+    }
+    public synchronized void failSettlement(String reason) {
+        settlementFailed = true;
+        close(reason);
     }
     @EventListener(ContextClosedEvent.class)
     public synchronized void onShutdown() {

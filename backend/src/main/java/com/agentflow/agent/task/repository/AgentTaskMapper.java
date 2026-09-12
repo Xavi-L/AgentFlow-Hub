@@ -75,6 +75,10 @@ public interface AgentTaskMapper {
             """)
     AgentTask selectById(@Param("taskId") long taskId);
 
+    @Select("SELECT * FROM agent_task WHERE id = #{taskId} FOR UPDATE")
+    @Options(useCache = false, flushCache = Options.FlushCachePolicy.TRUE, timeout = 5)
+    AgentTask selectByIdForUpdate(@Param("taskId") long taskId);
+
     @Select("""
             UPDATE agent_task
             SET status = 'RUNNING',
@@ -195,7 +199,7 @@ public interface AgentTaskMapper {
                 error_code = NULL,
                 error_message = NULL,
                 completed_at = #{completedAt},
-                updated_at = #{completedAt},
+                updated_at = GREATEST(updated_at, #{persistedAt}),
                 version = version + 1
             WHERE id = #{taskId}
               AND status = 'RUNNING'
@@ -212,7 +216,8 @@ public interface AgentTaskMapper {
             @Param("tokenUsageQuality") String tokenUsageQuality,
             @Param("finalAnswer") String finalAnswer,
             @Param("citations") String citations,
-            @Param("completedAt") OffsetDateTime completedAt
+            @Param("completedAt") OffsetDateTime completedAt,
+            @Param("persistedAt") OffsetDateTime persistedAt
     );
 
     @Update("""
@@ -231,7 +236,7 @@ public interface AgentTaskMapper {
                 error_code = #{errorCode},
                 error_message = #{errorMessage},
                 completed_at = #{completedAt},
-                updated_at = #{completedAt},
+                updated_at = GREATEST(updated_at, #{persistedAt}),
                 version = version + 1
             WHERE id = #{taskId}
               AND status = 'RUNNING'
@@ -248,7 +253,8 @@ public interface AgentTaskMapper {
             @Param("tokenUsageQuality") String tokenUsageQuality,
             @Param("errorCode") String errorCode,
             @Param("errorMessage") String errorMessage,
-            @Param("completedAt") OffsetDateTime completedAt
+            @Param("completedAt") OffsetDateTime completedAt,
+            @Param("persistedAt") OffsetDateTime persistedAt
     );
 
     @Update("""
@@ -267,7 +273,7 @@ public interface AgentTaskMapper {
                 error_code = NULL,
                 error_message = NULL,
                 completed_at = #{completedAt},
-                updated_at = #{completedAt},
+                updated_at = GREATEST(updated_at, #{persistedAt}),
                 version = version + 1
             WHERE id = #{taskId}
               AND status = 'RUNNING'
@@ -281,7 +287,8 @@ public interface AgentTaskMapper {
             @Param("outputTokens") int outputTokens,
             @Param("totalTokens") int totalTokens,
             @Param("tokenUsageQuality") String tokenUsageQuality,
-            @Param("completedAt") OffsetDateTime completedAt
+            @Param("completedAt") OffsetDateTime completedAt,
+            @Param("persistedAt") OffsetDateTime persistedAt
     );
 
     @Update("""
@@ -300,7 +307,7 @@ public interface AgentTaskMapper {
                 error_code = NULL,
                 error_message = NULL,
                 completed_at = #{completedAt},
-                updated_at = #{completedAt},
+                updated_at = GREATEST(updated_at, #{persistedAt}),
                 version = version + 1
             WHERE id = #{taskId}
               AND status = 'RUNNING'
@@ -314,6 +321,7 @@ public interface AgentTaskMapper {
             @Param("outputTokens") int outputTokens,
             @Param("totalTokens") int totalTokens,
             @Param("tokenUsageQuality") String tokenUsageQuality,
-            @Param("completedAt") OffsetDateTime completedAt
+            @Param("completedAt") OffsetDateTime completedAt,
+            @Param("persistedAt") OffsetDateTime persistedAt
     );
 }

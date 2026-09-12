@@ -1,0 +1,1847 @@
+{
+  "schemaVersion": "v02b-controlled-process-evidence-v1",
+  "status": "PASSED",
+  "date": "2026-09-12",
+  "scope": "V0.2-B B01-B10 controlled process and real PostgreSQL acceptance; companion Java tests required for B03 scheduler and parent-row lock races",
+  "code": {
+    "head": "9012e26059e8ea5d2dc82d96a6500b070a6cd918",
+    "baselineADelivery": "9012e26059e8ea5d2dc82d96a6500b070a6cd918",
+    "implementationInUncommittedWorktree": true,
+    "headAloneIsNotImplementationEvidence": true
+  },
+  "command": "bash scripts/v02b-interruption-acceptance.sh --compiled-classpath /private/tmp/agentflow-v02b-work/classpath.txt --run-dir /private/tmp/agentflow-v02b-acceptance-03",
+  "runDirectory": "/private/tmp/agentflow-v02b-acceptance-03",
+  "finishedAt": "2026-09-12T08:48:34.877769+00:00",
+  "environment": {
+    "postgresVersion": "18.4",
+    "postgresPort": 55463,
+    "applicationPort": 18063,
+    "externalFixturePort": 19063,
+    "recoveryMode": "CONTROLLED_SINGLE_HOST",
+    "processLockScope": "single host, isolated disposable PostgreSQL execution domain, same persistent local domain.lock across replacement JVMs",
+    "testPermitCapacity": 1,
+    "productionDefaultPermitCapacity": 4,
+    "schema": [
+      {
+        "version": "1",
+        "description": "create app user",
+        "success": true
+      },
+      {
+        "version": "2",
+        "description": "create knowledge base",
+        "success": true
+      },
+      {
+        "version": "3",
+        "description": "create knowledge document",
+        "success": true
+      },
+      {
+        "version": "4",
+        "description": "create knowledge chunk",
+        "success": true
+      },
+      {
+        "version": "5",
+        "description": "add chunk vectorization state",
+        "success": true
+      },
+      {
+        "version": "6",
+        "description": "align knowledge base embedding defaults",
+        "success": true
+      },
+      {
+        "version": "7",
+        "description": "create knowledge chat answer",
+        "success": true
+      },
+      {
+        "version": "8",
+        "description": "add knowledge chat answer list index",
+        "success": true
+      },
+      {
+        "version": "9",
+        "description": "create knowledge chat answer feedback",
+        "success": true
+      },
+      {
+        "version": "10",
+        "description": "create knowledge document deletion task",
+        "success": true
+      },
+      {
+        "version": "11",
+        "description": "create knowledge document reprocess task",
+        "success": true
+      },
+      {
+        "version": "12",
+        "description": "create demo order payment data",
+        "success": true
+      },
+      {
+        "version": "13",
+        "description": "create tool definition and tool call log",
+        "success": true
+      },
+      {
+        "version": "14",
+        "description": "add payment log query tool",
+        "success": true
+      },
+      {
+        "version": "15",
+        "description": "add report generate tool",
+        "success": true
+      },
+      {
+        "version": "16",
+        "description": "create agent app",
+        "success": true
+      },
+      {
+        "version": "17",
+        "description": "create agent execution bindings",
+        "success": true
+      },
+      {
+        "version": "18",
+        "description": "create agent task and event",
+        "success": true
+      },
+      {
+        "version": "19",
+        "description": "create agent execution trace",
+        "success": true
+      },
+      {
+        "version": "20",
+        "description": "preserve task token overruns",
+        "success": true
+      },
+      {
+        "version": "21",
+        "description": "add agent execution settings",
+        "success": true
+      },
+      {
+        "version": "22",
+        "description": "add task recovery metadata",
+        "success": true
+      }
+    ]
+  },
+  "evidenceBoundary": {
+    "realPostgreSQL": true,
+    "realJvmSigkillWaitpidRestart": true,
+    "realTaskHttpJwtDispatcherEngineTrace": true,
+    "externalModelEmbeddingVectorTool": "controlled independent local HTTP, durable fsync receipts, gateway body deliberately ignores interruption",
+    "paidProviderEvidence": false,
+    "v47": "Reported separately; missing credentials are BLOCKED, never replaced by controlled success",
+    "fullV02ReleaseClaim": false
+  },
+  "history": [
+    {
+      "run": "/private/tmp/agentflow-v02b-acceptance-01",
+      "status": "FAILED",
+      "stage": "preflight",
+      "reason": "Sandbox denied localhost socket bind: PermissionError [Errno 1] Operation not permitted; no process case executed"
+    },
+    {
+      "run": "/private/tmp/agentflow-v02b-acceptance-02",
+      "status": "PASSED",
+      "caseCount": 10,
+      "use": "SUPERSEDED_DIAGNOSTIC",
+      "reason": "Initial compiled classes passed before final production corrections and evidence refinements; not used as final acceptance"
+    },
+    {
+      "run": "/private/tmp/agentflow-v02b-acceptance-03",
+      "status": "PASSED",
+      "caseCount": 10,
+      "use": "FINAL_CURRENT_CLASSES",
+      "caseFailures": []
+    }
+  ],
+  "matrix": {
+    "B01": {
+      "status": "PASSED",
+      "startedAt": "2026-09-12T08:48:03.920854+00:00",
+      "finishedAt": "2026-09-12T08:48:05.948640+00:00",
+      "tasks": [
+        {
+          "variant": "B01_LLM",
+          "taskId": "2098695123416248321",
+          "task": {
+            "status": "CANCELLED",
+            "termination_reason": "USER_CANCELLED",
+            "phase": null,
+            "error_code": null,
+            "decision_turns_used": 1,
+            "tool_calls_used": 0,
+            "input_tokens": 3006,
+            "output_tokens": 512,
+            "total_tokens": 3518,
+            "token_usage_quality": "ESTIMATED",
+            "started_at": "2026-09-12T16:48:03.960352+08:00",
+            "completed_at": "2026-09-12T16:48:04.080473+08:00",
+            "last_event_sequence": 6
+          },
+          "finalAnswerPublished": false,
+          "citationCount": 0,
+          "recovery": null,
+          "recordCounts": {
+            "agent_step": 2,
+            "llm_call_log": 1,
+            "tool_call_log": 0,
+            "rag_retrieval_log": 1,
+            "agent_task_event": 6
+          },
+          "externalCounts": {
+            "DECISION": 1,
+            "FINAL_GENERATION": 0,
+            "tool": 0,
+            "EMBEDDING": 1,
+            "VECTOR": 1
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "terminalEventTypes": [
+            "TASK_CANCELLED"
+          ]
+        },
+        {
+          "variant": "B01_TOOL",
+          "taskId": "2098695125626646529",
+          "task": {
+            "status": "CANCELLED",
+            "termination_reason": "USER_CANCELLED",
+            "phase": null,
+            "error_code": null,
+            "decision_turns_used": 1,
+            "tool_calls_used": 1,
+            "input_tokens": 10,
+            "output_tokens": 5,
+            "total_tokens": 15,
+            "token_usage_quality": "EXACT",
+            "started_at": "2026-09-12T16:48:04.479303+08:00",
+            "completed_at": "2026-09-12T16:48:04.572325+08:00",
+            "last_event_sequence": 10
+          },
+          "finalAnswerPublished": false,
+          "citationCount": 0,
+          "recovery": null,
+          "recordCounts": {
+            "agent_step": 3,
+            "llm_call_log": 1,
+            "tool_call_log": 1,
+            "rag_retrieval_log": 1,
+            "agent_task_event": 10
+          },
+          "externalCounts": {
+            "DECISION": 1,
+            "FINAL_GENERATION": 0,
+            "tool": 1,
+            "EMBEDDING": 1,
+            "VECTOR": 1
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "terminalEventTypes": [
+            "TASK_CANCELLED"
+          ]
+        },
+        {
+          "variant": "B01_EMBEDDING",
+          "taskId": "2098695127698632706",
+          "task": {
+            "status": "CANCELLED",
+            "termination_reason": "USER_CANCELLED",
+            "phase": null,
+            "error_code": null,
+            "decision_turns_used": 0,
+            "tool_calls_used": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "token_usage_quality": "UNKNOWN",
+            "started_at": "2026-09-12T16:48:04.972656+08:00",
+            "completed_at": "2026-09-12T16:48:05.030889+08:00",
+            "last_event_sequence": 4
+          },
+          "finalAnswerPublished": false,
+          "citationCount": 0,
+          "recovery": null,
+          "recordCounts": {
+            "agent_step": 1,
+            "llm_call_log": 0,
+            "tool_call_log": 0,
+            "rag_retrieval_log": 1,
+            "agent_task_event": 4
+          },
+          "externalCounts": {
+            "DECISION": 0,
+            "FINAL_GENERATION": 0,
+            "tool": 0,
+            "EMBEDDING": 1,
+            "VECTOR": 0
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "terminalEventTypes": [
+            "TASK_CANCELLED"
+          ]
+        },
+        {
+          "variant": "B01_VECTOR",
+          "taskId": "2098695129602846722",
+          "task": {
+            "status": "CANCELLED",
+            "termination_reason": "USER_CANCELLED",
+            "phase": null,
+            "error_code": null,
+            "decision_turns_used": 0,
+            "tool_calls_used": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "token_usage_quality": "UNKNOWN",
+            "started_at": "2026-09-12T16:48:05.427227+08:00",
+            "completed_at": "2026-09-12T16:48:05.489252+08:00",
+            "last_event_sequence": 4
+          },
+          "finalAnswerPublished": false,
+          "citationCount": 0,
+          "recovery": null,
+          "recordCounts": {
+            "agent_step": 1,
+            "llm_call_log": 0,
+            "tool_call_log": 0,
+            "rag_retrieval_log": 1,
+            "agent_task_event": 4
+          },
+          "externalCounts": {
+            "DECISION": 0,
+            "FINAL_GENERATION": 0,
+            "tool": 0,
+            "EMBEDDING": 1,
+            "VECTOR": 1
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "terminalEventTypes": [
+            "TASK_CANCELLED"
+          ]
+        }
+      ]
+    },
+    "B02": {
+      "status": "PASSED",
+      "startedAt": "2026-09-12T08:48:06.315169+00:00",
+      "finishedAt": "2026-09-12T08:48:08.130380+00:00",
+      "tasks": [
+        {
+          "variant": "B02_HELD",
+          "taskId": "2098695133373526018",
+          "task": {
+            "status": "CANCELLED",
+            "termination_reason": "USER_CANCELLED",
+            "phase": null,
+            "error_code": null,
+            "decision_turns_used": 1,
+            "tool_calls_used": 0,
+            "input_tokens": 3007,
+            "output_tokens": 512,
+            "total_tokens": 3519,
+            "token_usage_quality": "ESTIMATED",
+            "started_at": "2026-09-12T16:48:06.326597+08:00",
+            "completed_at": "2026-09-12T16:48:06.4028+08:00",
+            "last_event_sequence": 6
+          },
+          "finalAnswerPublished": false,
+          "citationCount": 0,
+          "recovery": null,
+          "recordCounts": {
+            "agent_step": 2,
+            "llm_call_log": 1,
+            "tool_call_log": 0,
+            "rag_retrieval_log": 1,
+            "agent_task_event": 6
+          },
+          "externalCounts": {
+            "DECISION": 1,
+            "FINAL_GENERATION": 0,
+            "tool": 0,
+            "EMBEDDING": 1,
+            "VECTOR": 1
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "terminalEventTypes": [
+            "TASK_CANCELLED"
+          ]
+        },
+        {
+          "variant": "B02_WAIT_CANCEL",
+          "taskId": "2098695134245941249",
+          "task": {
+            "status": "CANCELLED",
+            "termination_reason": "USER_CANCELLED",
+            "phase": null,
+            "error_code": null,
+            "decision_turns_used": 0,
+            "tool_calls_used": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "token_usage_quality": "UNKNOWN",
+            "started_at": "2026-09-12T16:48:06.533999+08:00",
+            "completed_at": "2026-09-12T16:48:06.595031+08:00",
+            "last_event_sequence": 4
+          },
+          "finalAnswerPublished": false,
+          "citationCount": 0,
+          "recovery": null,
+          "recordCounts": {
+            "agent_step": 1,
+            "llm_call_log": 0,
+            "tool_call_log": 0,
+            "rag_retrieval_log": 1,
+            "agent_task_event": 4
+          },
+          "externalCounts": {
+            "DECISION": 0,
+            "FINAL_GENERATION": 0,
+            "tool": 0,
+            "EMBEDDING": 0,
+            "VECTOR": 0
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "terminalEventTypes": [
+            "TASK_CANCELLED"
+          ]
+        },
+        {
+          "variant": "B02_WAIT_TIMEOUT",
+          "taskId": "2098695135126745089",
+          "task": {
+            "status": "TIMED_OUT",
+            "termination_reason": "DEADLINE_EXCEEDED",
+            "phase": null,
+            "error_code": null,
+            "decision_turns_used": 0,
+            "tool_calls_used": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "token_usage_quality": "UNKNOWN",
+            "started_at": "2026-09-12T16:48:06.745274+08:00",
+            "completed_at": "2026-09-12T16:48:07.747365+08:00",
+            "last_event_sequence": 4
+          },
+          "finalAnswerPublished": false,
+          "citationCount": 0,
+          "recovery": null,
+          "recordCounts": {
+            "agent_step": 1,
+            "llm_call_log": 0,
+            "tool_call_log": 0,
+            "rag_retrieval_log": 1,
+            "agent_task_event": 4
+          },
+          "externalCounts": {
+            "DECISION": 0,
+            "FINAL_GENERATION": 0,
+            "tool": 0,
+            "EMBEDDING": 0,
+            "VECTOR": 0
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "terminalEventTypes": [
+            "TASK_TIMED_OUT"
+          ]
+        },
+        {
+          "variant": "B02_RECOVERED",
+          "taskId": "2098695140302516225",
+          "task": {
+            "status": "COMPLETED",
+            "termination_reason": "ANSWERED",
+            "phase": null,
+            "error_code": null,
+            "decision_turns_used": 1,
+            "tool_calls_used": 0,
+            "input_tokens": 20,
+            "output_tokens": 10,
+            "total_tokens": 30,
+            "token_usage_quality": "EXACT",
+            "started_at": "2026-09-12T16:48:07.977411+08:00",
+            "completed_at": "2026-09-12T16:48:08.010993+08:00",
+            "last_event_sequence": 10
+          },
+          "finalAnswerPublished": true,
+          "citationCount": 0,
+          "recovery": null,
+          "recordCounts": {
+            "agent_step": 3,
+            "llm_call_log": 2,
+            "tool_call_log": 0,
+            "rag_retrieval_log": 1,
+            "agent_task_event": 10
+          },
+          "externalCounts": {
+            "DECISION": 1,
+            "FINAL_GENERATION": 1,
+            "tool": 0,
+            "EMBEDDING": 1,
+            "VECTOR": 1
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "terminalEventTypes": [
+            "TASK_COMPLETED"
+          ]
+        }
+      ]
+    },
+    "B03": {
+      "status": "PASSED",
+      "startedAt": "2026-09-12T08:48:08.556902+00:00",
+      "finishedAt": "2026-09-12T08:48:08.798873+00:00",
+      "tasks": [
+        {
+          "variant": "B03_RETURN_CANCEL",
+          "taskId": "2098695142785544193",
+          "task": {
+            "status": "CANCELLED",
+            "termination_reason": "USER_CANCELLED",
+            "phase": null,
+            "error_code": null,
+            "decision_turns_used": 1,
+            "tool_calls_used": 0,
+            "input_tokens": 20,
+            "output_tokens": 10,
+            "total_tokens": 30,
+            "token_usage_quality": "EXACT",
+            "started_at": "2026-09-12T16:48:08.571608+08:00",
+            "completed_at": "2026-09-12T16:48:08.631271+08:00",
+            "last_event_sequence": 9
+          },
+          "finalAnswerPublished": false,
+          "citationCount": 0,
+          "recovery": null,
+          "recordCounts": {
+            "agent_step": 3,
+            "llm_call_log": 2,
+            "tool_call_log": 0,
+            "rag_retrieval_log": 1,
+            "agent_task_event": 9
+          },
+          "externalCounts": {
+            "DECISION": 1,
+            "FINAL_GENERATION": 1,
+            "tool": 0,
+            "EMBEDDING": 1,
+            "VECTOR": 1
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "terminalEventTypes": [
+            "TASK_CANCELLED"
+          ]
+        }
+      ]
+    },
+    "B04": {
+      "status": "PASSED",
+      "startedAt": "2026-09-12T08:48:08.918968+00:00",
+      "finishedAt": "2026-09-12T08:48:11.994696+00:00",
+      "tasks": [
+        {
+          "variant": "B04_MODEL",
+          "taskId": "2098695144391962626",
+          "task": {
+            "status": "FAILED",
+            "termination_reason": "SYSTEM_ERROR",
+            "phase": null,
+            "error_code": "AGENT_LLM_TIMEOUT",
+            "decision_turns_used": 1,
+            "tool_calls_used": 0,
+            "input_tokens": 3008,
+            "output_tokens": 512,
+            "total_tokens": 3520,
+            "token_usage_quality": "ESTIMATED",
+            "started_at": "2026-09-12T16:48:08.954732+08:00",
+            "completed_at": "2026-09-12T16:48:09.997852+08:00",
+            "last_event_sequence": 6
+          },
+          "finalAnswerPublished": false,
+          "citationCount": 0,
+          "recovery": null,
+          "recordCounts": {
+            "agent_step": 2,
+            "llm_call_log": 1,
+            "tool_call_log": 0,
+            "rag_retrieval_log": 1,
+            "agent_task_event": 6
+          },
+          "externalCounts": {
+            "DECISION": 1,
+            "FINAL_GENERATION": 0,
+            "tool": 0,
+            "EMBEDDING": 1,
+            "VECTOR": 1
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "terminalEventTypes": [
+            "TASK_FAILED"
+          ]
+        },
+        {
+          "variant": "B04_TASK",
+          "taskId": "2098695150985408514",
+          "task": {
+            "status": "TIMED_OUT",
+            "termination_reason": "DEADLINE_EXCEEDED",
+            "phase": null,
+            "error_code": null,
+            "decision_turns_used": 1,
+            "tool_calls_used": 0,
+            "input_tokens": 3007,
+            "output_tokens": 512,
+            "total_tokens": 3519,
+            "token_usage_quality": "ESTIMATED",
+            "started_at": "2026-09-12T16:48:10.525735+08:00",
+            "completed_at": "2026-09-12T16:48:11.532467+08:00",
+            "last_event_sequence": 6
+          },
+          "finalAnswerPublished": false,
+          "citationCount": 0,
+          "recovery": null,
+          "recordCounts": {
+            "agent_step": 2,
+            "llm_call_log": 1,
+            "tool_call_log": 0,
+            "rag_retrieval_log": 1,
+            "agent_task_event": 6
+          },
+          "externalCounts": {
+            "DECISION": 1,
+            "FINAL_GENERATION": 0,
+            "tool": 0,
+            "EMBEDDING": 1,
+            "VECTOR": 1
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "terminalEventTypes": [
+            "TASK_TIMED_OUT"
+          ]
+        }
+      ]
+    },
+    "B05": {
+      "status": "PASSED",
+      "startedAt": "2026-09-12T08:48:12.195207+00:00",
+      "finishedAt": "2026-09-12T08:48:12.655899+00:00",
+      "tasks": [
+        {
+          "variant": "B05_TRANSIENT",
+          "taskId": "2098695158191222786",
+          "task": {
+            "status": "COMPLETED",
+            "termination_reason": "ANSWERED",
+            "phase": null,
+            "error_code": null,
+            "decision_turns_used": 1,
+            "tool_calls_used": 0,
+            "input_tokens": 20,
+            "output_tokens": 10,
+            "total_tokens": 30,
+            "token_usage_quality": "EXACT",
+            "started_at": "2026-09-12T16:48:12.24514+08:00",
+            "completed_at": "2026-09-12T16:48:12.330713+08:00",
+            "last_event_sequence": 10
+          },
+          "finalAnswerPublished": true,
+          "citationCount": 0,
+          "recovery": null,
+          "recordCounts": {
+            "agent_step": 3,
+            "llm_call_log": 2,
+            "tool_call_log": 0,
+            "rag_retrieval_log": 1,
+            "agent_task_event": 10
+          },
+          "externalCounts": {
+            "DECISION": 1,
+            "FINAL_GENERATION": 1,
+            "tool": 0,
+            "EMBEDDING": 1,
+            "VECTOR": 1
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "terminalEventTypes": [
+            "TASK_COMPLETED"
+          ]
+        }
+      ]
+    },
+    "B06": {
+      "status": "PASSED",
+      "startedAt": "2026-09-12T08:48:12.755297+00:00",
+      "finishedAt": "2026-09-12T08:48:13.499216+00:00",
+      "tasks": [
+        {
+          "variant": "B06_COMMIT_LOST",
+          "taskId": "2098695160380649474",
+          "task": {
+            "status": "COMPLETED",
+            "termination_reason": "ANSWERED",
+            "phase": null,
+            "error_code": null,
+            "decision_turns_used": 1,
+            "tool_calls_used": 0,
+            "input_tokens": 20,
+            "output_tokens": 10,
+            "total_tokens": 30,
+            "token_usage_quality": "EXACT",
+            "started_at": "2026-09-12T16:48:12.764302+08:00",
+            "completed_at": "2026-09-12T16:48:12.801759+08:00",
+            "last_event_sequence": 10
+          },
+          "finalAnswerPublished": true,
+          "citationCount": 0,
+          "recovery": null,
+          "recordCounts": {
+            "agent_step": 3,
+            "llm_call_log": 2,
+            "tool_call_log": 0,
+            "rag_retrieval_log": 1,
+            "agent_task_event": 10
+          },
+          "externalCounts": {
+            "DECISION": 1,
+            "FINAL_GENERATION": 1,
+            "tool": 0,
+            "EMBEDDING": 1,
+            "VECTOR": 1
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "terminalEventTypes": [
+            "TASK_COMPLETED"
+          ]
+        },
+        {
+          "variant": "B06_EVENT_ROLLBACK",
+          "taskId": "2098695161265647618",
+          "task": {
+            "status": "COMPLETED",
+            "termination_reason": "ANSWERED",
+            "phase": null,
+            "error_code": null,
+            "decision_turns_used": 1,
+            "tool_calls_used": 0,
+            "input_tokens": 20,
+            "output_tokens": 10,
+            "total_tokens": 30,
+            "token_usage_quality": "EXACT",
+            "started_at": "2026-09-12T16:48:12.975952+08:00",
+            "completed_at": "2026-09-12T16:48:13.024104+08:00",
+            "last_event_sequence": 10
+          },
+          "finalAnswerPublished": true,
+          "citationCount": 0,
+          "recovery": null,
+          "recordCounts": {
+            "agent_step": 3,
+            "llm_call_log": 2,
+            "tool_call_log": 0,
+            "rag_retrieval_log": 1,
+            "agent_task_event": 10
+          },
+          "externalCounts": {
+            "DECISION": 1,
+            "FINAL_GENERATION": 1,
+            "tool": 0,
+            "EMBEDDING": 1,
+            "VECTOR": 1
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "terminalEventTypes": [
+            "TASK_COMPLETED"
+          ]
+        }
+      ]
+    },
+    "B07": {
+      "status": "PASSED",
+      "startedAt": "2026-09-12T08:48:13.763189+00:00",
+      "finishedAt": "2026-09-12T08:48:16.967299+00:00",
+      "tasks": [
+        {
+          "variant": "B07_DEADLINE",
+          "taskId": "2098695164868554754",
+          "task": {
+            "status": "COMPLETED",
+            "termination_reason": "ANSWERED",
+            "phase": null,
+            "error_code": null,
+            "decision_turns_used": 1,
+            "tool_calls_used": 0,
+            "input_tokens": 20,
+            "output_tokens": 10,
+            "total_tokens": 30,
+            "token_usage_quality": "EXACT",
+            "started_at": "2026-09-12T16:48:13.835254+08:00",
+            "completed_at": "2026-09-12T16:48:13.897313+08:00",
+            "last_event_sequence": 10
+          },
+          "finalAnswerPublished": true,
+          "citationCount": 0,
+          "recovery": null,
+          "recordCounts": {
+            "agent_step": 3,
+            "llm_call_log": 2,
+            "tool_call_log": 0,
+            "rag_retrieval_log": 1,
+            "agent_task_event": 10
+          },
+          "externalCounts": {
+            "DECISION": 1,
+            "FINAL_GENERATION": 1,
+            "tool": 0,
+            "EMBEDDING": 1,
+            "VECTOR": 1
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "terminalEventTypes": [
+            "TASK_COMPLETED"
+          ]
+        },
+        {
+          "variant": "B07_CANCEL",
+          "taskId": "2098695174360264706",
+          "task": {
+            "status": "CANCELLED",
+            "termination_reason": "USER_CANCELLED",
+            "phase": null,
+            "error_code": null,
+            "decision_turns_used": 1,
+            "tool_calls_used": 0,
+            "input_tokens": 20,
+            "output_tokens": 10,
+            "total_tokens": 30,
+            "token_usage_quality": "EXACT",
+            "started_at": "2026-09-12T16:48:16.098289+08:00",
+            "completed_at": "2026-09-12T16:48:16.135028+08:00",
+            "last_event_sequence": 9
+          },
+          "finalAnswerPublished": false,
+          "citationCount": 0,
+          "recovery": null,
+          "recordCounts": {
+            "agent_step": 3,
+            "llm_call_log": 2,
+            "tool_call_log": 0,
+            "rag_retrieval_log": 1,
+            "agent_task_event": 9
+          },
+          "externalCounts": {
+            "DECISION": 1,
+            "FINAL_GENERATION": 1,
+            "tool": 0,
+            "EMBEDDING": 1,
+            "VECTOR": 1
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "terminalEventTypes": [
+            "TASK_CANCELLED"
+          ]
+        },
+        {
+          "variant": "B07_OTHER_TERMINAL",
+          "taskId": "2098695176310616065",
+          "task": {
+            "status": "COMPLETED",
+            "termination_reason": "ANSWERED",
+            "phase": null,
+            "error_code": null,
+            "decision_turns_used": 0,
+            "tool_calls_used": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "token_usage_quality": "UNKNOWN",
+            "started_at": "2026-09-12T16:48:16.563628+08:00",
+            "completed_at": "2026-09-12T16:48:16.735147+08:00",
+            "last_event_sequence": 10
+          },
+          "finalAnswerPublished": true,
+          "citationCount": 0,
+          "recovery": null,
+          "recordCounts": {
+            "agent_step": 3,
+            "llm_call_log": 2,
+            "tool_call_log": 0,
+            "rag_retrieval_log": 1,
+            "agent_task_event": 10
+          },
+          "externalCounts": {
+            "DECISION": 1,
+            "FINAL_GENERATION": 1,
+            "tool": 0,
+            "EMBEDDING": 1,
+            "VECTOR": 1
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "terminalEventTypes": [
+            "TASK_COMPLETED"
+          ]
+        }
+      ]
+    },
+    "B08": {
+      "status": "PASSED",
+      "startedAt": "2026-09-12T08:48:17.373010+00:00",
+      "finishedAt": "2026-09-12T08:48:28.588073+00:00",
+      "tasks": [
+        {
+          "variant": "B08_PERSISTENT_QUEUED",
+          "taskId": "2098695179762528257",
+          "task": {
+            "status": "FAILED",
+            "termination_reason": "SYSTEM_ERROR",
+            "phase": null,
+            "error_code": "TASK_DISPATCH_REJECTED",
+            "decision_turns_used": 0,
+            "tool_calls_used": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "token_usage_quality": "UNKNOWN",
+            "started_at": null,
+            "completed_at": "2026-09-12T16:48:18.268791+08:00",
+            "last_event_sequence": 2
+          },
+          "finalAnswerPublished": false,
+          "citationCount": 0,
+          "recovery": null,
+          "recordCounts": {
+            "agent_step": 0,
+            "llm_call_log": 0,
+            "tool_call_log": 0,
+            "rag_retrieval_log": 0,
+            "agent_task_event": 2
+          },
+          "externalCounts": {
+            "DECISION": 0,
+            "FINAL_GENERATION": 0,
+            "tool": 0,
+            "EMBEDDING": 0,
+            "VECTOR": 0
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2
+          ],
+          "terminalEventTypes": [
+            "TASK_FAILED"
+          ]
+        },
+        {
+          "variant": "B08_PERSISTENT",
+          "taskId": "2098695180123238402",
+          "task": {
+            "status": "FAILED",
+            "termination_reason": "SYSTEM_ERROR",
+            "phase": null,
+            "error_code": "TASK_RESTART_INTERRUPTED",
+            "decision_turns_used": 0,
+            "tool_calls_used": 0,
+            "input_tokens": 20,
+            "output_tokens": 10,
+            "total_tokens": 30,
+            "token_usage_quality": "UNKNOWN",
+            "started_at": "2026-09-12T16:48:17.473373+08:00",
+            "completed_at": "2026-09-12T16:48:22.550319+08:00",
+            "last_event_sequence": 9
+          },
+          "finalAnswerPublished": false,
+          "citationCount": 0,
+          "recovery": {
+            "mode": "CONTROLLED_SINGLE_HOST",
+            "reasonCode": "TASK_RESTART_INTERRUPTED",
+            "recoveredAt": "2026-09-12T08:48:22.550319Z",
+            "recordedUsage": {
+              "inputTokens": 20,
+              "totalTokens": 30,
+              "outputTokens": 10,
+              "tokenUsageQuality": "EXACT"
+            },
+            "recoveryRunId": "2838c158-9086-493f-8648-30ae0ba7dec3",
+            "schemaVersion": "task-recovery-v1",
+            "previousStatus": "RUNNING",
+            "executionOutcome": "UNKNOWN",
+            "recordedLlmCalls": 2,
+            "previousTaskUsage": {
+              "inputTokens": 0,
+              "totalTokens": 0,
+              "outputTokens": 0,
+              "tokenUsageQuality": "UNKNOWN"
+            },
+            "recordedToolCalls": 0,
+            "recordCompleteness": "UNCONFIRMED",
+            "counterCompleteness": "UNCONFIRMED"
+          },
+          "recordCounts": {
+            "agent_step": 3,
+            "llm_call_log": 2,
+            "tool_call_log": 0,
+            "rag_retrieval_log": 1,
+            "agent_task_event": 9
+          },
+          "externalCounts": {
+            "DECISION": 1,
+            "FINAL_GENERATION": 1,
+            "tool": 0,
+            "EMBEDDING": 1,
+            "VECTOR": 1
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "terminalEventTypes": [
+            "TASK_FAILED"
+          ]
+        },
+        {
+          "variant": "B08_INVALID_QUEUED",
+          "taskId": "2098695204370489345",
+          "task": {
+            "status": "FAILED",
+            "termination_reason": "SYSTEM_ERROR",
+            "phase": null,
+            "error_code": "TASK_DISPATCH_REJECTED",
+            "decision_turns_used": 0,
+            "tool_calls_used": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "token_usage_quality": "UNKNOWN",
+            "started_at": null,
+            "completed_at": "2026-09-12T16:48:23.779252+08:00",
+            "last_event_sequence": 2
+          },
+          "finalAnswerPublished": false,
+          "citationCount": 0,
+          "recovery": null,
+          "recordCounts": {
+            "agent_step": 0,
+            "llm_call_log": 0,
+            "tool_call_log": 0,
+            "rag_retrieval_log": 0,
+            "agent_task_event": 2
+          },
+          "externalCounts": {
+            "DECISION": 0,
+            "FINAL_GENERATION": 0,
+            "tool": 0,
+            "EMBEDDING": 0,
+            "VECTOR": 0
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2
+          ],
+          "terminalEventTypes": [
+            "TASK_FAILED"
+          ]
+        },
+        {
+          "variant": "B08_INVALID",
+          "taskId": "2098695204844445698",
+          "task": {
+            "status": "FAILED",
+            "termination_reason": "SYSTEM_ERROR",
+            "phase": null,
+            "error_code": "TASK_RESTART_INTERRUPTED",
+            "decision_turns_used": 0,
+            "tool_calls_used": 0,
+            "input_tokens": 20,
+            "output_tokens": 10,
+            "total_tokens": 30,
+            "token_usage_quality": "UNKNOWN",
+            "started_at": "2026-09-12T16:48:23.370113+08:00",
+            "completed_at": "2026-09-12T16:48:27.927652+08:00",
+            "last_event_sequence": 9
+          },
+          "finalAnswerPublished": false,
+          "citationCount": 0,
+          "recovery": {
+            "mode": "CONTROLLED_SINGLE_HOST",
+            "reasonCode": "TASK_RESTART_INTERRUPTED",
+            "recoveredAt": "2026-09-12T08:48:27.927652Z",
+            "recordedUsage": {
+              "inputTokens": 20,
+              "totalTokens": 30,
+              "outputTokens": 10,
+              "tokenUsageQuality": "EXACT"
+            },
+            "recoveryRunId": "234aca08-a060-4bf1-8589-1c0b4b8cbdef",
+            "schemaVersion": "task-recovery-v1",
+            "previousStatus": "RUNNING",
+            "executionOutcome": "UNKNOWN",
+            "recordedLlmCalls": 2,
+            "previousTaskUsage": {
+              "inputTokens": 0,
+              "totalTokens": 0,
+              "outputTokens": 0,
+              "tokenUsageQuality": "UNKNOWN"
+            },
+            "recordedToolCalls": 0,
+            "recordCompleteness": "UNCONFIRMED",
+            "counterCompleteness": "UNCONFIRMED"
+          },
+          "recordCounts": {
+            "agent_step": 3,
+            "llm_call_log": 2,
+            "tool_call_log": 0,
+            "rag_retrieval_log": 1,
+            "agent_task_event": 9
+          },
+          "externalCounts": {
+            "DECISION": 1,
+            "FINAL_GENERATION": 1,
+            "tool": 0,
+            "EMBEDDING": 1,
+            "VECTOR": 1
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "terminalEventTypes": [
+            "TASK_FAILED"
+          ]
+        }
+      ]
+    },
+    "B09": {
+      "status": "PASSED",
+      "startedAt": "2026-09-12T08:48:29.013633+00:00",
+      "finishedAt": "2026-09-12T08:48:33.454635+00:00",
+      "tasks": [
+        {
+          "variant": "B09_KILL_RETRY",
+          "taskId": "2098695228810694657",
+          "task": {
+            "status": "FAILED",
+            "termination_reason": "SYSTEM_ERROR",
+            "phase": null,
+            "error_code": "TASK_RESTART_INTERRUPTED",
+            "decision_turns_used": 0,
+            "tool_calls_used": 0,
+            "input_tokens": 20,
+            "output_tokens": 10,
+            "total_tokens": 30,
+            "token_usage_quality": "UNKNOWN",
+            "started_at": "2026-09-12T16:48:29.09019+08:00",
+            "completed_at": "2026-09-12T16:48:32.619076+08:00",
+            "last_event_sequence": 9
+          },
+          "finalAnswerPublished": false,
+          "citationCount": 0,
+          "recovery": {
+            "mode": "CONTROLLED_SINGLE_HOST",
+            "reasonCode": "TASK_RESTART_INTERRUPTED",
+            "recoveredAt": "2026-09-12T08:48:32.619076Z",
+            "recordedUsage": {
+              "inputTokens": 20,
+              "totalTokens": 30,
+              "outputTokens": 10,
+              "tokenUsageQuality": "EXACT"
+            },
+            "recoveryRunId": "d18361eb-666f-4d2b-a19d-4a538931dede",
+            "schemaVersion": "task-recovery-v1",
+            "previousStatus": "RUNNING",
+            "executionOutcome": "UNKNOWN",
+            "recordedLlmCalls": 2,
+            "previousTaskUsage": {
+              "inputTokens": 0,
+              "totalTokens": 0,
+              "outputTokens": 0,
+              "tokenUsageQuality": "UNKNOWN"
+            },
+            "recordedToolCalls": 0,
+            "recordCompleteness": "UNCONFIRMED",
+            "counterCompleteness": "UNCONFIRMED"
+          },
+          "recordCounts": {
+            "agent_step": 3,
+            "llm_call_log": 2,
+            "tool_call_log": 0,
+            "rag_retrieval_log": 1,
+            "agent_task_event": 9
+          },
+          "externalCounts": {
+            "DECISION": 1,
+            "FINAL_GENERATION": 1,
+            "tool": 0,
+            "EMBEDDING": 1,
+            "VECTOR": 1
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "terminalEventTypes": [
+            "TASK_FAILED"
+          ]
+        }
+      ]
+    },
+    "B10": {
+      "status": "PASSED",
+      "startedAt": "2026-09-12T08:48:33.569123+00:00",
+      "finishedAt": "2026-09-12T08:48:34.391405+00:00",
+      "tasks": [
+        {
+          "variant": "B10_TOOL_LATE",
+          "taskId": "2098695247760568322",
+          "task": {
+            "status": "CANCELLED",
+            "termination_reason": "USER_CANCELLED",
+            "phase": null,
+            "error_code": null,
+            "decision_turns_used": 1,
+            "tool_calls_used": 1,
+            "input_tokens": 10,
+            "output_tokens": 5,
+            "total_tokens": 15,
+            "token_usage_quality": "EXACT",
+            "started_at": "2026-09-12T16:48:33.611245+08:00",
+            "completed_at": "2026-09-12T16:48:33.823804+08:00",
+            "last_event_sequence": 10
+          },
+          "finalAnswerPublished": false,
+          "citationCount": 0,
+          "recovery": null,
+          "recordCounts": {
+            "agent_step": 3,
+            "llm_call_log": 1,
+            "tool_call_log": 1,
+            "rag_retrieval_log": 1,
+            "agent_task_event": 10
+          },
+          "externalCounts": {
+            "DECISION": 1,
+            "FINAL_GENERATION": 0,
+            "tool": 1,
+            "EMBEDDING": 1,
+            "VECTOR": 1
+          },
+          "runnerEntries": 1,
+          "eventSequences": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "terminalEventTypes": [
+            "TASK_CANCELLED"
+          ]
+        }
+      ]
+    }
+  },
+  "receiptAudit": {
+    "status": "PASSED",
+    "taskCount": 23,
+    "runnerReceiptCount": 23,
+    "externalReceiptCount": 67,
+    "recoveryExternalResends": 0,
+    "unexpectedRunnerReentries": 0,
+    "explicitRejectedInternalRunnerProbes": 0,
+    "method": "Every external receipt precedes its original creator JVM confirmed exit; repeated Runner entries require a matching rejected internal guard fixture command"
+  },
+  "processes": [
+    {
+      "label": "jvm-001",
+      "started": {
+        "pid": 87105,
+        "at": "2026-09-12T08:48:01.063621+00:00",
+        "mode": "CONTROLLED_SINGLE_HOST",
+        "lockPath": "/private/tmp/agentflow-v02b-acceptance-03/domain.lock"
+      },
+      "ready": {
+        "pid": 87105,
+        "at": "2026-09-12T08:48:03.697694Z"
+      },
+      "exited": {
+        "pid": 87105,
+        "at": "2026-09-12T08:48:18.587828+00:00",
+        "returnCode": -9,
+        "confirmedWaitpid": true,
+        "signal": "SIGKILL"
+      }
+    },
+    {
+      "label": "jvm-002",
+      "started": {
+        "pid": 88167,
+        "at": "2026-09-12T08:48:18.590383+00:00",
+        "mode": "CONTROLLED_SINGLE_HOST",
+        "lockPath": "/private/tmp/agentflow-v02b-acceptance-03/domain.lock"
+      },
+      "ready": {
+        "at": "2026-09-12T08:48:22.573389Z",
+        "pid": 88167
+      },
+      "exited": {
+        "pid": 88167,
+        "at": "2026-09-12T08:48:24.072669+00:00",
+        "returnCode": -9,
+        "confirmedWaitpid": true,
+        "signal": "SIGKILL"
+      }
+    },
+    {
+      "label": "jvm-003",
+      "started": {
+        "pid": 88320,
+        "at": "2026-09-12T08:48:24.074268+00:00",
+        "mode": "CONTROLLED_SINGLE_HOST",
+        "lockPath": "/private/tmp/agentflow-v02b-acceptance-03/domain.lock"
+      },
+      "ready": {
+        "pid": 88320,
+        "at": "2026-09-12T08:48:27.980002Z"
+      },
+      "exited": {
+        "pid": 88320,
+        "at": "2026-09-12T08:48:29.648740+00:00",
+        "returnCode": -9,
+        "confirmedWaitpid": true,
+        "signal": "SIGKILL"
+      }
+    },
+    {
+      "label": "jvm-004",
+      "started": {
+        "pid": 88520,
+        "at": "2026-09-12T08:48:29.650342+00:00",
+        "mode": "CONTROLLED_SINGLE_HOST",
+        "lockPath": "/private/tmp/agentflow-v02b-acceptance-03/domain.lock"
+      },
+      "ready": {
+        "at": "2026-09-12T08:48:32.651066Z",
+        "pid": 88520
+      },
+      "exited": {
+        "pid": 88520,
+        "at": "2026-09-12T08:48:34.530497+00:00",
+        "returnCode": -9,
+        "confirmedWaitpid": true,
+        "signal": "SIGKILL"
+      }
+    }
+  ],
+  "B03CompanionRequired": "TaskExternalCallDeadlineTest acquire-before-entry races, exact once release, nested ownership; this harness alone is not that scheduler evidence",
+  "B05": {
+    "taskId": "2098695158191222786",
+    "attempts": [
+      {
+        "taskId": "2098695158191222786",
+        "at": "2026-09-12T08:48:12.331357Z",
+        "observedAt": "2026-09-12T08:48:12.330713Z",
+        "attempt": 1
+      },
+      {
+        "taskId": "2098695158191222786",
+        "at": "2026-09-12T08:48:12.506118Z",
+        "observedAt": "2026-09-12T08:48:12.330713Z",
+        "attempt": 2
+      }
+    ],
+    "sqlAttemptCount": "2"
+  },
+  "B06": {
+    "committedTask": "2098695160380649474",
+    "commitAttempts": [
+      {
+        "taskId": "2098695160380649474",
+        "at": "2026-09-12T08:48:12.802111Z",
+        "observedAt": "2026-09-12T08:48:12.801759Z",
+        "attempt": 1
+      }
+    ],
+    "settlementReturned": {
+      "at": "2026-09-12T08:48:12.805838Z",
+      "result": true
+    },
+    "rollbackTask": "2098695161265647618",
+    "retryAttempts": [
+      {
+        "taskId": "2098695161265647618",
+        "at": "2026-09-12T08:48:13.024798Z",
+        "observedAt": "2026-09-12T08:48:13.024104Z",
+        "attempt": 1
+      },
+      {
+        "taskId": "2098695161265647618",
+        "at": "2026-09-12T08:48:13.135413Z",
+        "observedAt": "2026-09-12T08:48:13.024104Z",
+        "attempt": 2
+      }
+    ],
+    "rollbackSnapshotEvidence": "cases/B06.json in retained final run directory; RUNNING task, no final answer or ANSWER_CHUNK/TASK_COMPLETED after injected event failure"
+  },
+  "B07": [
+    {
+      "variant": "DEADLINE",
+      "taskId": "2098695164868554754",
+      "attempts": [
+        {
+          "taskId": "2098695164868554754",
+          "at": "2026-09-12T08:48:13.898012Z",
+          "observedAt": "2026-09-12T08:48:13.897313Z",
+          "attempt": 1
+        },
+        {
+          "taskId": "2098695164868554754",
+          "at": "2026-09-12T08:48:14.004946Z",
+          "observedAt": "2026-09-12T08:48:13.897313Z",
+          "attempt": 2
+        }
+      ],
+      "finalStatus": "COMPLETED",
+      "completedAt": "2026-09-12T16:48:13.897313+08:00",
+      "totalTokens": 30
+    },
+    {
+      "variant": "CANCEL",
+      "taskId": "2098695174360264706",
+      "attempts": [
+        {
+          "taskId": "2098695174360264706",
+          "at": "2026-09-12T08:48:16.135466Z",
+          "observedAt": "2026-09-12T08:48:16.135028Z",
+          "attempt": 1
+        },
+        {
+          "taskId": "2098695174360264706",
+          "at": "2026-09-12T08:48:16.241398Z",
+          "observedAt": "2026-09-12T08:48:16.135028Z",
+          "attempt": 2
+        }
+      ],
+      "finalStatus": "CANCELLED",
+      "completedAt": "2026-09-12T16:48:16.135028+08:00",
+      "totalTokens": 30
+    },
+    {
+      "variant": "OTHER_TERMINAL",
+      "taskId": "2098695176310616065",
+      "attempts": [
+        {
+          "taskId": "2098695176310616065",
+          "at": "2026-09-12T08:48:16.607137Z",
+          "observedAt": "2026-09-12T08:48:16.606344Z",
+          "attempt": 1
+        },
+        {
+          "taskId": "2098695176310616065",
+          "at": "2026-09-12T08:48:16.712259Z",
+          "observedAt": "2026-09-12T08:48:16.606344Z",
+          "attempt": 2
+        }
+      ],
+      "finalStatus": "COMPLETED",
+      "completedAt": "2026-09-12T16:48:16.735147+08:00",
+      "totalTokens": 0
+    }
+  ],
+  "B08": [
+    {
+      "taskId": "2098695180123238402",
+      "variant": "PERSISTENT",
+      "attempts": [
+        {
+          "taskId": "2098695180123238402",
+          "at": "2026-09-12T08:48:17.575151Z",
+          "observedAt": "2026-09-12T08:48:17.573833Z",
+          "attempt": 1
+        },
+        {
+          "taskId": "2098695180123238402",
+          "at": "2026-09-12T08:48:17.693230Z",
+          "observedAt": "2026-09-12T08:48:17.573833Z",
+          "attempt": 2
+        },
+        {
+          "taskId": "2098695180123238402",
+          "at": "2026-09-12T08:48:18.196767Z",
+          "observedAt": "2026-09-12T08:48:17.573833Z",
+          "attempt": 3
+        }
+      ],
+      "state": {
+        "activeWorkCount": 0,
+        "availablePermits": 1,
+        "capacity": 1,
+        "admissionReady": false,
+        "diagnostic": "TASK_SETTLEMENT_PERSIST_FAILED:task=2098695180123238402:attempts=3:stage=TERMINAL_TRANSACTION",
+        "taskExecutionHealthStatus": "DOWN"
+      },
+      "settlementReturned": {
+        "at": "2026-09-12T08:48:18.201409Z",
+        "result": false
+      },
+      "alreadyCommittedQueuedTask": "2098695179762528257",
+      "queuedRejectionReturned": {
+        "at": "2026-09-12T08:48:18.272170Z",
+        "result": true
+      },
+      "queuedRejection": {
+        "status": "FAILED",
+        "termination_reason": "SYSTEM_ERROR",
+        "phase": null,
+        "error_code": "TASK_DISPATCH_REJECTED",
+        "decision_turns_used": 0,
+        "tool_calls_used": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0,
+        "token_usage_quality": "UNKNOWN",
+        "started_at": null,
+        "completed_at": "2026-09-12T16:48:18.268791+08:00",
+        "last_event_sequence": 2
+      }
+    },
+    {
+      "taskId": "2098695204844445698",
+      "variant": "INVALID",
+      "attempts": [
+        {
+          "attempt": 1,
+          "observedAt": "2026-09-12T08:48:23.600341Z",
+          "at": "2026-09-12T08:48:23.604199Z",
+          "taskId": "2098695204844445698"
+        }
+      ],
+      "state": {
+        "activeWorkCount": 0,
+        "availablePermits": 1,
+        "capacity": 1,
+        "admissionReady": false,
+        "diagnostic": "TASK_SETTLEMENT_PERSIST_FAILED:task=2098695204844445698:attempts=1:stage=TERMINAL_TRANSACTION",
+        "taskExecutionHealthStatus": "DOWN"
+      },
+      "settlementReturned": {
+        "result": false,
+        "at": "2026-09-12T08:48:23.671173Z"
+      },
+      "alreadyCommittedQueuedTask": "2098695204370489345",
+      "queuedRejectionReturned": {
+        "result": true,
+        "at": "2026-09-12T08:48:23.783710Z"
+      },
+      "queuedRejection": {
+        "status": "FAILED",
+        "termination_reason": "SYSTEM_ERROR",
+        "phase": null,
+        "error_code": "TASK_DISPATCH_REJECTED",
+        "decision_turns_used": 0,
+        "tool_calls_used": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0,
+        "token_usage_quality": "UNKNOWN",
+        "started_at": null,
+        "completed_at": "2026-09-12T16:48:23.779252+08:00",
+        "last_event_sequence": 2
+      }
+    }
+  ],
+  "B09": {
+    "taskId": "2098695228810694657",
+    "creatorPid": 88320,
+    "replacementPid": 88520,
+    "retryEntrySignals": [
+      {
+        "attempt": 1,
+        "taskId": "2098695228810694657",
+        "at": "2026-09-12T08:48:29.215715Z",
+        "observedAt": "2026-09-12T08:48:29.212658Z"
+      },
+      {
+        "attempt": 2,
+        "taskId": "2098695228810694657",
+        "at": "2026-09-12T08:48:29.378583Z",
+        "observedAt": "2026-09-12T08:48:29.212658Z"
+      }
+    ],
+    "creatorExit": {
+      "pid": 88320,
+      "at": "2026-09-12T08:48:29.648740+00:00",
+      "returnCode": -9,
+      "confirmedWaitpid": true,
+      "signal": "SIGKILL"
+    },
+    "memoryOutcomeNotRestoredAsSuccess": true,
+    "recoveredStatus": "FAILED",
+    "errorCode": "TASK_RESTART_INTERRUPTED",
+    "recordedTokens": 30,
+    "usageQuality": "UNKNOWN",
+    "recovery": {
+      "schemaVersion": "task-recovery-v1",
+      "mode": "CONTROLLED_SINGLE_HOST",
+      "recoveryRunId": "d18361eb-666f-4d2b-a19d-4a538931dede",
+      "recoveredAt": "2026-09-12T08:48:32.619076Z",
+      "previousStatus": "RUNNING",
+      "reasonCode": "TASK_RESTART_INTERRUPTED",
+      "executionOutcome": "UNKNOWN",
+      "recordCompleteness": "UNCONFIRMED",
+      "counterCompleteness": "UNCONFIRMED",
+      "recordedLlmCalls": 2,
+      "recordedToolCalls": 0,
+      "recordedUsage": {
+        "inputTokens": 20,
+        "outputTokens": 10,
+        "totalTokens": 30,
+        "tokenUsageQuality": "EXACT"
+      },
+      "previousTaskUsage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "totalTokens": 0,
+        "tokenUsageQuality": "UNKNOWN"
+      }
+    }
+  },
+  "B10": {
+    "taskId": "2098695247760568322",
+    "lateWriteAttempts": {
+      "toolRowsUpdated": 0,
+      "stepRowsUpdated": 0
+    },
+    "actualHandlerLateWriteAttempts": {
+      "toolRowsUpdated": 0,
+      "stepRowsUpdated": 0
+    },
+    "backgroundObservationRounds": 3,
+    "readSurfaces": [
+      "GET",
+      "Trace",
+      "SSE"
+    ],
+    "observationsAllIdentical": true,
+    "observationPhases": [
+      "handler blocked",
+      "release started",
+      "actual handler late writes exited"
+    ],
+    "originalUsageQualityPreserved": "EXACT"
+  },
+  "diagnostics": {
+    "abandonedWorkWarning": "TASK_EXTERNAL_WORK_STILL_RUNNING active=1 capacity=1",
+    "abandonedWorkWarningObserved": true,
+    "settlementFailureCode": "TASK_SETTLEMENT_PERSIST_FAILED"
+  },
+  "notExecutedHere": [
+    "V47 real external success path (separate preflight/result)",
+    "Full V0.2 release acceptance",
+    "V0.3"
+  ],
+  "companionEvidence": "See V0.2-B-20260912.json for final Java, PostgreSQL transaction races, A/V48 and frontend regressions"
+}

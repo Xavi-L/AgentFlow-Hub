@@ -27,7 +27,7 @@ public class BoundedTaskDispatcher implements TaskDispatcher {
     public void dispatch(long taskId) {
         admission.requireReady();
         try {
-            executor.execute(() -> taskRunner.run(taskId));
+            executor.execute(() -> taskRunner.runDispatched(taskId));
         } catch (RuntimeException ex) {
             throw new TaskDispatchRejectedException("Agent task executor rejected task " + taskId, ex);
         }

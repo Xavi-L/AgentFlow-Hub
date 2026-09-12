@@ -36,6 +36,7 @@ import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /** Real task execution loop. The Runner alone owns task terminal transitions and answer publication. */
 @Component
@@ -51,6 +52,7 @@ public final class TaskSnapshotAgentExecutor {
     private final TaskPromptBuilder prompts;
     private final ObjectMapper mapper;
     private final Clock clock;
+    private final TaskExternalCallDeadline externalCalls;
     private final int decisionMaxOutputTokens;
     private final boolean decisionJsonSchemaEnabled;
     private final String decisionResponseFormat;
@@ -61,6 +63,15 @@ public final class TaskSnapshotAgentExecutor {
             ExecutionRecorderFactory recorderFactory, AgentTaskLifecycleTransactionService lifecycle,
             AgentDecisionParser parser, TaskPromptBuilder prompts, ObjectMapper mapper, Clock clock,
             TaskExecutionProperties executionProperties) {
+        this(ragService, gateway, tools, recorderFactory, lifecycle, parser, prompts, mapper, clock,
+                executionProperties, new TaskExternalCallDeadline(executionProperties));
+    }
+
+    @Autowired
+    public TaskSnapshotAgentExecutor(SnapshotRagService ragService, LlmGateway gateway, ToolRuntime tools,
+            ExecutionRecorderFactory recorderFactory, AgentTaskLifecycleTransactionService lifecycle,
+            AgentDecisionParser parser, TaskPromptBuilder prompts, ObjectMapper mapper, Clock clock,
+            TaskExecutionProperties executionProperties, TaskExternalCallDeadline externalCalls) {
         this.ragService = ragService;
         this.gateway = gateway;
         this.tools = tools;
@@ -70,6 +81,7 @@ public final class TaskSnapshotAgentExecutor {
         this.prompts = prompts;
         this.mapper = mapper;
         this.clock = clock;
+        this.externalCalls = externalCalls;
         this.decisionMaxOutputTokens = executionProperties.getDecisionMaxOutputTokens();
         this.decisionJsonSchemaEnabled = executionProperties.isDecisionJsonSchemaEnabled();
         if (!executionProperties.isDecisionFormatExclusive()) {
@@ -159,8 +171,11 @@ public final class TaskSnapshotAgentExecutor {
         long started = System.nanoTime();
         SnapshotRagResult result;
         try {
-            result = TaskExternalCallDeadline.call(
-                    () -> ragService.retrieve(state.request, state::boundary), state.request.deadlineAt(), clock, state::boundary);
+            result = externalCalls.call(
+                    () -> ragService.retrieve(state.request, () -> {
+                        externalCalls.checkCurrentWorkBoundary();
+                        state.boundary();
+                    }), state.request.deadlineAt(), clock, state::boundary);
             state.boundary();
         } catch (RuntimeException ex) {
             TaskExecutionAbort abort = asAbort(ex, "RAG_RETRIEVAL_FAILED", "Knowledge retrieval failed");
@@ -211,6 +226,8 @@ public final class TaskSnapshotAgentExecutor {
         long started = System.nanoTime();
         LlmChatResult result = null;
         TaskTokenUsage callUsage = null;
+        java.util.concurrent.atomic.AtomicReference<LlmChatResult> observedResult = new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<TaskTokenUsage> observedUsage = new java.util.concurrent.atomic.AtomicReference<>();
         T validated;
         java.util.concurrent.atomic.AtomicBoolean callStarted = new java.util.concurrent.atomic.AtomicBoolean();
         try {
@@ -218,17 +235,23 @@ public final class TaskSnapshotAgentExecutor {
             Instant callDeadline = state.request.deadlineAt();
             boolean callLimitFirst = timeout != null && clock.instant().plusSeconds(timeout).isBefore(callDeadline);
             if (callLimitFirst) callDeadline = clock.instant().plusSeconds(timeout);
-            result = TaskExternalCallDeadline.call(() -> {
+            result = externalCalls.call(() -> {
                 state.boundary();
                 if (type == LlmCallType.DECISION) state.turns++;
                 callStarted.set(true);
                 return gateway.chat(request);
-            }, callDeadline, clock, state::boundary,
-                    callLimitFirst ? "AGENT_LLM_TIMEOUT" : "TASK_TIMED_OUT",
-                    callLimitFirst ? "Model call exceeded its time limit" : "Task deadline was exceeded");
+            }, callDeadline, clock, state::boundary, returned -> {
+                observedResult.set(returned);
+                if (returned != null) {
+                    TaskTokenUsage usage = measuredUsage(returned, messages, responseSchema);
+                    observedUsage.set(usage);
+                    state.account(usage);
+                }
+            }, () -> new TaskExecutionAbort(callLimitFirst ? "AGENT_LLM_TIMEOUT" : "TASK_TIMED_OUT",
+                    callLimitFirst ? "Model call exceeded its time limit" : "Task deadline was exceeded"),
+                    () -> new TaskExecutionAbort("AGENT_EXECUTION_INTERRUPTED", "Task execution was interrupted"));
             if (result == null) throw new TaskExecutionAbort("AGENT_LLM_FAILED", "Model call returned no result");
-            callUsage = measuredUsage(result, messages, responseSchema);
-            state.account(callUsage);
+            callUsage = observedUsage.get();
             state.boundary();
             if (state.usage().totalTokens() > state.request.executionSnapshot().agent().maxTotalTokens()) {
                 throw tokenExhausted();
@@ -242,6 +265,8 @@ public final class TaskSnapshotAgentExecutor {
                 throw new TaskExecutionAbort("AGENT_RESPONSE_LIMIT", "Model response exceeds the bounded output size");
             }
         } catch (RuntimeException ex) {
+            result = observedResult.get();
+            callUsage = observedUsage.get();
             LlmFailureMetadata failureMetadata = ex instanceof LlmGatewayException failure ? failure.metadata() : null;
             if (!callStarted.get()) {
                 TaskExecutionAbort abort = asAbort(ex, "AGENT_LLM_FAILED", "Model call failed");

@@ -13,6 +13,16 @@ import org.springframework.validation.annotation.Validated;
 @ConfigurationProperties("agentflow.task.execution")
 public class TaskExecutionProperties {
     @Min(1)
+    @Max(64)
+    private int maxConcurrentExternalCalls = 4;
+
+    public int getMaxConcurrentExternalCalls() { return maxConcurrentExternalCalls; }
+
+    public void setMaxConcurrentExternalCalls(int maxConcurrentExternalCalls) {
+        this.maxConcurrentExternalCalls = maxConcurrentExternalCalls;
+    }
+
+    @Min(1)
     @Max(16384)
     private int decisionMaxOutputTokens = 512;
     private boolean decisionJsonSchemaEnabled;

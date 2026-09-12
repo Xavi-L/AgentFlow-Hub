@@ -656,3 +656,9 @@ TOOL_LOG_PERSIST_FAILED
 12. 支付 Agent 只能成功调用 order_query 和 payment_log_query；
 13. report_generate 不出现在 V0.1 availableTools；
 14. Engine 的重复调用防护能终止循环且不伪造调用日志。
+
+## V0.2-B 工具中断边界
+
+Task ToolRuntime 内 handler 工作体为唯一许可拥有者，与 LLM/任务检索共用默认 4 个实际工作许可；Engine 不在 ToolRuntime 外再占同一许可。许可由 handler 真正退出 finally 释放，外层取消/超时不提前归还；嵌套同步工作继承已有许可及中断边界。既有 per-tool/task deadline、零自动调用重试保持。
+
+工具日志只允许 RUNNING 条件终结，并复核所属 task/step 仍允许写入；step 结束同样受父 task 条件保护。迟到 handler 无权把已经 TIMEOUT/FAILED 的调用或结束 step 改回 SUCCESS，也不能在 task 终态后产生新的执行成功事实。持久未知结果保留未知，供应商迟到结果对账与写工具补偿未纳入本片。

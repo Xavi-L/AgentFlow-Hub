@@ -1,7 +1,7 @@
 # V0.2 施工契约：受控重启收尾与中断加固
 
 > 文档日期：2026-09-12。审查基线：`main@dce66e3365f45f2492d1b10d7c03118ac1564514`。
-> 状态：**V0.2-A 已实现，A01–A17 受控验收通过；V47 真实服务回归 BLOCKED；V0.2-B 待实现**。本轮没有整个 V0.2 发布声明。
+> 状态：**V0.2-A 已交付于 9012e26；V0.2-B 已实现，B01–B10 与相关受控回归通过；V47 真实服务回归 BLOCKED**。B 交付由包含本节的提交承载，验收时的工作树基线保留在证据中；没有整个 V0.2 发布声明。
 > 版本范围来源：[Project Spec §7.1](../spec-docs/agentflow-hub-project-spec.md)；规范优先级见[文档索引](../spec-docs/README.md)。
 > 执行顺序：**V0.2-A 单独施工、验收，再做 V0.2-B**。不因本文同时描述两片而一次实现全部功能。
 
@@ -30,17 +30,23 @@
 - [TaskExternalCallDeadline](../backend/src/main/java/com/agentflow/agent/engine/TaskExternalCallDeadline.java)限制调用方等待；底层 I/O 中断是协作式的。
 - [高级设置契约](../V0.1-slice-docs/51_AGENT_ADVANCED_SETTINGS_PACKAGE_INTERFACE.md)已交付 V21 migration、snapshot v2、单次模型超时与已有失败元数据处理；本轮不重做这些功能。
 
-### 1.2 本轮实际 HEAD 核对（2026-09-12）
+### 1.2 A 施工时的 HEAD 核对（2026-09-12，历史记录）
 
 当前 `HEAD=fb6a325a9d1906632ca81eee1d2eb10f86359214`，相对本文基线 `dce66e3365f45f2492d1b10d7c03118ac1564514` 只有三份文档增改：本文件、V0.3 首份契约、spec-docs/README.md；无生产代码/migration/测试漂移。保留本轮前已有 `backend/http/user-auth.http` 和 `backend/src/main/resources/application-dev.yml` 本地修改。
 
 本轮先同步 Engine/Data/API/Frontend/Roadmap 的 V0.2-A 规范投影，再实现：复用 TaskEventAppender 的事务内 sequence 分配与既有生命周期/owner/幂等/快照读取；新增专用恢复 Mapper 和独立单任务事务，避免嵌套调用原 REQUIRES_NEW 记录服务。受影响入口为 task 创建与取消、内部 create/dispatch/run/claim、Task/Trace DTO、事件 recovery 摘要和 Task/Trace 前端；相关回归覆盖生命周期/执行/Trace/API/SSE、V48 与 V47 预检。下一可用 migration 为 V22，V1–V21 保持不变。
 
+### 1.3 B 施工前的 HEAD 核对（2026-09-12）
+
+本轮 `HEAD=origin/main=9012e26059e8ea5d2dc82d96a6500b070a6cd918`，已经 fetch 核对远端；相对指定 A 交付 `9012e26` 无新增提交/代码变化。既有本地修改仍只有 `backend/http/user-auth.http`、`backend/src/main/resources/application-dev.yml`，保留原样。A 的 §9 工作树记录现已有上述交付提交，不能再误读为未交付。
+
+B 复用 A 准入/健康/启动收尾、生命周期状态/事件短事务和 V48 观察恢复。先同步 Engine/Data/API/Frontend/Roadmap，再补充 Tool/RAG 调用边界投影；实现影响 Runner、终态保存、after-commit/排队拒绝、LLM/RAG/ToolRuntime 外部工作、step/tool 记录守卫及运行超时配置。V1–V22 不修改；不新增迁移或 V0.3 能力。实际变更与验收结果列于 §10。
+
 ## 2. 给 Codex 的施工规则
 
 先核对实际 HEAD 与本文基线的差异，列出复用点、受影响接口和测试；不得把文档里的“目标行为”当成已实现代码。先同步受影响的 Engine/Data Model/API/Frontend 规范投影，再提交 migration、实现和测试；不得只在 DTO 中偷偷创造新语义。
 
-必须保持：现有任务 ID、owner 隔离、任务终态不可复活、幂等请求指向原任务、快照不可改写、事件序号由原追加器生成，以及正常执行中的短事务边界。不得修改已应用的 V1–V21；后续迁移取施工时下一个未使用编号，不预占另一分支的编号。
+必须保持：现有任务 ID、owner 隔离、任务终态不可复活、幂等请求指向原任务、快照不可改写、事件序号由原追加器生成，以及正常执行中的短事务边界。B 施工不得修改已应用的 V1–V22；后续迁移取施工时下一个未使用编号，不预占另一分支的编号。
 
 每片 PR 分开报告：实现了什么、运行了哪些命令、哪些环境被跳过、哪些外部边界受控、失败记录在哪里。不接受只修改说明文字或直接改数据库任务终态作为端到端验收。
 
@@ -257,7 +263,7 @@ A 的交付必须包含启动/冷切换说明、受控进程锁与门禁、收�
 | 里程碑 | 完成门槛 | 当前状态 |
 | --- | --- | --- |
 | V0.2-A | A01–A17 必测；原子性、互斥与零重发无例外；相关回归证据齐备 | 已实现；A01–A17 17/17 与相关受控回归通过；V47 因凭据缺失 BLOCKED，全部发布证据未齐 |
-| V0.2-B | B01–B10 必测；资源有界、迟到结果隔离、仅持久化重试成立 | 未实现 / 未验收 |
+| V0.2-B | B01–B10 必测；资源有界、迟到结果隔离、仅持久化重试成立 | 已实现；B01–B10 10/10、相关受控回归通过；V47 BLOCKED，全部发布证据未齐 |
 
 阻断项未解决时停止扩大范围，先记录最小复现；不得删除断言、跳过失败样本、缩小到单元测试后宣称完成。
 
@@ -274,7 +280,7 @@ A 的交付必须包含启动/冷切换说明、受控进程锁与门禁、收�
 - [Spring 事务传播](https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/tx-propagation.html)：`REQUIRES_NEW` 使用独立物理事务。
 - [Spring Boot 启动生命周期](https://docs.spring.io/spring-boot/reference/features/spring-application.html)：应用生命周期/readiness 不替代任务服务层准入检查。
 
-## 9. 本轮实际施工与验收记录（2026-09-12）
+## 9. A 实际施工与验收记录（2026-09-12，历史证据）
 
 本轮实现位于 `fb6a325a9d1906632ca81eee1d2eb10f86359214` 之上的未提交工作树；该 HEAD 本身仍是文档基线，不能将它单独当成本轮实现提交。实际命令、逐次失败、最终矩阵和机器摘要保存于 [V0.2-A-20260912.json](evidence/V0.2-A-20260912.json)。
 
@@ -329,7 +335,76 @@ bash scripts/v47-real-provider-acceptance.sh --preflight-only
 
 付费供应商真实回归因环境缺失明确未执行。A 中 COMMIT 应答丢失使用真实 PostgreSQL COMMIT 成功后的 test-only 代理异常，是受控应答丢失窗口，不宣称真实网络物理断包。旧版冷切换使用当时 Git HEAD `fb6a325` 的实际 pre-lock 后端单独编译运行，仍是隔离数据库内的受控升级，不是现网部署证明。交付入口随后将 `--legacy-ref` 默认值固定到该完整 SHA，解析并记录实际 commit，避免 A 合并后把新 HEAD 当旧版；`baseline-equivalence.json` 证明与 run6 实际归档源码相同，两个纯脚本回归通过。
 
-本轮不实施 V0.2-B、V0.3，不做运行期扫描/续跑/重新投递/外部调用重发；不以受控矩阵宣称真实供应商中断结果或计费已确认，也不宣称整个 V0.2 Release Gate 通过。
+A 交付当时不含 V0.2-B、V0.3；B 的后续独立实现见 §10。两片均不做运行期扫描/续跑/重新投递/外部调用重发；不以受控矩阵宣称真实供应商中断结果或计费已确认，也不宣称整个 V0.2 Release Gate 通过。
+
+## 10. B 实际施工与验收记录（2026-09-12）
+
+验收在 `9012e26` 之上的工作树完成，B 实现随包含本节的提交交付，不把该 A 提交当成 B 实现 SHA。V1–V22 保持不变，B 无 migration；§1.3 所列两个既有本地修改已逐字节核对原样保留并排除出交付。总命令/结果/失败与跳过项见 [V0.2-B-20260912.json](evidence/V0.2-B-20260912.json)，逐 case、任务/进程/事件/计数见 [V0.2-B-process-20260912.json](evidence/V0.2-B-process-20260912.json)。
+
+### 10.1 实际调用路径审计
+
+| 路径 | 实际本地工作体 / 唯一许可拥有者 | 中断、迟到写入与独立超时 |
+| --- | --- | --- |
+| 决策/最终 LLM | TaskSnapshotAgentExecutor → TaskExternalCallDeadline → LlmGateway → Spring AI 同步 HTTP | 默认 30s HTTP；冻结单次 1–600s 覆盖独立 connect/read。SpringAiConfig upstream attempts=1；正常返回先记录可用 usage 再仲裁，放弃等待后不接收迟到答案 |
+| 任务前置 RAG | 同一 helper 持有整个 SnapshotRagService 顺序工作：embedding → 各 KB vector → PG canonical chunk | 阶段间取消/deadline 检查；embedding 默认 30s、vector 默认 10s connect/read；迟到 embedding 不触发后续 vector。整段一个许可，无嵌套重复占用 |
+| Task ToolRuntime | Engine 直接调用 ToolRuntime；Runtime 内 handler 经共享 helper 获取唯一许可 | snapshot/current/task 中最短时限；只读同步 handler/JDBC；日志由等待者终结，迟到实际 handler 更新受调用、step、task 条件保护 |
+| step/LLM/RAG/tool 记录 | 父 task 行锁与记录状态条件更新，短事务 | 与任务终态事务仲裁；已经结束的记录不改回 SUCCESS，父 task 已终态不新增迟到成功事实；未知用量不补成完整 |
+| JDBC 与调度 | Runner 线程池默认 2/4、队列 100；独立实际外部工作许可默认 4 | Hikari 获取 5s；PG connect 5s/socket 15s/cancel 2s/statement 10s/lock 5s；结算事务与回读另有 5s。进程内 outcome 随有界 Runner 保存，不新增可靠队列 |
+
+许可配置为 `agentflow.task.execution.max-concurrent-external-calls`（环境变量 `AGENTFLOW_TASK_MAX_CONCURRENT_EXTERNAL_CALLS`，默认 4，允许 1–64）。进入工作体后只由其 finally 释放；尚未进入的取消与工作启动通过原子所有权仲裁归还一次。同步嵌套继承父许可与所有上层取消/deadline。永久不响应可占满许可，本片只限制实际并发损害，不证明依赖已停止。
+
+外层已退出但实际工作仍运行时输出一次 `TASK_EXTERNAL_WORK_STILL_RUNNING active/capacity` 安全诊断；RAG 阶段检查同时覆盖 wall clock、monotonic deadline 和已放弃标记。工具工作体保留 `agent-tool-<taskId>` 诊断关联并在 finally 恢复原线程名，不影响许可所有权。
+
+范围是 Agent task 执行链；独立知识文档 ingestion/vector 写入与 standalone 工具测试入口不属于本片任务取消语义，也不能宣称受任务许可全面限流。供应商执行结果、计费和迟到对账保持未知；受控 HTTP receipt 只能证明受控请求接收。
+
+### 10.2 有限保存与运行期降级
+
+TaskRunner 冻结首次 outcome/usage/计数及完成观察时间，在执行 catch 之外调用 TaskSettlementService；每次回读，已终态接受，否则由 `settleObserved` 独立短事务锁 task 并尊重持久取消意图。completedAt 保留首次观察，updatedAt 使用实际保存时钟并不回退。COMMIT 未知先回读确认；只有暂时数据库故障最多首次加 2 次、100ms/500ms。约束/非法数据拒绝盲重试。耗尽与非暂时错误输出安全诊断 TASK_SETTLEMENT_PERSIST_FAILED 并关闭准入/健康门禁；after-commit 及队列中未领取任务通过原调度拒绝持久路径收尾，失败同样诊断。
+
+### 10.3 实际验收
+
+| 验证 | 最终结果 / 实际证据边界 |
+| --- | --- |
+| B01–B10 | **10/10**；最终 `agentflow-v02b-acceptance-03`，23 task、23 Runner receipt、67 独立受控 HTTP receipts；意外重入/恢复重发均 0 |
+| B03 许可细粒度竞态 / 嵌套 | helper 6/6；真实工作占用、获得前/获得后未入体取消、启动失败、正常返回先观察和孙层边界均覆盖；不是仅靠进程矩阵推断 |
+| B04 与迟到 RAG/工具 | executor 39/39、task tool 11/11、RAG 10/10；含单次/整体时限、可用 usage、普通中断与冻结时钟下 embedding 迟到不再 vector |
+| B05–B08 终态保存 | service 单元 11/11、Runner 2/2；真实 PG 专项 9/9，含两次暂时错误、事件回滚、COMMIT 未知、持久取消/另一终态、非暂时/耗尽与时间不回退 |
+| B08 实际门禁与队列 | 暂时故障 3 次、23514 1 次；Spring taskExecutionHealthIndicator 为 DOWN；此前已提交 QUEUED 经原持久拒绝路径 FAILED/TASK_DISPATCH_REJECTED，未领取/未调用 |
+| B09 | task `2098695228810694657`；旧 PID `88320` 于 `2026-09-12T08:48:29.648740Z` SIGKILL + waitpid 确认退出，新 PID `88520`；FAILED/TASK_RESTART_INTERRUPTED，已记录 30 tokens、完整性 UNKNOWN；不恢复丢失内存成功结果 |
+| B10 | 实际迟到 handler 与额外 mapper 写入均 0 行；返回前/中/后三轮背景 GET/Trace/SSE 一致。另两项真实 PG 测试在 pg_stat_activity 确认父 task/step 锁等待，提交终态后拒绝迟到写入 |
+| 后端全量默认测试 | 841 个报告条目中 **776 通过、65 opt-in PG 跳过**，0 failures/errors；相关 PG 随后独立执行见下一行。最终日志/线程关联改动再定向 66/66 |
+| 真实 PG 新旧回归 | **70/70，0 跳过**：settlement 9、A recovery 14、生命周期 8、执行 15、Trace 10、API 7、SSE 7；每类独立库/锁/JVM，均 V1–V22 |
+| A01–A17 / A15 浏览器 | **17/17 + 3/3**，最终 `agentflow-v02b-a-regression-01`；25 task、26 Runner receipts（含 1 次明确拒绝内部探针）、26 HTTP receipts，恢复重发 0 |
+| V48 | 最终 run02 **22/22 浏览器、803 case PG checks、3 global checks**，collectorErrors=[]；原断言未放宽 |
+| 前端 / 脚本 | 单元 99/99 + build；冷切换脚本 4/4、A 证据检查 2/2、V47 预检逻辑 3/3 |
+| V47 真实服务成功回归 | **BLOCKED / 未执行**；host 预检缺 DASHSCOPE_API_KEY，chatModels 未就绪，未发真实模型生成请求；受控成功不替代 |
+
+已执行的主要命令如下；所有完整参数、每类 PG 命令及日志目录均在总摘要中。已有完成目录不得复用，重跑时换新的 `--run-dir`/control dir。
+
+```bash
+export JAVA_HOME=/Users/xavier/Library/Java/JavaVirtualMachines/ms-21.0.11/Contents/Home
+mvn -q -f backend/pom.xml '-DargLine=-javaagent:/Users/xavier/.m2/repository/org/mockito/mockito-core/5.17.0/mockito-core-5.17.0.jar' test dependency:build-classpath -Dmdep.includeScope=test -Dmdep.outputFile=/private/tmp/agentflow-v02b-work/classpath.txt
+mvn -q -f backend/pom.xml '-DargLine=-javaagent:/Users/xavier/.m2/repository/org/mockito/mockito-core/5.17.0/mockito-core-5.17.0.jar' -Dtest=TaskExternalCallDeadlineTest,TaskSnapshotAgentExecutorTest,TaskScopedToolRuntimeTest,SnapshotRagServiceTest test
+bash scripts/v02b-interruption-acceptance.sh --compiled-classpath /private/tmp/agentflow-v02b-work/classpath.txt --run-dir /private/tmp/agentflow-v02b-acceptance-03
+bash scripts/v02a-restart-acceptance.sh --compiled-classpath /private/tmp/agentflow-v02b-work/classpath.txt --pg-port 55471 --backend-port 18071 --external-port 19071 --frontend-port 5191 --run-dir /private/tmp/agentflow-v02b-a-regression-01
+TMPDIR=/private/tmp V48_CONTROL_DIR=/private/tmp/agentflow-v02b-v48-regression-02 bash scripts/v48-failure-recovery-acceptance.sh
+npm --prefix frontend test
+npm --prefix frontend run build
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/test_task_cold_cutover.py -v
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/test_v02a_acceptance_evidence.py
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/test_v47_preflight.py
+V47_CONTROL_DIR=/private/tmp/agentflow-v02b-v47-host-preflight-20260912 bash scripts/v47-real-provider-acceptance.sh --preflight-only
+```
+
+PG 验收使用本次 `/private/tmp/agentflow-v02b-work/pg-regressions.py` 启动端口 55472 的 disposable 集群、逐类新建库并执行 Maven，具体 initdb/createdb、完整 JDBC/用户/锁路径和每类命令保存在日志及总摘要 `postgres.runs`。独立复现某类时必须给测试专用库及 `-Dagentflow.postgres.integration=true`，不能指向开发库。结算 PG 的 9 项用受控退避记录校验精确 100/500ms；进程矩阵执行生产实际退避。
+
+### 10.4 失败、跳过与限制
+
+- B run01 在 sandbox loopback bind 阶段失败，未运行 case；改用已授权 host 环境。run02 初轮 10/10 保留但被替代：随后补强真实 Runner 新入口计数、结算返回信号、QUEUED 拒绝、健康状态及 B10 连续观察，并修复冻结时钟下迟到 RAG/普通工具中断边界；最终只采用 run03。
+- V48 run01 为 17/22，F02/F04/C01/C02/C03 失败。共享工作线程名称变化使旧夹具在 handler ENTER 前拒绝关联。实际工具工作体恢复 `agent-tool-<taskId>` 并 finally 还原，单元验证后以全新 run02 执行原 22 例全部通过；没有删除断言或重用失败 task。
+- V47 首次 sandbox 预检混有端口/浏览器权限限制；host 再预检消除了这些环境噪声，但供应商前置条件仍未满足，因此真实成功回归明确 BLOCKED。默认全量命令跳过的相关 PG 已由 70 项运行补齐；未受影响的 KnowledgeReadinessPostgresIntegrationTest 6 个 opt-in 方法不在本轮中断范围，未执行。
+- COMMIT 应答丢失是实际 PostgreSQL COMMIT 返回后的 test-only 代理异常，非真实网络物理断包。独立 HTTP 模型/embedding/vector/handler 都是受控边界，不证明付费供应商取消、生效结果或计费；永久不合作依赖仍可能需要人工受控重启。
+- 证据摘要保存验收时 A 基线加未提交工作树的状态；验收后按 47 文件白名单提交交付，不改写历史证据或将 `9012e26` 冒称 B 实现提交。无 V0.3 施工，不宣称整个 V0.2 或所有真实外部回归已经完成。
 
 ## 面试问题与回答
 
@@ -351,8 +426,8 @@ bash scripts/v47-real-provider-acceptance.sh --preflight-only
 
 **问题 5：取消后 Future 已完成，为什么还要限制实际工作体？**
 
-回答：取消的 Future 可以已结束而底层工作尚未退出。B 的目标是许可随真实工作体退出释放，避免超时后不断新增失控调用；不承诺能强制停止任意不合作依赖。
+回答：取消的 Future 可以已结束而底层工作尚未退出。B 用原子许可所有权区分尚未进入与已经进入，前者取消归还一次，后者只在工作体 finally 归还；LLM/顺序 RAG/handler 各一个拥有者，嵌套继承许可和时限。不承诺能强制停止任意不合作依赖；实际受控验收见 §10。
 
 **问题 6：终态写入重试为什么不算任务重试？**
 
-回答：B 只保存同一份已观测 outcome，回读数据库并做条件更新；不会再次进入 Engine 或发模型/工具调用。重试次数有限，持续数据库故障要降级和说明未收尾事实，不能宣传为无限可靠恢复。
+回答：B 保存最初 outcome、usage 和完成观察时间，最多 3 次、退避 100ms/500ms；回读确认未知 COMMIT，在独立事务内尊重持久取消意图。重试等待跨 deadline 不把原结果改成历史超时，也不会再次进入 Engine。耗尽关闭准入并明确数据库未收尾，丢失内存后只能由 A 按中断事实收尾，不能恢复成功或伪造供应商完整用量。

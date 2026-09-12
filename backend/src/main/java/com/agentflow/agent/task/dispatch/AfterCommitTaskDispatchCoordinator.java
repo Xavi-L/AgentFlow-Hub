@@ -1,6 +1,6 @@
 package com.agentflow.agent.task.dispatch;
 
-import com.agentflow.agent.task.service.AgentTaskLifecycleTransactionService;
+import com.agentflow.agent.task.execution.TaskSettlementService;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,16 +14,16 @@ public class AfterCommitTaskDispatchCoordinator {
     private static final Logger log = LoggerFactory.getLogger(AfterCommitTaskDispatchCoordinator.class);
 
     private final TaskDispatcher taskDispatcher;
-    private final AgentTaskLifecycleTransactionService lifecycleTransactions;
+    private final TaskSettlementService settlement;
 
     public AfterCommitTaskDispatchCoordinator(
             TaskDispatcher taskDispatcher,
-            AgentTaskLifecycleTransactionService lifecycleTransactions
+            TaskSettlementService settlement
     ) {
         this.taskDispatcher = Objects.requireNonNull(taskDispatcher, "taskDispatcher must not be null");
-        this.lifecycleTransactions = Objects.requireNonNull(
-                lifecycleTransactions,
-                "lifecycleTransactions must not be null"
+        this.settlement = Objects.requireNonNull(
+                settlement,
+                "settlement must not be null"
         );
     }
 
@@ -46,15 +46,6 @@ public class AfterCommitTaskDispatchCoordinator {
 
     private void compensateRejectedDispatch(long taskId, RuntimeException dispatchFailure) {
         log.warn("Task {} dispatch was rejected; persisting terminal compensation", taskId);
-        try {
-            lifecycleTransactions.markDispatchRejected(taskId);
-        } catch (RuntimeException compensationFailure) {
-            log.error(
-                    "Task {} dispatch rejection compensation failed",
-                    taskId,
-                    compensationFailure
-            );
-            log.debug("Original task dispatch failure", dispatchFailure);
-        }
+        settlement.rejectDispatch(taskId);
     }
 }

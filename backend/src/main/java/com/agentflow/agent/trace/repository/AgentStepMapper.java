@@ -43,6 +43,9 @@ public interface AgentStepMapper {
     int insertStep(AgentStepRecord record);
 
     @Update("""
+            WITH active_task AS (
+                SELECT id FROM agent_task WHERE id = #{taskId} AND status = 'RUNNING' FOR UPDATE
+            )
             UPDATE agent_step
             SET status = 'SUCCESS',
                 summary = CAST(#{summaryJson,jdbcType=VARCHAR} AS JSONB),
@@ -54,6 +57,7 @@ public interface AgentStepMapper {
               AND task_id = #{taskId}
               AND status = 'RUNNING'
               AND #{endedAt} >= started_at
+              AND EXISTS (SELECT 1 FROM active_task)
             """)
     int completeRunning(
             @Param("taskId") long taskId,
@@ -63,6 +67,9 @@ public interface AgentStepMapper {
     );
 
     @Update("""
+            WITH active_task AS (
+                SELECT id FROM agent_task WHERE id = #{taskId} AND status = 'RUNNING' FOR UPDATE
+            )
             UPDATE agent_step
             SET status = 'FAILED',
                 summary = '{}'::jsonb,
@@ -74,6 +81,7 @@ public interface AgentStepMapper {
               AND task_id = #{taskId}
               AND status = 'RUNNING'
               AND #{endedAt} >= started_at
+              AND EXISTS (SELECT 1 FROM active_task)
             """)
     int failRunning(
             @Param("taskId") long taskId,

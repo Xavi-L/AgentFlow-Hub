@@ -53,6 +53,18 @@ public interface ToolCallLogMapper {
     int insertCall(ToolCallLogRecord record);
 
     @Update("""
+            WITH active_task AS (
+                SELECT task.id FROM agent_task task
+                JOIN tool_call_log call ON call.task_id = task.id
+                WHERE call.id = #{id} AND task.status = 'RUNNING'
+                FOR UPDATE OF task
+            ), active_step AS (
+                SELECT step.id FROM agent_step step
+                JOIN tool_call_log call ON call.step_id = step.id AND call.task_id = step.task_id
+                WHERE call.id = #{id} AND step.status = 'RUNNING'
+                  AND EXISTS (SELECT 1 FROM active_task)
+                FOR UPDATE OF step
+            )
             UPDATE tool_call_log
             SET result = CAST(#{resultJson,jdbcType=VARCHAR} AS JSONB),
                 status = #{status},
@@ -62,6 +74,9 @@ public interface ToolCallLogMapper {
                 finished_at = #{finishedAt}
             WHERE id = #{id}
               AND status = 'RUNNING'
+              AND (task_id IS NULL OR (
+                  EXISTS (SELECT 1 FROM active_step)
+              ))
             """)
     int updateRunningToTerminal(ToolCallLogRecord record);
 

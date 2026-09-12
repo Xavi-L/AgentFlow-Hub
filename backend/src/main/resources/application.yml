@@ -5,6 +5,15 @@ server:
 spring:
   application:
     name: agentflow-hub
+  datasource:
+    hikari:
+      connection-timeout: 5000
+      data-source-properties:
+        # Bound PostgreSQL connect/read/cancel waits independently of settlement retries.
+        connectTimeout: 5
+        socketTimeout: 15
+        cancelSignalTimeout: 2
+        options: -c statement_timeout=10000 -c lock_timeout=5000
   profiles:
     active: dev
   jackson:
@@ -76,6 +85,8 @@ agentflow:
       max-pool-size: 4
       queue-capacity: 100
     execution:
+      # Counts actual local work until its body exits, including abandoned calls.
+      max-concurrent-external-calls: ${AGENTFLOW_TASK_MAX_CONCURRENT_EXTERNAL_CALLS:4}
       # V40 executes the frozen task snapshot through AgentEngine.
       mode: engine
       # Inherited decision output cap (1..16384); Agent overrides remain within execution-policy limits.

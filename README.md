@@ -99,6 +99,12 @@ python3 scripts/task-cold-cutover.py \
 
 Task/Trace 的 recovery 表示本地中断收尾，RUNNING 的调用结果和记录完整性未确认。已记录 tokens 可能不完整，收尾时间也不等于崩溃时间或实际执行时长。独立受控验收入口见 `scripts/v02a-restart-acceptance.sh`；结果和明确未执行项见 V0.2 切片文档，不等于整个 V0.2 已发布。
 
+V0.2-B 使用 `AGENTFLOW_TASK_MAX_CONCURRENT_EXTERNAL_CALLS=4` 限制实际尚未退出的本地 LLM、任务检索和工具工作；调用超时或取消不会提前归还许可。依赖永久不响应时，可能需要按上述协议受控重启，不能把 Future 取消理解成供应商已停止。
+
+终态保存只对暂时数据库错误尝试最多 3 次，退避 100ms/500ms，回读处理未知 COMMIT，保留首次 outcome、usage 和完成观察时间；不会重跑 Engine 或重发调用。耗尽或非暂时错误会以 `TASK_SETTLEMENT_PERSIST_FAILED` 记录 task/次数/阶段并关闭任务准入，写接口返回 503，任务执行健康状态降级。运维应先修复数据库并检查原 task 持久事实，必要时受控重启由 A 收尾；不要把未确认结果手工标成功或重新投递原任务。默认数据库连接获取 5s、连接 5s、socket 15s、语句 10s、锁等待 5s；部署覆盖时仍须保留有限超时。
+
+B 的独立受控验收运行 `bash scripts/v02b-interruption-acceptance.sh`，用新目录/隔离 PostgreSQL，含 B09 实际 JVM kill/restart；细粒度许可竞态另由 Java 测试覆盖，详见 [验收入口说明](scripts/v02b-interruption-acceptance.md) 与 [切片证据](V0.2-slice-docs/01_TASK_RECOVERY_AND_INTERRUPTION_PACKAGE_INTERFACE.md#10-b-实际施工与验收记录2026-09-12)。受控 B01–B10 通过不替代 V47 真实服务回归，也不表示整个 V0.2 完成。
+
 ## 构建与启动
 
 后端（已在当前终端导出配置）：

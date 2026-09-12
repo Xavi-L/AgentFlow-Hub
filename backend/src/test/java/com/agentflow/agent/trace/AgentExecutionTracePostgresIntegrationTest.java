@@ -266,6 +266,100 @@ class AgentExecutionTracePostgresIntegrationTest {
     }
 
     @Test
+    void lateStepUpdateWaitsForParentTerminalCommitAndCannotUseOldRunningSnapshot() throws Exception {
+        AgentTask task = claim(createTask("b10-parent-lock", "late update"));
+        StepHandle step = recorderFactory.open(task.getId()).startStep(StepType.LLM_DECISION, "Pending");
+        AgentStepMapper steps = applicationContext.getBean(AgentStepMapper.class);
+        try (var holder = jdbc.getDataSource().getConnection()) {
+            holder.setAutoCommit(false);
+            try (var statement = holder.prepareStatement("""
+                    UPDATE agent_task SET status = 'CANCELLED', phase = NULL,
+                        termination_reason = 'USER_CANCELLED', cancel_requested_at = CURRENT_TIMESTAMP,
+                        completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, version = version + 1
+                    WHERE id = ?
+                    """)) {
+                statement.setLong(1, task.getId());
+                assertThat(statement.executeUpdate()).isEqualTo(1);
+            }
+            var late = new java.util.concurrent.FutureTask<>(() -> steps.completeRunning(
+                    task.getId(), step.stepId(), "{}", OffsetDateTime.now()));
+            Thread worker = Thread.ofVirtual().start(late);
+            try {
+                awaitBlockedTraceWrite("UPDATE agent_step");
+                assertThat(late.isDone()).isFalse();
+                holder.commit();
+                assertThat(late.get(3, TimeUnit.SECONDS)).isZero();
+            } finally {
+                holder.rollback();
+                worker.interrupt();
+            }
+        }
+        assertThat(jdbc.queryForObject("SELECT status FROM agent_step WHERE id = ?", String.class,
+                step.stepId())).isEqualTo("RUNNING");
+        assertThatThrownBy(() -> recorderFactory.open(task.getId()).recordLlmCall(
+                successfulLlm(step, LlmCallType.DECISION, "late-parent"))).isInstanceOf(IllegalStateException.class);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM llm_call_log WHERE task_id = ?", Integer.class,
+                task.getId())).isZero();
+    }
+
+    @Test
+    void lateCallInsertWaitsForStepTerminalCommitEvenWhenParentRemainsRunning() throws Exception {
+        AgentTask task = claim(createTask("b10-step-lock", "late call log"));
+        ExecutionRecorder recorder = recorderFactory.open(task.getId());
+        StepHandle step = recorder.startStep(StepType.LLM_DECISION, "Pending");
+        try (var holder = jdbc.getDataSource().getConnection()) {
+            holder.setAutoCommit(false);
+            try (var statement = holder.prepareStatement("SELECT id FROM agent_task WHERE id = ? FOR UPDATE")) {
+                statement.setLong(1, task.getId());
+                statement.executeQuery().close();
+            }
+            try (var statement = holder.prepareStatement("""
+                    UPDATE agent_step SET status = 'FAILED', error_code = 'CONTROLLED_FAILURE',
+                        error_message = 'Controlled terminal step', ended_at = CURRENT_TIMESTAMP,
+                        latency_ms = CAST(FLOOR(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - started_at)) * 1000) AS BIGINT)
+                    WHERE id = ?
+                    """)) {
+                statement.setLong(1, step.stepId());
+                assertThat(statement.executeUpdate()).isEqualTo(1);
+            }
+            var late = new java.util.concurrent.FutureTask<>(() -> {
+                try {
+                    recorder.recordLlmCall(successfulLlm(step, LlmCallType.DECISION, "late-step"));
+                    return false;
+                } catch (IllegalStateException rejected) { return true; }
+            });
+            Thread worker = Thread.ofVirtual().start(late);
+            try {
+                awaitBlockedTraceWrite("INSERT INTO llm_call_log");
+                assertThat(late.isDone()).isFalse();
+                holder.commit();
+                assertThat(late.get(3, TimeUnit.SECONDS)).isTrue();
+            } finally {
+                holder.rollback();
+                worker.interrupt();
+            }
+        }
+        assertThat(jdbc.queryForObject("SELECT status FROM agent_task WHERE id = ?", String.class,
+                task.getId())).isEqualTo("RUNNING");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM llm_call_log WHERE task_id = ?", Integer.class,
+                task.getId())).isZero();
+    }
+
+    private void awaitBlockedTraceWrite(String statementPart) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+        do {
+            Integer blocked = jdbc.queryForObject("""
+                    SELECT COUNT(*) FROM pg_stat_activity
+                    WHERE datname = current_database() AND pid <> pg_backend_pid()
+                      AND wait_event_type = 'Lock' AND POSITION(? IN query) > 0
+                    """, Integer.class, statementPart);
+            if (blocked != null && blocked > 0) return;
+            Thread.sleep(10);
+        } while (System.nanoTime() < deadline);
+        throw new AssertionError("Expected late Trace write to wait on the parent row lock");
+    }
+
+    @Test
     void shouldRejectCrossTaskAndWrongTypeLinksWhileKeepingStandaloneToolCallsLegal() {
         AgentTask taskA = claim(createTask("links-a", "links a"));
         AgentTask taskB = claim(createTask("links-b", "links b"));

@@ -3,7 +3,6 @@ package com.agentflow.agent.task.execution;
 import com.agentflow.agent.task.recovery.TaskExecutionAdmission;
 import com.agentflow.agent.snapshot.AgentTaskExecutionSnapshot;
 import com.agentflow.agent.task.model.AgentTask;
-import com.agentflow.agent.task.model.TaskStatus;
 import com.agentflow.agent.task.service.AgentTaskLifecycleTransactionService;
 import com.agentflow.agent.task.service.AgentTaskQueryService;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -31,6 +30,7 @@ public class TaskRunner {
     private final TaskExecutionDelegate executionDelegate;
     private final ObjectMapper objectMapper;
     private final Clock clock;
+    private final TaskSettlementService settlement;
 
     public TaskRunner(
             AgentTaskLifecycleTransactionService lifecycleTransactions,
@@ -38,8 +38,10 @@ public class TaskRunner {
             TaskExecutionDelegate executionDelegate,
             ObjectMapper objectMapper,
             Clock clock,
-            TaskExecutionAdmission admission
+            TaskExecutionAdmission admission,
+            TaskSettlementService settlement
     ) {
+        this.settlement = Objects.requireNonNull(settlement, "settlement must not be null");
         this.admission = Objects.requireNonNull(admission, "admission must not be null");
         this.lifecycleTransactions = Objects.requireNonNull(
                 lifecycleTransactions,
@@ -62,149 +64,48 @@ public class TaskRunner {
         }
 
         Instant deadlineAt = null;
-        TaskExecutionOutcome observedOutcome = null;
+        TaskExecutionOutcome outcome;
         try {
             AgentTaskExecutionSnapshot snapshot = parseAndValidateSnapshot(task);
             deadlineAt = task.getStartedAt().toInstant().plusSeconds(snapshot.agent().timeoutSeconds());
-            if (finishCancellationIfRequested(taskId, TaskTokenUsage.UNKNOWN_ZERO, 0, 0)) {
-                return;
-            }
-            if (deadlineReached(deadlineAt)) {
-                TaskExecutionOutcome timeout = TaskExecutionOutcome.timedOut();
-                if (!lifecycleTransactions.timeOut(taskId, timeout)) {
-                    settleLostRace(taskId, timeout);
+            if (queryService.hasCancellationRequest(taskId)) {
+                outcome = TaskExecutionOutcome.cancelled();
+            } else if (deadlineReached(deadlineAt)) {
+                outcome = TaskExecutionOutcome.timedOut();
+            } else {
+                if (TransactionSynchronizationManager.isActualTransactionActive()) {
+                    throw new IllegalStateException("TaskExecutionDelegate must run outside a database transaction");
                 }
-                return;
+                TaskExecutionRequest request = new TaskExecutionRequest(
+                        task.getId(), task.getUserId(), task.getAgentId(), task.getUserInput(), snapshot,
+                        task.getReservedFinalTokens(), deadlineAt, () -> queryService.hasCancellationRequest(taskId));
+                outcome = Objects.requireNonNull(executionDelegate.execute(request),
+                        "TaskExecutionDelegate returned null");
             }
-            if (TransactionSynchronizationManager.isActualTransactionActive()) {
-                throw new IllegalStateException("TaskExecutionDelegate must run outside a database transaction");
-            }
-
-            TaskExecutionRequest request = new TaskExecutionRequest(
-                    task.getId(),
-                    task.getUserId(),
-                    task.getAgentId(),
-                    task.getUserInput(),
-                    snapshot,
-                    task.getReservedFinalTokens(),
-                    deadlineAt,
-                    () -> queryService.hasCancellationRequest(taskId)
-            );
-            TaskExecutionOutcome outcome = Objects.requireNonNull(
-                    executionDelegate.execute(request),
-                    "TaskExecutionDelegate returned null"
-            );
-            observedOutcome = outcome;
-            settle(taskId, deadlineAt, outcome);
         } catch (Exception executionFailure) {
-            log.warn("Task {} execution failed before a terminal transition", taskId, executionFailure);
-            settleUnexpectedFailure(taskId, deadlineAt, observedOutcome);
+            log.warn("Task {} execution failed before outcome observation; failureType={}",
+                    taskId, executionFailure.getClass().getSimpleName());
+            outcome = TaskExecutionOutcome.failed("TASK_INTERNAL_ERROR", "Task execution failed");
         }
+        Instant observedAt = clock.instant();
+        // Freeze the initial deadline arbitration. Persistence backoff must not rewrite execution history.
+        if (deadlineAt != null && !observedAt.isBefore(deadlineAt)
+                && outcome.resultType() != TaskExecutionResultType.CANCELLED) {
+            outcome = TaskExecutionOutcome.timedOut(outcome.decisionTurnsUsed(),
+                    outcome.toolCallsUsed(), outcome.tokenUsage());
+        }
+        settlement.settle(taskId, outcome, observedAt);
     }
 
-    private void settle(long taskId, Instant deadlineAt, TaskExecutionOutcome outcome) {
-        if (finishCancellationIfRequested(
-                taskId,
-                outcome.tokenUsage(),
-                outcome.decisionTurnsUsed(),
-                outcome.toolCallsUsed()
-        )) {
-            return;
-        }
-        if (deadlineReached(deadlineAt)) {
-            if (!lifecycleTransactions.timeOut(taskId, asTimedOut(outcome))) {
-                settleLostRace(taskId, outcome);
-            }
-            return;
-        }
-
-        boolean transitioned = switch (outcome.resultType()) {
-            case COMPLETED -> lifecycleTransactions.complete(taskId, outcome);
-            case FAILED -> lifecycleTransactions.fail(taskId, outcome);
-            case TIMED_OUT -> lifecycleTransactions.timeOut(taskId, outcome);
-            case CANCELLED -> lifecycleTransactions.finishCancellation(taskId, outcome);
-        };
-        if (!transitioned) {
-            settleLostRace(taskId, outcome);
-        }
-    }
-
-    private void settleUnexpectedFailure(long taskId, Instant deadlineAt, TaskExecutionOutcome observed) {
-        TaskTokenUsage usage = observed == null ? TaskTokenUsage.UNKNOWN_ZERO : observed.tokenUsage();
-        int decisions = observed == null ? 0 : observed.decisionTurnsUsed();
-        int tools = observed == null ? 0 : observed.toolCallsUsed();
+    /** An accepted executor job still needs durable refusal if admission closes before its claim. */
+    public void runDispatched(long taskId) {
         try {
-            if (finishCancellationIfRequested(taskId, usage, decisions, tools)) {
-                return;
-            }
-            if (deadlineAt != null && deadlineReached(deadlineAt)) {
-                TaskExecutionOutcome timeout = TaskExecutionOutcome.timedOut(decisions, tools, usage);
-                if (!lifecycleTransactions.timeOut(taskId, timeout)) {
-                    settleLostRace(taskId, timeout);
-                }
-                return;
-            }
-            if (!lifecycleTransactions.fail(
-                    taskId,
-                    TaskExecutionOutcome.failed(
-                            com.agentflow.agent.task.model.TaskTerminationReason.SYSTEM_ERROR,
-                            "TASK_INTERNAL_ERROR", "Task execution failed", decisions, tools, usage)
-            )) {
-                finishCancellationIfRequested(taskId, usage, decisions, tools);
-            }
-        } catch (RuntimeException terminalFailure) {
-            log.error("Task {} could not persist its failure terminal state", taskId, terminalFailure);
+            run(taskId);
+        } catch (RuntimeException claimFailure) {
+            log.warn("Task {} could not enter Runner; failureType={}", taskId,
+                    claimFailure.getClass().getSimpleName());
+            settlement.rejectDispatch(taskId);
         }
-    }
-
-    private void settleLostRace(long taskId, TaskExecutionOutcome outcome) {
-        if (finishCancellationIfRequested(
-                taskId,
-                outcome.tokenUsage(),
-                outcome.decisionTurnsUsed(),
-                outcome.toolCallsUsed()
-        )) {
-            return;
-        }
-        AgentTask current = queryService.findById(taskId);
-        if (current != null && TaskStatus.RUNNING.name().equals(current.getStatus())) {
-            if (!lifecycleTransactions.fail(
-                    taskId,
-                    TaskExecutionOutcome.failed(
-                            com.agentflow.agent.task.model.TaskTerminationReason.SYSTEM_ERROR,
-                            "TASK_INTERNAL_ERROR",
-                            "Task execution outcome could not be applied",
-                            outcome.decisionTurnsUsed(), outcome.toolCallsUsed(), outcome.tokenUsage()
-                    )
-            )) {
-                finishCancellationIfRequested(taskId, outcome.tokenUsage(),
-                        outcome.decisionTurnsUsed(), outcome.toolCallsUsed());
-            }
-        }
-    }
-
-    private boolean finishCancellationIfRequested(
-            long taskId,
-            TaskTokenUsage usage,
-            int decisionTurnsUsed,
-            int toolCallsUsed
-    ) {
-        if (!queryService.hasCancellationRequest(taskId)) {
-            return false;
-        }
-        lifecycleTransactions.finishCancellation(
-                taskId,
-                TaskExecutionOutcome.cancelled(decisionTurnsUsed, toolCallsUsed, usage)
-        );
-        return true;
-    }
-
-    private static TaskExecutionOutcome asTimedOut(TaskExecutionOutcome outcome) {
-        return TaskExecutionOutcome.timedOut(
-                outcome.decisionTurnsUsed(),
-                outcome.toolCallsUsed(),
-                outcome.tokenUsage()
-        );
     }
 
     private AgentTaskExecutionSnapshot parseAndValidateSnapshot(AgentTask task) {

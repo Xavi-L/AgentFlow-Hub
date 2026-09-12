@@ -4,7 +4,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.agentflow.agent.task.service.AgentTaskLifecycleTransactionService;
+import com.agentflow.agent.task.execution.TaskSettlementService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,13 +19,13 @@ class AfterCommitTaskDispatchCoordinatorTest {
     @Mock
     private TaskDispatcher dispatcher;
     @Mock
-    private AgentTaskLifecycleTransactionService lifecycleTransactions;
+    private TaskSettlementService settlement;
 
     private AfterCommitTaskDispatchCoordinator coordinator;
 
     @BeforeEach
     void setUp() {
-        coordinator = new AfterCommitTaskDispatchCoordinator(dispatcher, lifecycleTransactions);
+        coordinator = new AfterCommitTaskDispatchCoordinator(dispatcher, settlement);
         TransactionSynchronizationManager.initSynchronization();
         TransactionSynchronizationManager.setActualTransactionActive(true);
     }
@@ -45,7 +45,7 @@ class AfterCommitTaskDispatchCoordinatorTest {
         );
 
         verify(dispatcher, never()).dispatch(41L);
-        verify(lifecycleTransactions, never()).markDispatchRejected(41L);
+        verify(settlement, never()).rejectDispatch(41L);
     }
 
     @Test
@@ -64,13 +64,13 @@ class AfterCommitTaskDispatchCoordinatorTest {
     void shouldPersistAConditionalFailureWhenDispatchIsRejected() {
         org.mockito.Mockito.doThrow(new TaskDispatchRejectedException("full", new RuntimeException()))
                 .when(dispatcher).dispatch(43L);
-        when(lifecycleTransactions.markDispatchRejected(43L)).thenReturn(true);
+        when(settlement.rejectDispatch(43L)).thenReturn(true);
         coordinator.dispatchAfterCommit(43L);
 
         TransactionSynchronizationManager.getSynchronizations().forEach(
                 TransactionSynchronization::afterCommit
         );
 
-        verify(lifecycleTransactions).markDispatchRejected(43L);
+        verify(settlement).rejectDispatch(43L);
     }
 }

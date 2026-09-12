@@ -746,6 +746,35 @@ class TaskSnapshotAgentExecutorTest {
     }
 
     @Test
+    void responseAtSingleCallDeadlineRetainsUsageAndDoesNotStartFinalGeneration() {
+        when(gateway.chat(any())).thenAnswer(call -> {
+            now.set(now.get().plusSeconds(2));
+            return result(finish());
+        });
+        var outcome = executor.execute(advancedRequest(2048, 2048, "PROMPT_ONLY", "PROVIDER_DEFAULT", 1));
+        assertThat(outcome.resultType()).isEqualTo(TaskExecutionResultType.FAILED);
+        assertThat(outcome.errorCode()).isEqualTo("AGENT_LLM_TIMEOUT");
+        assertThat(outcome.tokenUsage().totalTokens()).isEqualTo(10);
+        assertThat(outcome.tokenUsage().quality()).isEqualTo(TokenUsageQuality.EXACT);
+        verify(gateway).chat(any());
+        verifyNoInteractions(tools);
+    }
+
+    @Test
+    void responseAtWholeTaskDeadlineKeepsTaskTimeoutWhenModelLimitIsLater() {
+        when(gateway.chat(any())).thenAnswer(call -> {
+            now.set(now.get().plusSeconds(61));
+            return result(finish());
+        });
+        var outcome = executor.execute(advancedRequest(2048, 2048, "PROMPT_ONLY", "PROVIDER_DEFAULT", 120));
+        assertThat(outcome.resultType()).isEqualTo(TaskExecutionResultType.TIMED_OUT);
+        assertThat(outcome.errorCode()).isNull();
+        assertThat(outcome.tokenUsage().totalTokens()).isEqualTo(10);
+        verify(gateway).chat(any());
+        verifyNoInteractions(tools);
+    }
+
+    @Test
     void v2WithoutSettingsRejectsBeforeRetrievalAndV1RemainsReadable() throws Exception {
         var legacy = request(3, 2, 50000);
         var value = legacy.executionSnapshot();

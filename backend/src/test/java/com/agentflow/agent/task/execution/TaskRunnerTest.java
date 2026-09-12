@@ -27,7 +27,7 @@ import org.mockito.Mockito;
 
 class TaskRunnerTest {
     @Test
-    void shouldFinishLateCancellationWhenTimeoutLosesItsCompareAndSetWithoutLosingUsage() throws Exception {
+    void shouldFreezeDeadlineArbitrationAndUsageBeforePersistence() throws Exception {
         var lifecycle = Mockito.mock(AgentTaskLifecycleTransactionService.class);
         var query = Mockito.mock(AgentTaskQueryService.class);
         var delegate = Mockito.mock(TaskExecutionDelegate.class);
@@ -64,25 +64,33 @@ class TaskRunnerTest {
             when(clock.instant()).thenReturn(started.plusSeconds(121));
             return completed;
         });
-        when(lifecycle.timeOut(eq(1L), any())).thenAnswer(ignored -> {
-            // The cancel transaction commits after the Runner's last probe, before timeout CAS.
-            cancellationRequested.set(true);
-            return false;
-        });
-        when(lifecycle.finishCancellation(eq(1L), any())).thenReturn(true);
+        var settlement = Mockito.mock(TaskSettlementService.class);
 
         var admission = new com.agentflow.agent.task.recovery.TaskExecutionAdmission();
         admission.open();
-        new TaskRunner(lifecycle, query, delegate, mapper, clock, admission).run(1L);
+        new TaskRunner(lifecycle, query, delegate, mapper, clock, admission, settlement).run(1L);
 
-        ArgumentCaptor<TaskExecutionOutcome> cancelled = ArgumentCaptor.forClass(TaskExecutionOutcome.class);
-        verify(lifecycle).finishCancellation(eq(1L), cancelled.capture());
-        assertThat(cancelled.getValue().resultType()).isEqualTo(TaskExecutionResultType.CANCELLED);
-        assertThat(cancelled.getValue().tokenUsage()).isEqualTo(usage);
-        assertThat(cancelled.getValue().decisionTurnsUsed()).isEqualTo(3);
-        assertThat(cancelled.getValue().toolCallsUsed()).isEqualTo(2);
-        verify(lifecycle).timeOut(eq(1L), any());
+        ArgumentCaptor<TaskExecutionOutcome> observed = ArgumentCaptor.forClass(TaskExecutionOutcome.class);
+        verify(settlement).settle(eq(1L), observed.capture(), eq(started.plusSeconds(121)));
+        assertThat(observed.getValue().resultType()).isEqualTo(TaskExecutionResultType.TIMED_OUT);
+        assertThat(observed.getValue().tokenUsage()).isEqualTo(usage);
+        assertThat(observed.getValue().decisionTurnsUsed()).isEqualTo(3);
+        assertThat(observed.getValue().toolCallsUsed()).isEqualTo(2);
+        verify(delegate).execute(any());
         verify(lifecycle, never()).complete(eq(1L), any());
         verify(lifecycle, never()).fail(eq(1L), any());
+    }
+
+    @Test
+    void queuedExecutorWorkIsPersistentlyRejectedWhenAdmissionClosesBeforeClaim() {
+        var lifecycle = Mockito.mock(AgentTaskLifecycleTransactionService.class);
+        var query = Mockito.mock(AgentTaskQueryService.class);
+        var delegate = Mockito.mock(TaskExecutionDelegate.class);
+        var settlement = Mockito.mock(TaskSettlementService.class);
+        var gate = new com.agentflow.agent.task.recovery.TaskExecutionAdmission();
+        new TaskRunner(lifecycle, query, delegate, new ObjectMapper(), Clock.systemUTC(), gate, settlement)
+                .runDispatched(1L);
+        verify(settlement).rejectDispatch(1L);
+        Mockito.verifyNoInteractions(lifecycle, query, delegate);
     }
 }

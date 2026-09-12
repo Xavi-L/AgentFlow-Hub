@@ -125,7 +125,9 @@ public final class V02ATaskRecoveryFixture {
                         String method = invocation.getMethod().getName();
                         Object[] args = invocation.getArguments();
                         Long taskId = null;
-                        if (bean instanceof TaskRunner && method.equals("run")) { taskId = (Long) args[0]; runnerReceipt(taskId); }
+                        if (bean instanceof TaskRunner && (method.equals("run") || method.equals("runDispatched"))) {
+                            taskId = (Long) args[0]; runnerReceipt(taskId);
+                        }
                         if (bean instanceof TaskExecutionDelegate && method.equals("execute")) taskId = ((TaskExecutionRequest) args[0]).taskId();
                         if (method.equals("recordLlmCall")) taskId = ((LlmCallRecord) args[0]).step().taskId();
                         if (type.equals("DefaultToolRuntime") && method.equals("execute")) taskId = ((ToolExecutionCommand) args[0]).taskId();
