@@ -170,7 +170,7 @@ backend/http/agents.http
 V31 新增：
 
 ```text
-slice-docs/32_AGENT_APP_DETAIL_PACKAGE_INTERFACE.md
+V0.1-slice-docs/32_AGENT_APP_DETAIL_PACKAGE_INTERFACE.md
 ```
 
 V31 没有新增 Entity 字段、Response DTO、错误码、索引或 Flyway migration，也没有注入 ToolRuntime、

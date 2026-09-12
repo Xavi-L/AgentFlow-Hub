@@ -10,7 +10,7 @@ Spring Boot + Vue 的 Agent/RAG 演示项目：上传知识文档、配置 Agent
 [V0.1 的 13 项 Release Gate 总验收](release-docs/V0.1_RELEASE_GATE.md)，13/13 通过；
 结论限于规范的单知识库支付诊断演示。2026-09-10 已推送 annotated tag `v0.1`，
 固定于 `1d062df`；范围和已知问题见[发布说明](release-docs/V0.1_RELEASE_NOTES.md)。
-随后完成 [V49 知识库绑定上限统一](slice-docs/50_KNOWLEDGE_BINDING_LIMIT_PACKAGE_INTERFACE.md)：
+随后完成 [V49 知识库绑定上限统一](V0.1-slice-docs/50_KNOWLEDGE_BINDING_LIMIT_PACKAGE_INTERFACE.md)：
 写入、任务快照和执行统一为 20，历史超限配置保留完整读取和删减修复；重点测试、浏览器及新真实主路径回归通过。
 V49 是该 tag 之后的改动，不包含于 `v0.1`。
 
@@ -113,7 +113,7 @@ curl --fail-with-body http://127.0.0.1:8080/api/v1/auth/register \
    `retrievalReadiness=READY`。上传成功或 `COMPLETED` 本身不足以证明可检索。
 2. 在 Agent 页创建 Agent，填写与已配置 Chat 服务匹配的 `openai-compatible` 模型、提示词和预算。
    展开“高级执行设置”可调整决策/最终输出上限、决策格式、思考策略和单次模型超时；留空继承部署默认。
-   页面展示平台限制与最终回答预留，格式和思考选项取决于部署的模型能力白名单，详见[高级设置契约](slice-docs/51_AGENT_ADVANCED_SETTINGS_PACKAGE_INTERFACE.md)。
+   页面展示平台限制与最终回答预留，格式和思考选项取决于部署的模型能力白名单，详见[高级设置契约](V0.1-slice-docs/51_AGENT_ADVANCED_SETTINGS_PACKAGE_INTERFACE.md)。
    配置、知识库绑定、工具绑定分别保存，选择 READY 知识库和 `order_query`、`payment_log_query`，启用 Agent。
 3. 从 Agent 详情进入运行页，提交“帮我分析 order_1024 支付失败的原因，并给出处理建议。”。
    按需要准备支付诊断文档，并要求模型结合两个工具结果和文档回答；工具查询的是库内演示数据。
@@ -149,13 +149,16 @@ bash scripts/v47-real-provider-acceptance.sh
 ```
 
 完整 V47 会调用真实模型和 embedding，可能计费；具体变量、专用 Qdrant collection 和前置条件见
-[V47 契约](slice-docs/48_REAL_PROVIDER_E2E_PACKAGE_INTERFACE.md)。缺少条件应记录 BLOCKED，
+[V47 契约](V0.1-slice-docs/48_REAL_PROVIDER_E2E_PACKAGE_INTERFACE.md)。缺少条件应记录 BLOCKED，
 运行失败保留 FAILED，不用受控结果替代。修改生产执行路径后须用新任务补跑真实主路径。
 
 ## 仓库与交付
 
-`backend/` 为服务端，`frontend/` 为页面，`scripts/` 为独立验收入口，`slice-docs/` 为各切片契约，
-`spec-docs/` 为项目设计与路线图。更多页面行为及静态服务的路由/SSE 代理要求见
+`backend/` 为服务端，`frontend/` 为页面，`scripts/` 为独立验收入口，`V0.1-slice-docs/` 保存
+V0.1 阶段及后续维护切片的契约和验收记录；目录归属不表示其中所有改动都已包含于 `v0.1` tag。
+`spec-docs/` 为项目设计与路线图；V0.2、V0.3 的版本范围见[项目规格](spec-docs/agentflow-hub-project-spec.md#7-v02v03-与-v10-边界)。
+后续切片目录统一使用 `V0.2-slice-docs/`、`V0.3-slice-docs/`，本次仅统一命名与规则，尚未建立。
+更多页面行为及静态服务的路由/SSE 代理要求见
 [前端说明](frontend/README.md)。
 
 根 `.gitignore` 排除 `target/`、`out/`、IDE/系统文件、前端依赖/构建/报告和本地 `.env` 文件。

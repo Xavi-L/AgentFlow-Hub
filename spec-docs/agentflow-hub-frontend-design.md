@@ -25,7 +25,7 @@ V0.1 前端只负责证明核心 Agent 闭环可用、可观察、可恢复：
 ### 1.1 V43 / M4G-A 当前实现边界
 
 本设计保留完整 V0.1 目标；V43 只实现最小任务运行前端与恢复闭环，契约见
-`slice-docs/44_FRONTEND_TASK_RUNTIME_PACKAGE_INTERFACE.md`：
+`V0.1-slice-docs/44_FRONTEND_TASK_RUNTIME_PACKAGE_INTERFACE.md`：
 
 - 前端基础、登录、JWT、退出与认证失效状态清理；
 - 选择已有 Agent、自己的任务列表、提交输入及结果未知时复用原 Idempotency-Key；
@@ -41,7 +41,7 @@ V43 不增加后端公开接口、不实现任务执行重试、多轮对话或 
 
 ### 1.2 V45 / M4G-B2 最小知识库管理边界
 
-冻结契约：`slice-docs/46_KNOWLEDGE_FRONTEND_PACKAGE_INTERFACE.md`；基于 V44 的公开 Readiness 读模型。
+冻结契约：`V0.1-slice-docs/46_KNOWLEDGE_FRONTEND_PACKAGE_INTERFACE.md`；基于 V44 的公开 Readiness 读模型。
 增加知识库分页列表/详情/创建、TXT/MD 单文件上传、既有知识库级解析/向量化操作，
 以及文档分页列表、状态详情、当前 generation、四项计数与五种 Readiness。
 创建仅提交名称和描述；profile/strategy 只读且不兼容时明确提示，只有 READY 显示可用于 Agent。
@@ -56,7 +56,7 @@ V43 不增加后端公开接口、不实现任务执行重试、多轮对话或 
 
 ### 1.3 V46 / M4G-C 最小 Agent 配置边界
 
-契约：`slice-docs/47_AGENT_FRONTEND_PACKAGE_INTERFACE.md`。增加 `/agents` 与 `/agents/:agentId`，
+契约：`V0.1-slice-docs/47_AGENT_FRONTEND_PACKAGE_INTERFACE.md`。增加 `/agents` 与 `/agents/:agentId`，
 提供分页列表、详情、创建、配置编辑、启停和既有知识库/工具绑定 GET/PUT，详情链接既有运行页。
 provider 固定 `openai-compatible`，模型名称自由填写部署支持值；使用公开 `maxSteps/maxTokens`，
 校验 `maxToolCalls < maxSteps`，不增加模型目录或 profile 接口。
@@ -658,7 +658,9 @@ V43 不提供任务执行重试。用户从入口主动提交独立新任务时�
 
 ## 16. V1.x 后续页面
 
-V0.1 完成后再考虑：
+V0.3 先规划 Prompt/config version、动态 Episode export 和轻量 Evaluation CLI/API，不要求以下
+完整管理页面；后端/API 能力纳入 V0.3 不等于对应 UI 已完成或必须同步交付。
+V1.0 按需增加 Evaluation UI，其余页面按对应能力的目标版本再考虑：
 
 - Task history 完整筛选；
 - Prompt version；

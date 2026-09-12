@@ -468,7 +468,7 @@ PUT 为全量替换，必须在一个事务中：
 
 后续 V49 将知识库写入、新任务快照与 RAG 执行的数量上限统一为 20，后端共用
 `AgentKnowledgeLimits.MAX_KNOWLEDGE_BINDINGS`。这是对 V37/V46 原始 50 项写入契约的修复，
-验证状态与证据见 [V49 切片说明](../slice-docs/50_KNOWLEDGE_BINDING_LIMIT_PACKAGE_INTERFACE.md)，不追溯改变原始验收记录。
+验证状态与证据见 [V49 切片说明](../V0.1-slice-docs/50_KNOWLEDGE_BINDING_LIMIT_PACKAGE_INTERFACE.md)，不追溯改变原始验收记录。
 
 - PUT 的原始 `knowledgeBaseIds` 数组最多 20 项；空数组仍表示清空。数量检查先于去重，原始 21 项即返回
   HTTP 400 / `COMMON_PARAM_INVALID`，旧绑定不变。
@@ -716,7 +716,9 @@ GET /api/v1/tasks/{taskId}/tool-calls
 
 V0.1 前端优先使用聚合 trace，避免多请求拼接不一致快照。
 
-Episode API 不进入 V0.1；V1 初期可由相同 Trace query service 动态聚合。
+Episode API 不进入 V0.1；V0.3 规划由相同 Trace query service 动态聚合和导出。
+轻量 Evaluation CLI/API 同属 V0.3，复用普通 AgentTask 路径；具体 HTTP/DTO 契约在对应切片冻结，
+不因本段版本规划宣称接口已存在。Evaluation UI 留 V1.0 候选。
 
 ---
 

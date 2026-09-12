@@ -2,7 +2,8 @@
 
 > 文档状态：**NORMATIVE**  
 > 最近审查基线：`main@f276549`（V36 AgentEngine core loop）  
-> 适用范围：`spec-docs/`、后续设计变更、V0.1 施工与 V1.x 演进
+> 版本规划与目录对齐：2026-09-12，基于 `main@58b6145`；不重写历史实现或验收记录。\
+> 适用范围：`spec-docs/`、后续设计变更、V0.1–V0.3 施工与 V1.x 演进
 
 本目录保存 AgentFlow Hub 的产品边界、领域模型和工程设计。它不是若干互相独立的专题笔记集合，而是一套有明确权威来源和覆盖关系的系统规范。
 
@@ -18,24 +19,26 @@
 
 | 文档 | 权威范围 |
 | --- | --- |
-| `agentflow-hub-project-spec.md` | 项目定位、版本边界、V0.1/V1.0 完成标准 |
+| `agentflow-hub-project-spec.md` | 项目定位、V0.1 完成标准及 V0.2/V0.3/V1.x 版本边界 |
 | `agentflow-hub-agent-engine-design.md` | 任务生命周期、执行阶段、AgentEngine、预算、取消、失败和事件语义 |
 | `agentflow-hub-rag-design.md` | 文档入库、分块、embedding profile、向量身份、检索、citation 和重建语义 |
 | `agentflow-hub-tool-system-design.md` | ToolRuntime、工具定义、绑定、参数校验、超时、重试和工具结果语义 |
 | `agentflow-hub-data-model.md` | 目标 PostgreSQL/Qdrant 数据形状、外键、约束、索引和快照字段 |
 | `agentflow-hub-backend-api-design.md` | HTTP、SSE、DTO、错误码和内部接口投影 |
 | `agentflow-hub-frontend-design.md` | 前端页面边界、后端状态映射、SSE 恢复和展示规则 |
-| `agentflow-hub-implementation-roadmap.md` | 从当前仓库状态向 V0.1/V1.0 演进的施工顺序和验收门槛 |
+| `agentflow-hub-implementation-roadmap.md` | V0.1 施工与验收记录、V0.2/V0.3/V1.x 演进顺序和验收门槛 |
 
 ### 1.2 规划性文档（Future-Normative）
 
-`agentflow-hub-agent-harness-design.md` 描述 Episode、Tool Policy、Evaluation 和受控 MCP 的后续演进。只有其中明确标为当前版本的条目才构成当前施工要求；未来章节不得反向扩大 V0.1 范围。
+`agentflow-hub-agent-harness-design.md` 描述 V0.3 的动态 Episode 与轻量 Evaluation，以及 V1.5/V2.0 的 Tool Policy、自动配置对比和受控 MCP 等后续演进。版本归属以 Project Spec 为准；规划条目不表示已经实现，未来章节不得反向扩大 V0.1 范围。
 
 ### 1.3 信息性文档（Informative）
 
 `agent-backend-ai-learning-guide.md` 是学习索引，不是产品需求、架构决策或里程碑验收依据。它不能为项目新增模块、表、依赖或完成标准。
 
-`slice-docs/` 是已完成切片的实现契约与验收证据。它们用于说明某个提交实际完成了什么，但不单独定义长期产品架构。若 slice 中出现比旧规范更精确且已经由代码和 migration 固化的契约，应通过新的设计变更将该契约回写到本目录，而不是让两套定义长期并存。
+`V0.1-slice-docs/` 保存 V0.1 阶段及后续维护切片的实现契约与验收证据。目录归属不等于 tag 内容，是否随版本发布仍以提交、tag 和 release-docs 为准。
+
+后续切片目录统一命名为 `V0.2-slice-docs/`、`V0.3-slice-docs/`（本次未建立）。规划契约、实际实现和已执行验收必须分别标明；目录或文档存在本身不构成完成证据。这些文档用于说明某个提交实际完成了什么，但不单独定义长期产品架构。若 slice 中出现比旧规范更精确且已经由代码和 migration 固化的契约，应通过新的设计变更将该契约回写到本目录，而不是让两套定义长期并存。
 
 ---
 
@@ -48,7 +51,7 @@
 > 本目录对应专题的规范性文档
 > 数据模型与 API/Frontend 投影
 > Implementation Roadmap
-> 当前 slice-docs 实现说明
+> 对应版本切片目录中的实现说明
 > 学习材料和历史说明
 ```
 
@@ -68,7 +71,7 @@
 
 | 概念 | 唯一定义位置 |
 | --- | --- |
-| V0.1/V1.0 范围 | Project Spec |
+| V0.1/V0.2/V0.3/V1.x 范围 | Project Spec |
 | `TaskStatus`、`TaskPhase`、`terminationReason` | Agent Engine Design |
 | `AgentDecision` 协议 | Agent Engine Design |
 | 预算计数规则 | Agent Engine Design |

@@ -821,7 +821,9 @@ PostgreSQL 仍为：
 
 ## 14. DEFERRED 数据模型
 
-以下不进入 V0.1 migration：
+以下不进入 V0.1 migration。Prompt/config 版本、动态 Episode 和轻量 Evaluation 按
+[Project Spec 第 7 节](agentflow-hub-project-spec.md#7-v02v03-与-v10-边界) 纳入 V0.3 规划；
+本节列出的表名仍是候选，具体存储、字段及约束须在对应切片冻结，不表示已经存在。
 
 ### 14.1 Prompt 版本
 
@@ -829,7 +831,8 @@ PostgreSQL 仍为：
 agent_prompt_version
 ```
 
-只有出现 Prompt 回滚/对比需求时增加。V0.1 已通过 execution snapshot 保证历史 task 可解释。
+V0.3 冻结 Prompt/config version 与任务快照的引用关系；只有明确需要独立持久版本记录时才增加此表。
+已有 execution snapshot 继续承担历史 task 的执行事实，不通过修改历史快照伪造版本记录。
 
 ### 14.2 Conversation
 
@@ -842,7 +845,8 @@ agent_message
 
 ### 14.3 Episode
 
-V1 初期通过 Trace API 动态聚合，不建表。只有导出成本、不可变归档或评测复用出现明确需求时，再增加可缓存的 `agent_episode`，并标明它是派生快照。
+V0.3 通过 Trace API 动态聚合和导出，不要求建表。可缓存的 `agent_episode` 留 V1.5 候选；
+只有导出成本、不可变归档或评测复用出现明确需求时再考虑增加，并标明它是派生快照。
 
 ### 14.4 Evaluation
 
@@ -853,7 +857,8 @@ eval_run
 eval_result
 ```
 
-进入 V1.x 后单独设计，不作为 V0.1 task schema 前置。
+V0.3 的轻量 Evaluation CLI/API 需要固定数据集与运行结果契约；文件式存储还是数据库存储由
+切片按实际需求决定，上述四表不是默认必建项。评测引用普通 task/Trace，不作为既有 task schema 前置。
 
 ### 14.5 Tool Policy / Approval
 

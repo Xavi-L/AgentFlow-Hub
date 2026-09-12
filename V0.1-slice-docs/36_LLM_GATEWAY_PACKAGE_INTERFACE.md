@@ -244,7 +244,7 @@ Qdrant 或 document 代码。
 V35 新增：
 
 ```text
-slice-docs/36_LLM_GATEWAY_PACKAGE_INTERFACE.md
+V0.1-slice-docs/36_LLM_GATEWAY_PACKAGE_INTERFACE.md
 backend/src/main/java/com/agentflow/config/SpringAiConfig.java
 backend/src/main/java/com/agentflow/infra/llm/LlmGateway.java
 backend/src/main/java/com/agentflow/infra/llm/LlmChatRequest.java

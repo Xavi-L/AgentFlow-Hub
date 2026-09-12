@@ -2,6 +2,7 @@
 
 > 文档状态：**FUTURE-NORMATIVE**  
 > 权威范围：Episode、Tool Policy、Evaluation 和受控 MCP 的后续边界  
+> 版本规划对齐：2026-09-12，基于 `main@58b6145`；版本归属见 Project Spec 第 7–8 节，规划不表示已实现。\
 > V0.1 约束：本文件不得扩大 V0.1 范围
 
 ---
@@ -102,16 +103,16 @@ Episode 不反向修改 task 或调用 ToolRuntime。
 
 ### 4.3 动态聚合优先
 
-V1 初期优先：
+V0.3 规划动态 Episode view/export，候选接口为：
 
 ```text
 GET /api/v1/tasks/{taskId}/episode
 GET /api/v1/tasks/{taskId}/episode/export
 ```
 
-由 Trace query service 动态聚合。
+由 Trace query service 动态聚合；具体 HTTP/DTO 契约在 V0.3 切片开工前冻结，以上路径不是已实现接口。
 
-只有满足以下任一条件时才增加 `agent_episode`：
+V0.3 不要求 Episode 持久化。`agent_episode` 缓存/归档留到 V1.5 候选，只有满足以下任一条件时才考虑增加：
 
 - 聚合查询成本已被测量为不可接受；
 - 需要不可变归档；
@@ -137,7 +138,8 @@ created_at
 - **Deterministic replay**：对相同 provider 能得到完全相同结果；
 - **Simulation replay**：不重新调用外部系统，只重放历史事实。
 
-V1 优先实现 explainability 和 simulation replay，不虚构跨模型的完全确定性。
+V0.3 优先保证 explainability，通过动态导出保留可回查的执行事实；导出本身不等于已经实现
+simulation replay，更不承诺跨模型的 deterministic replay。需要专门回放能力时再单独冻结范围。
 
 ---
 
@@ -237,7 +239,11 @@ EvaluationRunner
 
 它不能调用 Engine 的私有方法绕过 task snapshot、ToolRuntime 或 Trace。
 
-### 6.2 最小指标
+### 6.2 V0.3 基础指标范围
+
+以下为指标候选，切片中必须冻结定义、所需标注、分母与缺失值处理。可自动核对的结构指标直接
+读取 Trace；Hit@K/MRR 等检索指标需要固定相关性标注，citation accuracy 与回答正确性需要明确
+标注或人工 rubric，不能用 citation whitelist 命中或 `COMPLETED` 代替质量判断。
 
 RAG：
 
@@ -287,9 +293,14 @@ Prompt/model/RAG A/B 必须固定：
 ### 6.4 版本计划
 
 - V0.1：无 Evaluation；
-- V1.0：API/CLI 轻量评测，可人工判断；
-- V1.5：配置对比和自动指标；
+- V0.2：先完成稳定性与维护，不要求新增 Evaluation；
+- V0.3：Prompt/config version、固定且有版本的 eval dataset、轻量 CLI/API、tool/citation/RAG 基础指标及报告、动态 Episode export；支持规则指标自动计算，保留标注/人工判断；
+- V1.0：按需增加 Evaluation UI，复用 V0.3 评测事实；
+- V1.5：基于固定评测基线的自动配置对比和更完整指标；Episode 持久化缓存仍按第 4.3 节条件评估；
 - V2.0：更完整 regression pipeline，可选。
+
+V0.3 不要求自动配置搜索、完整 A/B 编排或 Evaluation UI；公开接口、评测存储、指标公式和
+Release Gate 阈值在对应切片中冻结。本计划只调整版本归属，不声明上述后续能力已经交付。
 
 ---
 
@@ -355,7 +366,7 @@ Episode -> 修改 task
 
 ## 9. 实施顺序
 
-在 V0.1 完成后：
+在 V0.1 完成后，先按 V0.2 处理稳定性与维护，再按以下依赖推进 V0.3 及后续治理能力：
 
 1. 先稳定 Trace 聚合查询；
 2. 增加动态 Episode view/export；
@@ -364,6 +375,9 @@ Episode -> 修改 task
 5. 出现真实风险工具后增加 Tool Policy；
 6. 出现真实写操作后增加 Approval；
 7. 最后评估 HTTP/MCP adapter。
+
+V0.3 的评测数据版本、判定标准及 Prompt/config version 必须在可比较的评测运行前固定；
+后续配置对比和策略能力按第 6.4 节及 Project Spec 的版本归属推进，不因上述依赖顺序提前纳入 V0.3。
 
 不得为了“架构看起来企业级”而提前创建空表、空模块或循环依赖。
 

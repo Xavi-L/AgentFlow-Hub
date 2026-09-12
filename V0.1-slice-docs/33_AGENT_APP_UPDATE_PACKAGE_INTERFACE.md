@@ -247,7 +247,7 @@ V32 新增：
 ```text
 backend/src/main/java/com/agentflow/agent/dto/UpdateAgentAppRequest.java
 backend/src/main/java/com/agentflow/agent/dto/UpdateAgentAppRequestDeserializer.java
-slice-docs/33_AGENT_APP_UPDATE_PACKAGE_INTERFACE.md
+V0.1-slice-docs/33_AGENT_APP_UPDATE_PACKAGE_INTERFACE.md
 ```
 
 V32 修改：

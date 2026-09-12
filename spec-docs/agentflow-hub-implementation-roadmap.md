@@ -1,15 +1,16 @@
 # AgentFlow Hub 实施路线图
 
 > 文档状态：**NORMATIVE**  
-> 权威范围：从当前 V36 基线到 V0.1/V1.x 的施工顺序、依赖和验收门槛  
+> 权威范围：V0.1 历史施工与验收、V0.2/V0.3/V1.x 的施工顺序、依赖和验收门槛\
 > 最近审查基线：`v0.1@1d062df` 及其后的 V49 工作区改动（2026-09-10）；第 1 节保留历史施工起点。
+> 版本规划与目录对齐：2026-09-12，基于 `main@58b6145`；不改变既有发布验收结论。
 
 ---
 
 ## 1. 当前判断
 
 2026-09-10：已创建并推送 annotated tag `v0.1`，固定于验收材料提交 `1d062df`，见[发布说明](../release-docs/V0.1_RELEASE_NOTES.md)。
-随后完成 [V49 知识库绑定数量边界统一](../slice-docs/50_KNOWLEDGE_BINDING_LIMIT_PACKAGE_INTERFACE.md)：写入、snapshot 和执行上限统一为 20，历史 21–50 项仍可完整读取并明确删减修复。
+随后完成 [V49 知识库绑定数量边界统一](../V0.1-slice-docs/50_KNOWLEDGE_BINDING_LIMIT_PACKAGE_INTERFACE.md)：写入、snapshot 和执行上限统一为 20，历史 21–50 项仍可完整读取并明确删减修复。
 后端重点 64/64、PostgreSQL 22/22、前端 81/81 与构建、浏览器 20/20 通过；一个新 GLM-5.2 + DashScope + Qdrant 任务通过存储 23/23、独立 final、有效引用及刷新/Trace 收敛，零自动重试。
 这是 tag 之后的数量契约修复，不代表多知识库检索质量、容量或统计可靠性；未开始任务恢复/重试能力。
 
@@ -356,8 +357,8 @@ rag_retrieval_hit
 ## 8. M4F：Task API 与可恢复 SSE
 
 实施拆分：V41/M4F-A 交付 Task REST API 与公开 Trace（契约
-`slice-docs/42_AGENT_TASK_API_PACKAGE_INTERFACE.md`）；V42/M4F-B 交付可恢复 SSE（契约
-`slice-docs/43_AGENT_TASK_SSE_PACKAGE_INTERFACE.md`），复用并扩展 V41 安全事件投影与游标读取。
+`V0.1-slice-docs/42_AGENT_TASK_API_PACKAGE_INTERFACE.md`）；V42/M4F-B 交付可恢复 SSE（契约
+`V0.1-slice-docs/43_AGENT_TASK_SSE_PACKAGE_INTERFACE.md`），复用并扩展 V41 安全事件投影与游标读取。
 2026-09-06 两片均已完成验收，M4F 完成：真实 HTTP SSE/JWT、Runner、Engine、ToolRuntime 与 PostgreSQL，
 全量 691/691 通过；模型和向量仍使用可控替身，不构成真实 provider/Qdrant E2E。
 
@@ -410,7 +411,7 @@ M4G 分片推进，以下完整页面与真实 E2E 仍是整个 M4G 的目标。
 
 ### M4G-A / V43：最小任务运行前端与恢复闭环
 
-冻结契约：`slice-docs/44_FRONTEND_TASK_RUNTIME_PACKAGE_INTERFACE.md`。
+冻结契约：`V0.1-slice-docs/44_FRONTEND_TASK_RUNTIME_PACKAGE_INTERFACE.md`。
 2026-09-06 已实现并通过本片验收：前端边界测试 23/23、构建通过，独立 PostgreSQL/真实浏览器 3/3。
 采用 Vue 3 / TypeScript / Vite，只实现：
 
@@ -430,8 +431,8 @@ provider streaming、多轮对话或任务执行重试。V43 完成只计 M4G-A�
 
 ### M4G-B1 / V44 与 M4G-B2 / V45：知识库就绪读模型与最小管理前端
 
-V44 契约：`slice-docs/45_KNOWLEDGE_READINESS_PACKAGE_INTERFACE.md`，补充只读 profile/strategy、
-当前 generation 四项计数和五种 Readiness。V45 契约：`slice-docs/46_KNOWLEDGE_FRONTEND_PACKAGE_INTERFACE.md`，
+V44 契约：`V0.1-slice-docs/45_KNOWLEDGE_READINESS_PACKAGE_INTERFACE.md`，补充只读 profile/strategy、
+当前 generation 四项计数和五种 Readiness。V45 契约：`V0.1-slice-docs/46_KNOWLEDGE_FRONTEND_PACKAGE_INTERFACE.md`，
 消费 V44 读模型，实现知识库分页列表/详情/创建、TXT/MD 单文件上传、显式解析/向量化、文档分页状态。
 上传只产生 PENDING，GET 轮询不自动入库；超时结果待确认，创建和上传不自动重发。
 验收区分真实浏览器/JWT/PostgreSQL/文件解析与受控 embedding/vector，并保留 V43 回归，实际证据见对应契约。
@@ -439,7 +440,7 @@ Agent 配置、检索调试、编辑/删除/重处理、全库筛选统计、自
 
 ### M4G-C / V46：最小 Agent 配置前端
 
-契约：`slice-docs/47_AGENT_FRONTEND_PACKAGE_INTERFACE.md`。增加 Agent 分页列表/详情/创建、配置编辑、
+契约：`V0.1-slice-docs/47_AGENT_FRONTEND_PACKAGE_INTERFACE.md`。增加 Agent 分页列表/详情/创建、配置编辑、
 启停与既有知识库/工具绑定 GET/PUT；从详情进入已有任务运行页。配置与两类绑定分别保存，
 保留草稿与跨页/失效绑定 ID，隔离晚到响应；未知写入先读回核对，不自动重发。
 provider 固定 `openai-compatible`，工具仅 `order_query`、`payment_log_query`，使用公开预算字段。
@@ -448,7 +449,7 @@ provider 固定 `openai-compatible`，工具仅 `order_query`、`payment_log_que
 
 ### M4G-D1 / V47：真实 provider + Qdrant 主路径 E2E
 
-契约：`slice-docs/48_REAL_PROVIDER_E2E_PACKAGE_INTERFACE.md`。正常启动主应用并使用现有
+契约：`V0.1-slice-docs/48_REAL_PROVIDER_E2E_PACKAGE_INTERFACE.md`。正常启动主应用并使用现有
 OpenAI-compatible Chat、DashScope embedding 和实际 Qdrant，不加载 V43/V45/V46 受控 Gateway。
 独立入口 `scripts/v47-real-provider-acceptance.sh` 提供不生成答案的环境预检、临时 PostgreSQL、
 独立 Qdrant collection、有限单任务预算和本次运行证据。
@@ -560,7 +561,7 @@ V47 未纳入的失败 E2E 由下述 V48 承接；仓库生成物清理和 V0.1 
 
 ### M4G-D2 / V48：任务失败与浏览器恢复 E2E
 
-2026-09-09 已按 `slice-docs/49_FAILURE_RECOVERY_E2E_PACKAGE_INTERFACE.md` 实现并完成受控验收。
+2026-09-09 已按 `V0.1-slice-docs/49_FAILURE_RECOVERY_E2E_PACKAGE_INTERFACE.md` 实现并完成受控验收。
 独立入口为 `bash scripts/v48-failure-recovery-acceptance.sh`，真实浏览器/JWT/新 PostgreSQL 与
 生产创建、快照、Runner、RAG、ToolRuntime、Trace、终态事件链路运行；仅 LLM、embedding/vector 和指定 handler 故障受控。
 覆盖非法决策、重复工具循环、参数拒绝/执行失败、检索异常、非法 final 引用、token、整体 deadline、取消，
@@ -669,6 +670,10 @@ Task Trace
 
 ## 11. V0.1 后的优先级
 
+版本边界以 [Project Spec 第 7 节](agentflow-hub-project-spec.md#7-v02v03-与-v10-边界) 为准。
+以下是目标范围，尚不是已冻结的切片清单或已完成能力；V0.2/V0.3 各自开工前确定切片依赖和 Release Gate，
+完成声明继续遵守第 13 节。后续切片目录统一为 `V0.2-slice-docs/`、`V0.3-slice-docs/`，当前尚未建立。
+
 ### V0.2：稳定性与维护
 
 - 陈旧 RUNNING task 恢复策略；
@@ -678,13 +683,21 @@ Task Trace
 - Docker Compose 一键启动；
 - 压测和线程池参数验证。
 
+以现有 timeout/cancel、Trace 和文档补偿为基线补齐缺口。陈旧任务恢复的执行语义须单独冻结，
+不能把浏览器观察恢复当作进程恢复证据，也不默认引入自动续跑、任务/模型/工具重试或多实例调度。
+
 ### V0.3：质量回归
 
 - Prompt/config version；
 - Evaluation CLI/API；
-- 固定 eval dataset；
-- tool/citation/RAG 指标；
+- 固定且有版本的 eval dataset；
+- tool/citation/RAG 基础指标与评测报告；
 - 动态 Episode export。
+
+依赖已有 task snapshot 和 Trace，通过普通 AgentTask 路径执行评测；指标区分确定性规则核对与
+标注/人工质量判断。动态 Episode、轻量 CLI/API 和基础自动指标按 V0.3 规划，
+不再沿用旧 Harness 文档中分别推迟到 V1.0/V1.5 的归属；接口、存储和阈值仍需切片冻结。
+Evaluation UI 留 V1.0 候选，自动配置对比与 Episode 持久化缓存留 V1.5 候选。
 
 ### V1.0：选定的工程化升级
 
@@ -707,6 +720,7 @@ Task Trace
 
 - semantic-v1，在评测证明优于 baseline 后；
 - rerank/Hybrid Search；
+- 基于 V0.3 评测基线的自动 Prompt/model/RAG 配置对比；
 - Tool Policy；
 - HTTP adapter；
 - Episode persistence cache；

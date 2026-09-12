@@ -1,11 +1,11 @@
 # AgentFlow Hub 前端：V43、V45 与 V46
 
 Vue 3 + TypeScript + Vite 的最小任务前端。登录、已有 Agent 任务入口、任务列表/运行恢复、最终答案与引用、只读 Trace。
-接口契约见 [`44_FRONTEND_TASK_RUNTIME_PACKAGE_INTERFACE.md`](../slice-docs/44_FRONTEND_TASK_RUNTIME_PACKAGE_INTERFACE.md)。
+接口契约见 [`44_FRONTEND_TASK_RUNTIME_PACKAGE_INTERFACE.md`](../V0.1-slice-docs/44_FRONTEND_TASK_RUNTIME_PACKAGE_INTERFACE.md)。
 
 V45 增加 `/knowledge-bases` 与 `/knowledge-bases/:kbId`：分页列表、创建、只读配置、TXT/MD 单文件上传、
 知识库级解析/向量化，以及 V44 文档 Readiness、当前 generation 和四项计数。
-契约见 [`46_KNOWLEDGE_FRONTEND_PACKAGE_INTERFACE.md`](../slice-docs/46_KNOWLEDGE_FRONTEND_PACKAGE_INTERFACE.md)。
+契约见 [`46_KNOWLEDGE_FRONTEND_PACKAGE_INTERFACE.md`](../V0.1-slice-docs/46_KNOWLEDGE_FRONTEND_PACKAGE_INTERFACE.md)。
 上传只产生 PENDING；需要显式点击解析和向量化。仅 READY 显示可用于 Agent。
 创建与上传结果未知时不会自动重发，刷新/离页后保留待确认标记；用户核对后才能主动允许新的提交。
 部署为 remote 时，向量化仍会调用配置的 embedding/vector 服务。
@@ -13,7 +13,7 @@ V45 增加 `/knowledge-bases` 与 `/knowledge-bases/:kbId`：分页列表、创�
 V46 / M4G-C 增加 `/agents` 与 `/agents/:agentId`：分页列表、创建、配置编辑、启停和知识库/工具绑定，
 从详情进入既有运行页。配置、知识库绑定、工具绑定分别保存，草稿跨离页/刷新保留且退出时清除；
 未知写入先 GET 核对，不自动重发。知识库选择保留跨页和失效 ID，绑定成功不表示 READY。
-契约见 [`47_AGENT_FRONTEND_PACKAGE_INTERFACE.md`](../slice-docs/47_AGENT_FRONTEND_PACKAGE_INTERFACE.md)。
+契约见 [`47_AGENT_FRONTEND_PACKAGE_INTERFACE.md`](../V0.1-slice-docs/47_AGENT_FRONTEND_PACKAGE_INTERFACE.md)。
 
 ## 本地开发
 

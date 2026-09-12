@@ -316,7 +316,7 @@ POST /api/v1/tools/{toolId}/test
 - `backend/src/main/java/com/agentflow/tool/ReportGenerateToolData.java`；
 - `backend/src/test/java/com/agentflow/tool/ReportGenerateToolHandlerTest.java`；
 - `backend/src/test/java/com/agentflow/tool/V15ReportGenerateToolMigrationContractTest.java`；
-- `slice-docs/30_REPORT_GENERATE_TOOL_PACKAGE_INTERFACE.md`。
+- `V0.1-slice-docs/30_REPORT_GENERATE_TOOL_PACKAGE_INTERFACE.md`。
 
 修改：
 

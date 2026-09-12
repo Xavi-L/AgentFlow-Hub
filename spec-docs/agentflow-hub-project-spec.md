@@ -3,6 +3,7 @@
 > 文档状态：**NORMATIVE**  
 > 权威范围：项目定位、版本边界、完成标准  
 > 最近审查基线：`main@f276549`（V36）  
+> 版本规划对齐：2026-09-12，基于 `main@58b6145`；第 4 节仍保留 V36 历史起点。\
 > 任务状态、执行阶段和预算语义以 `agentflow-hub-agent-engine-design.md` 为准。
 
 ---
@@ -398,24 +399,60 @@ mock `LlmGateway` 只能证明 Engine 编排，不证明真实模型稳定遵守
 
 ---
 
-## 7. V1.0 边界
+## 7. V0.2、V0.3 与 V1.0 边界
 
-V1.0 的目标是将 V0.1 的单实例演示链路升级为可维护、可回归的完整项目，而不是一次加入所有规划能力。
+V0.1 之后按“稳定性与维护 → 质量回归 → 选定的工程化升级”推进。以下定义目标版本归属，
+施工顺序见 [Implementation Roadmap 第 11 节](agentflow-hub-implementation-roadmap.md#11-v01-后的优先级)。
+版本范围不等于实现或验收完成；各版本开工前再冻结具体切片、依赖与 Release Gate。
 
-V1.0 优先补齐：
+### 7.1 V0.2：稳定性与维护
 
-- 文档和 Agent task 的可靠异步执行；
-- 是否引入 RabbitMQ 由可靠投递和多 worker 需求决定；
-- PDF 与对象存储；
+- 陈旧 `RUNNING` task 恢复策略；
+- 更完整的 timeout/cancel；
+- Trace retention 和脱敏；
+- 文档/向量 reconciliation；
+- Docker Compose 一键启动；
+- 压测和线程池参数验证。
+
+在已有 deadline/cancel、Trace 脱敏与文档补偿基础上补齐缺口。陈旧任务的识别、终态收敛、
+执行续跑和新 task 重试是不同能力，具体策略须在对应切片中明确；“恢复”本身不授权自动重放
+模型或工具调用，也不等于 V0.1 已有的浏览器 Trace/SSE 观察恢复。继续遵守 Agent Engine 的
+终态不可复活及任务唯一执行根对象契约。
+
+### 7.2 V0.3：质量回归
+
 - Prompt/config version；
+- Evaluation CLI/API；
+- 固定且有版本的 eval dataset；
+- tool/citation/RAG 基础指标和可回查的评测报告；
+- 从已有 Trace 动态聚合的 Episode export。
+
+版本管理基于已有 execution snapshot 继续演进；固定评测数据、判定标准和运行配置后，
+通过普通 AgentTask 路径运行并读取 Trace/Episode 计算指标。明确可自动核对的指标与需要
+标注或人工判断的回答质量；成功终态、引用合法不直接等同于回答正确，真实模型输出也不保证完全确定性。
+
+本版本交付轻量质量回归基础，不要求 Evaluation UI、Episode 持久化缓存、自动配置搜索或
+完整 A/B 编排。数据表、公开字段、指标算法与阈值由后续切片另行冻结，不因规划名称提前建表。
+原先笼统列入 V1.0 的 Prompt/config version、动态 Episode 和轻量 Evaluation，明确前移至 V0.3；
+基础自动指标也纳入 V0.3，自动配置对比与更完整回归编排仍留后续版本。
+
+### 7.3 V1.0：选定的工程化升级
+
+在 V0.2/V0.3 基础上按实际需要选择，不要求全部同时实现：
+
+- PDF；
+- MinIO 等对象存储；
+- 可靠队列/RabbitMQ；
 - conversation 和多轮展示；
 - 工具管理和工具启停；
-- task 取消与陈旧任务恢复；
-- Trace 聚合 API；
-- Episode 动态导出；
-- 轻量 Evaluation API；
-- 选定的管理页面；
-- 限流、保留策略和脱敏策略。
+- richer Trace UI；
+- Evaluation UI；
+- 用户级限流；
+- 多实例部署；
+- provider token streaming。
+
+引入可靠队列/RabbitMQ 的前提是现有单实例 DB task + thread pool 已无法满足可靠投递、吞吐
+或多 worker 需求；不将其作为 V0.2/V0.3 的隐藏前置条件。
 
 V1.0 仍不要求：
 
@@ -438,7 +475,7 @@ V1.0 仍不要求：
 - `semantic-v1`；
 - Hybrid Search；
 - rerank；
-- prompt/model/RAG 对比；
+- 基于 V0.3 评测基线的自动 prompt/model/RAG 配置对比；
 - Episode 持久化缓存；
 - Tool Policy 规则；
 - HTTP tool allowlist；
@@ -457,7 +494,7 @@ V1.0 仍不要求：
 - OpenTelemetry/Prometheus/Grafana；
 - 长期记忆。
 
-这些能力不得成为 V0.1 或 V1.0 的隐藏前置条件。
+这些能力不得成为 V0.1、V0.2、V0.3 或 V1.0 的隐藏前置条件。
 
 ---
 

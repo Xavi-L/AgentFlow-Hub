@@ -153,7 +153,7 @@ V33 不复制 V32 的 `SELECT ... FOR UPDATE`。删除没有读取、合并和�
 V33 新增：
 
 ```text
-slice-docs/34_AGENT_APP_SOFT_DELETE_PACKAGE_INTERFACE.md
+V0.1-slice-docs/34_AGENT_APP_SOFT_DELETE_PACKAGE_INTERFACE.md
 ```
 
 V33 修改：

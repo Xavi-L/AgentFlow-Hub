@@ -311,7 +311,7 @@ V28 不新增日志状态。当前 Java 仍只实际产生 `RUNNING / SUCCESS / 
 - `backend/src/main/java/com/agentflow/tool/PaymentLogQueryToolData.java`；
 - `backend/src/test/java/com/agentflow/tool/PaymentLogQueryToolHandlerTest.java`；
 - `backend/src/test/java/com/agentflow/tool/V14PaymentLogQueryToolMigrationContractTest.java`；
-- `slice-docs/29_PAYMENT_LOG_QUERY_TOOL_PACKAGE_INTERFACE.md`。
+- `V0.1-slice-docs/29_PAYMENT_LOG_QUERY_TOOL_PACKAGE_INTERFACE.md`。
 
 修改：
 

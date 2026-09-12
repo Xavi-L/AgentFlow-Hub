@@ -58,7 +58,7 @@ bash scripts/v48-failure-recovery-acceptance.sh
 
 The first command is a single-case diagnostic and does not establish full V48 acceptance.
 The second runs the complete matrix from
-[`49_FAILURE_RECOVERY_E2E_PACKAGE_INTERFACE.md`](../../slice-docs/49_FAILURE_RECOVERY_E2E_PACKAGE_INTERFACE.md).
+[`49_FAILURE_RECOVERY_E2E_PACKAGE_INTERFACE.md`](../../V0.1-slice-docs/49_FAILURE_RECOVERY_E2E_PACKAGE_INTERFACE.md).
 Each invocation requires a fresh `V48_CONTROL_DIR` (automatically created by default).
 Ports default to frontend/backend/PostgreSQL 5178/18048/55448 and can be overridden by
 `V48_FRONTEND_PORT`, `V48_BACKEND_PORT`, and `V48_PG_PORT`. The database is always
@@ -119,7 +119,7 @@ configuration draft remain consistent. On 2026-09-10,
 `TMPDIR=/private/tmp bash scripts/v46-browser-acceptance.sh` passed 20/20 in 47.2 seconds.
 The added scenario does not execute a task or call a provider. Its
 `knowledge-binding-limit-evidence.json`, screenshot and durable summary are linked
-from the [V49 acceptance record](../../slice-docs/50_KNOWLEDGE_BINDING_LIMIT_PACKAGE_INTERFACE.md).
+from the [V49 acceptance record](../../V0.1-slice-docs/50_KNOWLEDGE_BINDING_LIMIT_PACKAGE_INTERFACE.md).
 
 Agent advanced settings add three scenarios: nullable inheritance and explicit reset after
 an uncertain PATCH, exact-model capabilities and late-response isolation, and a real task
@@ -127,7 +127,7 @@ whose frozen settings survive later Agent changes. The fixture allowlists only i
 model; this is not evidence of a real model's JSON or thinking support. On 2026-09-11 the full
 entry passed 23/23 in 56.6 seconds. `advanced-settings-evidence.json` records the Agent before
 and after editing, the persisted v2 snapshot, and the controlled gateway's actual call settings.
-See the [advanced settings contract](../../slice-docs/51_AGENT_ADVANCED_SETTINGS_PACKAGE_INTERFACE.md)
+See the [advanced settings contract](../../V0.1-slice-docs/51_AGENT_ADVANCED_SETTINGS_PACKAGE_INTERFACE.md)
 for configuration, migration, and verification details.
 
 ## V47 real-provider and Qdrant main-path E2E
@@ -340,7 +340,7 @@ only the full automated path may produce `PASSED`; final slice acceptance also
 records the answer review described above. Failure before task creation has no task
 evidence. The test entrypoint is `frontend/e2e/real-provider.config.ts`; it is excluded
 from the controlled configuration. For actual execution status and claim boundaries,
-see `slice-docs/48_REAL_PROVIDER_E2E_PACKAGE_INTERFACE.md`.
+see `V0.1-slice-docs/48_REAL_PROVIDER_E2E_PACKAGE_INTERFACE.md`.
 
 On 2026-09-07 an earlier preflight returned `BLOCKED` because the process environment
 lacked `DASHSCOPE_API_KEY` and Chat `/models` returned no HTTP response. After configuring

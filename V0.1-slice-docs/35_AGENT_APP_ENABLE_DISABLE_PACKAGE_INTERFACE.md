@@ -216,7 +216,7 @@ PostgreSQL 的受控并发验收确认；Service mock 与 Mapper SQL-shape 测�
 V34 新增：
 
 ```text
-slice-docs/35_AGENT_APP_ENABLE_DISABLE_PACKAGE_INTERFACE.md
+V0.1-slice-docs/35_AGENT_APP_ENABLE_DISABLE_PACKAGE_INTERFACE.md
 ```
 
 V34 修改：

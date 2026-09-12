@@ -5,7 +5,7 @@
   "sourceScope": {
     "baseCommit": "1d062dfbbd678770b792a0ecdaef8ebed982d1d0",
     "changeSet": "V49 knowledge-binding limit implementation and focused acceptance in working tree; excludes existing local HTTP/YAML changes",
-    "contract": "slice-docs/50_KNOWLEDGE_BINDING_LIMIT_PACKAGE_INTERFACE.md"
+    "contract": "V0.1-slice-docs/50_KNOWLEDGE_BINDING_LIMIT_PACKAGE_INTERFACE.md"
   },
   "release": {
     "tag": "v0.1",
