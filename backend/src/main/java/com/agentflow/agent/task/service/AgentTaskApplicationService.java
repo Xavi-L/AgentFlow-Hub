@@ -6,6 +6,7 @@ import com.agentflow.common.error.BusinessException;
 import com.agentflow.common.error.ErrorCode;
 import java.util.Objects;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.CannotSerializeTransactionException;
 import org.springframework.stereotype.Service;
 
 /** Non-transactional idempotency orchestrator around the isolated creation transaction. */
@@ -44,7 +45,7 @@ public class AgentTaskApplicationService {
     public CreateAgentTaskResult createTaskWithResult(CreateAgentTaskCommand command) {
         admission.requireReady();
         validate(command);
-        String fingerprint = fingerprintFactory.calculate(command.agentId(), command.userInput()).sha256();
+        String fingerprint = fingerprintFactory.calculate(command.agentId(), command.userInput(), command.configVersionId()).sha256();
 
         AgentTask existing = queryService.findByUserAndClientRequestId(
                 command.userId(),
@@ -54,9 +55,14 @@ public class AgentTaskApplicationService {
             return new CreateAgentTaskResult(sameRequestOrConflict(existing, fingerprint), false);
         }
 
-        try {
+        for (int attempt = 0; ; attempt++) {
+          try {
             return new CreateAgentTaskResult(creationTransactionService.createNew(command, fingerprint), true);
-        } catch (DataIntegrityViolationException ex) {
+          } catch (CannotSerializeTransactionException ex) {
+            AgentTask winner = queryService.findByUserAndClientRequestId(command.userId(), command.clientRequestId());
+            if (winner != null) return new CreateAgentTaskResult(sameRequestOrConflict(winner, fingerprint), false);
+            if (attempt >= 2) throw ex;
+          } catch (DataIntegrityViolationException ex) {
             // The failed PostgreSQL transaction has already unwound through its proxy here.
             // Recovery must use AgentTaskQueryService's independent REQUIRES_NEW transaction.
             AgentTask concurrentWinner = queryService.findByUserAndClientRequestId(
@@ -67,6 +73,7 @@ public class AgentTaskApplicationService {
                 throw ex;
             }
             return new CreateAgentTaskResult(sameRequestOrConflict(concurrentWinner, fingerprint), false);
+          }
         }
     }
 
@@ -89,6 +96,9 @@ public class AgentTaskApplicationService {
         }
         if (command.agentId() <= 0) {
             throw invalid("agentId must be positive");
+        }
+        if (command.configVersionId() != null && command.configVersionId() <= 0) {
+            throw invalid("configVersionId must be positive");
         }
         if (command.clientRequestId() == null
                 || command.clientRequestId().isBlank()

@@ -36,6 +36,7 @@ class AgentTaskCreationTransactionServiceTest {
     @Mock
     private AfterCommitTaskDispatchCoordinator dispatchCoordinator;
 
+    @Mock private com.agentflow.agent.configversion.AgentConfigVersionTransactions configurations;
     private AgentTaskCreationTransactionService service;
 
     private static com.agentflow.agent.task.recovery.TaskExecutionAdmission readyAdmission() {
@@ -52,7 +53,7 @@ class AgentTaskCreationTransactionServiceTest {
                 eventAppender,
                 dispatchCoordinator,
                 new ObjectMapper(),
-                Clock.fixed(Instant.parse("2026-09-02T01:02:03Z"), ZoneOffset.UTC), readyAdmission()
+                Clock.fixed(Instant.parse("2026-09-02T01:02:03Z"), ZoneOffset.UTC), readyAdmission(), configurations
         );
     }
 
@@ -64,7 +65,12 @@ class AgentTaskCreationTransactionServiceTest {
                 "key-1",
                 "  keep original input  "
         );
-        when(snapshotResolver.resolve(11L, 21L)).thenReturn(snapshot());
+        var version = new com.agentflow.agent.configversion.AgentConfigVersion();
+        version.setId(51L);
+        version.setConfigHash("b".repeat(64));
+        version.setHashAlgorithmVersion("config-canonical-json-v1");
+        when(configurations.selectForTask(11L, 21L, null)).thenReturn(version);
+        when(snapshotResolver.resolveConfiguration(eq(11L), eq(21L), any())).thenReturn(snapshot());
         when(taskMapper.insertTask(any())).thenReturn(1);
         when(eventAppender.append(any(Long.class), eq(TaskEventType.TASK_CREATED), any()))
                 .thenReturn(1L);
@@ -80,6 +86,9 @@ class AgentTaskCreationTransactionServiceTest {
         );
         assertThat(persisted.getValue().getReservedFinalTokens()).isEqualTo(2000);
         assertThat(created.getLastEventSequence()).isEqualTo(1L);
+        assertThat(created.getConfigVersionId()).isEqualTo(51L);
+        assertThat(created.getConfigHash()).isEqualTo("b".repeat(64));
+        assertThat(created.getEffectiveConfigHash()).hasSize(64);
         verify(dispatchCoordinator).dispatchAfterCommit(created.getId());
     }
 

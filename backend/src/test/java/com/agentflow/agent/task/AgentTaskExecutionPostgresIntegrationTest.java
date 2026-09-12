@@ -69,7 +69,7 @@ class AgentTaskExecutionPostgresIntegrationTest {
     void setup() {
         // This class is opt-in and runs only against a disposable test database.
         for (String table : List.of("tool_call_log", "rag_retrieval_hit", "rag_retrieval_log", "llm_call_log",
-                "agent_step", "agent_task_event", "agent_task", "agent_tool_binding", "agent_knowledge_binding",
+                "agent_step", "agent_task_event", "agent_task", "agent_config_version", "agent_tool_binding", "agent_knowledge_binding",
                 "knowledge_document_reprocess_task", "knowledge_document_deletion_task", "knowledge_chunk",
                 "knowledge_document", "knowledge_base", "agent_app", "app_user")) jdbc.update("DELETE FROM " + table);
         jdbc.update("UPDATE tool_definition SET status='ACTIVE', deleted_at=NULL WHERE id IN (?,?)", ORDER_TOOL, PAYMENT_TOOL);

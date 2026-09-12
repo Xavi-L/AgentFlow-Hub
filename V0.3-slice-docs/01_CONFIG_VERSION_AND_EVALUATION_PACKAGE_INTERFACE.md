@@ -1,7 +1,7 @@
 # V0.3 施工契约：配置版本、评测关联与最小回归基线
 
 > 文档日期：2026-09-12。审查基线：`main@dce66e3365f45f2492d1b10d7c03118ac1564514`。
-> 状态：**待实现的施工契约**，不表示版本管理、Evaluation 或 Episode 已经实现或通过验收。
+> 状态：**V0.3-A 已实现，A01–A13 受控工程验收通过；V0.3-B 未施工**。本轮起点为 V0.2-B 交付 `b875bde`；真实 V47 成功回归 BLOCKED，实际证据边界见第 10 节。
 > 版本范围来源：[Project Spec §7.2](../spec-docs/agentflow-hub-project-spec.md)；边界继承 [Harness Design](../spec-docs/agentflow-hub-agent-harness-design.md)。
 > 顺序：先完成 [V0.2-A](../V0.2-slice-docs/01_TASK_RECOVERY_AND_INTERRUPTION_PACKAGE_INTERFACE.md) 的中断收尾，再分别施工 **V0.3-A 版本与评测关联**、**V0.3-B 最小质量回归基线**。相关中断场景依赖 V0.2-B 的验收，不把其缺口藏到评测里。
 
@@ -132,7 +132,7 @@ A 实现配置版本 API、普通任务的版本关联，以及**本地 Evaluati
 
 ### 4.1 入口与存储选择
 
-计划入口为 `python3 scripts/evaluation.py`，子命令 `run/resume/report/compare/episode`；本文件不是声称该脚本已存在。A 实现前 3 个，B 实现后 2 个和正式指标。
+A 已交付入口 `python3 scripts/evaluation.py`，仅提供 `run/resume/report`；`compare/episode` 和正式指标属于 B 的后续施工，当前不可调用。完整运行说明见 [Evaluation CLI](../scripts/evaluation.md)。
 
 CLI 通过普通鉴权 HTTP task/config/Trace 接口工作，不导入执行器内部方法。连接地址和凭据从环境读取，凭据不进入命令行、运行文件、错误日志或报告。生产执行默认仍由任务入口的预算与 owner 规则控制。
 
@@ -379,10 +379,100 @@ A 交付配置版本表/关联迁移、API 与正常任务路径改造、哈希�
 
 | 里程碑 | 完成门槛 | 当前状态 |
 | --- | --- | --- |
-| V0.3-A | A01–A13；旧任务冻结、无样本漏记、无重复执行、历史兼容 | 未实现 / 未验收 |
+| V0.3-A | A01–A13；旧任务冻结、无样本漏记、无重复执行、历史兼容 | A01–A13 受控工程验收通过；V47 真实回归 BLOCKED |
 | V0.3-B | B01–B15；指标分层、材料可核对、比较门禁及真实基线证据 | 未实现 / 未验收 |
 
 没有已知好结果不是修改标签或删除失败样本的理由。该版本验收证明评测系统如实工作，不以虚构“相较 v0.1 提升 X%”作为完成条件。
+
+
+### 10.1 本轮交付与身份边界（2026-09-12）
+
+施工开始时 HEAD 与 V0.2-B 交付 `b875bde` 一致，无额外提交差异。先同步 Engine/Data/API/Frontend/Harness/Project Spec/Roadmap 与索引投影，再编写代码。既有 `backend/http/user-auth.http`、`backend/src/main/resources/application-dev.yml` 本地修改保留；V1–V22 migration 未回改，仅新增 [V23](../backend/src/main/resources/db/migration/V23__create_agent_config_version.sql)。本轮可移植验收摘要记录在 [V0.3-A evidence](evidence/V0.3-A-20260912.json)，原始失败和修复后结果分别保留，不把临时目录路径当作可共享证据。
+
+配置版本由 `AgentConfigVersionTransactions/Service/Mapper/Controller` 实现。发布与普通任务捕获使用 REPEATABLE_READ 和同一 Agent 行锁，草稿及绑定处于一致已提交视图；并发序列化失败只在事务外有限重试数据库读写，不包围模型或工具调用。配置保存原始 nullable 覆盖值，以及按数值 ID 规范化排列但保留 priority/enabled 的绑定集合。V23 提供内容唯一约束、拒绝 UPDATE 的 trigger 和 task 到 `(version, agent, owner, configHash)` 的复合外键；没有修改/删除版本 API。
+
+版本 DTO 为 `{configVersionId, agentId, schemaVersion, hashAlgorithmVersion, configHash, config, createdAt}`。Task/Trace 通过可选 `configuration={configVersionId, configHash, effectiveConfigHash, hashAlgorithmVersion}` 暴露同一持久关联；省略/null 版本仍可创建普通任务，旧 UI 无需先发布。旧 v1/v2 snapshot、旧省略式请求指纹及历史缺失配置身份保持原样；显式版本使用独立指纹域，原幂等确认先于当前配置解析与 Agent/依赖准入；V0.2 进程准入门禁仍按旧顺序首先执行。
+
+[ConfigCanonicalJson](../backend/src/main/java/com/agentflow/agent/configversion/ConfigCanonicalJson.java) 和 CLI 共用 [golden vectors](../scripts/fixtures/config-canonical-json-v1-vectors.json)。对象按 Unicode scalar 排序，数字使用十进制等值表示，字符串不 trim/不 Unicode 归一化；实际 hash 排除 agentId/status、executionSettings.sources 和旧派生 tools[*].inputSchemaHash。完整 inputSchema 仍按新算法参与 hash；旧 inputSchemaHash 原样保留于快照并继续服务工具 hard validation。tool.name/description 会进入实际 prompt，仍参与实际 hash；不以排除显示标签之名遗漏执行内容。
+
+CLI 已实现完整计划/原请求/key 先落盘、单写者锁、追加 journal、有限未知提交核对、Task/Trace 读回和无评分报告。先允许只读 owner/版本 hash 预检，空 journal 先创建，再原子发布完整 manifest；任何 task POST 均晚于计划与提交意图 fsync。未知提交的核对次数在网络前落盘，全部 resume 累计最多 3 次；核对中的 401/404/409 不能证明首次未创建，保留未知。已关联 task 只观察，明确拒绝不重试，剩余 PLANNED 与所有失败留在原分母。原输入含可识别秘密时在写运行文件/提交前拒绝，Trace/异常再脱敏，秘密 JSON key 同样处理。
+
+实际配置、调用模型、usage 与中断原因来自 Task/Trace。严格服务端构建身份目前仍缺少可验证 clean/dirty 或不可变镜像关联；CLI 不把自身 Git 或 `applicationRevision=development` 当作服务端证明。非 EXACT 用量、未确认提交/观察或环境漂移会停止新增提交。A 的 `N_scored=0`、`qualityEvaluation=NOT_EVALUATED`，不宣称回答质量提升。
+
+已保存可直接阅读的 [三例受控关联报告](evidence/cli-controlled-run-20260912/README.md)，含 [report.json](evidence/cli-controlled-run-20260912/report.json)、[report.md](evidence/cli-controlled-run-20260912/report.md)、完整 manifest/journal 与脱敏 artifacts。计划 3 例，关联 2 例、明确拒绝 1 例、未完成 0、评分 0；两次 resume 新增 POST 为 0。这里的中断状态是受控 HTTP fixture 返回值，不能冒充该报告实际中断 Java 进程或真实 PostgreSQL/provider 证据。
+
+### 10.2 A01–A13 证据对应
+
+| 验收项 | 本轮证据与边界 |
+| --- | --- |
+| A01 | 新配置 PostgreSQL 测试：prompt、预算、五项覆盖、两类绑定冻结；选择旧版本及原 task 快照不变 |
+| A02 | 新配置 PostgreSQL 测试：同版本原始 null 不变，部署默认改变后实际快照/hash 不同 |
+| A03 | 新配置 PostgreSQL 测试：并发草稿/绑定事务与发布阻塞、一致已提交捕获及内容去重 |
+| A04 | 新配置 PostgreSQL/API 测试：跨 owner/Agent、禁用 Agent、非 READY 知识和非法工具均拒绝 |
+| A05 | 新配置 PostgreSQL 测试与旧任务回归：历史 v1/v2 身份缺失、旧指纹原字节及原 task 保留 |
+| A06 | 新配置 PostgreSQL 测试：同 key 变显式版本/请求形态/原始空白返回 409 |
+| A07 | 新配置 PostgreSQL 并发/丢应答测试：一版本、一 task、一次 dispatch；CLI 原请求/key 核对测试 |
+| A08 | CLI 受控 HTTP suite：成功、无 task 准入拒绝和中断样本均保留；真实中断事实另由 V0.2-A/B 回归证明，不把 loopback task fixture 写成真实后端 E2E |
+| A09 | CLI 独立子进程 SIGKILL：意图落盘后、POST 后 taskId 落盘前恢复；跨 resume 核对上限、已关联终态不重跑 |
+| A10 | CLI 文件/进程测试：观察到期不伪造 task 超时，尾部恢复/中间损坏拒绝和运行目录单写者锁 |
+| A11 | CLI 读取实际 configuration/model calls；缺服务端严格构建证据明确 missing，未提升 development 为身份 |
+| A12 | Java/CLI 共用向量，含键/数字/中文/换行/空白/null/绑定；标签不影响，priority 与实际 prompt 差异保留，旧派生 schema hash 不制造等值差异 |
+| A13 | PostgreSQL owner/复合 FK/Trace 隔离及秘密发布拒绝；CLI 秘密输入/JSON key/异常/Trace 脱敏、越权读取保持未完成 |
+
+以上均为工程受控验收。CLI 受控 HTTP/文件证据、真实 PostgreSQL 事务/HTTP API 证据与真实外部服务证据分开记录；A 不包含 B 的正式材料、质量判定或 Episode。
+
+### 10.3 已执行命令与结果
+
+Java 使用 JDK 21；Mockito 测试使用当前 Maven classpath 的 `mockito-core` javaagent。独立 PostgreSQL 脚本创建全新临时 PG18 cluster，各测试类使用独立数据库/JVM 锁，不连接开发库、不复用旧库。
+
+```sh
+# 默认 Java 测试；MOCKITO_AGENT 指向当前 Maven classpath 的 mockito-core jar
+JAVA_HOME=$(/usr/libexec/java_home -v 21) mvn -q -f backend/pom.xml "-DargLine=-javaagent:$MOCKITO_AGENT" test
+bash scripts/v03a-postgres-acceptance.sh
+# 有失败时仅复验明确选择的类；每次仍建立全新临时 PG18
+bash scripts/v03a-postgres-acceptance.sh --class V03AConfigVersionPostgresIntegrationTest --class AgentExecutionTracePostgresIntegrationTest
+python3 -m unittest discover -s scripts -p 'test_evaluation.py' -v
+python3 scripts/evaluation-controlled-acceptance.py --output out/cli-controlled-association-new
+npm --prefix frontend test
+npm --prefix frontend run build
+bash scripts/v02a-restart-acceptance.sh
+bash scripts/v02b-interruption-acceptance.sh
+bash scripts/v48-failure-recovery-acceptance.sh
+bash scripts/v47-real-provider-acceptance.sh --preflight-only
+```
+
+V0.2-A/B 本轮使用 `--compiled-classpath` 复用已明确完成的当前 `test-compile dependency:build-classpath`，未跳过其进程/数据库/浏览器验收。V48 重新构建当前代码，包含 effective hash 的旧派生字段排除修正。
+
+| 验证 | 结果 |
+| --- | --- |
+| 默认 Java suite | 864 报告条目：789 通过、75 个真实 PG opt-in 条目默认跳过；0 failure / 0 error |
+| 真实 PG18 九类测试 | 最终 **91/91 通过、0 skip**：新配置 10、Trace 10、原六类 60、KnowledgeReadiness 11；各类最终结果来自 4 次独立运行，原失败另保留 |
+| Java canonical focused | 4 tests 通过，含等值数字/来源与旧派生 schema hash 边界；已包含于默认 Java suite |
+| CLI 受控 HTTP/文件/子进程 | 19/19 通过、0 skip；含真实 SIGKILL/fsync/flock 与 loopback HTTP，py_compile 通过 |
+| 前端 Vitest / 构建 | 10 文件、100 tests 通过；vue-tsc 与 Vite build 通过 |
+| V0.2-A | A01–A17 **17/17** 通过，含真实 JVM kill/restart、cold cutover 和浏览器观察 |
+| V0.2-B | B01–B10 **10/10** 通过，含 B09 SIGKILL/waitpid/restart |
+| V48 | **22/22** 浏览器通过；803 逐例 + 3 全局 PostgreSQL checks 通过，fullMatrixPassed=true，0 自动执行/Playwright 重试 |
+| V47 真实成功回归 | **BLOCKED / 未执行成功链路**：host 预检缺 DASHSCOPE_API_KEY，chatModels 不可达；不是受控验收失败，也不是通过 |
+
+默认 suite 的 75 个 PG opt-in 跳过条目按方法/容器计数；启用真实数据库后参数化测试展开为 91 个执行 case（KnowledgeReadiness 默认 6 个跳过方法实际展开 11 case）。二者不能机械相减判断覆盖；九类均已在独立真实 PG 中执行并最终通过。
+
+### 10.4 失败、修复与未执行项
+
+1. 初次编译暴露旧测试构造参数与新增服务依赖不匹配，更新受影响夹具后重新编译/测试。
+2. 第一次真实 PG 运行中，新配置夹具重复 storage_object_key 造成 10 errors；旧 Trace migration 数量仍预期 22 导致 1 failure；修正夹具唯一身份及 V23 断言。wrapper 请求的 Surefire 目录参数未生效，错误统计为零测试；已改为清理/归档确切类 XML/TXT。原运行保持 FAILED，另补采并逐项核对原数据库/锁属性的 XML 证据，未覆盖原失败记录。
+3. 第二次新配置 PG 测试 9/10，发布非法 body 返回 COMMON_REQUEST_BODY_INVALID 与本契约 COMMON_PARAM_INVALID 不一致；新增该配置版本 controller 的局部错误投影，第三次 10/10 通过。其余类以各自最后实际结果记账，没有把未执行类默认为通过。
+4. 默认 Java 首次在 sandbox 中有 15 个 HTTP socket bind 权限 errors；host 上完整重跑后 0 failure/error。CLI 初次 sandbox 有 16 个 loopback bind setup errors，host 上重新运行；这些环境失败保留，不计为业务能力证据。
+5. CLI 读审和受控夹具暴露过未知提交后鉴权错误误判拒绝、秘密 JSON key/嵌入 JSON 字符串脱敏及 journal framing 边界；host 首轮 JSON apiKey 引号检出不足造成 1 failure，修复后 17/17 通过；再补 expected snapshot 子集和裸 CR 中间损坏拒绝回归，最终 19/19 通过，不以早期通过数替代最终结果。
+6. 前端仅既有 Vue Router 未匹配测试路由 warning，构建无失败。V47 首次 sandbox 预检的端口/网络限制与 host 预检分开；host 最终仍因凭据及 chatModels 缺失 BLOCKED。未跑真实模型/Qdrant 成功回归，不宣称真实服务验收完成。
+
+V0.3-B 未施工；compare/episode、正式评分与固定质量基线、Evaluation UI/数据库平台均未纳入本轮。A 的可恢复文件记账与 V0.2 中断收尾通过，不等于任务自动续跑、供应商结果核对或真实回答质量提高。
+
+### 10.5 用户手动验证与交付确认（2026-09-12）
+
+用户在本轮明确反馈“我手动验证通过了，提交推送改动”，据此记录手动验证通过并授权提交推送。该结果来源为用户确认，未附具体 taskId、Trace 或逐项检查清单；不将其改写为本助手重新执行了 V47 自动验收。第 10.3/10.4 节保留此前自动预检 BLOCKED 的历史记录。
+
+后续只读检查已确认：智谱和 DashScope 凭据存在于 IDE 的运行配置，此前未传入验收子进程；后端/V47 读取 OPENAI_API_KEY，IDE 使用 ZHIPU_API_KEY，当前开发地址和模型另有本地配置。此前“缺凭据”指该次验收进程未读到，并不表示用户没有配置。交付不包含 IDE 凭据文件，也保留既有认证示例和开发配置修改。
 
 ## 11. 明确不做
 
@@ -390,26 +480,26 @@ A 交付配置版本表/关联迁移、API 与正常任务路径改造、哈希�
 
 ## 面试问题与回答
 
-**问题 1：已经有 execution snapshot，为什么还需要配置版本？**
+**问题 1：已有 execution snapshot，为什么还需要配置版本？**
 
-回答：快照记录单次任务解析出的实际值，配置版本提供可选择、不可变的配置身份。二者分工不同；A 的目标是在普通任务创建时关联两者，而不是用版本号替代快照或覆盖历史。
+回答：配置版本提供可发布、可选择且内容去重的原始配置身份，快照记录一次 task 实际解析的默认值、规则和依赖 generation。A 已将两者通过 Task/Trace.configuration 关联；历史 v1/v2 缺失身份仍缺失，不用今天的草稿补造过去。
 
-**问题 2：同一个版本为什么仍可能不能直接比较？**
+**问题 2：为什么同版本可能有不同 effectiveConfigHash？绑定重排是否总应忽略？**
 
-回答：配置中的 null 可以继承不同部署默认，语料、工具和运行环境也可能变化。必须核对实际快照、材料和构建身份；只比较 configVersionId 不足以控制变量。
+回答：null 继承的部署默认和解析依赖可以改变，实际 hash 要识别这种差异；原始 configHash 则保持不变。无序绑定容器按 ID 规范化，但 priority/enabled 属于配置内容，真正改变执行顺序必须改变身份。Java/CLI golden vectors 证明规范化一致，不证明模型输出确定；旧 inputSchemaHash 从实际 hash 投影排除，完整 schema 仍参与计算，原工具 hard validation 保留。
 
-**问题 3：评测为什么先登记样本再创建任务？**
+**问题 3：配置和绑定跨多次读取，如何保证发布不拼接不同版本？**
 
-回答：准入失败可能没有 taskId，响应丢失也不能证明创建失败。先持久计划和原请求 key，才能保留所有失败并通过正常幂等入口核对，避免报告只统计成功任务。
+回答：发布/任务捕获在 REPEATABLE_READ 事务中读取，并遵守同一 Agent 行锁；数据库内容唯一约束处理重复发布，序列化冲突在失败事务外有限重试。真实 PostgreSQL 并发测试证明一致已提交视图。事务中不调用 LLM/Qdrant/工具；用户分多次编辑本身仍不是一个交互大事务，评测前应先发布并检查版本。
 
-**问题 4：工具成功、引用合法为什么仍可能质量不合格？**
+**问题 4：显式版本如何兼容旧幂等请求？**
 
-回答：这些只证明执行和协议。支付结果未知却回答未扣款，或引用内容不支持结论，都需要质量 rubric 判失败。未人工判定的项不能默认通过；相关能力属于 B 的待验收目标。
+回答：省略/null 继续使用旧 Agent ID 与原始 userInput 指纹，显式版本使用包含版本 ID 的新指纹域；相同 key 改形态、版本或输入空白返回 409。V0.2 进程准入门禁仍先执行，门禁允许后确认旧请求先回读原 task，当前草稿/默认/禁用变化不触发第二次执行；历史指纹和 snapshot 不重写。
 
-**问题 5：Episode 导出是否能用于断点续跑？**
+**问题 5：CLI 在 POST 后崩溃，怎样恢复且不漏失败样本？**
 
-回答：本文 Episode 只是从 Trace 动态读取并导出的证据包，不保存完整可恢复执行状态，也不核对外部副作用。自动续跑、确定性重放均未纳入本片。
+回答：完整计划和每例 key 先持久化，再 fsync 提交意图。恢复对未知提交复用原请求/key，网络前持久计数，跨 resume 最多核对 3 次；核对时的 401/404/409 不证明首次未创建。已关联 task 只读原 Task/Trace，失败终态和明确拒绝不重跑，原计划未发送样本可首次提交；全部样本留在报告分母。独立 CLI 子进程 SIGKILL/文件测试属于受控工程证据。
 
-**问题 6：怎样才能说新配置质量提高？**
+**问题 6：这些验收能证明配置提高回答质量了吗？**
 
-回答：先满足同样本、同材料、同判定规则及除目标变量外的必要条件，保留全部失败和覆盖率，才能作本轮描述性比较。一次分数更高不等于稳定提高；更强结论需要另外设计重复试验与统计/人工评审证据。
+回答：不能。A 报告 N_scored=0、qualityEvaluation=NOT_EVALUATED，证明关联和失败记账。真实 PG、受控 HTTP/浏览器与 JVM 中断证据分别记录，V47 自动预检的 BLOCKED 历史与用户随后确认手动验证通过分别记录，不补造自动执行证据；严格服务端构建依据缺失也明确报告。固定材料、评分、compare 和 Episode 属于未施工的 V0.3-B，不能从本轮工程结果推导质量提升。

@@ -53,6 +53,14 @@ function normalizeTask(task: Task): Task {
   resourceId(task.taskId); resourceId(task.agentId)
   task.lastEventSequence = sequence(task.lastEventSequence)
   if (!Array.isArray(task.citations)) throw new ApiError('任务引用格式错误', 0, 'INVALID_RESPONSE')
+  if (task.configuration != null) {
+    resourceId(task.configuration.configVersionId)
+    if (![task.configuration.configHash, task.configuration.effectiveConfigHash]
+      .every(value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value))
+      || typeof task.configuration.hashAlgorithmVersion !== 'string' || !task.configuration.hashAlgorithmVersion) {
+      throw new ApiError('任务配置关联格式错误', 0, 'INVALID_RESPONSE')
+    }
+  }
   return task
 }
 

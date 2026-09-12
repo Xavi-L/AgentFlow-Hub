@@ -130,7 +130,7 @@ class AgentTaskSsePostgresIntegrationTest {
     void setup() {
         assertThat(sse.activeConnectionCount()).isZero();
         for (String table : List.of("tool_call_log", "rag_retrieval_hit", "rag_retrieval_log", "llm_call_log",
-                "agent_step", "agent_task_event", "agent_task", "agent_tool_binding", "agent_knowledge_binding",
+                "agent_step", "agent_task_event", "agent_task", "agent_config_version", "agent_tool_binding", "agent_knowledge_binding",
                 "knowledge_document_reprocess_task", "knowledge_document_deletion_task", "knowledge_chunk",
                 "knowledge_document", "knowledge_base", "agent_app", "app_user")) {
             jdbc.update("DELETE FROM " + table);

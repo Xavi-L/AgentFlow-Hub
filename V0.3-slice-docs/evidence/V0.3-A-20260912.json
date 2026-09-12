@@ -1,0 +1,541 @@
+{
+  "schemaVersion": "agentflow-v03a-acceptance-v1",
+  "date": "2026-09-12",
+  "scope": "V0.3-A only",
+  "status": "PASSED_CONTROLLED_CONTRACT",
+  "matrix": {
+    "A01": {
+      "status": "PASSED",
+      "evidence": [
+        "V03AConfigVersionPostgresIntegrationTest.a01FreezesPromptBudgetsEveryOverrideAndBothBindingSelections"
+      ]
+    },
+    "A02": {
+      "status": "PASSED",
+      "evidence": [
+        "V03AConfigVersionPostgresIntegrationTest.a02SameVersionTracksChangedDeploymentDefaultsWithoutChangingRawNulls"
+      ]
+    },
+    "A03": {
+      "status": "PASSED",
+      "evidence": [
+        "V03AConfigVersionPostgresIntegrationTest.a03WaitsForCommittedDraftAndBindingViewAndDeduplicatesConcurrentPublication"
+      ]
+    },
+    "A04": {
+      "status": "PASSED",
+      "evidence": [
+        "V03AConfigVersionPostgresIntegrationTest.a04VersionSelectionCannotBypassOwnerAgentReadyOrToolAdmission",
+        "KnowledgeReadinessPostgresIntegrationTest"
+      ]
+    },
+    "A05": {
+      "status": "PASSED",
+      "evidence": [
+        "V03AConfigVersionPostgresIntegrationTest.a05KeepsHistoricalV1V2IdentityMissingAndOldFingerprintsByteExact",
+        "AgentTaskPostgresIntegrationTest",
+        "AgentExecutionTracePostgresIntegrationTest"
+      ]
+    },
+    "A06": {
+      "status": "PASSED",
+      "evidence": [
+        "V03AConfigVersionPostgresIntegrationTest.a06ConflictsOnExplicitVersionRequestShapeAndOriginalInputWhitespace"
+      ]
+    },
+    "A07": {
+      "status": "PASSED",
+      "evidence": [
+        "V03AConfigVersionPostgresIntegrationTest.a07ConcurrentAndLostResponsesHaveOneVersionOneTaskOneDispatch",
+        "AgentTaskApiPostgresIntegrationTest.shouldReturnExactlyOne201ForConcurrentIdenticalHttpCreatesAndNeverRerun",
+        "test_a07_lost_response_reuses_original_request_and_key"
+      ]
+    },
+    "A08": {
+      "status": "PASSED",
+      "evidence": [
+        "test_a08_full_plan_success_admission_and_restart_denominator",
+        "V0.2-A and V0.2-B independent actual JVM restart regressions"
+      ]
+    },
+    "A09": {
+      "status": "PASSED",
+      "evidence": [
+        "test_a09_sigkill_after_intent_and_after_post_before_link",
+        "test_a09_unknown_limit_is_three_checks_across_all_resumes",
+        "test_unknown_submission_then_auth_or_access_error_never_claims_no_task"
+      ]
+    },
+    "A10": {
+      "status": "PASSED",
+      "evidence": [
+        "test_a10_observation_timeout_is_not_task_timeout_and_resume_only_observes",
+        "test_a10_incomplete_tail_repair_middle_corruption_and_manifest_change",
+        "test_a10_bare_cr_in_middle_does_not_discard_subsequent_complete_records"
+      ]
+    },
+    "A11": {
+      "status": "PASSED",
+      "evidence": [
+        "test_a11_actual_configuration_and_calls_not_copied_from_expected",
+        "test_expected_snapshot_subset_and_unsupported_conditions_are_visible"
+      ]
+    },
+    "A12": {
+      "status": "PASSED",
+      "evidence": [
+        "ConfigCanonicalJsonTest",
+        "AgentConfigurationTest.rowOrderIsIgnoredButPriorityRemainsAnExecutionChoice",
+        "V03AConfigVersionPostgresIntegrationTest.a12LabelsDoNotChangeIdentityButBindingPriorityAndPromptDo",
+        "test_a12_shared_golden_vectors_and_rejections"
+      ]
+    },
+    "A13": {
+      "status": "PASSED",
+      "evidence": [
+        "V03AConfigVersionPostgresIntegrationTest.a13RejectsSecretPublicationAndForeignTraceAndUsesOwnerScopedForeignKey",
+        "test_a13_sensitive_inputs_rejected_before_run_files_or_posts",
+        "test_a13_trace_and_errors_sanitized_owner_cannot_change",
+        "test_a13_trace_access_denial_records_incomplete_without_internal_fallback"
+      ]
+    }
+  },
+  "code": {
+    "baseCommit": "b875bde91420bfb6d340552935b6b5e9af49115b",
+    "verifiedHeadAndOriginMainAtStart": "b875bde91420bfb6d340552935b6b5e9af49115b",
+    "implementationIdentity": "Uncommitted working tree changes over the baseline; baseline SHA is not the implementation commit",
+    "dirty": true,
+    "originalLocalEditsPreserved": [
+      "backend/http/user-auth.http",
+      "backend/src/main/resources/application-dev.yml"
+    ]
+  },
+  "migrations": {
+    "applied": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    "new": [
+      "V23__create_agent_config_version.sql"
+    ],
+    "V1ThroughV22Unmodified": true,
+    "historicalBackfill": false,
+    "snapshotFormatUnchanged": [
+      "agent-task-snapshot-v1",
+      "agent-task-snapshot-v2"
+    ]
+  },
+  "javaDefault": {
+    "tests": 864,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 75,
+    "passed": 789,
+    "skipExplanation": "Opt-in PostgreSQL test methods/containers; real enabled runs expand parameterized cases. All nine relevant PostgreSQL classes separately passed 91 cases."
+  },
+  "postgres": {
+    "status": "PASSED",
+    "tests": 91,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "classes": [
+      {
+        "class": "AgentTaskPostgresIntegrationTest",
+        "status": "PASSED",
+        "tests": 8,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "class": "AgentTaskExecutionPostgresIntegrationTest",
+        "status": "PASSED",
+        "tests": 15,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "class": "AgentTaskApiPostgresIntegrationTest",
+        "status": "PASSED",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "class": "AgentTaskSsePostgresIntegrationTest",
+        "status": "PASSED",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "class": "TaskRecoveryPostgresIntegrationTest",
+        "status": "PASSED",
+        "tests": 14,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "class": "TaskSettlementPostgresIntegrationTest",
+        "status": "PASSED",
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "class": "AgentExecutionTracePostgresIntegrationTest",
+        "status": "PASSED",
+        "tests": 10,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "class": "V03AConfigVersionPostgresIntegrationTest",
+        "status": "PASSED",
+        "tests": 10,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "class": "KnowledgeReadinessPostgresIntegrationTest",
+        "status": "PASSED",
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    ],
+    "attempts": 4,
+    "boundary": "Real disposable PostgreSQL 18, JWT/HTTP and production persistence; controlled execution/provider fixtures. Final passing classes are selected by their actual last run, never by treating unexecuted cases as passed."
+  },
+  "canonical": {
+    "algorithm": "config-canonical-json-v1",
+    "goldenVectors": 8,
+    "javaTests": 4,
+    "fixture": "scripts/fixtures/config-canonical-json-v1-vectors.json"
+  },
+  "cli": {
+    "status": "PASSED",
+    "tests": 19,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "testCases": [
+      "test_a12_shared_golden_vectors_and_rejections",
+      "test_a08_full_plan_success_admission_and_restart_denominator",
+      "test_a07_lost_response_reuses_original_request_and_key",
+      "test_a09_sigkill_after_intent_and_after_post_before_link",
+      "test_a09_unknown_limit_is_three_checks_across_all_resumes",
+      "test_unknown_submission_then_auth_or_access_error_never_claims_no_task",
+      "test_a10_observation_timeout_is_not_task_timeout_and_resume_only_observes",
+      "test_a10_incomplete_tail_repair_middle_corruption_and_manifest_change",
+      "test_a10_bare_cr_in_middle_does_not_discard_subsequent_complete_records",
+      "test_a11_actual_configuration_and_calls_not_copied_from_expected",
+      "test_expected_snapshot_subset_and_unsupported_conditions_are_visible",
+      "test_a13_sensitive_inputs_rejected_before_run_files_or_posts",
+      "test_a13_trace_and_errors_sanitized_owner_cannot_change",
+      "test_a13_trace_access_denial_records_incomplete_without_internal_fallback",
+      "test_budget_stops_with_unknown_usage_and_keeps_plan",
+      "test_budget_reserves_next_task_and_never_infers_headroom_from_unknown",
+      "test_trials_are_predeclared_unique_and_original_input_unchanged",
+      "test_report_checks_artifact_hash_and_private_run",
+      "test_cli_has_only_run_resume_report_and_no_credential_arguments"
+    ],
+    "boundary": "Controlled loopback HTTP plus real fsync/flock, independent CLI subprocess SIGKILL and file recovery; not a real backend/provider business baseline.",
+    "retainedControlledReport": {
+      "path": "V0.3-slice-docs/evidence/cli-controlled-run-20260912/report.md",
+      "planned": 3,
+      "linked": 2,
+      "admissionRejected": 1,
+      "originalPostCount": 3,
+      "repeatedResumeAdditionalPostCount": 0,
+      "scope": "Synthetic HTTP task responses with real CLI files; no real Java execution, PostgreSQL, provider or process interruption in this report."
+    }
+  },
+  "frontend": {
+    "status": "PASSED",
+    "files": 10,
+    "tests": 100,
+    "typecheck": "PASSED",
+    "build": "PASSED",
+    "warnings": [
+      "Existing Vue Router unmatched /agents/7/run fixture warning"
+    ]
+  },
+  "regressions": {
+    "V0.2-A": {
+      "status": "PASSED",
+      "cases": 17,
+      "matrix": {
+        "A01": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:18:34.237774+00:00",
+          "finishedAt": "2026-09-12T09:18:37.720641+00:00"
+        },
+        "A02": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:18:37.824238+00:00",
+          "finishedAt": "2026-09-12T09:18:41.580216+00:00"
+        },
+        "A03": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:18:41.717402+00:00",
+          "finishedAt": "2026-09-12T09:18:46.474511+00:00"
+        },
+        "A04": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:18:46.600457+00:00",
+          "finishedAt": "2026-09-12T09:18:51.649276+00:00"
+        },
+        "A05": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:18:51.752606+00:00",
+          "finishedAt": "2026-09-12T09:18:56.579457+00:00"
+        },
+        "A06": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:18:56.681968+00:00",
+          "finishedAt": "2026-09-12T09:19:00.046661+00:00"
+        },
+        "A07": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:19:00.143253+00:00",
+          "finishedAt": "2026-09-12T09:19:06.890269+00:00"
+        },
+        "A08": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:19:07.078700+00:00",
+          "finishedAt": "2026-09-12T09:19:13.137612+00:00"
+        },
+        "A09": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:19:13.329784+00:00",
+          "finishedAt": "2026-09-12T09:19:20.283289+00:00"
+        },
+        "A10": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:19:20.665273+00:00",
+          "finishedAt": "2026-09-12T09:19:42.515186+00:00"
+        },
+        "A11": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:19:42.599029+00:00",
+          "finishedAt": "2026-09-12T09:19:52.965309+00:00"
+        },
+        "A12": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:19:53.292135+00:00",
+          "finishedAt": "2026-09-12T09:19:59.722760+00:00"
+        },
+        "A13": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:19:59.802626+00:00",
+          "finishedAt": "2026-09-12T09:20:04.772528+00:00"
+        },
+        "A14": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:20:04.854239+00:00",
+          "finishedAt": "2026-09-12T09:36:19.312781+00:00"
+        },
+        "A15": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:36:19.514851+00:00",
+          "finishedAt": "2026-09-12T09:36:19.920252+00:00"
+        },
+        "A16": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:36:19.920714+00:00",
+          "finishedAt": "2026-09-12T09:36:33.308221+00:00"
+        },
+        "A17": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:36:33.577671+00:00",
+          "finishedAt": "2026-09-12T09:37:02.996029+00:00"
+        }
+      },
+      "automaticExecutionRetries": 0,
+      "boundary": "Controlled independent HTTP model and durable tool fixture; real JVM SIGKILL/exit/restart and PostgreSQL; no paid provider evidence"
+    },
+    "V0.2-B": {
+      "status": "PASSED",
+      "cases": 10,
+      "matrix": {
+        "B01": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:18:25.860668+00:00",
+          "finishedAt": "2026-09-12T09:18:28.227976+00:00"
+        },
+        "B02": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:18:28.638661+00:00",
+          "finishedAt": "2026-09-12T09:18:30.669776+00:00"
+        },
+        "B03": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:18:31.267287+00:00",
+          "finishedAt": "2026-09-12T09:18:31.571870+00:00"
+        },
+        "B04": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:18:31.720134+00:00",
+          "finishedAt": "2026-09-12T09:18:34.756673+00:00"
+        },
+        "B05": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:18:34.965003+00:00",
+          "finishedAt": "2026-09-12T09:18:35.356415+00:00"
+        },
+        "B06": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:18:35.461504+00:00",
+          "finishedAt": "2026-09-12T09:18:36.144226+00:00"
+        },
+        "B07": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:18:36.440538+00:00",
+          "finishedAt": "2026-09-12T09:18:39.673531+00:00"
+        },
+        "B08": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:18:40.111720+00:00",
+          "finishedAt": "2026-09-12T09:18:50.309012+00:00"
+        },
+        "B09": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:18:50.908030+00:00",
+          "finishedAt": "2026-09-12T09:18:56.124188+00:00"
+        },
+        "B10": {
+          "status": "PASSED",
+          "startedAt": "2026-09-12T09:18:56.225279+00:00",
+          "finishedAt": "2026-09-12T09:18:56.927387+00:00"
+        }
+      },
+      "automaticExecutionRetries": 0,
+      "boundary": "Controlled independent HTTP model/embedding/vector/tool fixture, actual PostgreSQL transactions and B09 JVM SIGKILL/waitpid/restart; no real provider evidence"
+    },
+    "V48": {
+      "status": "PASSED",
+      "browserCases": 22,
+      "postgresCaseChecks": 803,
+      "postgresGlobalChecks": 3,
+      "fullMatrixPassed": true,
+      "collectorErrors": [],
+      "automaticExecutionRetries": 0,
+      "playwrightRetries": 0,
+      "boundary": "Controlled provider/handler faults; real browser, JWT, PostgreSQL and task execution; observation recovery only."
+    }
+  },
+  "V47": {
+    "status": "BLOCKED",
+    "successfulRealRunExecuted": false,
+    "preflight": "Read-only host preflight",
+    "reasons": [
+      "DASHSCOPE_API_KEY missing",
+      "Chat /models unavailable"
+    ],
+    "generatedProviderCalls": 0,
+    "credentialDiscoveryFollowUp": {
+      "source": "Read-only inspection of IDE run configuration",
+      "configuredCredentialVariableNames": [
+        "ZHIPU_API_KEY",
+        "DASHSCOPE_API_KEY"
+      ],
+      "previousBlockScope": "Credentials were not inherited by the acceptance process; OPENAI_API_KEY is the expected chat credential variable.",
+      "credentialValuesRecorded": false
+    }
+  },
+  "failuresAndRepairs": [
+    {
+      "attempt": "initial test-compile",
+      "failure": "Existing test constructor missed new configuration collaborator",
+      "resolution": "Updated fixture and compiled successfully"
+    },
+    {
+      "attempt": "PG01",
+      "failure": "New fixture storage key collision: 10 errors; Trace migration count expected 22 instead of 23: 1 failure; wrapper report-directory option ineffective",
+      "resolution": "Unique fixture keys, V23 expectation and exact-class report capture fixed. Original failed matrix retained; six passing classes independently recovered from original XML after database/lock/mtime checks."
+    },
+    {
+      "attempt": "PG02",
+      "failure": "New configuration tests 9/10; invalid publication body mapped to COMMON_REQUEST_BODY_INVALID instead of COMMON_PARAM_INVALID",
+      "resolution": "Controller-local safe error mapping; PG03 new tests 10/10. Trace passed 10/10 in PG02."
+    },
+    {
+      "attempt": "Java default sandbox",
+      "failure": "15 controlled HTTP fixture bind permission errors",
+      "resolution": "Host full suite: 789 passed, 75 opt-in skipped, zero failures/errors"
+    },
+    {
+      "attempt": "CLI initial sandbox/host",
+      "failure": "16 setup errors from loopback sandbox denial; first host run exposed embedded JSON credential regex miss",
+      "resolution": "Host execution and credential detector corrected; final 19/19 with additional uncertain-auth, secret-key, expected-condition and CR-framing cases"
+    },
+    {
+      "attempt": "V47 preflight sandbox then host",
+      "failure": "Sandbox network/browser/port restrictions initially; host still missing DASHSCOPE_API_KEY and Chat models endpoint unavailable",
+      "resolution": "BLOCKED; no live generation or successful V47 chain was executed"
+    }
+  ],
+  "commands": [
+    "JAVA_HOME=$(/usr/libexec/java_home -v 21) mvn -q -f backend/pom.xml \"-DargLine=-javaagent:$MOCKITO_AGENT\" test",
+    "bash scripts/v03a-postgres-acceptance.sh",
+    "bash scripts/v03a-postgres-acceptance.sh --class V03AConfigVersionPostgresIntegrationTest --class AgentExecutionTracePostgresIntegrationTest",
+    "bash scripts/v03a-postgres-acceptance.sh --class V03AConfigVersionPostgresIntegrationTest",
+    "bash scripts/v03a-postgres-acceptance.sh --class KnowledgeReadinessPostgresIntegrationTest",
+    "python3 -m unittest discover -s scripts -p 'test_evaluation.py' -v",
+    "npm --prefix frontend test",
+    "npm --prefix frontend run build",
+    "bash scripts/v02a-restart-acceptance.sh --compiled-classpath \"$COMPILED_CLASSPATH\"",
+    "bash scripts/v02b-interruption-acceptance.sh --compiled-classpath \"$COMPILED_CLASSPATH\"",
+    "bash scripts/v48-failure-recovery-acceptance.sh",
+    "bash scripts/v47-real-provider-acceptance.sh --preflight-only",
+    "git diff --check",
+    "python3 scripts/evaluation-controlled-acceptance.py --output out/cli-controlled-association-new"
+  ],
+  "limitations": [
+    "No answer quality scoring: N_scored=0 and qualityEvaluation=NOT_EVALUATED.",
+    "Server applicationRevision is collected; no independently verified server clean/dirty or image digest is available through the ordinary API. Strict server build identity remains missing.",
+    "V0.3-B compare/episode, fixed quality corpus/labels, Evaluation UI and database evaluation platform were not implemented.",
+    "Controlled and PostgreSQL evidence do not substitute for the blocked live V47 regression."
+  ],
+  "verificationOrder": "Default Java and full regression runs followed the main implementation. The final controller-only publication error-code correction was verified by the complete new PostgreSQL class; subsequent edits affected CLI tests/artifacts and documentation.",
+  "manualVerification": {
+    "status": "USER_REPORTED_PASSED",
+    "date": "2026-09-12",
+    "source": "User confirmation in this task",
+    "statement": "我手动验证通过了，提交推送改动",
+    "authorization": "Commit and push V0.3-A changes",
+    "automatedV47RerunByAssistant": false,
+    "caseLevelArtifactsSupplied": false
+  }
+}

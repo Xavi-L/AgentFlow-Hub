@@ -22,6 +22,28 @@ describe('authenticated API boundaries', () => {
     expect((await api.getTask('9223372036854775806')).lastEventSequence).toBe('9007199254740993')
   })
 
+  it('preserves the same persisted configuration in Task and Trace without inventing historical identity', async () => {
+    login()
+    const configuration = { configVersionId: '9223372036854775805', configHash: 'a'.repeat(64),
+      effectiveConfigHash: 'b'.repeat(64), hashAlgorithmVersion: 'config-canonical-json-v1' }
+    const task = { taskId: '9', agentId: '7', lastEventSequence: 1, citations: [], configuration }
+    const request = vi.spyOn(http, 'request').mockResolvedValue({ status: 200, data: JSON.stringify({ code: 'OK', data: task }) })
+    expect((await api.getTask('9')).configuration).toEqual(configuration)
+    const executionSnapshot = { snapshotVersion: 'agent-task-snapshot-v2', agent: { systemPrompt: ' historical prompt ' } }
+    request.mockResolvedValue({ status: 200, data: JSON.stringify({ code: 'OK', data: { task, executionSnapshot, events: [], steps: [] } }) })
+    const trace = await api.getTrace('9')
+    expect(trace.task.configuration).toEqual(configuration)
+    expect(trace.executionSnapshot).toEqual(executionSnapshot)
+    for (const historical of [{}, { configuration: null }]) {
+      request.mockResolvedValue({ status: 200, data: JSON.stringify({ code: 'OK',
+        data: { taskId: '9', agentId: '7', lastEventSequence: 1, citations: [], ...historical } }) })
+      const result = await api.createTask('7', ' input with space ', 'original-key')
+      expect(result.configuration).toBe(historical.configuration)
+      expect(request.mock.lastCall![0]).toMatchObject({ data: { userInput: ' input with space ' },
+        headers: { 'Idempotency-Key': 'original-key' } })
+    }
+  })
+
   it('aborts every active HTTP request on logout and rejects a late creation response', async () => {
     login()
     let resolve!: (value: unknown) => void

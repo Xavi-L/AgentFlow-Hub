@@ -20,6 +20,10 @@ export type TaskRecovery = {
   recordedLlmCalls: number; recordedToolCalls: number; previousTaskUsage: TaskRecoveryUsage
   queuedCancellationAnomaly?: boolean
 }
+/** Persisted identity of new tasks; historical v1/v2 tasks can have no association. */
+export interface TaskConfiguration {
+  configVersionId: Decimal; configHash: string; effectiveConfigHash: string; hashAlgorithmVersion: string
+}
 export interface Task extends TaskSummary {
   maxDecisionTurns: number; maxToolCalls: number; maxTotalTokens: number; reservedFinalTokens: number
   decisionTurnsUsed: number; toolCallsUsed: number; inputTokens: number; outputTokens: number; totalTokens: number
@@ -27,6 +31,7 @@ export interface Task extends TaskSummary {
   errorCode: string | null; errorMessage: string | null; cancelRequestedAt: string | null
   startedAt: string | null; lastEventSequence: Decimal
   recovery?: TaskRecovery | null
+  configuration?: TaskConfiguration | null
 }
 export const EVENT_TYPES = [
   'TASK_CREATED', 'TASK_STARTED', 'PHASE_CHANGED', 'RAG_FINISHED', 'DECISION_FINISHED',

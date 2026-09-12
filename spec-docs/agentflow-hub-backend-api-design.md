@@ -816,3 +816,21 @@ SSE 沿用持久 TASK_FAILED/TASK_CANCELLED 和原 sequence。终态 payload 的
 ## V0.2-B API 投影：运行期保存降级
 
 终态保存耗尽/非暂时错误的安全运行诊断为 TASK_SETTLEMENT_PERSIST_FAILED，包含 task ID、次数、阶段；任务执行准入降级后既有写入口返回 503/TASK_EXECUTION_NOT_READY。此诊断不等于数据库 task.errorCode 已写入，不新增公开 TaskStatus 或执行重试接口。GET/Trace/SSE 继续读取真实持久事实，未知或未结束不能转换为成功。completedAt 对正常运行收尾表示首次完成观察时间，A recovery 的 completedAt 仍表示 recoveredAt。
+
+
+## V0.3-A API 投影：配置版本与实际 hash
+
+2026-09-12 从 `b875bde` 冻结施工约束，实际验收另记切片。以下均沿用 `/api/v1`、JWT owner 和响应 envelope：
+
+| 接口 | V0.3-A 契约 |
+| --- | --- |
+| `POST /agents/{agentId}/config-versions` | 请求仅 `{}`，一致捕获完整草稿及绑定；新版本 201、内容去重复用 200，返回版本及完整安全配置投影 |
+| `GET /agents/{agentId}/config-versions` | owner+agent-scoped 分页列表 |
+| `GET /agents/{agentId}/config-versions/{configVersionId}` | owner+agent-scoped 不可变详情 |
+| `POST /agents/{agentId}/tasks` | 新增可选字符串 `configVersionId`；省略/null 自动捕获草稿；新任务 201，原请求确认 200 |
+
+版本响应为 `{configVersionId, agentId, schemaVersion, hashAlgorithmVersion, configHash, config, createdAt}`，两项 ID 为字符串；不提供版本写入/删除接口或任意配置 blob。版本不存在、跨 owner 或不属于路径 Agent 一律 404，非法请求形态使用 COMMON_PARAM_INVALID。旧版本执行仍受当前安全准入及对应已有错误码限制，不暗中替换配置。
+
+Task 详情及 `Trace.task` 通过 `configuration={configVersionId, configHash, effectiveConfigHash, hashAlgorithmVersion}` 暴露同一持久关联；历史 configuration 为 null/省略，不从当下 Agent 补值。Trace 原有 executionSnapshot 结构及来源保留，v1/v2 不升级。两类 hash 不同职责及规范化规则以 Engine/Data 为准，Task 与 Trace 必须读回同一关联。
+
+V0.2 进程准入门禁仍先执行，门禁允许后原幂等回读先于当前 Agent/依赖解析；省略/null 沿用旧指纹，显式版本为新指纹域，相同 key 改版本/形态/原始输入返回 409/TASK_IDEMPOTENCY_CONFLICT。新 API 不绕过 startup/运行降级门禁，不新增评测执行、compare、episode 或评分接口。

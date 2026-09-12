@@ -1,6 +1,9 @@
 package com.agentflow.agent.trace.dto;
 
 import com.agentflow.agent.task.dto.AgentTaskResponse;
+import com.agentflow.agent.task.dto.TaskConfigurationResponse;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.agentflow.agent.task.dto.SafeTaskEventResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.math.BigDecimal;
@@ -13,6 +16,10 @@ public record PublicTaskTraceResponse(
         AgentTaskResponse task, JsonNode executionSnapshot, List<Step> steps,
         List<SafeTaskEventResponse> events
 ) {
+    @JsonProperty("configuration")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public TaskConfigurationResponse configuration() { return task.configuration(); }
+
     public PublicTaskTraceResponse {
         Objects.requireNonNull(task, "task must not be null");
         executionSnapshot = copyJson(executionSnapshot, "executionSnapshot");

@@ -1,0 +1,53 @@
+{
+  "algorithmVersion": "config-canonical-json-v1",
+  "vectors": [
+    {
+      "name": "recursive-key-order",
+      "inputJson": "{\"z\":0,\"a\":{\"β\":2,\"a\":1}}",
+      "canonical": "{\"a\":{\"a\":1,\"β\":2},\"z\":0}",
+      "sha256": "224983d147c70c3bd23d984b329202fbb9bfe68aba491d137fdf72c9b489dde5"
+    },
+    {
+      "name": "number-equivalence",
+      "inputJson": "{\"one\":1.000,\"zero\":-0.0,\"small\":1e-7,\"big\":12345678901234567890.123400,\"exponent\":1e3}",
+      "canonical": "{\"big\":12345678901234567890.1234,\"exponent\":1000,\"one\":1,\"small\":0.0000001,\"zero\":0}",
+      "sha256": "884bbd3f79a2ddd36a24e1e021e307e3893acdd32100fd05f7c142f445a14f7a"
+    },
+    {
+      "name": "chinese-newline-space",
+      "inputJson": "{\"prompt\": \"  中文\\n保留\\t空白  \", \"unset\": null}",
+      "canonical": "{\"prompt\":\"  中文\\n保留\\t空白  \",\"unset\":null}",
+      "sha256": "eeac148ea3c166e9aa2200f96327cfe548533ca385bbc883965fcabc525abc21"
+    },
+    {
+      "name": "null-vs-missing",
+      "inputJson": "{\"a\":null,\"b\":{}}",
+      "canonical": "{\"a\":null,\"b\":{}}",
+      "sha256": "549704d10e36914b275485047e72377a2b262b808388378b825fcf2a15ec6afb"
+    },
+    {
+      "name": "ordered-array",
+      "inputJson": "{\"steps\":[\"2\",\"1\"],\"flags\":[true,false,null]}",
+      "canonical": "{\"flags\":[true,false,null],\"steps\":[\"2\",\"1\"]}",
+      "sha256": "afd641840254134092ef87a00de35b88932ab30af2b2183ebbb55864349cda2b"
+    },
+    {
+      "name": "binding-complete-fields",
+      "inputJson": "{\"toolBindings\":[{\"toolId\":\"2\",\"priority\":1,\"enabled\":true},{\"toolId\":\"10\",\"priority\":0,\"enabled\":false}],\"knowledgeBindings\":[{\"knowledgeBaseId\":\"3\",\"priority\":0}]}",
+      "canonical": "{\"knowledgeBindings\":[{\"knowledgeBaseId\":\"3\",\"priority\":0}],\"toolBindings\":[{\"enabled\":true,\"priority\":1,\"toolId\":\"2\"},{\"enabled\":false,\"priority\":0,\"toolId\":\"10\"}]}",
+      "sha256": "5803d867f46bf448867b1c1211d8b180047309e2845af5df8118b0013c18a906"
+    },
+    {
+      "name": "unicode-scalar-order",
+      "inputJson": "{\"😀\": 1, \"\": 2, \"a\": \"é é\"}",
+      "canonical": "{\"a\":\"é é\",\"\":2,\"😀\":1}",
+      "sha256": "b948d586d2651dd0e22e8f8bc08e17888de39c73d0664d6df161b78408b36f79"
+    },
+    {
+      "name": "minimal-escaping",
+      "inputJson": "{\"text\": \"\\\"\\\\/\\b\\f\\n\\r\\t\\u0000\\u001f \"}",
+      "canonical": "{\"text\":\"\\\"\\\\/\\b\\f\\n\\r\\t\\u0000\\u001f \"}",
+      "sha256": "6a22aa381aa6d939a404ed97b15086ae197384ebfd6a9e5cd41350ef9ea8568f"
+    }
+  ]
+}

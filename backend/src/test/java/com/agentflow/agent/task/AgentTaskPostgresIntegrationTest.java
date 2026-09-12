@@ -118,6 +118,7 @@ class AgentTaskPostgresIntegrationTest {
         jdbc.update("DELETE FROM agent_step");
         jdbc.update("DELETE FROM agent_task_event");
         jdbc.update("DELETE FROM agent_task");
+        jdbc.update("DELETE FROM agent_config_version");
         jdbc.update("DELETE FROM agent_tool_binding");
         jdbc.update("DELETE FROM agent_knowledge_binding");
         jdbc.update("DELETE FROM knowledge_document_reprocess_task");
@@ -144,7 +145,7 @@ class AgentTaskPostgresIntegrationTest {
                 "openai-compatible", "test-model", 6, 4, 8000, 120, "ACTIVE"
         );
         reset(snapshotResolver, taskDispatcher);
-        when(snapshotResolver.resolve(USER_ID, AGENT_ID)).thenReturn(snapshot(AGENT_ID));
+        when(snapshotResolver.resolveConfiguration(org.mockito.ArgumentMatchers.eq(USER_ID), org.mockito.ArgumentMatchers.eq(AGENT_ID), org.mockito.ArgumentMatchers.any())).thenReturn(snapshot(AGENT_ID));
         scriptedDelegate.reset();
     }
 

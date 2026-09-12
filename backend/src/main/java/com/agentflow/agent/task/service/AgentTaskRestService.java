@@ -48,7 +48,7 @@ public class AgentTaskRestService {
             throw new BusinessException(ErrorCode.COMMON_PARAM_INVALID, "request must not be null");
         }
         CreateAgentTaskResult result = application.createTaskWithResult(new CreateAgentTaskCommand(
-                userId, agentId, idempotencyKey, request.userInput()));
+                userId, agentId, idempotencyKey, request.userInput(), request.configVersionId()));
         return new CreateTaskResponse(responses.toResponse(result.task()), result.created());
     }
 

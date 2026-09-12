@@ -13,8 +13,21 @@ public record AgentTaskResponse(
         String finalAnswer, JsonNode citations, String errorCode, String errorMessage,
         OffsetDateTime cancelRequestedAt, OffsetDateTime startedAt, OffsetDateTime completedAt,
         long lastEventSequence, OffsetDateTime createdAt, OffsetDateTime updatedAt,
-        @JsonInclude(JsonInclude.Include.NON_NULL) JsonNode recovery
+        @JsonInclude(JsonInclude.Include.NON_NULL) JsonNode recovery,
+        @JsonInclude(JsonInclude.Include.NON_NULL) TaskConfigurationResponse configuration
 ) {
+    public AgentTaskResponse(String taskId, String agentId, String status, String phase, String terminationReason,
+            String userInput, int maxDecisionTurns, int maxToolCalls, int maxTotalTokens,
+            int reservedFinalTokens, int decisionTurnsUsed, int toolCallsUsed,
+            int inputTokens, int outputTokens, int totalTokens, String tokenUsageQuality,
+            String finalAnswer, JsonNode citations, String errorCode, String errorMessage,
+            OffsetDateTime cancelRequestedAt, OffsetDateTime startedAt, OffsetDateTime completedAt,
+            long lastEventSequence, OffsetDateTime createdAt, OffsetDateTime updatedAt, JsonNode recovery) {
+        this(taskId, agentId, status, phase, terminationReason, userInput, maxDecisionTurns, maxToolCalls,
+                maxTotalTokens, reservedFinalTokens, decisionTurnsUsed, toolCallsUsed, inputTokens, outputTokens,
+                totalTokens, tokenUsageQuality, finalAnswer, citations, errorCode, errorMessage, cancelRequestedAt,
+                startedAt, completedAt, lastEventSequence, createdAt, updatedAt, recovery, null);
+    }
     public AgentTaskResponse {
         citations = citations.deepCopy();
         recovery = recovery == null ? null : recovery.deepCopy();

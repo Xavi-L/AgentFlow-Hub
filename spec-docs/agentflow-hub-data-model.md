@@ -824,16 +824,11 @@ PostgreSQL 仍为：
 
 以下不进入 V0.1 migration。Prompt/config 版本、动态 Episode 和轻量 Evaluation 按
 [Project Spec 第 7 节](agentflow-hub-project-spec.md#7-v02v03-与-v10-边界) 纳入 V0.3 规划；
-本节列出的表名仍是候选，具体存储、字段及约束须在对应切片冻结，不表示已经存在。
+本节的后续表名为候选；V0.3-A 配置版本已在文末冻结为本轮施工契约，实际实现/验收仍以切片证据为准。
 
-### 14.1 Prompt 版本
+### 14.1 配置版本（V0.3-A）
 
-```text
-agent_prompt_version
-```
-
-V0.3 冻结 Prompt/config version 与任务快照的引用关系；只有明确需要独立持久版本记录时才增加此表。
-已有 execution snapshot 继续承担历史 task 的执行事实，不通过修改历史快照伪造版本记录。
+首版选择完整 `agent_config_version`，不另建仅 prompt 的版本表；字段、关联和不回填历史的约束见文末 V0.3-A 数据投影。已有 execution snapshot 继续承担历史 task 执行事实。
 
 ### 14.2 Conversation
 
@@ -858,8 +853,7 @@ eval_run
 eval_result
 ```
 
-V0.3 的轻量 Evaluation CLI/API 需要固定数据集与运行结果契约；文件式存储还是数据库存储由
-切片按实际需求决定，上述四表不是默认必建项。评测引用普通 task/Trace，不作为既有 task schema 前置。
+V0.3-A 已冻结本地运行清单/journal/artifact/report 文件，不建上述表；未来数据库平台须另立契约。评测引用普通 task/Trace，不作为既有 task schema 前置。
 
 ### 14.5 Tool Policy / Approval
 
@@ -959,3 +953,14 @@ V0.2-A 精化：原 step/tool 的 FAILED 约束要求 latency 非空，无法表
 沿用 V22 schema；不新建执行账本或持久重试队列，不回改 V1–V22。终态事务以首次完成观察时间填写 completedAt，不能因 100ms/500ms 退避改变 outcome/usage/计数或伪造超时；持久取消意图仍由行锁/条件更新仲裁。COMMIT 应答未知通过原 task 终态和事件回读确认，不再次累计用量或追加终态事件。
 
 工具调用日志仅允许 RUNNING 到终态，step 仅允许未结束到结束；迟到 handler 无权覆盖已结束记录，任务终态后也不能发布迟到成功事实。已有成功日志与已知用量保留，未知部分不补零或标完整。耗尽时只关闭进程准入并诊断，数据库无可确认终态时保持其实际状态，下一次 A 启动收尾继续适用。
+
+
+## V0.3-A 数据投影：配置版本与任务关联
+
+2026-09-12 从 `b875bde` 开始的施工契约，尚未表示验收；V1–V22 不回改，新增 V23 migration。新增 `agent_config_version`：`id`、`user_id`、`agent_id`、`schema_version=agent-config-v1`、`config_hash`、规范化算法版本、完整 `config_json`、`created_at`。采用既有 BIGINT ID/时间规范，公开 ID 为字符串；owner-scoped 复合外键防止关联另一 owner 的 Agent。唯一约束 `(user_id, agent_id, schema_version, config_hash)`，版本不可 UPDATE，不提供修改/删除接口。并发捕获采用一致数据库读取视图及必要锁，数据库唯一约束兜底去重。
+
+`config_json` 包含 systemPrompt、模型/provider 选择、temperature/topP、决策/工具/token/时间预算、五项原始高级覆盖（继承为 null）、知识/工具绑定选择及 priority/enabled 等已有执行参数。名称/描述/标签不参与内容身份；密钥、JWT、连接串及带凭据地址不入版本。配置只冻结选择，实际 generation、工具 schema/implementationVersion、部署默认/运行规则由 task 快照冻结。哈希算法与排除字段遵守 Engine V0.3-A，跨 Java/CLI golden vectors 固定解释规则。
+
+`agent_task` 增加 nullable `config_version_id`、`config_hash`、`effective_config_hash` 及两种 hash 共用的 `hash_algorithm_version`。新 task 在创建事务保存完整关联；历史 task 保持全部缺失，不回填、不改 v1/v2 execution_snapshot 或旧 request_fingerprint。版本关联使用 `(config_version_id, agent_id, user_id, config_hash)` 复合外键，task 存储 hash 与版本内容一致；两种 hash 的算法字段共用 `hash_algorithm_version`，与配置规范化算法一致。配置捕获与 task/首事件写入失败须整体回滚，任务幂等唯一约束及 after-commit dispatch 保持原语义。
+
+Evaluation A 的 `manifest.json` / `journal.jsonl` / artifacts / report 位于本地私有目录；不建立 eval_run/eval_case_result/agent_episode 表。journal 仅持有协调事实，task/Trace 仍是服务端执行事实源；文件契约见 Harness V0.3-A。

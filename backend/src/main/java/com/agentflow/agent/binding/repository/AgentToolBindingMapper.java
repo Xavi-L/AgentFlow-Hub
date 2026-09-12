@@ -15,6 +15,28 @@ import org.apache.ibatis.annotations.Select;
 @Mapper
 public interface AgentToolBindingMapper extends BaseMapper<AgentToolBinding> {
 
+    @Select("SELECT * FROM agent_tool_binding WHERE agent_id=#{agentId} AND user_id=#{userId} ORDER BY tool_id")
+    List<AgentToolBinding> selectConfigurationBindings(@Param("agentId") long agentId, @Param("userId") long userId);
+
+    @Results({
+            @Result(property = "toolId", column = "tool_id"),
+            @Result(property = "toolCode", column = "tool_code"),
+            @Result(property = "inputSchemaJson", column = "input_schema_json"),
+            @Result(property = "configJson", column = "config_json"),
+            @Result(property = "timeoutMs", column = "timeout_ms")
+    })
+    @Select("""
+            <script>
+            SELECT id AS tool_id,tool_code,name,description,input_schema::text AS input_schema_json,
+                   config::text AS config_json,timeout_ms
+            FROM tool_definition WHERE id IN
+            <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+            AND tool_code IN ('order_query','payment_log_query') AND type='BUILTIN' AND status='ACTIVE' AND deleted_at IS NULL
+            ORDER BY id
+            </script>
+            """)
+    List<BoundToolDefinitionRow> selectSelectedSnapshotTools(@Param("ids") List<Long> ids);
+
     @Select("""
             SELECT tool_id
             FROM agent_tool_binding

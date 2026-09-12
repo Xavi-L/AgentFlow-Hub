@@ -3,6 +3,7 @@ package com.agentflow.agent.snapshot;
 import static com.agentflow.agent.AgentKnowledgeLimits.MAX_KNOWLEDGE_BINDINGS;
 
 import com.agentflow.agent.binding.model.BoundKnowledgeBaseRow;
+import com.agentflow.agent.configversion.AgentConfiguration;
 import com.agentflow.agent.binding.model.BoundToolDefinitionRow;
 import com.agentflow.agent.binding.model.ReadyDocumentGenerationRow;
 import com.agentflow.agent.binding.repository.AgentKnowledgeBindingMapper;
@@ -131,6 +132,52 @@ public class AgentTaskSnapshotResolver {
         );
     }
 
+    /** Frozen raw choices are resolved against today's owner, enabled Agent and dependency admission. */
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
+    public AgentTaskExecutionSnapshot resolveConfiguration(Long userId, Long agentId, AgentConfiguration configuration) {
+        requirePositive(userId, "userId");
+        requirePositive(agentId, "agentId");
+        AgentApp current = agentAppMapper.selectVisibleOwnedByIdForSnapshot(agentId, userId);
+        if (current == null) throw new BusinessException(ErrorCode.COMMON_NOT_FOUND, "Agent not found");
+        if (!"ACTIVE".equals(current.getStatus()))
+            throw new BusinessException(ErrorCode.AGENT_DISABLED, "Agent is disabled");
+        AgentApp agent = configuration.toExecutionAgent(agentId, current.getStatus());
+        List<Long> knowledgeIds = configuration.orderedKnowledgeIds();
+        requireKnowledgeBindingLimit(knowledgeIds.size());
+        List<BoundKnowledgeBaseRow> knowledgeBases = knowledgeIds.isEmpty() ? List.of()
+                : knowledgeBindingMapper.selectSelectedKnowledgeBases(userId, knowledgeIds);
+        if (!java.util.Set.copyOf(knowledgeIds).equals(knowledgeBases.stream()
+                .map(BoundKnowledgeBaseRow::getKnowledgeBaseId).collect(java.util.stream.Collectors.toSet())))
+            throw invalidBinding("Knowledge base binding is invalid");
+        Map<Long, BoundKnowledgeBaseRow> knowledgeById = new HashMap<>();
+        knowledgeBases.forEach(row -> knowledgeById.put(row.getKnowledgeBaseId(), row));
+        knowledgeBases = knowledgeIds.stream().map(knowledgeById::get).toList();
+        List<ReadyDocumentGenerationRow> documents = knowledgeIds.isEmpty() ? List.of()
+                : knowledgeBindingMapper.selectSelectedReadyDocumentGenerations(userId, knowledgeIds);
+        List<Long> toolIds = configuration.orderedEnabledToolIds();
+        if (configuration.toolBindings().size() > 20) throw invalidBinding("Too many tool bindings");
+        List<BoundToolDefinitionRow> toolRows = toolIds.isEmpty() ? List.of()
+                : toolBindingMapper.selectSelectedSnapshotTools(toolIds);
+        if (!java.util.Set.copyOf(toolIds).equals(toolRows.stream().map(BoundToolDefinitionRow::getToolId)
+                .collect(java.util.stream.Collectors.toSet()))) throw invalidBinding("Tool binding is invalid");
+        Map<Long, BoundToolDefinitionRow> toolsById = new HashMap<>();
+        toolRows.forEach(row -> toolsById.put(row.getToolId(), row));
+        return new AgentTaskExecutionSnapshot(SNAPSHOT_VERSION, resolveAgent(agentId, agent),
+                new RuntimeSnapshot("agent-decision-json-v1", TaskPromptBuilder.CURRENT_RULES_VERSION, applicationRevision),
+                resolveChatModel(agent), resolveRetrievalRows(knowledgeBases, documents),
+                toolIds.stream().map(toolsById::get).map(this::resolveTool).toList(), executionSettingsPolicy.resolve(agent));
+    }
+
+    public void validateConfigurationAgent(long agentId, AgentApp agent) {
+        resolveAgent(agentId, agent);
+        resolveChatModel(agent);
+        executionSettingsPolicy.resolve(agent);
+    }
+
+    public void validateToolDefinitions(List<BoundToolDefinitionRow> tools) {
+        tools.forEach(this::resolveTool);
+    }
+
     private AgentSnapshot resolveAgent(Long agentId, AgentApp agent) {
         if (agent.getSystemPrompt() == null || agent.getSystemPrompt().isBlank()
                 || agent.getMaxSteps() == null || agent.getMaxSteps() < 1
@@ -176,6 +223,11 @@ public class AgentTaskSnapshotResolver {
         requireKnowledgeBindingLimit(knowledgeBases.size());
         List<ReadyDocumentGenerationRow> readyDocuments =
                 knowledgeBindingMapper.selectReadyDocumentGenerations(agentId, userId);
+        return resolveRetrievalRows(knowledgeBases, readyDocuments);
+    }
+
+    private RetrievalSnapshot resolveRetrievalRows(List<BoundKnowledgeBaseRow> knowledgeBases,
+            List<ReadyDocumentGenerationRow> readyDocuments) {
         Map<Long, List<ReadyDocumentGenerationRow>> documentsByKnowledgeBase = new HashMap<>();
         for (ReadyDocumentGenerationRow document : readyDocuments) {
             if (!CHUNK_STRATEGY_VERSION.equals(document.getChunkStrategyVersion())) {

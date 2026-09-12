@@ -33,7 +33,8 @@ public interface AgentTaskMapper {
 
     @Insert("""
             INSERT INTO agent_task (
-                id, user_id, agent_id, client_request_id, request_fingerprint,
+                id, user_id, agent_id, config_version_id, config_hash, effective_config_hash, hash_algorithm_version,
+                client_request_id, request_fingerprint,
                 status, phase, termination_reason, user_input, execution_snapshot,
                 max_decision_turns, max_tool_calls, max_total_tokens, reserved_final_tokens,
                 decision_turns_used, tool_calls_used, input_tokens, output_tokens, total_tokens,
@@ -41,7 +42,8 @@ public interface AgentTaskMapper {
                 cancel_requested_at, started_at, completed_at, last_event_sequence,
                 created_at, updated_at, version
             ) VALUES (
-                #{task.id}, #{task.userId}, #{task.agentId}, #{task.clientRequestId},
+                #{task.id}, #{task.userId}, #{task.agentId}, #{task.configVersionId}, #{task.configHash},
+                #{task.effectiveConfigHash}, #{task.hashAlgorithmVersion}, #{task.clientRequestId},
                 #{task.requestFingerprint}, #{task.status}, #{task.phase},
                 #{task.terminationReason}, #{task.userInput},
                 CAST(#{task.executionSnapshot,jdbcType=VARCHAR} AS JSONB),

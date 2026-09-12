@@ -14,6 +14,38 @@ import org.apache.ibatis.annotations.Select;
 @Mapper
 public interface AgentKnowledgeBindingMapper extends BaseMapper<AgentKnowledgeBinding> {
 
+    @Select("SELECT * FROM agent_knowledge_binding WHERE agent_id=#{agentId} AND user_id=#{userId} ORDER BY knowledge_base_id")
+    List<AgentKnowledgeBinding> selectConfigurationBindings(@Param("agentId") long agentId, @Param("userId") long userId);
+
+    @Select("""
+            <script>
+            SELECT id AS knowledge_base_id, embedding_provider, embedding_model, chunk_size, chunk_overlap
+            FROM knowledge_base WHERE user_id=#{userId} AND deleted_at IS NULL AND status='ACTIVE' AND id IN
+            <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+            ORDER BY id
+            </script>
+            """)
+    List<BoundKnowledgeBaseRow> selectSelectedKnowledgeBases(@Param("userId") long userId, @Param("ids") List<Long> ids);
+
+    @Select("""
+            <script>
+            SELECT kd.knowledge_base_id, kd.id AS document_id, kd.vector_generation,
+                   MIN(kc.chunk_strategy_version) AS chunk_strategy_version
+            FROM knowledge_base kb
+            JOIN knowledge_document kd ON kd.knowledge_base_id=kb.id AND kd.user_id=kb.user_id
+                AND kd.deleted_at IS NULL AND kd.parse_status='COMPLETED'
+            JOIN knowledge_chunk kc ON kc.document_id=kd.id AND kc.knowledge_base_id=kd.knowledge_base_id
+                AND kc.user_id=kd.user_id AND kc.vector_generation=kd.vector_generation
+            WHERE kb.user_id=#{userId} AND kb.deleted_at IS NULL AND kb.status='ACTIVE' AND kb.id IN
+            <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+            GROUP BY kd.knowledge_base_id,kd.id,kd.vector_generation
+            HAVING BOOL_AND(kc.vectorization_status='COMPLETED') AND COUNT(DISTINCT kc.chunk_strategy_version)=1
+            ORDER BY kd.knowledge_base_id,kd.id
+            </script>
+            """)
+    List<ReadyDocumentGenerationRow> selectSelectedReadyDocumentGenerations(@Param("userId") long userId,
+            @Param("ids") List<Long> ids);
+
     @Select("""
             SELECT knowledge_base_id
             FROM agent_knowledge_binding

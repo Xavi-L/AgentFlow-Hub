@@ -9,6 +9,10 @@ public class AgentTask {
     private Long id;
     private Long userId;
     private Long agentId;
+    private Long configVersionId;
+    private String configHash;
+    private String effectiveConfigHash;
+    private String hashAlgorithmVersion;
     private String clientRequestId;
     private String requestFingerprint;
     private String status;
@@ -38,6 +42,18 @@ public class AgentTask {
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
     private Integer version;
+
+    public Long getConfigVersionId() { return configVersionId; }
+    public void setConfigVersionId(Long value) { configVersionId = value; }
+
+    public String getConfigHash() { return configHash; }
+    public void setConfigHash(String value) { configHash = value; }
+
+    public String getEffectiveConfigHash() { return effectiveConfigHash; }
+    public void setEffectiveConfigHash(String value) { effectiveConfigHash = value; }
+
+    public String getHashAlgorithmVersion() { return hashAlgorithmVersion; }
+    public void setHashAlgorithmVersion(String value) { hashAlgorithmVersion = value; }
 
     public Long getId() {
         return id;

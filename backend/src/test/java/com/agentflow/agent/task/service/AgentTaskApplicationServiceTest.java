@@ -114,8 +114,34 @@ class AgentTaskApplicationServiceTest {
 
     private String fingerprint(CreateAgentTaskCommand command) {
         return new TaskRequestFingerprint(new ObjectMapper())
-                .calculate(command.agentId(), command.userInput())
+                .calculate(command.agentId(), command.userInput(), command.configVersionId())
                 .sha256();
+    }
+
+    @Test
+    void explicitVersionReplayReturnsOriginalTaskAndChangedVersionOrRequestShapeConflicts() {
+        var explicit = new CreateAgentTaskCommand(11L, 21L, "key-1", " input ", 7L);
+        AgentTask old = task(91L, fingerprint(explicit));
+        when(queryService.findByUserAndClientRequestId(11L, "key-1")).thenReturn(old);
+        assertThat(service.createTask(explicit)).isSameAs(old);
+        for (var changed : java.util.List.of(
+                new CreateAgentTaskCommand(11L, 21L, "key-1", " input ", 8L),
+                new CreateAgentTaskCommand(11L, 21L, "key-1", " input "),
+                new CreateAgentTaskCommand(11L, 21L, "key-1", "input", 7L))) {
+            assertThatThrownBy(() -> service.createTask(changed)).isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.TASK_IDEMPOTENCY_CONFLICT));
+        }
+        org.mockito.Mockito.verifyNoInteractions(creationTransactions);
+    }
+
+    @Test
+    void serializationConflictRetriesOnlyInANewCreationTransactionAndHasAFiniteLimit() {
+        var command = command("same payload");
+        var failure = new org.springframework.dao.CannotSerializeTransactionException("snapshot changed");
+        when(creationTransactions.createNew(command, fingerprint(command))).thenThrow(failure);
+        assertThatThrownBy(() -> service.createTask(command)).isSameAs(failure);
+        verify(creationTransactions, org.mockito.Mockito.times(3)).createNew(command, fingerprint(command));
     }
 
     @Test

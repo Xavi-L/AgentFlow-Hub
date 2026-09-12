@@ -392,3 +392,16 @@ V0.3 的评测数据版本、判定标准及 Prompt/config version 必须在可�
 - Approval 有完整持久状态机后才能启用；
 - MCP 工具仍受 binding、snapshot、timeout、policy 和 Trace 控制；
 - 任何治理功能都不能成为 V0.1 的隐藏前置条件。
+
+
+## V0.3-A：本地评测协调契约
+
+2026-09-12 从 `b875bde` 冻结本轮施工范围，验收证据另记切片；本轮仅 `python3 scripts/evaluation.py run|resume|report`。compare、episode、质量评分/人工判定、固定业务质量基线属于 V0.3-B；无 Evaluation UI/数据库评测平台。
+
+运行只调用普通鉴权 config/task/Trace API，凭据与连接配置从环境读取，不进入命令行/文件/日志。新 run 要求显式全新私有目录，完整不可变 `agent-eval-run-v1` manifest（全部 case/trial、原始输入、固定配置版本/hash、材料/规则/环境预期、预算/观察上限、每例预生成 key 和完整请求）先落盘，再发送任何任务提交请求；此前允许通过 `/users/me` 和指定配置版本 GET 做只读 owner/hash 预检。manifest 临时写入、原子 rename 并 fsync；journal 单调序号、追加/flush/fsync，提交意图先于网络发送。运行目录单写者排他锁；崩溃不完整尾行可忽略，中间损坏必须拒绝；report 可重复派生。
+
+协调状态为 PLANNED、SUBMITTING、SUBMISSION_UNKNOWN、ADMISSION_REJECTED、TASK_LINKED、OBSERVATION_INCOMPLETE、TASK_TERMINAL，和 task.status 分开。resume 校验 manifest hash，提交原计划尚未发送样本、继续观察已关联原 task；未知提交仅使用相同原请求/key 调用普通幂等入口，整个原提交未知恢复最多 3 次网络核对，耗尽保留未知，禁止换 key。已关联失败/取消/超时 task 不重跑；明确准入拒绝不在原 run 重试；未知 5xx/断连不伪装拒绝。观察耗尽不取消任务、不伪造 TASK_TIMED_OUT。
+
+采集真实 Task/Trace 中版本关联、effectiveConfigHash、完整实际快照、持久终态/原因、usage 完整性和调用模型，按 case 保存脱敏 artifacts 及 hash。预期与实际不同记录漂移；applicationRevision=development 或显示标签不能单独充当严格构建身份，要关联可核对 Git SHA+clean/dirty 或不可变构建身份，缺失可报告但不冒充严格版本。
+
+报告保留计划全集和每例关联/拒绝/未知/未完成原因，包括 V0.2 中断和所有失败；A 仅报告工程关联，无质量分数。总预算阈值预先固定，未知用量不当剩余预算充足，必要时停止新增提交并保留 PLANNED/运行未完成。输入与异常/Trace 文件执行敏感内容保护，owner 隔离不被 CLI 绕过。A01–A13 使用受控证据验收不代表真实模型质量提升；V47 缺凭据按 BLOCKED 记录。

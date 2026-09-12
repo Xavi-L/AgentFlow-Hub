@@ -840,3 +840,18 @@ Runner 只执行一次业务。保存最初 outcome、usage、预算计数和完
 仅可识别暂时性数据库连接/锁/语句故障允许首次加最多 2 次保存尝试，退避 100ms、500ms；约束违反或非法数据不盲重试。待保存 outcome 仅保留在有界执行上下文中，不重进 Engine、不续跑、不重新投递、不重发模型/工具。连接获取、锁与语句超时必须有限。
 
 保存耗尽或非暂时故障输出安全诊断 TASK_SETTLEMENT_PERSIST_FAILED，包含 task ID、尝试次数和失败阶段，关闭新增任务准入及调度并降级任务执行健康状态；不声称数据库已有终态。已提交而未 dispatch/claim 的任务通过原持久调度拒绝路径收尾，落库失败也明确降级。数据库持续不可用或 JVM 退出时由下一次满足 A 前提的启动处理遗留任务，不从丢失的内存结果恢复成功。
+
+
+## V0.3-A：不可变配置选择与任务实际配置身份
+
+2026-09-12 从 V0.2-B 交付 `b875bde` 核对 HEAD 后冻结本轮施工投影；本节是实现约束，A01–A13 实际结果另记 [V0.3 切片](../V0.3-slice-docs/01_CONFIG_VERSION_AND_EVALUATION_PACKAGE_INTERFACE.md)，不表示已经验收。
+
+普通任务新增可选 `configVersionId`。显式版本只读取同 owner、同 Agent 的不可变配置；省略/null 则在创建事务的一致已提交读取视图中捕获草稿主表及全部绑定并发布/复用版本。发布、配置解析、task/首事件落库与 after-commit dispatch 继续保持短事务边界，无 LLM/Qdrant/工具 I/O。并发修改/发布/创建必须得到同一已提交版本的主表和绑定，不拼接多个读取时点。
+
+配置冻结原始 prompt、模型选择及参数、预算、五项 nullable 高级覆盖值和绑定选择/参数。现有绑定 `priority`、工具 `enabled` 等属于内容；仅将保持这些参数的无序绑定集合按数值 ID 排序，不能丢失执行优先级。创建时仍检查当前 owner、Agent ACTIVE、知识 READY 和 ToolRuntime hard validation；依赖不可用拒绝，不回落到草稿或替换资源。
+
+`config-canonical-json-v1` 按 Unicode scalar 顺序递归排序对象键，最小 JSON 转义，数值采用十进制 plain 表示并按等值规范化（1/1.0、负零等价，拒绝非有限数），原样保留字符串/Unicode/空白/换行，schema 完整化后保留继承 null；有序数组保序。Java/CLI 共用 golden vectors。`configHash` 对原始完整配置计算 SHA-256；`effectiveConfigHash` 对实际快照中的执行值、规则/策略、模型、工具和检索依赖身份计算，排除 task ID、时间、显示标签、配置版本 ID 及只说明相同值来源的标签。effective 投影排除 agentId/status、executionSettings.sources 和 tools[*].inputSchemaHash；最后一项是旧 ToolSchemaFingerprint 算法的派生值，完整 inputSchema 已按新 canonical 算法参与 effective hash，避免等价 1/1.0 因旧派生 hash 产生虚假差异。inputSchemaHash 仍原样保留在快照并沿用既有工具 hard validation，不改历史快照。tool.name/description 会进入实际 prompt，因此保留，runtime.applicationRevision 作为执行身份保留。完整快照及来源仍保留。两种 hash 均记录算法版本；相同配置版本继承的部署默认变化可产生不同实际 hash。
+
+任务身份存于 task 关联字段，继续使用已有 `agent-task-snapshot-v2`，不升级快照格式。历史 v1/v2 的缺失关联保持缺失，不补造历史版本、不重算旧指纹。V0.2 进程准入门禁仍先执行，门禁允许后先回读 `(owner, clientRequestId)` 再解析当下配置及 Agent/依赖准入；省略/null 版本继续使用原 `agent-task-request-v1` 指纹，显式版本使用带域/版本标记的新指纹，包含 Agent ID、原始输入和显式版本 ID。同 key 更换输入/Agent/显式版本或切换显式与省略形态返回 409/TASK_IDEMPOTENCY_CONFLICT。原请求确认不受后续禁用、草稿或默认变化影响，唯一约束竞态仍回读原 task。
+
+Evaluation 仅调用普通接口，不新增执行/续跑通道；已关联的终态 task 永不重跑。A 不包括 compare、episode、质量指标、UI 或评测数据库平台。

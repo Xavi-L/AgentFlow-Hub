@@ -5,6 +5,10 @@ public record CreateAgentTaskCommand(
         long userId,
         long agentId,
         String clientRequestId,
-        String userInput
+        String userInput,
+        Long configVersionId
 ) {
+    public CreateAgentTaskCommand(long userId, long agentId, String clientRequestId, String userInput) {
+        this(userId, agentId, clientRequestId, userInput, null);
+    }
 }

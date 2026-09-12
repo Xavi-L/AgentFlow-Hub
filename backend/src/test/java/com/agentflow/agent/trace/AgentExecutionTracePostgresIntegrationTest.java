@@ -130,6 +130,7 @@ class AgentExecutionTracePostgresIntegrationTest {
         jdbc.update("DELETE FROM agent_step");
         jdbc.update("DELETE FROM agent_task_event");
         jdbc.update("DELETE FROM agent_task");
+        jdbc.update("DELETE FROM agent_config_version");
         jdbc.update("DELETE FROM agent_tool_binding");
         jdbc.update("DELETE FROM agent_knowledge_binding");
         jdbc.update("DELETE FROM knowledge_document_reprocess_task");
@@ -158,7 +159,7 @@ class AgentExecutionTracePostgresIntegrationTest {
         );
 
         reset(snapshotResolver, taskDispatcher);
-        when(snapshotResolver.resolve(USER_ID, AGENT_ID)).thenReturn(snapshot(AGENT_ID));
+        when(snapshotResolver.resolveConfiguration(org.mockito.ArgumentMatchers.eq(USER_ID), org.mockito.ArgumentMatchers.eq(AGENT_ID), org.mockito.ArgumentMatchers.any())).thenReturn(snapshot(AGENT_ID));
         outerTransactionProbe.reset();
     }
 
@@ -167,7 +168,7 @@ class AgentExecutionTracePostgresIntegrationTest {
         assertThat(jdbc.queryForObject(
                 "SELECT count(*) FROM flyway_schema_history WHERE success",
                 Integer.class
-        )).isEqualTo(22);
+        )).isEqualTo(23);
         assertThat(jdbc.queryForObject(
                 """
                 SELECT count(*)
@@ -505,7 +506,7 @@ class AgentExecutionTracePostgresIntegrationTest {
     @Test
     void shouldReturnAnOwnerScopedImmutableTraceInStableSemanticOrder() {
         AgentTaskExecutionSnapshot frozen = snapshotWithCurrentTool();
-        when(snapshotResolver.resolve(USER_ID, AGENT_ID)).thenReturn(frozen);
+        when(snapshotResolver.resolveConfiguration(org.mockito.ArgumentMatchers.eq(USER_ID), org.mockito.ArgumentMatchers.eq(AGENT_ID), org.mockito.ArgumentMatchers.any())).thenReturn(frozen);
         AgentTask task = claim(createTask("aggregate", "aggregate"));
         ExecutionRecorder recorder = recorderFactory.open(task.getId());
         StepHandle retrievalStep = recorder.startStep(StepType.PRE_RETRIEVAL, "Retrieve");

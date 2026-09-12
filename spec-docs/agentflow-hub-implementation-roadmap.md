@@ -822,3 +822,14 @@ chore: cut v0.1 release
 从 A 交付 9012e26 核对 HEAD 后施工，仅覆盖实际调用并发/迟到结果和有限终态持久化重试。按 Engine/Data/API/Frontend 投影先行，不回改 V1–V22，不扩展 V0.3。B01–B10 全验收，包含真实 PostgreSQL、B09 实际 JVM kill/restart、相关 A/V48 浏览器回归和前端测试/构建；V47 凭据缺失明确 BLOCKED。结果及失败命令另记切片，不提前标通过，也不宣称整个 V0.2 完成。
 
 本轮 B 结果：B01–B10 10/10（23 task、23 Runner、67 受控外部 receipts，重入/恢复重发 0），B09 实际 SIGKILL/waitpid/restart；默认 Java 测试 776 通过、65 opt-in PG 跳过，相关真实 PG 另跑 70/70，最终外部边界补测 66/66。A01–A17 17/17 + 浏览器 3/3、V48 最终 22/22 + 803/3 PG checks、前端 99/99 + build 通过。V48 首轮 5 项线程关联夹具失败保留并修复后全矩阵重跑；V47 host 预检仍 BLOCKED。实现为 9012e26 之上的工作树，详细命令、过程与限制见切片 §10，不把 A 的 SHA 作为 B 实现提交，也不扩大到整个 V0.2 发布。
+
+
+## V0.3-A 施工投影：版本与评测关联
+
+2026-09-12：以 V0.2-B 交付 `b875bde` 核对 HEAD 后施工，保留既有本地修改；先同步 Engine/Data/API/Frontend/Harness 投影再实现，V1–V22 migration 不回改。依次完成不可变版本发布/去重/列表详情及普通 task 幂等兼容，再完成 CLI run/resume/report 的计划落盘、锁/journal、逐例关联与无评分报告。
+
+A01–A13 全验收须覆盖真实 disposable PostgreSQL、一致并发捕获、跨端 hash vectors、CLI 文件和实际中断恢复、前端测试/build，以及相关 V0.2/V48 回归；V47 真实成功回归缺凭据/环境明确 BLOCKED。结果、失败和跳过项写入切片，受控与真实服务证据分开，不以无评分工程报告宣称质量提升。V0.3-B 的 compare/episode、固定质量基线、评分、Evaluation UI/数据库平台均未授权本轮施工。
+
+2026-09-12 本轮验收收尾：V0.3-A 已实现；真实 PostgreSQL 最终九类 91/91、前端 100 tests/build、V0.2-A 17/17、V0.2-B 10/10、V48 22/22 与 806 项存储检查通过，CLI 19/19 通过。默认 Java 789 pass / 75 PG opt-in skip；真实 PG 另行全部执行；默认跳过按方法/容器计数，参数化展开后的 91 case 不能与 75 机械相减。多次运行失败与补采分开保存，详见 V0.3 切片第 10 节及其 evidence。V47 缺凭据/环境 BLOCKED，V0.3-B 保持未施工。
+
+2026-09-12 交付补充：用户已确认 V0.3-A 手动验证通过并授权提交推送；这是用户确认结果，和此前 V47 自动预检 BLOCKED 的历史记录分开保存。IDE 中已有智谱/DashScope 凭据，此前未传入验收进程；具体说明见 V0.3 切片 §10.5。V0.3-B 仍未施工。

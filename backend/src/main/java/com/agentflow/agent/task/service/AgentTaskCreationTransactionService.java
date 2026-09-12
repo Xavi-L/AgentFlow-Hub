@@ -1,6 +1,8 @@
 package com.agentflow.agent.task.service;
 
 import com.agentflow.agent.task.recovery.TaskExecutionAdmission;
+import com.agentflow.agent.configversion.AgentConfigVersionTransactions;
+import com.agentflow.agent.configversion.ConfigCanonicalJson;
 import com.agentflow.agent.snapshot.AgentTaskExecutionSnapshot;
 import com.agentflow.agent.snapshot.AgentTaskSnapshotResolver;
 import com.agentflow.agent.task.dispatch.AfterCommitTaskDispatchCoordinator;
@@ -24,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AgentTaskCreationTransactionService {
     private final TaskExecutionAdmission admission;
+    private final AgentConfigVersionTransactions configurations;
     private final AgentTaskSnapshotResolver snapshotResolver;
     private final AgentTaskMapper taskMapper;
     private final TaskEventAppender eventAppender;
@@ -38,8 +41,10 @@ public class AgentTaskCreationTransactionService {
             AfterCommitTaskDispatchCoordinator dispatchCoordinator,
             ObjectMapper objectMapper,
             Clock clock,
-            TaskExecutionAdmission admission
+            TaskExecutionAdmission admission,
+            AgentConfigVersionTransactions configurations
     ) {
+        this.configurations = Objects.requireNonNull(configurations);
         this.admission = Objects.requireNonNull(admission, "admission must not be null");
         this.snapshotResolver = Objects.requireNonNull(snapshotResolver, "snapshotResolver must not be null");
         this.taskMapper = Objects.requireNonNull(taskMapper, "taskMapper must not be null");
@@ -55,7 +60,9 @@ public class AgentTaskCreationTransactionService {
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     public AgentTask createNew(CreateAgentTaskCommand command, String requestFingerprint) {
         admission.requireReady();
-        AgentTaskExecutionSnapshot snapshot = snapshotResolver.resolve(command.userId(), command.agentId());
+        var version = configurations.selectForTask(command.userId(), command.agentId(), command.configVersionId());
+        AgentTaskExecutionSnapshot snapshot = snapshotResolver.resolveConfiguration(command.userId(), command.agentId(),
+                configurations.configuration(version));
         requireMatchingSnapshot(command, snapshot);
 
         OffsetDateTime createdAt = OffsetDateTime.now(clock);
@@ -63,6 +70,10 @@ public class AgentTaskCreationTransactionService {
         task.setId(IdWorker.getId());
         task.setUserId(command.userId());
         task.setAgentId(command.agentId());
+        task.setConfigVersionId(version.getId());
+        task.setConfigHash(version.getConfigHash());
+        task.setHashAlgorithmVersion(version.getHashAlgorithmVersion());
+        task.setEffectiveConfigHash(ConfigCanonicalJson.effectiveConfigHash(objectMapper.valueToTree(snapshot)));
         task.setClientRequestId(command.clientRequestId());
         task.setRequestFingerprint(requestFingerprint);
         task.setStatus(TaskStatus.QUEUED.name());

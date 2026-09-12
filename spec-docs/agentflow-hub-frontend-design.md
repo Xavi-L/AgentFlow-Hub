@@ -714,3 +714,10 @@ V43 核心证据必须覆盖真实浏览器登录 → 预配置 Agent 创建任�
 ## V0.2-B 前端投影：持久事实与降级
 
 运行期准入降级沿用现有 503/TASK_EXECUTION_NOT_READY 提示；未持久化的执行结果不能由前端推断成终态或最终答案。持续 GET/Trace/SSE、刷新只观察原 task，迟到响应不复活终态、不补造完整用量；不增加执行重试按钮。终态保存的退避不改变服务端首次完成观察时间，恢复时间仍按 A 展示。
+
+
+## V0.3-A 前端投影：兼容配置关联
+
+2026-09-12 从 `b875bde` 冻结本轮约束，尚未表示前端验收。Task/Trace 类型兼容可选或 nullable 的 `configuration={configVersionId, configHash, effectiveConfigHash, hashAlgorithmVersion}`，ID/hash 为字符串；保留历史 v1/v2 缺失值，不从当前 Agent 推导身份、不更改 executionSnapshot。既有创建 UI 继续省略版本，由普通后端入口捕获配置，不要求 UI 先发布。重试原未知请求仍保留同一输入/key/请求形态。
+
+新增字段不影响 TaskStatus、recovery 提示、SSE 游标或刷新/GET+Trace 收敛；原始输入和既有绑定 priority 顺序语义保留。A 只做 API/type 兼容和相关测试/build，不增加 Evaluation UI、配置管理新页面、compare 或 Episode 入口。

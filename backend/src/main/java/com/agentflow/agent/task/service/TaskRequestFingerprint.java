@@ -28,12 +28,21 @@ public class TaskRequestFingerprint {
     }
 
     public Fingerprint calculate(long agentId, String originalInput) {
+        return calculate(agentId, originalInput, null);
+    }
+
+    /** The legacy absent/null branch retains its exact JSON and hash; explicit selection has a new domain. */
+    public Fingerprint calculate(long agentId, String originalInput, Long configVersionId) {
         if (agentId <= 0) {
             throw new IllegalArgumentException("agentId must be positive");
         }
         Objects.requireNonNull(originalInput, "originalInput must not be null");
         Map<String, String> canonicalRequest = new TreeMap<>();
-        canonicalRequest.put("version", VERSION);
+        canonicalRequest.put("version", configVersionId == null ? VERSION : "agent-task-request-config-v1");
+        if (configVersionId != null) {
+            if (configVersionId <= 0) throw new IllegalArgumentException("configVersionId must be positive");
+            canonicalRequest.put("configVersionId", configVersionId.toString());
+        }
         canonicalRequest.put("agentId", Long.toString(agentId));
         canonicalRequest.put("input", originalInput);
         try {
