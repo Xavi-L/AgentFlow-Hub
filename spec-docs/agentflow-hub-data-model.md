@@ -420,6 +420,7 @@ phase                      VARCHAR(32)
 termination_reason         VARCHAR(64)
 user_input                 TEXT NOT NULL
 execution_snapshot         JSONB NOT NULL
+recovery_metadata          JSONB -- V22 nullable, absent for unrecovered historical tasks
 max_decision_turns         INT NOT NULL
 max_tool_calls             INT NOT NULL
 max_total_tokens           INT NOT NULL
@@ -560,7 +561,7 @@ FOREIGN KEY(task_id) REFERENCES agent_task(id)
 UNIQUE(task_id, step_index)
 UNIQUE(id, task_id)
 CHECK step_index >= 0
-CHECK terminal step has ended_at/latency
+CHECK terminal step has ended_at/latency (V22: FAILED + TASK_RESTART_INTERRUPTED permits NULL latency)
 CHECK success has no error
 CHECK failed has safe error
 ```
@@ -937,3 +938,18 @@ V0.1 可以使用固定保留策略，但必须写清：
 - API key、Authorization、Cookie、内部 URL 和显式敏感字段不进入数据库；
 - 后续开放真实业务数据前必须增加字段级脱敏和访问审计；
 - 删除用户或执行合规删除的策略在 V1.x 单独设计，不能依赖无约束 `ON DELETE CASCADE`。
+
+
+## V0.2-A 数据投影：恢复事实
+
+2026-09-12 对齐 Engine 的受控启动收尾契约。新增下一可用追加迁移 V22，V1–V21 不回改：`agent_task.recovery_metadata JSONB NULL`，非空时必须为 JSON object。历史未恢复任务保留 NULL，不回填完整性。TaskStatus/TaskPhase/terminationReason 既有词汇及 owner 外键、快照、幂等键不变。
+
+recovery 对象字段冻结为：schemaVersion=`task-recovery-v1`、mode=`CONTROLLED_SINGLE_HOST`、字符串 recoveryRunId、带时区 recoveredAt、previousStatus、reasonCode（TASK_RESTART_INTERRUPTED/TASK_RESTART_DISPATCH_LOST）、executionOutcome（NOT_STARTED/UNKNOWN）、recordCompleteness 和 counterCompleteness（COMPLETE/UNCONFIRMED）、recordedUsage、recordedLlmCalls、recordedToolCalls、previousTaskUsage。usage 子对象使用 inputTokens/outputTokens/totalTokens/tokenUsageQuality；日志数是持久日志数，不等于预算消费次数。所有公开 ID 使用字符串。
+
+单任务行锁内读取并校验本任务 step/LLM/RAG/tool/event 证据。正常 QUEUED 无执行证据方可 COMPLETE；RUNNING task 的 usage quality 必须 UNKNOWN，即使 recordedUsage 全是 EXACT。已有非零 task 汇总必须与唯一持久 LLM 集合一致，否则拒绝收尾；不取分量最大值或重复相加。previousTaskUsage 保留收尾前数值/质量，预算消费计数原样保留。
+
+未结束 step 和 RUNNING 工具日志仅收尾本地 FAILED，错误 TASK_RESTART_INTERRUPTED，保留开始时间、既有正文/用量/关系；不修改任何已终结记录。task、记录、recovery、事件及序号同一物理事务提交/回滚。候选按主键稳定有界分页，仅启动时使用，不新增运行期扫描索引或执行账本。
+
+V0.2-A 精化：原 step/tool 的 FAILED 约束要求 latency 非空，无法表达中断窗口的未知实际耗时。V22 仅对 `FAILED + TASK_RESTART_INTERRUPTED` 允许 latency 为 NULL，正常执行终态约束不放宽；恢复保留原 latency 与既有正文，不用开始到收尾的时间差伪造外部调用耗时。
+
+恢复证据不变量还包括：非终态若已有 recovery_metadata、终态事件或 ANSWER_CHUNK，拒绝收尾并保持门禁关闭，以免异常持久状态产生第二条终态或答案发布事实；已有成功 final LLM 日志本身不属于该异常。

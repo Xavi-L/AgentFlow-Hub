@@ -1,5 +1,6 @@
 package com.agentflow.agent.task.service;
 
+import com.agentflow.agent.task.recovery.TaskExecutionAdmission;
 import com.agentflow.agent.snapshot.AgentTaskExecutionSnapshot;
 import com.agentflow.agent.snapshot.AgentTaskSnapshotResolver;
 import com.agentflow.agent.task.dispatch.AfterCommitTaskDispatchCoordinator;
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 /** Owns the one repeatable-read transaction that freezes and inserts a new task. */
 @Service
 public class AgentTaskCreationTransactionService {
+    private final TaskExecutionAdmission admission;
     private final AgentTaskSnapshotResolver snapshotResolver;
     private final AgentTaskMapper taskMapper;
     private final TaskEventAppender eventAppender;
@@ -35,8 +37,10 @@ public class AgentTaskCreationTransactionService {
             TaskEventAppender eventAppender,
             AfterCommitTaskDispatchCoordinator dispatchCoordinator,
             ObjectMapper objectMapper,
-            Clock clock
+            Clock clock,
+            TaskExecutionAdmission admission
     ) {
+        this.admission = Objects.requireNonNull(admission, "admission must not be null");
         this.snapshotResolver = Objects.requireNonNull(snapshotResolver, "snapshotResolver must not be null");
         this.taskMapper = Objects.requireNonNull(taskMapper, "taskMapper must not be null");
         this.eventAppender = Objects.requireNonNull(eventAppender, "eventAppender must not be null");
@@ -50,6 +54,7 @@ public class AgentTaskCreationTransactionService {
 
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     public AgentTask createNew(CreateAgentTaskCommand command, String requestFingerprint) {
+        admission.requireReady();
         AgentTaskExecutionSnapshot snapshot = snapshotResolver.resolve(command.userId(), command.agentId());
         requireMatchingSnapshot(command, snapshot);
 

@@ -111,6 +111,8 @@ pg_started=true
 "$PG_BIN/createdb" -h 127.0.0.1 -p "$V48_PG_PORT" -U v48_fixture agentflow_v48_browser
 stage=backend
 "$JAVA_HOME/bin/java" -Dspring.devtools.restart.enabled=false \
+  "-Dagentflow.task.recovery.lock-path=$V48_CONTROL_DIR/task-execution.lock" \
+  -Dagentflow.task.recovery.mode=DISABLED \
   "-Dspring.datasource.url=jdbc:postgresql://127.0.0.1:$V48_PG_PORT/agentflow_v48_browser" \
   -Dspring.datasource.username=v48_fixture -Dspring.datasource.password= \
   -Dspring.datasource.hikari.maximum-pool-size=12 \

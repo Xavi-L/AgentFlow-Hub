@@ -803,3 +803,12 @@ Task status/phase/terminal update 与对应事件、event cursor increment 必�
 12. Agent 绑定 API 不能绑定跨 owner/disabled KB 或不允许的工具；V49 还需验证知识库 PUT 原始 21 项以400/`COMMON_PARAM_INVALID`拒绝且旧绑定不变，历史21–50项仍可读取修复，新任务以全部持久绑定计数并在超限时以409/`AGENT_BINDING_INVALID`拒绝且无 task/event/dispatch；
 13. 已创建 task 不因普通 binding 修改改变能力集合；
 14. 工具和模型内部配置不经 API 泄漏。
+
+
+## V0.2-A API 投影：任务执行准入与恢复说明
+
+2026-09-12 对齐 Engine/Data 的受控启动收尾契约。任务准入关闭时，创建与取消写接口返回 HTTP 503、code=`TASK_EXECUTION_NOT_READY`；应用服务和内部创建/调度/Runner/claim 也必须拒绝，不能只依赖 readiness。拒绝发生在新 task、幂等键、after-commit dispatch 之前。鉴权与 owner 检查仍适用于 GET/Trace/SSE；liveness 不表示任务准入 READY。
+
+Task 详情以及 `Trace.task` 新增可选 `recovery`，来自同一 `agent_task.recovery_metadata`；历史未恢复任务省略。完整字段与 usage 子对象见 Data Model V0.2-A 投影，ID 为字符串，不改变现有大整数无损和游标规则。恢复失败任务公开 errorCode 为 TASK_RESTART_INTERRUPTED 或 TASK_RESTART_DISPATCH_LOST；取消任务 errorCode=null，仍用 recovery.reasonCode 解释中断事实。
+
+SSE 沿用持久 TASK_FAILED/TASK_CANCELLED 和原 sequence。终态 payload 的 recovery 摘要仅包含 schemaVersion、recoveryRunId、previousStatus、reasonCode、recordCompleteness、counterCompleteness；不得携带完整日志。GET/Trace 为 recovery 完整对象的权威读取，不由 SSE 另算恢复状态。重连、刷新及原幂等请求仍指向原 task，不能触发第二次执行或 ANSWER_CHUNK。

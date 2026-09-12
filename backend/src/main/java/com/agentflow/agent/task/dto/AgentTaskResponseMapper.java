@@ -22,7 +22,7 @@ public class AgentTaskResponseMapper {
                 task.getFinalAnswer(), payloads.parse(task.getCitations()), task.getErrorCode(),
                 payloads.projectErrorMessage(task.getErrorMessage()), task.getCancelRequestedAt(),
                 task.getStartedAt(), task.getCompletedAt(), task.getLastEventSequence(),
-                task.getCreatedAt(), task.getUpdatedAt()
+                task.getCreatedAt(), task.getUpdatedAt(), payloads.projectRecovery(task.getRecoveryMetadata())
         );
     }
 }

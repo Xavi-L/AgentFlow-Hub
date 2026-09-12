@@ -26,6 +26,7 @@ public class AgentTask {
     private Integer outputTokens;
     private Integer totalTokens;
     private String tokenUsageQuality;
+    private String recoveryMetadata;
     private String finalAnswer;
     private String citations;
     private String errorCode;
@@ -196,6 +197,14 @@ public class AgentTask {
 
     public void setTokenUsageQuality(String tokenUsageQuality) {
         this.tokenUsageQuality = tokenUsageQuality;
+    }
+
+    public String getRecoveryMetadata() {
+        return recoveryMetadata;
+    }
+
+    public void setRecoveryMetadata(String recoveryMetadata) {
+        this.recoveryMetadata = recoveryMetadata;
     }
 
     public String getFinalAnswer() {

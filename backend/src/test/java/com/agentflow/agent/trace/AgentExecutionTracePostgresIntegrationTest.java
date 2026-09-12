@@ -167,7 +167,7 @@ class AgentExecutionTracePostgresIntegrationTest {
         assertThat(jdbc.queryForObject(
                 "SELECT count(*) FROM flyway_schema_history WHERE success",
                 Integer.class
-        )).isEqualTo(20);
+        )).isEqualTo(22);
         assertThat(jdbc.queryForObject(
                 """
                 SELECT count(*)

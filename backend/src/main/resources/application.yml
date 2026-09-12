@@ -54,6 +54,11 @@ agentflow:
       large-max-bytes: 262144
       rag-hit-content-max-bytes: 16384
   task:
+    recovery:
+      mode: ${AGENTFLOW_TASK_RECOVERY_MODE:DISABLED}
+      # Mandatory stable local path shared by every JVM for this database execution domain.
+      lock-path: ${AGENTFLOW_TASK_RECOVERY_LOCK_PATH:}
+      batch-size: 100
     sse:
       # V42 transport resources are independent of the Runner. Bytes are serialized UTF-8 frames.
       max-connections: 128

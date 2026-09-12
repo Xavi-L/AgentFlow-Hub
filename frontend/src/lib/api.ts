@@ -35,7 +35,8 @@ export async function request<T>(method: 'GET' | 'POST' | 'PATCH' | 'PUT', url: 
     }
     if (response.status === 401 && !options.public && session.token === token) clearSession()
     if (response.status < 200 || response.status >= 300 || envelope.code !== 'OK') {
-      throw new ApiError(envelope.message || `请求失败 (${response.status})`, response.status, envelope.code || 'HTTP_ERROR', write && response.status >= 500)
+      const executionNotReady = response.status === 503 && envelope.code === 'TASK_EXECUTION_NOT_READY'
+      throw new ApiError(envelope.message || `请求失败 (${response.status})`, response.status, envelope.code || 'HTTP_ERROR', write && response.status >= 500 && !executionNotReady)
     }
     return envelope.data
   } catch (error) {

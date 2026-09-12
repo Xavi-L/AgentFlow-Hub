@@ -3,7 +3,7 @@ import { createTaskRuntime } from './runtime'
 import { ApiError } from '../lib/api'
 import { clearSession, setSession } from '../lib/session'
 import type { StreamOptions } from '../lib/stream'
-import type { Task, TaskEvent, TaskTrace } from '../lib/types'
+import type { Task, TaskEvent, TaskRecovery, TaskTrace } from '../lib/types'
 
 const ID = '9223372036854775806'
 const event = (sequenceNo: string, eventType: TaskEvent['eventType'], payload: TaskEvent['payload']): TaskEvent => ({
@@ -40,6 +40,50 @@ beforeEach(() => {
 afterEach(() => { live.forEach((runtime) => runtime.dispose()); live.clear(); clearSession(); vi.restoreAllMocks() })
 
 describe('task runtime recovery', () => {
+  const interrupted = (): Task => ({ ...task('3', 'FAILED'), terminationReason: 'SYSTEM_ERROR',
+    errorCode: 'TASK_RESTART_INTERRUPTED', recovery: {
+      schemaVersion: 'task-recovery-v1', mode: 'CONTROLLED_SINGLE_HOST', recoveryRunId: 'c19a51ea-8d62-42d3-81b2-43a8b5d3fab5',
+      recoveredAt: '2026-09-12T12:00:00Z', previousStatus: 'RUNNING', reasonCode: 'TASK_RESTART_INTERRUPTED',
+      executionOutcome: 'UNKNOWN', recordCompleteness: 'UNCONFIRMED', counterCompleteness: 'UNCONFIRMED',
+      recordedUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0, tokenUsageQuality: 'UNKNOWN' },
+      previousTaskUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0, tokenUsageQuality: 'UNKNOWN' },
+      recordedLlmCalls: 0, recordedToolCalls: 0,
+    } })
+  const interruptedEvents = () => [created, started, event('3', 'TASK_FAILED', {
+    status: 'FAILED', terminationReason: 'SYSTEM_ERROR', errorCode: 'TASK_RESTART_INTERRUPTED',
+  })]
+
+  it('refreshes a recovered terminal task using only the same task GET/Trace reads', async () => {
+    const recovered = interrupted(), persisted = trace(interruptedEvents(), recovered)
+    const getTask = vi.fn().mockResolvedValue(recovered), getTrace = vi.fn().mockResolvedValue(persisted)
+    const cancelTask = vi.fn(), stream = vi.fn()
+    const runtime = make({ api: { getTask, getTrace, cancelTask }, stream })
+    await runtime.open(ID)
+    await vi.waitFor(() => expect(runtime.state.settled).toBe(true))
+    await runtime.retry()
+    await vi.waitFor(() => expect(runtime.state.settled).toBe(true))
+    expect(runtime.state.task?.recovery).toEqual(recovered.recovery)
+    expect(runtime.state.trace?.task.recovery).toEqual(recovered.recovery)
+    expect(runtime.state.answer).toBe('')
+    expect(runtime.state.cursor).toBe('3')
+    expect(getTask.mock.calls.every(([id]) => id === ID)).toBe(true)
+    expect(getTrace.mock.calls.every(([id]) => id === ID)).toBe(true)
+    expect(stream).not.toHaveBeenCalled()
+    expect(cancelTask).not.toHaveBeenCalled()
+  })
+
+  it.each(['recovery', 'terminationReason', 'errorCode'] as const)('rejects GET/Trace drift in %s during terminal convergence', async (field) => {
+    const recovered = interrupted(), conflicting = { ...recovered }
+    if (field === 'recovery') conflicting.recovery = { ...recovered.recovery!, recoveryRunId: 'different-run' } as TaskRecovery
+    else conflicting[field] = 'DIFFERENT_REASON'
+    const runtime = make({ api: { getTrace: vi.fn().mockResolvedValue(trace(interruptedEvents(), conflicting)),
+      getTask: vi.fn().mockResolvedValue(recovered), cancelTask: vi.fn() }, stream: vi.fn() })
+    await runtime.open(ID)
+    await vi.waitFor(() => expect(runtime.state.connection).toBe('stopped'))
+    expect(runtime.state.settled).toBe(false)
+    expect(runtime.state.error).toContain('不一致')
+  })
+
   it('rebuilds applied events from Trace, deduplicates replay, then converges on public GET answer/citations', async () => {
     const final = { ...task('5', 'COMPLETED'), finalAnswer: 'Authoritative answer', citations: [{ citationId: 'S1' }] }
     const tail = event('4', 'ANSWER_CHUNK', { chunkIndex: 1, text: ' stream' })

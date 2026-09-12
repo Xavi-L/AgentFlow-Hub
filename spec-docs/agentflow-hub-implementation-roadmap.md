@@ -671,20 +671,20 @@ Task Trace
 ## 11. V0.1 后的优先级
 
 版本边界以 [Project Spec 第 7 节](agentflow-hub-project-spec.md#7-v02v03-与-v10-边界) 为准。
-以下是目标范围，尚不是已冻结的切片清单或已完成能力；V0.2/V0.3 各自开工前确定切片依赖和 Release Gate，
-完成声明继续遵守第 13 节。后续切片目录统一为 `V0.2-slice-docs/`、`V0.3-slice-docs/`，当前尚未建立。
+以下区分版本目标与已冻结切片；V0.2-A/B 和 V0.3-A/B 的首份契约已冻结，实际施工逐片进行，
+未由切片覆盖的版本目标仍需独立契约。完成声明继续遵守第 13 节。后续切片目录统一为 `V0.2-slice-docs/`、`V0.3-slice-docs/`，已建立，首份施工契约与独立门槛见本文末尾。
 
 ### V0.2：稳定性与维护
 
-- 陈旧 RUNNING task 恢复策略；
+- 受控单宿主机重启后的遗留 QUEUED/RUNNING 收尾（V0.2-A）；
 - 更完整 timeout/cancel；
 - Trace retention 和脱敏；
 - 文档/向量 reconciliation；
 - Docker Compose 一键启动；
 - 压测和线程池参数验证。
 
-以现有 timeout/cancel、Trace 和文档补偿为基线补齐缺口。陈旧任务恢复的执行语义须单独冻结，
-不能把浏览器观察恢复当作进程恢复证据，也不默认引入自动续跑、任务/模型/工具重试或多实例调度。
+以现有 timeout/cancel、Trace 和文档补偿为基线补齐缺口。V0.2-A 的受控启动收尾语义已冻结并独立施工；
+不能把浏览器观察恢复当作进程恢复证据，不引入自动续跑、任务/模型/工具重试或多实例调度。
 
 ### V0.3：质量回归
 
@@ -805,3 +805,14 @@ chore: cut v0.1 release
 ```
 
 若答案是否定的，进入 backlog，而不是当前 milestone。
+
+
+## V0.2-A 独立施工门槛（2026-09-12）
+
+目录已建立，施工契约为 `V0.2-slice-docs/01_TASK_RECOVERY_AND_INTERRUPTION_PACKAGE_INTERFACE.md`。本次 HEAD fb6a325 相对基线 dce66e3 仅有三份文档变化，复用 V38/V39/V40/V42/V43/V48/V50 的实际代码；没有已存在的进程收尾实现。
+
+顺序固定 V0.2-A → V0.2-B → V0.3-A → V0.3-B。本片仅受控单宿主机锁、启动门禁、遗留任务原子收尾与事实/UI 投影。A01–A17 必测，使用 disposable PostgreSQL、真实 JVM kill/restart、test-source 控制点和独立 durable 外部边界计数，恢复新增调用数必须为 0；原子失败、互斥、门禁和冷切换证据不可省略。另执行相关 Java/迁移/前端/浏览器、V48 取消/超时/幂等/SSE 回归和 V47 真实主路径（缺凭据或环境须记未执行）。受控 HTTP 服务并非真实供应商执行或计费证据。
+
+实际结果由切片文档逐项记录，施工中不预标 PASSED；A/B 均不覆盖 retention、reconciliation、完整 Compose 或容量验收，不据此宣布整个 V0.2 发布。
+
+2026-09-12 本片结果：V0.2-A 已实现，实际 JVM/PG 受控 A01–A17 17/17、配套浏览器 3/3、V48 22/22 与 803+3 数据检查通过；核心 PG 14/14、既有 PG 回归 45/45、前端 99/99 与 build 通过。V47 缺凭据未发付费调用，真实成功回归 BLOCKED。完整命令与失败记录见切片第 9 节，不能把受控通过提升为真实供应商或整个 V0.2 发布证据。

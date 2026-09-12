@@ -56,6 +56,27 @@ public class SafeTaskPayloadProjector {
         }
     }
 
+    /** Explicit public recovery projection; future persistence metadata is not exposed automatically. */
+    public JsonNode projectRecovery(String serialized) {
+        if (serialized == null) return null;
+        JsonNode source = parse(serialized);
+        if (!source.isObject()) throw new IllegalStateException("Persisted task recovery must be an object");
+        ObjectNode result = pick(source, "schemaVersion", "mode", "recoveryRunId", "recoveredAt",
+                "previousStatus", "reasonCode", "executionOutcome", "recordCompleteness", "counterCompleteness",
+                "recordedLlmCalls", "recordedToolCalls", "queuedCancellationAnomaly");
+        for (String field : java.util.List.of("recordedUsage", "previousTaskUsage")) {
+            if (source.has(field)) result.set(field, pick(source.get(field),
+                    "inputTokens", "outputTokens", "totalTokens", "tokenUsageQuality"));
+        }
+        return result;
+    }
+
+    private ObjectNode pick(JsonNode source, String... fields) {
+        ObjectNode result = objectMapper.createObjectNode();
+        for (String field : fields) if (source.has(field)) result.set(field, source.get(field).deepCopy());
+        return result;
+    }
+
     public JsonNode project(JsonNode value) {
         if (value == null || value.isNull()) {
             return NullNode.getInstance();

@@ -801,3 +801,28 @@ TASK_INTERNAL_ERROR
 9. cancel/timeout/complete 竞态只有一个终态；
 10. TASK_COMPLETED 之前 final_answer 已可查询；
 11. SSE 重连不会漏事件或重复追加最终答案。
+
+
+## V0.2-A：受控单宿主机启动收尾契约
+
+2026-09-12 同步；施工核对 HEAD `fb6a325` 相对 `dce66e3` 仅文档变化。以下是本片生效的实现约束，验收结果另记切片文档；不代表 V0.2-B 或整个 V0.2 已交付。
+
+执行域限定为单宿主机、同一数据库、同一稳定本地排他锁路径，所有新版任务执行进程必须参与。执行 JVM 使用 `FileChannel.tryLock()` 持锁至真正退出，不能在 Spring context 关闭/数据库断线时提前释放。锁路径缺失、获取失败或文件系统不支持排他锁必须拒绝启动写入；文件锁不是跨主机 fencing，也不能证明不参与协议的旧 JVM 已退出。首次升级必须由冷切换入口先停止并等待旧 JVM 真正退出并保存记录。
+
+`agentflow.task.recovery.mode=DISABLED|CONTROLLED_SINGLE_HOST` 默认 DISABLED；两种模式均须先取得相同执行域进程锁。受控模式显式启用后才做启动收尾；DISABLED 发现遗留任务不写 recovery，任务准入保持关闭。不得凭 updated_at、年龄、数据库连接/锁或 PID 文件推断执行者死亡。
+
+启动顺序是关闭准入和调度、取得进程互斥、迁移、稳定主键游标有界读取候选、逐任务原子收尾、复查无候选且无失败、开放准入。应用服务创建和取消、内部创建事务/领取/Dispatcher/Runner 都受门禁约束；门禁关闭不创建任务、不消费幂等键、不注册 after-commit dispatch。只读 owner-scoped GET/Trace/SSE 不因门禁关闭而改变授权语义。迁移或读取/收尾失败不得开放准入，安全诊断包含阶段及适用 task ID。
+
+启动候选仅为 QUEUED/RUNNING，没有运行期扫描；正常运行后创建的任务不进入该集合。RUNNING 无取消意图收尾为 FAILED/SYSTEM_ERROR、TASK_RESTART_INTERRUPTED；QUEUED 无取消意图为 FAILED/SYSTEM_ERROR、TASK_RESTART_DISPATCH_LOST。两者已有取消意图均收尾为 CANCELLED/USER_CANCELLED、errorCode=null，recovery 保留对应中断原因，异常 QUEUED+取消组合作防御性收敛。旧 deadline 已过也不据此改成 TIMED_OUT。已有终态完全不写入。
+
+单任务在同一个物理短事务中锁定并复核 task、校验证据、收尾已有未结束 step/RUNNING tool log、条件终态更新、调用原 TaskEventAppender 追加唯一 TASK_FAILED/TASK_CANCELLED；任意写入或事件失败全部回滚，包括 sequence。不得组合已有多个 REQUIRES_NEW 服务冒充原子。状态条件更新为 0 必须无副作用返回或回滚；重复启动/重复协调/提交应答丢失均通过持久终态实现重入幂等。
+
+收尾 phase=null、completedAt=recoveredAt（本地收尾时间），保留 startedAt/cancelRequestedAt、原快照、预算计数与已结束日志结果。未结束 step/已有 RUNNING 工具行以 FAILED/TASK_RESTART_INTERRUPTED 收尾，说明仅为本地进程中断、外部结果未确认；缺失 LLM/RAG 行不得补造。已有成功 final 日志不能升格为 finalAnswer/citations/ANSWER_CHUNK。恢复路径不得调用 Dispatcher、Engine、模型、工具、embedding 或 Qdrant。
+
+正常 QUEUED 无 step/调用/执行事件证据可记 NOT_STARTED + COMPLETE，零表示本地未开始，不表示供应商 EXACT 用量。QUEUED 有执行证据必须拒绝收尾并关闭准入。RUNNING 一律 UNKNOWN + recordCompleteness/counterCompleteness UNCONFIRMED。仅汇总属于本 task 的唯一持久 LLM 行，不累计 step summary，不按日志条数推导 decisionTurnsUsed/toolCallsUsed。保留日志 EXACT/ESTIMATED/UNKNOWN 并按现有规则汇总 recordedUsage；task 数值可重建但 tokenUsageQuality=UNKNOWN。原 task usage 存入 previousTaskUsage；非零原汇总与日志矛盾必须拒绝，初始零不算矛盾。既有预算计数保留。recovery 字段及摘要由 Data/API 投影定义。
+
+本片没有自动续跑、重新投递、供应商查询、模型/工具重发、运行期迟到结果加固或终态持久化重试；后二者属于独立 V0.2-B。
+
+V0.2-A 精化：原 step/tool 的 FAILED 约束要求 latency 非空，无法表达中断窗口的未知实际耗时。V22 仅对 `FAILED + TASK_RESTART_INTERRUPTED` 允许 latency 为 NULL，正常执行终态约束不放宽；恢复保留原 latency 与既有正文，不用开始到收尾的时间差伪造外部调用耗时。
+
+恢复证据不变量还包括：非终态若已有 recovery_metadata、终态事件或 ANSWER_CHUNK，拒绝收尾并保持门禁关闭，以免异常持久状态产生第二条终态或答案发布事实；已有成功 final LLM 日志本身不属于该异常。

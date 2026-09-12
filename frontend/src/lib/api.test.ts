@@ -5,6 +5,17 @@ import { clearSession, session, setSession } from './session'
 const login = () => setSession({ accessToken: 'token', tokenType: 'Bearer', expiresIn: 3600, user: { id: '1', username: 'test', displayName: 'Test', role: 'USER' } })
 afterEach(() => { clearSession(); vi.restoreAllMocks() })
 describe('authenticated API boundaries', () => {
+  it('treats the explicit admission rejection as a definite no-write result, while retaining unknown other 5xx writes', async () => {
+    login()
+    const request = vi.spyOn(http, 'request').mockResolvedValue({ status: 503,
+      data: '{"code":"TASK_EXECUTION_NOT_READY","message":"执行服务尚未就绪","data":null}' })
+    await expect(api.createTask('7', 'input', 'gate-key')).rejects.toMatchObject({ status: 503, code: 'TASK_EXECUTION_NOT_READY', outcomeUnknown: false })
+    await expect(api.cancelTask('9')).rejects.toMatchObject({ outcomeUnknown: false })
+    request.mockResolvedValue({ status: 503, data: '{"code":"DEPENDENCY_UNAVAILABLE","data":null}' })
+    await expect(api.createTask('7', 'input', 'other-key')).rejects.toMatchObject({ outcomeUnknown: true })
+    expect(request).toHaveBeenCalledTimes(3)
+  })
+
   it('uses the lossless parser before normalizing a task sequence', async () => {
     login()
     vi.spyOn(http, 'request').mockResolvedValue({ status: 200, data: '{"code":"OK","data":{"taskId":"9223372036854775806","agentId":"7","lastEventSequence":9007199254740993,"citations":[]}}' })

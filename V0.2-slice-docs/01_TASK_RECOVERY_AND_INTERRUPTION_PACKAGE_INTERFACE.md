@@ -1,7 +1,7 @@
 # V0.2 施工契约：受控重启收尾与中断加固
 
 > 文档日期：2026-09-12。审查基线：`main@dce66e3365f45f2492d1b10d7c03118ac1564514`。
-> 状态：**待实现的施工契约**。本文定义目标行为，不表示代码已经具备这些能力，也没有新增验收通过记录。
+> 状态：**V0.2-A 已实现，A01–A17 受控验收通过；V47 真实服务回归 BLOCKED；V0.2-B 待实现**。本轮没有整个 V0.2 发布声明。
 > 版本范围来源：[Project Spec §7.1](../spec-docs/agentflow-hub-project-spec.md)；规范优先级见[文档索引](../spec-docs/README.md)。
 > 执行顺序：**V0.2-A 单独施工、验收，再做 V0.2-B**。不因本文同时描述两片而一次实现全部功能。
 
@@ -29,6 +29,12 @@
 - [TaskSnapshotAgentExecutor](../backend/src/main/java/com/agentflow/agent/engine/TaskSnapshotAgentExecutor.java)的 LLM 日志在返回/异常处理后记录；observations、重复调用计数和部分预算仍在内存。崩溃可能留下 step 而没有对应 LLM 日志。
 - [TaskExternalCallDeadline](../backend/src/main/java/com/agentflow/agent/engine/TaskExternalCallDeadline.java)限制调用方等待；底层 I/O 中断是协作式的。
 - [高级设置契约](../V0.1-slice-docs/51_AGENT_ADVANCED_SETTINGS_PACKAGE_INTERFACE.md)已交付 V21 migration、snapshot v2、单次模型超时与已有失败元数据处理；本轮不重做这些功能。
+
+### 1.2 本轮实际 HEAD 核对（2026-09-12）
+
+当前 `HEAD=fb6a325a9d1906632ca81eee1d2eb10f86359214`，相对本文基线 `dce66e3365f45f2492d1b10d7c03118ac1564514` 只有三份文档增改：本文件、V0.3 首份契约、spec-docs/README.md；无生产代码/migration/测试漂移。保留本轮前已有 `backend/http/user-auth.http` 和 `backend/src/main/resources/application-dev.yml` 本地修改。
+
+本轮先同步 Engine/Data/API/Frontend/Roadmap 的 V0.2-A 规范投影，再实现：复用 TaskEventAppender 的事务内 sequence 分配与既有生命周期/owner/幂等/快照读取；新增专用恢复 Mapper 和独立单任务事务，避免嵌套调用原 REQUIRES_NEW 记录服务。受影响入口为 task 创建与取消、内部 create/dispatch/run/claim、Task/Trace DTO、事件 recovery 摘要和 Task/Trace 前端；相关回归覆盖生命周期/执行/Trace/API/SSE、V48 与 V47 预检。下一可用 migration 为 V22，V1–V21 保持不变。
 
 ## 2. 给 Codex 的施工规则
 
@@ -250,7 +256,7 @@ A 的交付必须包含启动/冷切换说明、受控进程锁与门禁、收�
 
 | 里程碑 | 完成门槛 | 当前状态 |
 | --- | --- | --- |
-| V0.2-A | A01–A17 必测；原子性、互斥与零重发无例外；相关回归证据齐备 | 未实现 / 未验收 |
+| V0.2-A | A01–A17 必测；原子性、互斥与零重发无例外；相关回归证据齐备 | 已实现；A01–A17 17/17 与相关受控回归通过；V47 因凭据缺失 BLOCKED，全部发布证据未齐 |
 | V0.2-B | B01–B10 必测；资源有界、迟到结果隔离、仅持久化重试成立 | 未实现 / 未验收 |
 
 阻断项未解决时停止扩大范围，先记录最小复现；不得删除断言、跳过失败样本、缩小到单元测试后宣称完成。
@@ -268,11 +274,68 @@ A 的交付必须包含启动/冷切换说明、受控进程锁与门禁、收�
 - [Spring 事务传播](https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/tx-propagation.html)：`REQUIRES_NEW` 使用独立物理事务。
 - [Spring Boot 启动生命周期](https://docs.spring.io/spring-boot/reference/features/spring-application.html)：应用生命周期/readiness 不替代任务服务层准入检查。
 
+## 9. 本轮实际施工与验收记录（2026-09-12）
+
+本轮实现位于 `fb6a325a9d1906632ca81eee1d2eb10f86359214` 之上的未提交工作树；该 HEAD 本身仍是文档基线，不能将它单独当成本轮实现提交。实际命令、逐次失败、最终矩阵和机器摘要保存于 [V0.2-A-20260912.json](evidence/V0.2-A-20260912.json)。
+
+### 9.1 实际修改
+
+- Engine、Data Model、API、Frontend、Roadmap、Project Spec 与规范索引同步本片投影，V0.2-B/V0.3 保留后续范围。
+- `TaskExecutionProcessLock` 在 Flyway 写入前取得稳定本地排他锁，DISABLED 同样强制参与；无 context 销毁释放锁。`TaskExecutionAdmission` 从构造起关闭，关机关闭不可被迟到的启动成功重新开放；创建、取消（事务外先检查）、内部 create/dispatch/run/claim 均有门禁。
+- `TaskRecoveryStartupCoordinator` 只执行一次启动扫描，按主键有界分页、逐任务独立短事务、最终复查后开放；任一读取或收尾失败保持关闭并报告安全阶段/task ID/不变量原因。
+- `TaskRecoveryTransactionService` 与专用 Mapper 在一个物理事务内锁行、验证证据、收尾未结束记录、更新 task/usage/recovery、调用原 TaskEventAppender；无 Executor/模型/工具/embedding/Qdrant 依赖。终态、快照、成功日志与预算消费计数不改写。
+- V22 新增 nullable JSONB recovery_metadata；只对 `FAILED + TASK_RESTART_INTERRUPTED` 放开 step/tool 的未知 latency，保留普通终态约束，V1–V21 未修改。新增非终态已有终态发布事实/异常用量/异常 QUEUED 证据拒绝，避免补造或重复事实。
+- Task、Trace.task、终态 SSE 安全投影 recovery；前端显示执行/调度/取消中断、未知用量和收尾时间，GET/Trace 收敛核对 recovery，503 明确拒绝不进入未知提交状态；没有新增执行重试按钮或自动续跑。
+- `task-cold-cutover.py` 只停止明确指定的旧 Java PID，确定退出后记录并 exec 新 JVM，观察失败或等待超时拒绝切换；新 test-source JVM 夹具、独立受控 HTTP 计数与真实 PG 故障注入支持 A01–A17。验收入口和冷切换说明同步 README/.env.example/既有受控启动脚本。
+
+### 9.2 已执行命令与结果
+
+所有 Java 命令使用 JDK 21，Mockito 测试用现有 `mockito-core/5.17.0` javaagent；测试库均为 disposable PostgreSQL，受控应用直接启动真实 JVM，非 Spring context 重启。
+
+```bash
+JAVA_HOME=/Users/xavier/Library/Java/JavaVirtualMachines/ms-21.0.11/Contents/Home mvn -q -f backend/pom.xml '-DargLine=-javaagent:/Users/xavier/.m2/repository/org/mockito/mockito-core/5.17.0/mockito-core-5.17.0.jar' '-Dtest=TaskExecutionAdmissionTest,AgentTaskApplicationServiceTest,AgentTaskCreationTransactionServiceTest,TaskRunnerTest,AgentTaskMapperContractTest,AgentTaskControllerTest,SafeTaskEventProjectorTest,PublicTaskTraceProjectorTest,V18AgentTaskMigrationContractTest,V19AgentExecutionTraceMigrationContractTest,TaskSnapshotAgentExecutorTest,AfterCommitTaskDispatchCoordinatorTest,AgentTaskDispatcherConfigurationTest' test dependency:build-classpath -Dmdep.includeScope=test -Dmdep.outputFile=/tmp/agentflow-v02a-classpath.txt
+# 最终生产代码编译与 A01–A17（已实际执行，第二条从仓库根运行）
+(cd backend && JAVA_HOME=$(/usr/libexec/java_home -v 21) mvn -q -DskipTests test-compile)
+bash scripts/v02a-restart-acceptance.sh --compiled-classpath /tmp/agentflow-v02a-classpath.txt --pg-port 55463 --run-dir /private/tmp/agentflow-v02a-matrix-run6
+JAVA_HOME=/Users/xavier/Library/Java/JavaVirtualMachines/ms-21.0.11/Contents/Home mvn -q -f backend/pom.xml '-DargLine=-javaagent:/Users/xavier/.m2/repository/org/mockito/mockito-core/5.17.0/mockito-core-5.17.0.jar' -Dtest=TaskExecutionAdmissionTest,AgentTaskControllerTest test
+npm --prefix frontend test
+npm --prefix frontend run build
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/test_task_cold_cutover.py -v
+python3 scripts/test_v02a_acceptance_evidence.py
+TMPDIR=/private/tmp V48_CONTROL_DIR=/private/tmp/agentflow-v02a-v48-regression-host-20260912 bash scripts/v48-failure-recovery-acceptance.sh
+bash scripts/v47-real-provider-acceptance.sh --preflight-only
+```
+
+| 验证 | 结果 / 证据边界 |
+| --- | --- |
+| 后端聚焦创建、门禁、Runner、Mapper、DTO、迁移、执行器回归 | 初轮 98/98，无失败或跳过；最后门禁补测另记机器摘要 |
+| 恢复核心 + 门禁 + V22 | 14/14 真实 PG、1/1 migration；门禁最终 7/7，连同 11 个 Controller 测试最后补测 18/18 |
+| 既有真实 PG 生命周期/执行/Trace/API/SSE | 最终 45/45；五个类各用独立库/锁/JVM，精确命令见机器摘要 existingPostgresAttempts |
+| 前端单元、构建、新浏览器规格类型检查 | 99/99、build、strict tsc 均通过 |
+| 冷切换脚本边界 | 4/4，通过 mock signal/exec 检验观察错误拒绝、确证退出/僵尸及超时；不是实际冷切换替代品 |
+| V48 全矩阵 | 22/22 浏览器、803 case PG checks、3 global checks，全通过；零自动执行/Playwright 重试 |
+| A01–A17 与 A15 浏览器 | 最终 run6 **17/17 + 3/3 全通过**；25 个任务、26 个外部接收记录、26 个 Runner 接收（其中 1 个为明确拒绝的内部探针），恢复新增外部调用 0、意外 Runner 重入 0 |
+| V47 真实模型/DashScope/Qdrant 成功回归 | **BLOCKED / 未执行**；缺 DASHSCOPE_API_KEY/OPENAI_API_KEY，无 .env.local/V47_ENV_FILE，未发付费请求；受控成功不替代此证据 |
+
+上列 run6 目录为已完成证据目录，复跑需改为新的 `--run-dir`；`--compiled-classpath` 只能复用刚编译的当前工作树，普通入口可不传而自动构建。
+
+实际 A01–A17 逐项状态及时间保存在 `/private/tmp/agentflow-v02a-matrix-run6/matrix.json`；每项 `cases/Axx-summary.json` 包含 task 映射和持久记录摘要，专用取消竞争、写入故障、COMMIT 应答丢失、冷切换材料在同目录。run6 是实际 SIGKILL + waitpid + restart；没有以抛异常或重启 Spring context 替代。
+
+### 9.3 失败、跳过与停止边界
+
+失败明确记录：初次并发编辑期间的测试编译接口不一致（原始内容仅保留在工具会话 35044，没有单独日志文件）；核心 PG fixture 漏必填 display_name；旧 Trace 迁移总数断言仍为 20；sandbox loopback/共享内存/浏览器权限限制。前两项修复后通过；迁移断言按实际 V22 改为 22 后独立新库通过；受控本机验收在已授权 host 环境的新目录重跑。
+
+进程矩阵各失败运行另存：run1 端口被另一个 disposable PG 占用，未创建任务；run2 READY 知识绑定夹具缺失，真实任务入口正确返回 409；run3 A01–A10 通过后，A11 的新写入探测误复用原任务幂等键；run4 A01 通过后，新增证据摘要误迭代 case 名称而非 task ID。均修正夹具或证据代码、保留旧材料，再使用全新库及新任务执行矩阵；没有对遗留 task 重新投递或自动重试业务执行。run5 已 17/17+3/3 通过，随后增加取消事务外门禁并补测 18/18，再以最终生产代码执行 run6，全部再次通过。
+
+付费供应商真实回归因环境缺失明确未执行。A 中 COMMIT 应答丢失使用真实 PostgreSQL COMMIT 成功后的 test-only 代理异常，是受控应答丢失窗口，不宣称真实网络物理断包。旧版冷切换使用当时 Git HEAD `fb6a325` 的实际 pre-lock 后端单独编译运行，仍是隔离数据库内的受控升级，不是现网部署证明。交付入口随后将 `--legacy-ref` 默认值固定到该完整 SHA，解析并记录实际 commit，避免 A 合并后把新 HEAD 当旧版；`baseline-equivalence.json` 证明与 run6 实际归档源码相同，两个纯脚本回归通过。
+
+本轮不实施 V0.2-B、V0.3，不做运行期扫描/续跑/重新投递/外部调用重发；不以受控矩阵宣称真实供应商中断结果或计费已确认，也不宣称整个 V0.2 Release Gate 通过。
+
 ## 面试问题与回答
 
 **问题 1：这次“恢复”到底恢复什么？**
 
-回答：目标是旧 JVM 确认退出后，将遗留任务收尾，而不是恢复内存执行状态。A 未实现前不能宣传已支持；即使 A 通过，也不代表能自动续跑或重试供应商调用。
+回答：本片实现旧 JVM 确认退出后，将遗留任务收尾，不恢复内存执行状态。启动锁、门禁和原子收尾的实际验收见第 9 节；这不代表自动续跑、供应商结果对账或重试调用能力。
 
 **问题 2：为什么不能扫描 updated_at 超时的 RUNNING 后直接失败？**
 
@@ -280,7 +343,7 @@ A 的交付必须包含启动/冷切换说明、受控进程锁与门禁、收�
 
 **问题 3：为什么恢复 task、step 和事件需要新的事务边界？**
 
-回答：现有多个服务方法分别使用 REQUIRES_NEW，外面再加事务不会使它们一起回滚。A 约定单任务收尾在一个物理事务内完成，事件失败连同状态、记录收尾和 sequence 一起回滚。
+回答：现有多个服务方法分别使用 REQUIRES_NEW，外面再加事务不会使它们一起回滚。本片的独立恢复事务直接复用 Mapper 和 TaskEventAppender；真实 PostgreSQL 故障注入验证事件失败连同状态、记录收尾和 sequence 一起回滚。
 
 **问题 4：为什么没有 LLM 日志也不能说调用没有发生？**
 

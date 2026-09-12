@@ -28,6 +28,7 @@ public enum ErrorCode {
             "Idempotency key was already used for a different task request",
             409
     ),
+    TASK_EXECUTION_NOT_READY("TASK_EXECUTION_NOT_READY", "Task execution is not ready", 503),
     TASK_DISPATCH_REJECTED("TASK_DISPATCH_REJECTED", "Task dispatch was rejected", 503),
     TASK_EVENT_SEQUENCE_GAP("TASK_EVENT_SEQUENCE_GAP", "Persisted task event sequence has a gap", 409),
     TASK_SSE_CAPACITY_EXCEEDED("TASK_SSE_CAPACITY_EXCEEDED", "Task event connection limit reached", 503),

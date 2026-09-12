@@ -1,5 +1,6 @@
 package com.agentflow.agent.task.service;
 
+import com.agentflow.agent.task.recovery.TaskExecutionAdmission;
 import com.agentflow.agent.task.model.AgentTask;
 import com.agentflow.common.error.BusinessException;
 import com.agentflow.common.error.ErrorCode;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 public class AgentTaskApplicationService {
     private static final int MAX_CLIENT_REQUEST_ID_LENGTH = 128;
 
+    private final TaskExecutionAdmission admission;
     private final TaskRequestFingerprint fingerprintFactory;
     private final AgentTaskQueryService queryService;
     private final AgentTaskCreationTransactionService creationTransactionService;
@@ -19,8 +21,10 @@ public class AgentTaskApplicationService {
     public AgentTaskApplicationService(
             TaskRequestFingerprint fingerprintFactory,
             AgentTaskQueryService queryService,
-            AgentTaskCreationTransactionService creationTransactionService
+            AgentTaskCreationTransactionService creationTransactionService,
+            TaskExecutionAdmission admission
     ) {
+        this.admission = Objects.requireNonNull(admission, "admission must not be null");
         this.fingerprintFactory = Objects.requireNonNull(
                 fingerprintFactory,
                 "fingerprintFactory must not be null"
@@ -38,6 +42,7 @@ public class AgentTaskApplicationService {
 
     /** The outcome follows the winning INSERT, never the task's asynchronous status. */
     public CreateAgentTaskResult createTaskWithResult(CreateAgentTaskCommand command) {
+        admission.requireReady();
         validate(command);
         String fingerprint = fingerprintFactory.calculate(command.agentId(), command.userInput()).sha256();
 

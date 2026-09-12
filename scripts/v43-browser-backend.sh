@@ -31,6 +31,8 @@ cd "$repo_dir/backend"
 mvn -q -DskipTests test-compile dependency:build-classpath -Dmdep.includeScope=test \
   "-Dmdep.outputFile=$run_dir/classpath.txt"
 "$java_bin" -Dspring.devtools.restart.enabled=false \
+  "-Dagentflow.task.recovery.lock-path=$run_dir/task-execution.lock" \
+  -Dagentflow.task.recovery.mode=DISABLED \
   "-Dspring.datasource.url=jdbc:postgresql://127.0.0.1:$pg_port/agentflow_v43_browser" \
   -Dspring.datasource.username=v43_fixture -Dspring.datasource.password= \
   -Dspring.datasource.hikari.maximum-pool-size=12 \

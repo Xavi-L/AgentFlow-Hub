@@ -1,5 +1,6 @@
 package com.agentflow.agent.task.execution;
 
+import com.agentflow.agent.task.recovery.TaskExecutionAdmission;
 import com.agentflow.agent.snapshot.AgentTaskExecutionSnapshot;
 import com.agentflow.agent.task.model.AgentTask;
 import com.agentflow.agent.task.model.TaskStatus;
@@ -24,6 +25,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class TaskRunner {
     private static final Logger log = LoggerFactory.getLogger(TaskRunner.class);
 
+    private final TaskExecutionAdmission admission;
     private final AgentTaskLifecycleTransactionService lifecycleTransactions;
     private final AgentTaskQueryService queryService;
     private final TaskExecutionDelegate executionDelegate;
@@ -35,8 +37,10 @@ public class TaskRunner {
             AgentTaskQueryService queryService,
             TaskExecutionDelegate executionDelegate,
             ObjectMapper objectMapper,
-            Clock clock
+            Clock clock,
+            TaskExecutionAdmission admission
     ) {
+        this.admission = Objects.requireNonNull(admission, "admission must not be null");
         this.lifecycleTransactions = Objects.requireNonNull(
                 lifecycleTransactions,
                 "lifecycleTransactions must not be null"
@@ -51,6 +55,7 @@ public class TaskRunner {
     }
 
     public void run(long taskId) {
+        admission.requireReady();
         AgentTask task = lifecycleTransactions.claim(taskId);
         if (task == null) {
             return;

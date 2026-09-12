@@ -1,3 +1,5 @@
+import type { Task } from './lib/types'
+
 export const statuses: Record<string, string> = {
   QUEUED: '等待执行', RUNNING: '执行中', COMPLETED: '已完成', FAILED: '执行失败', CANCELLED: '已取消', TIMED_OUT: '已超时',
 }
@@ -19,6 +21,8 @@ export function pretty(value: unknown) { return JSON.stringify(value, (_, v) => 
 export function message(error: unknown) { return error instanceof Error ? error.message : '请求失败，请稍后重试。' }
 
 const modelFailures: Record<string, string> = {
+  TASK_RESTART_INTERRUPTED: '本地执行进程中断，外部结果未确认。',
+  TASK_RESTART_DISPATCH_LOST: '调度随执行进程退出丢失，任务已收尾。',
   AGENT_LLM_OUTPUT_LIMIT: '模型达到输出上限，未生成完整有效内容。请在 Agent 高级设置中检查对应的决策或最终回答输出上限，并核对任务总预算与超时。',
   AGENT_LLM_EMPTY_RESPONSE: '模型未返回有效内容。请检查模型兼容性、思考策略和输出上限。',
   AGENT_LLM_TIMEOUT: '模型调用超时。请检查单次模型调用超时、任务总超时及模型服务状态。',
@@ -28,4 +32,20 @@ const modelFailures: Record<string, string> = {
 /** Present actionable guidance without altering the stored public error code or evidence. */
 export function taskFailureMessage(code: string, original?: string | null): string {
   return modelFailures[code] || original || '任务执行失败，请查看 Trace。'
+}
+
+export function taskStatusLabel(task: Pick<Task, 'status' | 'recovery'>): string {
+  if (!task.recovery) return statuses[task.status] || task.status
+  const interrupted = task.recovery.previousStatus === 'RUNNING' ? '执行' : '调度'
+  return task.status === 'CANCELLED' ? `已取消，${interrupted}曾中断` : `${interrupted}中断`
+}
+
+export function recoveryUsageMessage(task: Pick<Task, 'recovery'>): string {
+  const recovery = task.recovery
+  if (!recovery) return ''
+  const total = recovery.recordedUsage.totalTokens
+  if (recovery.recordCompleteness === 'UNCONFIRMED' || recovery.counterCompleteness === 'UNCONFIRMED') {
+    return total === 0 ? '当前无已记录用量，完整性未确认。' : `已记录 ${total} tokens，可能不完整。`
+  }
+  return `本地未开始执行，已记录用量为 ${total} tokens。`
 }

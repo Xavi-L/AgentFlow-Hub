@@ -99,6 +99,8 @@ pg_started=true
 "$PG_BIN/createdb" -h 127.0.0.1 -p "$V47_PG_PORT" -U v47_acceptance agentflow_v47_real
 stage=backend
 "$JAVA_HOME/bin/java" -Dspring.devtools.restart.enabled=false \
+  "-Dagentflow.task.recovery.lock-path=$V47_CONTROL_DIR/task-execution.lock" \
+  -Dagentflow.task.recovery.mode=DISABLED \
   -Dspring.profiles.active=dev \
   "-Dspring.datasource.url=jdbc:postgresql://127.0.0.1:$V47_PG_PORT/agentflow_v47_real" \
   -Dspring.datasource.username=v47_acceptance -Dspring.datasource.password= \

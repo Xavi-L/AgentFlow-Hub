@@ -76,6 +76,29 @@ docker compose up -d qdrant
 需要分别准备。embedding 模型、维度和 Qdrant collection 必须匹配，模板为
 `text-embedding-v4 / 1024`；更换模型/维度应使用匹配的新 collection。
 
+## V0.2-A 受控启动与首次冷切换
+
+每个创建、领取或执行任务的 JVM 都必须配置 `AGENTFLOW_TASK_RECOVERY_LOCK_PATH`，使用同一数据库执行域共用的稳定本地绝对路径（例如 `/var/lib/agentflow/task.lock`，开发机可选自己有权限的持久目录）。不要删除/替换持锁文件，不放到每次重启新建的目录，不使用 NFS/SMB 或不同容器锁挂载。文件锁只支持同一宿主机的受控执行域，不是跨主机 fencing。
+
+`AGENTFLOW_TASK_RECOVERY_MODE=DISABLED` 是默认值，仍须取得进程锁。发现遗留 QUEUED/RUNNING 时保持任务门禁关闭且不写恢复状态；明确确认部署前提后设为 `CONTROLLED_SINGLE_HOST`，新 JVM 才将遗留任务原子收尾为失败或取消。不会续跑、重新投递或重发模型/工具请求。
+
+首次从不参与锁协议的旧版本升级，先确认该数据库所有执行 JVM，停止并等待它们真正退出。单个已明确识别的旧 JVM 可使用以下入口，输出保留到执行域的持久运维记录目录；有多个旧进程时必须先逐一停妥，不能只检查其中一个：
+
+```bash
+python3 scripts/task-cold-cutover.py \
+  --old-pid 12345 \
+  --lock-path /absolute/persistent/agentflow/task.lock \
+  --record /absolute/persistent/agentflow/cold-cutover.json \
+  -- "$JAVA_HOME/bin/java" -Dspring.devtools.restart.enabled=false \
+  -jar backend/target/agentflow-hub-backend-0.0.1-SNAPSHOT.jar
+```
+
+将示例 PID 和路径替换为该执行域的实际值。入口发送 SIGTERM、确认 JVM 退出、记录切换时间再 exec 新 JVM；超时或旧 PID 不是 Java 进程会拒绝替换。新版本持锁直到 JVM 真正退出，关闭 Spring context 或数据库断线不会释放。升级使用完整 JVM 重启，禁用 DevTools context 热重启。
+
+任务门禁位于创建、取消及内部领取/调度入口，关闭时写接口返回 `503/TASK_EXECUTION_NOT_READY`，无新 task/幂等键/dispatch 副作用。GET/Trace/SSE 仍按 owner 授权读取；`/actuator/health/liveness` 不能代表可接收任务，health 的 `taskExecution` 会报告 DOWN。锁/迁移失败拒绝启动，收尾/读取失败保留只读诊断，日志给出阶段和适用 task ID；修复环境或证据异常后以同一锁路径重启即可处理剩余候选，已提交终态保持不变。
+
+Task/Trace 的 recovery 表示本地中断收尾，RUNNING 的调用结果和记录完整性未确认。已记录 tokens 可能不完整，收尾时间也不等于崩溃时间或实际执行时长。独立受控验收入口见 `scripts/v02a-restart-acceptance.sh`；结果和明确未执行项见 V0.2 切片文档，不等于整个 V0.2 已发布。
+
 ## 构建与启动
 
 后端（已在当前终端导出配置）：
@@ -157,7 +180,7 @@ bash scripts/v47-real-provider-acceptance.sh
 `backend/` 为服务端，`frontend/` 为页面，`scripts/` 为独立验收入口，`V0.1-slice-docs/` 保存
 V0.1 阶段及后续维护切片的契约和验收记录；目录归属不表示其中所有改动都已包含于 `v0.1` tag。
 `spec-docs/` 为项目设计与路线图；V0.2、V0.3 的版本范围见[项目规格](spec-docs/agentflow-hub-project-spec.md#7-v02v03-与-v10-边界)。
-后续切片目录统一使用 `V0.2-slice-docs/`、`V0.3-slice-docs/`，本次仅统一命名与规则，尚未建立。
+后续切片目录为 `V0.2-slice-docs/`、`V0.3-slice-docs/`；首份施工契约已建立，实际实现和验收状态分别记录。
 更多页面行为及静态服务的路由/SSE 代理要求见
 [前端说明](frontend/README.md)。
 

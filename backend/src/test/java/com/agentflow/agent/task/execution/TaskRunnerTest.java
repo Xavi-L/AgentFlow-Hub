@@ -71,7 +71,9 @@ class TaskRunnerTest {
         });
         when(lifecycle.finishCancellation(eq(1L), any())).thenReturn(true);
 
-        new TaskRunner(lifecycle, query, delegate, mapper, clock).run(1L);
+        var admission = new com.agentflow.agent.task.recovery.TaskExecutionAdmission();
+        admission.open();
+        new TaskRunner(lifecycle, query, delegate, mapper, clock, admission).run(1L);
 
         ArgumentCaptor<TaskExecutionOutcome> cancelled = ArgumentCaptor.forClass(TaskExecutionOutcome.class);
         verify(lifecycle).finishCancellation(eq(1L), cancelled.capture());

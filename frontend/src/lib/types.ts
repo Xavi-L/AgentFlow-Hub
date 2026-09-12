@@ -9,12 +9,24 @@ export interface TaskSummary {
   taskId: Decimal; agentId: Decimal; status: TaskStatus; phase: string | null
   terminationReason: string | null; userInput: string; createdAt: string; updatedAt: string; completedAt: string | null
 }
+export type TaskRecoveryUsage = {
+  inputTokens: number; outputTokens: number; totalTokens: number; tokenUsageQuality: string
+}
+export type TaskRecovery = {
+  schemaVersion: 'task-recovery-v1'; mode: 'CONTROLLED_SINGLE_HOST'; recoveryRunId: string; recoveredAt: string
+  previousStatus: 'QUEUED' | 'RUNNING'; reasonCode: 'TASK_RESTART_INTERRUPTED' | 'TASK_RESTART_DISPATCH_LOST'
+  executionOutcome: 'NOT_STARTED' | 'UNKNOWN'; recordCompleteness: 'COMPLETE' | 'UNCONFIRMED'
+  counterCompleteness: 'COMPLETE' | 'UNCONFIRMED'; recordedUsage: TaskRecoveryUsage
+  recordedLlmCalls: number; recordedToolCalls: number; previousTaskUsage: TaskRecoveryUsage
+  queuedCancellationAnomaly?: boolean
+}
 export interface Task extends TaskSummary {
   maxDecisionTurns: number; maxToolCalls: number; maxTotalTokens: number; reservedFinalTokens: number
   decisionTurnsUsed: number; toolCallsUsed: number; inputTokens: number; outputTokens: number; totalTokens: number
   tokenUsageQuality: string; finalAnswer: string | null; citations: Json[]
   errorCode: string | null; errorMessage: string | null; cancelRequestedAt: string | null
   startedAt: string | null; lastEventSequence: Decimal
+  recovery?: TaskRecovery | null
 }
 export const EVENT_TYPES = [
   'TASK_CREATED', 'TASK_STARTED', 'PHASE_CHANGED', 'RAG_FINISHED', 'DECISION_FINISHED',

@@ -52,7 +52,19 @@ public class SafeTaskEventProjector {
                 if (!validFieldType(field, value)) {
                     throw new IllegalStateException("Persisted task event field has an invalid type");
                 }
-                publicPayload.set(field, value.deepCopy());
+                if ("recovery".equals(field)) {
+                    ObjectNode recovery = objectMapper.createObjectNode();
+                    for (String key : List.of("schemaVersion", "recoveryRunId", "previousStatus", "reasonCode",
+                            "recordCompleteness", "counterCompleteness")) {
+                        if (!value.path(key).isTextual()) {
+                            throw new IllegalStateException("Persisted recovery event summary has an invalid field");
+                        }
+                        recovery.set(key, value.get(key).deepCopy());
+                    }
+                    publicPayload.set(field, recovery);
+                } else {
+                    publicPayload.set(field, value.deepCopy());
+                }
             }
         }
         return new SafeTaskEventResponse(
@@ -72,8 +84,9 @@ public class SafeTaskEventProjector {
             case TOOL_FINISHED -> List.of("stepId", "toolCode", "reused", "status", "errorCode");
             case FINAL_GENERATION_STARTED -> List.of("maxOutputTokens");
             case ANSWER_CHUNK -> List.of("chunkIndex", "text");
-            case TASK_COMPLETED, TASK_CANCELLED, TASK_TIMED_OUT -> List.of("status", "terminationReason");
-            case TASK_FAILED -> List.of("status", "terminationReason", "errorCode");
+            case TASK_COMPLETED, TASK_TIMED_OUT -> List.of("status", "terminationReason");
+            case TASK_CANCELLED -> List.of("status", "terminationReason", "recovery");
+            case TASK_FAILED -> List.of("status", "terminationReason", "errorCode", "recovery");
         };
     }
 
@@ -82,6 +95,7 @@ public class SafeTaskEventProjector {
             case "validHitCount", "candidateCount", "staleHitCount", "totalTokens",
                     "maxOutputTokens", "chunkIndex" -> value.isIntegralNumber();
             case "reused" -> value.isBoolean();
+            case "recovery" -> value.isObject();
             case "errorCode" -> value.isNull() || value.isTextual();
             default -> value.isTextual();
         };

@@ -1,5 +1,6 @@
 package com.agentflow.agent.task.service;
 
+import com.agentflow.agent.task.recovery.TaskExecutionAdmission;
 import com.agentflow.agent.task.execution.TaskExecutionOutcome;
 import com.agentflow.agent.task.execution.TaskExecutionResultType;
 import com.agentflow.agent.task.execution.TaskTokenUsage;
@@ -24,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AgentTaskLifecycleTransactionService {
     private static final int ANSWER_EVENT_MAX_BYTES = 16 * 1024;
+    private final TaskExecutionAdmission admission;
     private final AgentTaskMapper taskMapper;
     private final TaskEventAppender eventAppender;
     private final ObjectMapper objectMapper;
@@ -33,8 +35,10 @@ public class AgentTaskLifecycleTransactionService {
             AgentTaskMapper taskMapper,
             TaskEventAppender eventAppender,
             ObjectMapper objectMapper,
-            Clock clock
+            Clock clock,
+            TaskExecutionAdmission admission
     ) {
+        this.admission = Objects.requireNonNull(admission, "admission must not be null");
         this.taskMapper = Objects.requireNonNull(taskMapper, "taskMapper must not be null");
         this.eventAppender = Objects.requireNonNull(eventAppender, "eventAppender must not be null");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
@@ -43,6 +47,7 @@ public class AgentTaskLifecycleTransactionService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public AgentTask claim(long taskId) {
+        admission.requireReady();
         OffsetDateTime startedAt = now();
         AgentTask task = taskMapper.claimQueued(taskId, startedAt);
         if (task == null) {
@@ -80,6 +85,7 @@ public class AgentTaskLifecycleTransactionService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public AgentTask requestCancellation(long userId, long taskId) {
+        admission.requireReady();
         if (userId <= 0 || taskId <= 0) {
             throw new BusinessException(ErrorCode.COMMON_PARAM_INVALID, "userId and taskId must be positive");
         }

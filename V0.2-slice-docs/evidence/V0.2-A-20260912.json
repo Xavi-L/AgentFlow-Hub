@@ -1,0 +1,503 @@
+{
+  "schemaVersion": "v02a-delivery-evidence-v1",
+  "date": "2026-09-12",
+  "scope": "V0.2-A only",
+  "status": "IMPLEMENTED_CONTROLLED_ACCEPTANCE_PASSED_REAL_PROVIDER_BLOCKED",
+  "baselineRevision": "dce66e3365f45f2492d1b10d7c03118ac1564514",
+  "headRevision": "fb6a325a9d1906632ca81eee1d2eb10f86359214",
+  "implementationRevision": "Uncommitted working tree on headRevision; HEAD itself predates implementation",
+  "schemaMigration": "V22__add_task_recovery_metadata.sql",
+  "boundaries": {
+    "recoveryMode": "CONTROLLED_SINGLE_HOST",
+    "deployment": "single host, same database execution domain and persistent shared local file lock",
+    "providers": "controlled independent HTTP model/tool/embedding/vector fixtures; not paid provider execution or billing",
+    "outOfScope": [
+      "V0.2-B",
+      "V0.3",
+      "automatic task resume",
+      "task redelivery",
+      "model/tool resends",
+      "whole V0.2 release"
+    ]
+  },
+  "verification": {
+    "focusedBackend": {
+      "tests": 98,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "log": "/private/tmp/agentflow-v02a-focused.log"
+    },
+    "coreFinal": [
+      {
+        "name": "com.agentflow.agent.task.recovery.TaskRecoveryPostgresIntegrationTest",
+        "tests": "14",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "1.778"
+      },
+      {
+        "name": "com.agentflow.agent.task.recovery.TaskExecutionAdmissionTest",
+        "tests": "6",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.429"
+      },
+      {
+        "name": "com.agentflow.agent.task.recovery.V22TaskRecoveryMigrationContractTest",
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.004"
+      }
+    ],
+    "existingPostgresAttempts": [
+      {
+        "suite": "AgentTaskPostgresIntegrationTest",
+        "database": "agentflow_v02a_regression_1",
+        "command": [
+          "mvn",
+          "-q",
+          "-Dtest=AgentTaskPostgresIntegrationTest",
+          "-Dagentflow.postgres.integration=true",
+          "-Dagentflow.postgres.url=jdbc:postgresql://127.0.0.1:55462/agentflow_v02a_regression_1",
+          "-Dagentflow.postgres.user=v02_core",
+          "-Dagentflow.task.recovery.mode=DISABLED",
+          "-Dagentflow.task.recovery.lock-path=/private/tmp/agentflow-v02a-core.ZG3C4c/AgentTaskPostgresIntegrationTest.lock",
+          "-DargLine=-javaagent:/Users/xavier/.m2/repository/org/mockito/mockito-core/5.17.0/mockito-core-5.17.0.jar",
+          "test"
+        ],
+        "exitCode": 0,
+        "tests": "8",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "2.405"
+      },
+      {
+        "suite": "AgentTaskExecutionPostgresIntegrationTest",
+        "database": "agentflow_v02a_regression_2",
+        "command": [
+          "mvn",
+          "-q",
+          "-Dtest=AgentTaskExecutionPostgresIntegrationTest",
+          "-Dagentflow.postgres.integration=true",
+          "-Dagentflow.postgres.url=jdbc:postgresql://127.0.0.1:55462/agentflow_v02a_regression_2",
+          "-Dagentflow.postgres.user=v02_core",
+          "-Dagentflow.task.recovery.mode=DISABLED",
+          "-Dagentflow.task.recovery.lock-path=/private/tmp/agentflow-v02a-core.ZG3C4c/AgentTaskExecutionPostgresIntegrationTest.lock",
+          "-DargLine=-javaagent:/Users/xavier/.m2/repository/org/mockito/mockito-core/5.17.0/mockito-core-5.17.0.jar",
+          "test"
+        ],
+        "exitCode": 0,
+        "tests": "15",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "2.924"
+      },
+      {
+        "suite": "AgentExecutionTracePostgresIntegrationTest",
+        "database": "agentflow_v02a_regression_3",
+        "command": [
+          "mvn",
+          "-q",
+          "-Dtest=AgentExecutionTracePostgresIntegrationTest",
+          "-Dagentflow.postgres.integration=true",
+          "-Dagentflow.postgres.url=jdbc:postgresql://127.0.0.1:55462/agentflow_v02a_regression_3",
+          "-Dagentflow.postgres.user=v02_core",
+          "-Dagentflow.task.recovery.mode=DISABLED",
+          "-Dagentflow.task.recovery.lock-path=/private/tmp/agentflow-v02a-core.ZG3C4c/AgentExecutionTracePostgresIntegrationTest.lock",
+          "-DargLine=-javaagent:/Users/xavier/.m2/repository/org/mockito/mockito-core/5.17.0/mockito-core-5.17.0.jar",
+          "test"
+        ],
+        "exitCode": 1,
+        "tests": "8",
+        "failures": "1",
+        "errors": "0",
+        "skipped": "0",
+        "time": "2.602"
+      },
+      {
+        "suite": "AgentTaskApiPostgresIntegrationTest",
+        "database": "agentflow_v02a_regression_4",
+        "command": [
+          "mvn",
+          "-q",
+          "-Dtest=AgentTaskApiPostgresIntegrationTest",
+          "-Dagentflow.postgres.integration=true",
+          "-Dagentflow.postgres.url=jdbc:postgresql://127.0.0.1:55462/agentflow_v02a_regression_4",
+          "-Dagentflow.postgres.user=v02_core",
+          "-Dagentflow.task.recovery.mode=DISABLED",
+          "-Dagentflow.task.recovery.lock-path=/private/tmp/agentflow-v02a-core.ZG3C4c/AgentTaskApiPostgresIntegrationTest.lock",
+          "-DargLine=-javaagent:/Users/xavier/.m2/repository/org/mockito/mockito-core/5.17.0/mockito-core-5.17.0.jar",
+          "test"
+        ],
+        "exitCode": 0,
+        "tests": "7",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "4.481"
+      },
+      {
+        "suite": "AgentTaskSsePostgresIntegrationTest",
+        "database": "agentflow_v02a_regression_5",
+        "command": [
+          "mvn",
+          "-q",
+          "-Dtest=AgentTaskSsePostgresIntegrationTest",
+          "-Dagentflow.postgres.integration=true",
+          "-Dagentflow.postgres.url=jdbc:postgresql://127.0.0.1:55462/agentflow_v02a_regression_5",
+          "-Dagentflow.postgres.user=v02_core",
+          "-Dagentflow.task.recovery.mode=DISABLED",
+          "-Dagentflow.task.recovery.lock-path=/private/tmp/agentflow-v02a-core.ZG3C4c/AgentTaskSsePostgresIntegrationTest.lock",
+          "-DargLine=-javaagent:/Users/xavier/.m2/repository/org/mockito/mockito-core/5.17.0/mockito-core-5.17.0.jar",
+          "test"
+        ],
+        "exitCode": 0,
+        "tests": "7",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "12.557"
+      },
+      {
+        "suite": "AgentExecutionTracePostgresIntegrationTest",
+        "database": "agentflow_v02a_trace_r2",
+        "command": [
+          "mvn",
+          "-q",
+          "-Dtest=AgentExecutionTracePostgresIntegrationTest",
+          "-Dagentflow.postgres.integration=true",
+          "-Dagentflow.postgres.url=jdbc:postgresql://127.0.0.1:55462/agentflow_v02a_trace_r2",
+          "-Dagentflow.postgres.user=v02_core",
+          "-Dagentflow.task.recovery.mode=DISABLED",
+          "-Dagentflow.task.recovery.lock-path=/private/tmp/agentflow-v02a-core.ZG3C4c/Trace-r2.lock",
+          "-DargLine=-javaagent:/Users/xavier/.m2/repository/org/mockito/mockito-core/5.17.0/mockito-core-5.17.0.jar",
+          "test"
+        ],
+        "exitCode": 0,
+        "tests": "8",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "2.509",
+        "name": "com.agentflow.agent.trace.AgentExecutionTracePostgresIntegrationTest",
+        "attempt": 2
+      }
+    ],
+    "frontend": {
+      "tests": 99,
+      "failures": 0,
+      "skipped": 0,
+      "build": "PASSED",
+      "browserSpecTypecheck": "PASSED",
+      "log": "/private/tmp/v02a-frontend-verification.log"
+    },
+    "coldCutoverScript": {
+      "tests": 4,
+      "status": "PASSED",
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 scripts/test_task_cold_cutover.py -v",
+      "log": "/private/tmp/v02a-cold-cutover-tests.log"
+    },
+    "v48": {
+      "browserCases": 22,
+      "postgresCaseChecks": 803,
+      "globalChecks": 3,
+      "fullMatrixPassed": true,
+      "executionRetries": 0,
+      "playwrightRetries": 0,
+      "directory": "/private/tmp/agentflow-v02a-v48-regression-host-20260912"
+    },
+    "v47": {
+      "status": "BLOCKED",
+      "realTaskExecuted": false,
+      "paidCallsIssued": false,
+      "reason": "DASHSCOPE_API_KEY and OPENAI_API_KEY absent, no .env.local or V47_ENV_FILE; sandbox also prevented network/browser checks",
+      "command": "bash scripts/v47-real-provider-acceptance.sh --preflight-only",
+      "directory": "/var/folders/rk/2gmg78l55dl2m5ld98kpb3100000gn/T/agentflow-v47-real.WGJKVy"
+    },
+    "a01ToA17": {
+      "directory": "/private/tmp/agentflow-v02a-matrix-run6",
+      "result": {
+        "status": "PASSED",
+        "stage": "complete",
+        "finishedAt": "2026-09-12T08:09:47.860277+00:00",
+        "matrix": {
+          "A01": {
+            "status": "PASSED",
+            "startedAt": "2026-09-12T08:07:54.455026+00:00",
+            "finishedAt": "2026-09-12T08:07:57.344250+00:00"
+          },
+          "A02": {
+            "status": "PASSED",
+            "startedAt": "2026-09-12T08:07:57.438512+00:00",
+            "finishedAt": "2026-09-12T08:08:00.554371+00:00"
+          },
+          "A03": {
+            "status": "PASSED",
+            "startedAt": "2026-09-12T08:08:00.646837+00:00",
+            "finishedAt": "2026-09-12T08:08:03.741723+00:00"
+          },
+          "A04": {
+            "status": "PASSED",
+            "startedAt": "2026-09-12T08:08:03.835769+00:00",
+            "finishedAt": "2026-09-12T08:08:07.096473+00:00"
+          },
+          "A05": {
+            "status": "PASSED",
+            "startedAt": "2026-09-12T08:08:07.196895+00:00",
+            "finishedAt": "2026-09-12T08:08:10.336516+00:00"
+          },
+          "A06": {
+            "status": "PASSED",
+            "startedAt": "2026-09-12T08:08:10.430502+00:00",
+            "finishedAt": "2026-09-12T08:08:13.481351+00:00"
+          },
+          "A07": {
+            "status": "PASSED",
+            "startedAt": "2026-09-12T08:08:13.573895+00:00",
+            "finishedAt": "2026-09-12T08:08:19.312830+00:00"
+          },
+          "A08": {
+            "status": "PASSED",
+            "startedAt": "2026-09-12T08:08:19.498190+00:00",
+            "finishedAt": "2026-09-12T08:08:24.941222+00:00"
+          },
+          "A09": {
+            "status": "PASSED",
+            "startedAt": "2026-09-12T08:08:25.124431+00:00",
+            "finishedAt": "2026-09-12T08:08:31.346224+00:00"
+          },
+          "A10": {
+            "status": "PASSED",
+            "startedAt": "2026-09-12T08:08:31.715973+00:00",
+            "finishedAt": "2026-09-12T08:08:47.553689+00:00"
+          },
+          "A11": {
+            "status": "PASSED",
+            "startedAt": "2026-09-12T08:08:47.646998+00:00",
+            "finishedAt": "2026-09-12T08:08:58.448707+00:00"
+          },
+          "A12": {
+            "status": "PASSED",
+            "startedAt": "2026-09-12T08:08:58.819369+00:00",
+            "finishedAt": "2026-09-12T08:09:05.555567+00:00"
+          },
+          "A13": {
+            "status": "PASSED",
+            "startedAt": "2026-09-12T08:09:05.648210+00:00",
+            "finishedAt": "2026-09-12T08:09:11.014790+00:00"
+          },
+          "A14": {
+            "status": "PASSED",
+            "startedAt": "2026-09-12T08:09:11.109754+00:00",
+            "finishedAt": "2026-09-12T08:09:21.291163+00:00"
+          },
+          "A15": {
+            "status": "PASSED",
+            "startedAt": "2026-09-12T08:09:21.387501+00:00",
+            "finishedAt": "2026-09-12T08:09:21.612918+00:00"
+          },
+          "A16": {
+            "status": "PASSED",
+            "startedAt": "2026-09-12T08:09:21.613175+00:00",
+            "finishedAt": "2026-09-12T08:09:27.560116+00:00"
+          },
+          "A17": {
+            "status": "PASSED",
+            "startedAt": "2026-09-12T08:09:27.746278+00:00",
+            "finishedAt": "2026-09-12T08:09:42.031633+00:00"
+          }
+        },
+        "error": null,
+        "automaticExecutionRetries": 0,
+        "recoveryExternalResends": 0,
+        "boundary": "Controlled independent HTTP model and durable tool fixture; real JVM SIGKILL/exit/restart and PostgreSQL; no paid provider evidence",
+        "skippedExternal": [
+          "V47 paid provider/Qdrant evidence is separately reported"
+        ]
+      },
+      "receiptAudit": {
+        "status": "PASSED",
+        "taskCount": 25,
+        "runnerReceiptCount": 26,
+        "externalReceiptCount": 26,
+        "recoveryExternalResends": 0,
+        "unexpectedRunnerReentries": 0,
+        "explicitRejectedInternalRunnerProbes": 1,
+        "method": "Every external receipt precedes its original creator JVM confirmed exit; repeated Runner entries require a matching rejected internal guard fixture command"
+      },
+      "browser": {
+        "tests": 3,
+        "passed": 3,
+        "skipped": 0,
+        "log": "/private/tmp/agentflow-v02a-matrix-run6/browser.log"
+      },
+      "coldSwitch": {
+        "legacySourceRevision": "fb6a325a9d1906632ca81eee1d2eb10f86359214",
+        "legacyExit": 143,
+        "record": {
+          "schemaVersion": "task-cold-cutover-v1",
+          "oldPid": "80497",
+          "scope": "operator-identified single-host database execution domain",
+          "lockPath": "/private/tmp/agentflow-v02a-matrix-run6/domain.lock",
+          "stopRequestedAt": "2026-09-12T08:09:38.715407+00:00",
+          "oldJvmExited": true,
+          "oldJvmExitedAt": "2026-09-12T08:09:39.163811+00:00",
+          "replacementExecAt": "2026-09-12T08:09:39.163837+00:00"
+        },
+        "newPid": 80501,
+        "sameDatabaseExecutionDomain": true
+      },
+      "compileCommand": "cd backend && JAVA_HOME=$(/usr/libexec/java_home -v 21) mvn -q -DskipTests test-compile",
+      "command": "bash scripts/v02a-restart-acceptance.sh --compiled-classpath /tmp/agentflow-v02a-classpath.txt --pg-port 55463 --run-dir /private/tmp/agentflow-v02a-matrix-run6",
+      "baselineEquivalence": {
+        "status": "PASSED",
+        "verifiedAt": "2026-09-12T08:12:14.247054+00:00",
+        "run6ActuallyArchivedRevision": "fb6a325a9d1906632ca81eee1d2eb10f86359214",
+        "newDefaultLegacyRevision": "fb6a325a9d1906632ca81eee1d2eb10f86359214",
+        "sameArchivedProductionSource": true,
+        "onlyChange": "Explicit immutable baseline selection instead of runtime HEAD; Java and acceptance scenarios unchanged"
+      }
+    },
+    "finalAdmissionAndController": {
+      "tests": 18,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "admissionTests": 7,
+      "controllerTests": 11,
+      "log": "/private/tmp/agentflow-v02a-final-admission.log",
+      "command": "JAVA_HOME=/Users/xavier/Library/Java/JavaVirtualMachines/ms-21.0.11/Contents/Home mvn -q -f backend/pom.xml '-DargLine=-javaagent:/Users/xavier/.m2/repository/org/mockito/mockito-core/5.17.0/mockito-core-5.17.0.jar' -Dtest=TaskExecutionAdmissionTest,AgentTaskControllerTest test"
+    },
+    "acceptanceScriptUnit": {
+      "tests": 2,
+      "status": "PASSED",
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 scripts/test_v02a_acceptance_evidence.py"
+    }
+  },
+  "failureHistory": [
+    {
+      "stage": "initial concurrent test compilation",
+      "reason": "Fixture accessor and changed service constructors were not yet synchronized; corrected before successful focused run",
+      "originalLog": "Tool session 35044 output only; no separate original log file was saved"
+    },
+    {
+      "stage": "core PostgreSQL first run",
+      "reason": "Test fixture omitted app_user.display_name NOT NULL; corrected; original core-tests.log retained"
+    },
+    {
+      "stage": "Trace PostgreSQL first run",
+      "reason": "Historical assertion expected 20 migrations; updated to actual V22 schema; original failure and successful attempt 2 retained"
+    },
+    {
+      "stage": "sandbox preflights",
+      "reason": "PostgreSQL shared memory / loopback and browser permissions denied; authorized host execution used fresh isolated runs"
+    },
+    {
+      "stage": "A matrix run1",
+      "reason": "Preflight port conflict with other disposable PostgreSQL; no task created",
+      "directory": "/private/tmp/agentflow-v02a-matrix-run1"
+    },
+    {
+      "stage": "A matrix run2",
+      "reason": "Fixture lacked READY knowledge binding; real task preflight correctly returned 409 before insertion; fixture repaired",
+      "directory": "/private/tmp/agentflow-v02a-matrix-run2"
+    },
+    {
+      "stage": "A matrix run3",
+      "reason": "A01-A10 passed; A11 blocked probe incorrectly asserted original existing idempotency key absent; use a distinct probe key. Original failed run retained.",
+      "directory": "/private/tmp/agentflow-v02a-matrix-run3"
+    },
+    {
+      "stage": "A matrix run4",
+      "reason": "A01 passed; new summary writer iterated case names instead of task ID values; corrected pure evidence-writing code; application binaries unchanged for run5",
+      "directory": "/private/tmp/agentflow-v02a-matrix-run4"
+    }
+  ],
+  "unresolved": [
+    "V47 real model/DashScope/Qdrant success regression not executed because credentials/environment were unavailable; no whole V0.2 release claim"
+  ],
+  "preExistingLocalEditsPreserved": [
+    "backend/http/user-auth.http",
+    "backend/src/main/resources/application-dev.yml"
+  ],
+  "successfulEarlierMatrix": {
+    "directory": "/private/tmp/agentflow-v02a-matrix-run5",
+    "tests": 17,
+    "browser": 3,
+    "note": "Passed before final nontransactional cancellation guard; final run6 revalidated current production code"
+  },
+  "worktreeChanges": [
+    ".env.example",
+    "README.md",
+    "V0.2-slice-docs/01_TASK_RECOVERY_AND_INTERRUPTION_PACKAGE_INTERFACE.md",
+    "backend/src/main/java/com/agentflow/agent/task/dispatch/BoundedTaskDispatcher.java",
+    "backend/src/main/java/com/agentflow/agent/task/dto/AgentTaskResponse.java",
+    "backend/src/main/java/com/agentflow/agent/task/dto/AgentTaskResponseMapper.java",
+    "backend/src/main/java/com/agentflow/agent/task/dto/SafeTaskEventProjector.java",
+    "backend/src/main/java/com/agentflow/agent/task/dto/SafeTaskPayloadProjector.java",
+    "backend/src/main/java/com/agentflow/agent/task/execution/TaskRunner.java",
+    "backend/src/main/java/com/agentflow/agent/task/model/AgentTask.java",
+    "backend/src/main/java/com/agentflow/agent/task/service/AgentTaskApplicationService.java",
+    "backend/src/main/java/com/agentflow/agent/task/service/AgentTaskCreationTransactionService.java",
+    "backend/src/main/java/com/agentflow/agent/task/service/AgentTaskLifecycleTransactionService.java",
+    "backend/src/main/java/com/agentflow/agent/task/service/AgentTaskRestService.java",
+    "backend/src/main/java/com/agentflow/common/error/ErrorCode.java",
+    "backend/src/main/resources/application.yml",
+    "backend/src/test/java/com/agentflow/agent/task/controller/AgentTaskControllerTest.java",
+    "backend/src/test/java/com/agentflow/agent/task/execution/TaskRunnerTest.java",
+    "backend/src/test/java/com/agentflow/agent/task/service/AgentTaskApplicationServiceTest.java",
+    "backend/src/test/java/com/agentflow/agent/task/service/AgentTaskCreationTransactionServiceTest.java",
+    "backend/src/test/java/com/agentflow/agent/trace/AgentExecutionTracePostgresIntegrationTest.java",
+    "frontend/e2e/README.md",
+    "frontend/e2e/playwright.config.ts",
+    "frontend/src/lib/api.test.ts",
+    "frontend/src/lib/api.ts",
+    "frontend/src/lib/types.ts",
+    "frontend/src/pages/TaskPage.vue",
+    "frontend/src/pages/TracePage.vue",
+    "frontend/src/presentation.ts",
+    "frontend/src/stores/runtime.test.ts",
+    "frontend/src/stores/runtime.ts",
+    "scripts/v43-browser-backend.sh",
+    "scripts/v47-real-provider-acceptance.sh",
+    "scripts/v48-failure-recovery-acceptance.sh",
+    "spec-docs/README.md",
+    "spec-docs/agentflow-hub-agent-engine-design.md",
+    "spec-docs/agentflow-hub-backend-api-design.md",
+    "spec-docs/agentflow-hub-data-model.md",
+    "spec-docs/agentflow-hub-frontend-design.md",
+    "spec-docs/agentflow-hub-implementation-roadmap.md",
+    "spec-docs/agentflow-hub-project-spec.md",
+    "V0.2-slice-docs/evidence/V0.2-A-20260912.json",
+    "backend/src/main/java/com/agentflow/agent/task/recovery/TaskExecutionAdmission.java",
+    "backend/src/main/java/com/agentflow/agent/task/recovery/TaskExecutionProcessLock.java",
+    "backend/src/main/java/com/agentflow/agent/task/recovery/TaskRecoveryConfiguration.java",
+    "backend/src/main/java/com/agentflow/agent/task/recovery/TaskRecoveryInvariantException.java",
+    "backend/src/main/java/com/agentflow/agent/task/recovery/TaskRecoveryMapper.java",
+    "backend/src/main/java/com/agentflow/agent/task/recovery/TaskRecoveryProperties.java",
+    "backend/src/main/java/com/agentflow/agent/task/recovery/TaskRecoveryStartupCoordinator.java",
+    "backend/src/main/java/com/agentflow/agent/task/recovery/TaskRecoveryTransactionService.java",
+    "backend/src/main/resources/db/migration/V22__add_task_recovery_metadata.sql",
+    "backend/src/test/java/com/agentflow/acceptance/V02ATaskRecoveryFixture.java",
+    "backend/src/test/java/com/agentflow/agent/task/recovery/TaskExecutionAdmissionTest.java",
+    "backend/src/test/java/com/agentflow/agent/task/recovery/TaskRecoveryPostgresIntegrationTest.java",
+    "backend/src/test/java/com/agentflow/agent/task/recovery/V22TaskRecoveryMigrationContractTest.java",
+    "frontend/e2e/task-restart-recovery.config.ts",
+    "frontend/e2e/task-restart-recovery.spec.ts",
+    "frontend/src/components/TaskRecoveryNotice.vue",
+    "frontend/src/lib/task-recovery.test.ts",
+    "scripts/task-cold-cutover.py",
+    "scripts/test_task_cold_cutover.py",
+    "scripts/test_v02a_acceptance_evidence.py",
+    "scripts/v02a-restart-acceptance.md",
+    "scripts/v02a-restart-acceptance.py",
+    "scripts/v02a-restart-acceptance.sh"
+  ]
+}

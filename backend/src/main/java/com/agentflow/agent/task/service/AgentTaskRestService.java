@@ -1,6 +1,7 @@
 package com.agentflow.agent.task.service;
 
 import com.agentflow.agent.task.dto.AgentTaskResponse;
+import com.agentflow.agent.task.recovery.TaskExecutionAdmission;
 import com.agentflow.agent.task.dto.AgentTaskResponseMapper;
 import com.agentflow.agent.task.dto.AgentTaskSummaryResponse;
 import com.agentflow.agent.task.dto.CreateAgentTaskRequest;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 /** Owner-scoped public reads and thin adapters to the existing creation/cancellation lifecycle. */
 @Service
 public class AgentTaskRestService {
+    private final TaskExecutionAdmission admission;
     private final AgentTaskApplicationService application;
     private final AgentTaskLifecycleTransactionService lifecycle;
     private final AgentTaskMapper tasks;
@@ -29,7 +31,8 @@ public class AgentTaskRestService {
 
     public AgentTaskRestService(AgentTaskApplicationService application,
             AgentTaskLifecycleTransactionService lifecycle, AgentTaskMapper tasks,
-            AgentTaskResponseMapper responses, TaskTraceQueryService traces) {
+            AgentTaskResponseMapper responses, TaskTraceQueryService traces, TaskExecutionAdmission admission) {
+        this.admission = admission;
         this.application = application;
         this.lifecycle = lifecycle;
         this.tasks = tasks;
@@ -75,6 +78,8 @@ public class AgentTaskRestService {
     public AgentTaskResponse cancel(AuthenticatedUser user, Long taskId) {
         long userId = ownerId(user);
         positiveId(taskId, "taskId");
+        // Fail before the transactional proxy can acquire a database connection.
+        admission.requireReady();
         return responses.toResponse(lifecycle.requestCancellation(userId, taskId));
     }
 

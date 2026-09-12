@@ -47,6 +47,30 @@ This proves the bounded M4G-A browser recovery loop. It does not prove live-prov
 or Qdrant E2E, provider streaming, task execution retry, multi-turn conversations,
 or remaining frontend management pages.
 
+## V0.2-A process restart settlement observation
+
+`bash scripts/v02a-restart-acceptance.sh` owns the disposable PostgreSQL/JVM restart
+matrix. Its `browser-manifest.json` identifies already settled queued, running and
+cancelled tasks. The independent `task-restart-recovery.config.ts` runs three browser
+checks against those existing tasks using real login, GET and Trace reads. It verifies
+interruption labels, recorded usage with unknown completeness, the settlement time
+explanation, unchanged records across refresh and zero task mutation requests.
+
+To run only this browser portion with the fixture backend and Vite already running,
+from `frontend`:
+
+```sh
+V02A_CONTROL_DIR=/absolute/path/to/current/acceptance/run \
+V02A_FRONTEND_URL=http://127.0.0.1:5182 \
+  npx playwright test --config e2e/task-restart-recovery.config.ts
+```
+
+Vite must proxy to the manifest's backend URL through `AGENTFLOW_API_TARGET`.
+Screenshots and safe per-task JSON are retained under `browser-artifacts`; credentials
+remain in the private fixture manifest. This browser portion observes the process
+matrix results; it alone does not certify A01–A17. All provider/handler fault controls
+remain separate from real external-service evidence. No task execution is retried.
+
 ## V48 task failures and browser observation recovery
 
 From the repository root:

@@ -251,7 +251,7 @@ class AgentTaskControllerTest {
                 "input", 6, 4, 8000, 1000, 2, 1, 60, 40, 100, "EXACT",
                 "COMPLETED".equals(status) ? "Persisted answer" : null,
                 JsonNodeFactory.instance.arrayNode(), null, null,
-                null, null, null, 5, null, null);
+                null, null, null, 5, null, null, null);
     }
 
     private static AuthenticatedUser authenticate() {

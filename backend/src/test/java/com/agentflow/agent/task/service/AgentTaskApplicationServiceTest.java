@@ -26,12 +26,18 @@ class AgentTaskApplicationServiceTest {
 
     private AgentTaskApplicationService service;
 
+    private static com.agentflow.agent.task.recovery.TaskExecutionAdmission readyAdmission() {
+        var admission = new com.agentflow.agent.task.recovery.TaskExecutionAdmission();
+        admission.open();
+        return admission;
+    }
+
     @BeforeEach
     void setUp() {
         service = new AgentTaskApplicationService(
                 new TaskRequestFingerprint(new ObjectMapper()),
                 queryService,
-                creationTransactions
+                creationTransactions, readyAdmission()
         );
     }
 

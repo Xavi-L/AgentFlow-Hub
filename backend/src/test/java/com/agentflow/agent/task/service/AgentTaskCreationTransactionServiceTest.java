@@ -38,6 +38,12 @@ class AgentTaskCreationTransactionServiceTest {
 
     private AgentTaskCreationTransactionService service;
 
+    private static com.agentflow.agent.task.recovery.TaskExecutionAdmission readyAdmission() {
+        var admission = new com.agentflow.agent.task.recovery.TaskExecutionAdmission();
+        admission.open();
+        return admission;
+    }
+
     @BeforeEach
     void setUp() {
         service = new AgentTaskCreationTransactionService(
@@ -46,7 +52,7 @@ class AgentTaskCreationTransactionServiceTest {
                 eventAppender,
                 dispatchCoordinator,
                 new ObjectMapper(),
-                Clock.fixed(Instant.parse("2026-09-02T01:02:03Z"), ZoneOffset.UTC)
+                Clock.fixed(Instant.parse("2026-09-02T01:02:03Z"), ZoneOffset.UTC), readyAdmission()
         );
     }
 

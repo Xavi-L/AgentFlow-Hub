@@ -104,6 +104,8 @@ export function createTaskRuntime(overrides: Partial<RuntimeDependencies> = {}) 
       const trace = await deps.api.getTrace(id, signal)
       if (!current(run)) return
       if (trace.task.status !== task.status || trace.task.lastEventSequence !== task.lastEventSequence
+        || trace.task.terminationReason !== task.terminationReason || trace.task.errorCode !== task.errorCode
+        || stableJson(trace.task.recovery ?? null) !== stableJson(task.recovery ?? null)
         || trace.task.finalAnswer !== task.finalAnswer || stableJson(trace.task.citations) !== stableJson(task.citations)) {
         throw new ProtocolError('终态任务与 Trace 不一致，请重新加载核对')
       }
