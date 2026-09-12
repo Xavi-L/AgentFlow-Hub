@@ -21,7 +21,8 @@ public record LlmChatRequest(
         int maxOutputTokens,
         @JsonInclude(JsonInclude.Include.NON_NULL) LlmResponseSchema responseSchema,
         @JsonInclude(JsonInclude.Include.NON_NULL) String responseFormat,
-        @JsonInclude(JsonInclude.Include.NON_NULL) String thinkingMode
+        @JsonInclude(JsonInclude.Include.NON_NULL) String thinkingMode,
+        @JsonInclude(JsonInclude.Include.NON_NULL) Integer timeoutSeconds
 ) {
     public LlmChatRequest(String modelProvider, String modelName, List<LlmMessage> messages,
             BigDecimal temperature, BigDecimal topP, int maxOutputTokens) {
@@ -33,6 +34,13 @@ public record LlmChatRequest(
         this(modelProvider, modelName, messages, temperature, topP, maxOutputTokens, responseSchema, null, null);
     }
 
+    public LlmChatRequest(String modelProvider, String modelName, List<LlmMessage> messages,
+            BigDecimal temperature, BigDecimal topP, int maxOutputTokens, LlmResponseSchema responseSchema,
+            String responseFormat, String thinkingMode) {
+        this(modelProvider, modelName, messages, temperature, topP, maxOutputTokens,
+                responseSchema, responseFormat, thinkingMode, null);
+    }
+
     public LlmChatRequest {
         if (responseFormat != null && !"json_object".equals(responseFormat)) {
             throw new IllegalArgumentException("responseFormat must be json_object when provided");
@@ -42,6 +50,9 @@ public record LlmChatRequest(
         }
         if (thinkingMode != null && !"disabled".equals(thinkingMode)) {
             throw new IllegalArgumentException("thinkingMode must be disabled when provided");
+        }
+        if (timeoutSeconds != null && (timeoutSeconds < 1 || timeoutSeconds > 600)) {
+            throw new IllegalArgumentException("timeoutSeconds must be between 1 and 600 when provided");
         }
         messages = messages == null
                 ? null

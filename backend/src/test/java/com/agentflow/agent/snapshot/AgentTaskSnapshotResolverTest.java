@@ -54,6 +54,9 @@ class AgentTaskSnapshotResolverTest {
     @Test
     void shouldResolveOneImmutableCanonicalExecutionSnapshot() {
         AgentApp agent = activeAgent();
+        agent.setDecisionMaxOutputTokens(2048);
+        agent.setFinalMaxOutputTokens(3000);
+        agent.setModelCallTimeoutSeconds(120);
         BoundKnowledgeBaseRow knowledgeBase = knowledgeBase(201L);
         ReadyDocumentGenerationRow document = readyDocument(201L, 501L, 3L);
         BoundToolDefinitionRow tool = tool(
@@ -71,7 +74,11 @@ class AgentTaskSnapshotResolverTest {
 
         AgentTaskExecutionSnapshot snapshot = resolver.resolve(101L, 301L);
 
-        assertThat(snapshot.snapshotVersion()).isEqualTo("agent-task-snapshot-v1");
+        assertThat(snapshot.snapshotVersion()).isEqualTo("agent-task-snapshot-v2");
+        assertThat(snapshot.runtime().promptRulesVersion()).isEqualTo("agent-runtime-rules-v2");
+        assertThat(snapshot.executionSettings().decisionMaxOutputTokens()).isEqualTo(2048);
+        assertThat(snapshot.executionSettings().finalMaxOutputTokens()).isEqualTo(3000);
+        assertThat(snapshot.executionSettings().modelCallTimeoutSeconds()).isEqualTo(120);
         assertThat(snapshot.agent().agentId()).isEqualTo("301");
         assertThat(snapshot.agent().maxDecisionTurns()).isEqualTo(6);
         assertThat(snapshot.runtime().applicationRevision()).isEqualTo("de90d98");
@@ -95,6 +102,8 @@ class AgentTaskSnapshotResolverTest {
         });
 
         agent.setSystemPrompt("changed later");
+        agent.setDecisionMaxOutputTokens(512);
+        assertThat(snapshot.executionSettings().decisionMaxOutputTokens()).isEqualTo(2048);
         knowledgeBase.setKnowledgeBaseId(999L);
         tool.setName("changed later");
         assertThat(snapshot.agent().systemPrompt()).isEqualTo("Diagnose payment failures.");

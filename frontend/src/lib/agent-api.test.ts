@@ -25,7 +25,8 @@ describe('Agent configuration and dependency boundaries', () => {
     const draft = validDraft(), config = buildAgentConfig(draft)
     expect(config).toEqual({ name: 'Agent', description: 'description', systemPrompt: '  Preserve this prompt\n',
       modelProvider: 'openai-compatible', modelName: 'configured-model', temperature: 0.2, topP: 0.8,
-      maxSteps: 6, maxToolCalls: 4, maxTokens: 8000, timeoutSeconds: 120 })
+      maxSteps: 6, maxToolCalls: 4, maxTokens: 8000, timeoutSeconds: 120, decisionMaxOutputTokens: null,
+      finalMaxOutputTokens: null, decisionResponseFormat: null, thinkingMode: null, modelCallTimeoutSeconds: null })
     expect(config).not.toHaveProperty('maxDecisionTurns')
     expect(config).not.toHaveProperty('maxTotalTokens')
     expect(buildAgentConfig({ ...draft, description: '  ' }).description).toBeNull()

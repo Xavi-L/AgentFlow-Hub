@@ -16,6 +16,7 @@ import com.agentflow.agent.dto.CreateAgentAppRequest;
 import com.agentflow.agent.dto.UpdateAgentAppRequest;
 import com.agentflow.agent.model.AgentApp;
 import com.agentflow.agent.repository.AgentAppMapper;
+import com.agentflow.agent.settings.AgentExecutionSettingsPolicy;
 import com.agentflow.common.api.PageRequest;
 import com.agentflow.common.api.PageResult;
 import com.agentflow.common.error.BusinessException;
@@ -33,6 +34,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -40,6 +42,9 @@ class AgentAppServiceTest {
 
     @Mock
     private AgentAppMapper agentAppMapper;
+
+    @Spy
+    private AgentExecutionSettingsPolicy settingsPolicy = AgentExecutionSettingsPolicy.defaults();
 
     @InjectMocks
     private AgentAppService agentAppService;

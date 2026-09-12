@@ -52,6 +52,21 @@ public class AgentApp {
     @TableField("timeout_seconds")
     private Integer timeoutSeconds;
 
+    @TableField("decision_max_output_tokens")
+    private Integer decisionMaxOutputTokens;
+
+    @TableField("final_max_output_tokens")
+    private Integer finalMaxOutputTokens;
+
+    @TableField("decision_response_format")
+    private String decisionResponseFormat;
+
+    @TableField("thinking_mode")
+    private String thinkingMode;
+
+    @TableField("model_call_timeout_seconds")
+    private Integer modelCallTimeoutSeconds;
+
     private String status;
 
     /** Internal extension data. V30 never accepts or returns this field. */
@@ -169,6 +184,26 @@ public class AgentApp {
     public void setTimeoutSeconds(Integer timeoutSeconds) {
         this.timeoutSeconds = timeoutSeconds;
     }
+
+    public Integer getDecisionMaxOutputTokens() { return decisionMaxOutputTokens; }
+
+    public void setDecisionMaxOutputTokens(Integer value) { decisionMaxOutputTokens = value; }
+
+    public Integer getFinalMaxOutputTokens() { return finalMaxOutputTokens; }
+
+    public void setFinalMaxOutputTokens(Integer value) { finalMaxOutputTokens = value; }
+
+    public String getDecisionResponseFormat() { return decisionResponseFormat; }
+
+    public void setDecisionResponseFormat(String value) { decisionResponseFormat = value; }
+
+    public String getThinkingMode() { return thinkingMode; }
+
+    public void setThinkingMode(String value) { thinkingMode = value; }
+
+    public Integer getModelCallTimeoutSeconds() { return modelCallTimeoutSeconds; }
+
+    public void setModelCallTimeoutSeconds(Integer value) { modelCallTimeoutSeconds = value; }
 
     public String getStatus() {
         return status;

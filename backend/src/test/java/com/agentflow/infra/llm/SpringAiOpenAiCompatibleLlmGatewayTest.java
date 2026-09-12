@@ -221,7 +221,43 @@ class SpringAiOpenAiCompatibleLlmGatewayTest {
         reset(chatModel);
         when(chatModel.call(any(Prompt.class)))
                 .thenReturn(new ChatResponse(List.of(new Generation(new AssistantMessage(" ")))));
-        assertFailure(gateway, LlmFailureType.MALFORMED_RESPONSE, null);
+        assertFailure(gateway, LlmFailureType.EMPTY_RESPONSE, null);
+    }
+
+    @Test
+    void shouldPreserveUsageForOutputLimitFailuresWithoutExposingAnyResponseText() {
+        ChatModel chatModel = mock(ChatModel.class);
+        SpringAiOpenAiCompatibleLlmGateway gateway = new SpringAiOpenAiCompatibleLlmGateway(chatModel);
+        for (String content : List.of("", "unfinished private response")) {
+            when(chatModel.call(any(Prompt.class))).thenReturn(response(content, "resolved-model", "request-42",
+                    "LENGTH", new DefaultUsage(37, 511, 548, new Object())));
+            assertThatThrownBy(() -> gateway.chat(validRequest()))
+                    .isInstanceOfSatisfying(LlmGatewayException.class, failure -> {
+                        assertThat(failure.failureType()).isEqualTo(LlmFailureType.OUTPUT_LIMIT);
+                        assertThat(failure.metadata().finishReason()).isEqualTo("length");
+                        assertThat(failure.metadata().resolvedModel()).isEqualTo("resolved-model");
+                        assertThat(failure.metadata().providerRequestId()).isEqualTo("request-42");
+                        assertThat(failure.metadata().usage()).isEqualTo(LlmTokenUsage.known(37, 511, 548));
+                        assertThat(failure.metadata().latencyMs()).isGreaterThanOrEqualTo(0);
+                        assertThat(failure.getMessage()).doesNotContain("unfinished private response");
+                        assertThat(failure).hasNoCause();
+                    });
+        }
+    }
+
+    @Test
+    void shouldPreserveAbsentUsageAsUnknownForEmptyResponses() {
+        ChatModel chatModel = mock(ChatModel.class);
+        when(chatModel.call(any(Prompt.class))).thenReturn(new ChatResponse(List.of(
+                new Generation(new AssistantMessage(" "), ChatGenerationMetadata.builder().finishReason("stop").build()))));
+        SpringAiOpenAiCompatibleLlmGateway gateway = new SpringAiOpenAiCompatibleLlmGateway(chatModel);
+
+        assertThatThrownBy(() -> gateway.chat(validRequest()))
+                .isInstanceOfSatisfying(LlmGatewayException.class, failure -> {
+                    assertThat(failure.failureType()).isEqualTo(LlmFailureType.EMPTY_RESPONSE);
+                    assertThat(failure.metadata().finishReason()).isEqualTo("stop");
+                    assertThat(failure.metadata().usage()).isEqualTo(LlmTokenUsage.unknown());
+                });
     }
 
     @Test

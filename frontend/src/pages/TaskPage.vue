@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { createTaskRuntime } from '../stores/runtime'
-import { statuses, phases, connections, timestamp, message } from '../presentation'
+import { statuses, phases, connections, timestamp, message, taskFailureMessage } from '../presentation'
 import AnswerPanel from '../components/AnswerPanel.vue'
 import EventTimeline from '../components/EventTimeline.vue'
 
@@ -23,7 +23,7 @@ async function cancel() { cancelBusy.value = true; cancelError.value = ''; try {
   <p v-if="state.error || cancelError" class="error" role="alert">{{ state.error || cancelError }}</p>
   <p v-if="state.task?.cancelRequestedAt && !terminal" class="notice" role="status">取消请求已提交，等待当前外部调用结束后的安全边界。</p>
   <p v-if="state.task?.terminationReason && state.task.terminationReason !== 'ANSWERED'" class="notice">结束原因：{{ state.task.terminationReason }}<template v-if="state.task.status === 'COMPLETED'">。答案基于当时已获得的证据生成。</template></p>
-  <p v-if="state.task?.errorCode" class="error">{{ state.task.errorCode }} · {{ state.task.errorMessage }}</p>
+  <p v-if="state.task?.errorCode" class="error">{{ state.task.errorCode }} · {{ taskFailureMessage(state.task.errorCode, state.task.errorMessage) }}</p>
   <p v-if="terminal && !state.settled" class="notice" role="status">任务已结束，正在同步最终答案、引用与 Trace。同步成功前，当前输出仍为临时内容。</p>
   <div v-if="state.task || state.loading" class="runtime-grid"><div class="stack"><section class="panel"><div class="section-label">任务输入</div><p class="answer-text">{{ state.task?.userInput || '正在恢复任务快照…' }}</p><div class="metadata"><span>创建 {{ timestamp(state.task?.createdAt) }}</span><span v-if="state.task?.completedAt">结束 {{ timestamp(state.task.completedAt) }}</span></div></section><AnswerPanel :answer="state.answer" :citations="state.citations" :trace="state.trace" :final="state.settled" /></div>
     <section class="panel"><div class="section-label">持久事件</div><h2>执行时间线 <span class="count">{{ state.events.length }}</span></h2><EventTimeline :events="state.events" /></section>

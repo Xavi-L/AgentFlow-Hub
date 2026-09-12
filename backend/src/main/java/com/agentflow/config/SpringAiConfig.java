@@ -2,12 +2,16 @@ package com.agentflow.config;
 
 import com.agentflow.infra.llm.LlmGateway;
 import com.agentflow.infra.llm.SpringAiOpenAiCompatibleLlmGateway;
+import com.agentflow.infra.llm.TimeoutAwareChatModel;
 import io.micrometer.observation.ObservationRegistry;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.prompt.ChatOptions;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.ApiKey;
 import org.springframework.ai.model.NoopApiKey;
 import org.springframework.ai.model.SimpleApiKey;
@@ -27,8 +31,9 @@ import org.springframework.retry.support.RetryTemplate;
 import org.springframework.web.client.ResponseErrorHandler;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 
-/** Manual Spring AI wiring: one synchronous compatible client, no starter auto-configuration. */
+/** Manual Spring AI wiring with isolated per-call transports, no starter auto-configuration. */
 @Configuration
 @EnableConfigurationProperties(OpenAiChatProperties.class)
 public class SpringAiConfig {
@@ -38,9 +43,41 @@ public class SpringAiConfig {
     @ConditionalOnMissingBean(ChatModel.class)
     public ChatModel openAiCompatibleChatModel(OpenAiChatProperties properties) {
         Duration timeout = requireValidTimeout(properties.getTimeout());
+        String baseUrl = normalizeBaseUrl(properties.getBaseUrl());
+        ApiKey key = apiKey(properties.getApiKey());
+        ChatModel defaultModel = buildChatModel(baseUrl, key, timeout);
+        return new TimeoutAwareChatModel() {
+            @Override
+            public ChatResponse call(Prompt prompt) {
+                return defaultModel.call(prompt);
+            }
+
+            @Override
+            public ChatResponse call(Prompt prompt, int timeoutSeconds) {
+                if (timeoutSeconds < 1 || timeoutSeconds > 600) {
+                    throw new IllegalArgumentException("timeoutSeconds must be between 1 and 600");
+                }
+                // A short-lived synchronous client avoids both shared timeout mutation and an
+                // unbounded cache. The simple request factory has no connection-pool lifecycle.
+                return buildChatModel(baseUrl, key, Duration.ofSeconds(timeoutSeconds)).call(prompt);
+            }
+
+            @Override
+            public ChatOptions getDefaultOptions() {
+                return defaultModel.getDefaultOptions();
+            }
+
+            @Override
+            public Flux<ChatResponse> stream(Prompt prompt) {
+                return defaultModel.stream(prompt);
+            }
+        };
+    }
+
+    private static ChatModel buildChatModel(String baseUrl, ApiKey key, Duration timeout) {
         OpenAiApi openAiApi = OpenAiApi.builder()
-                .baseUrl(normalizeBaseUrl(properties.getBaseUrl()))
-                .apiKey(apiKey(properties.getApiKey()))
+                .baseUrl(baseUrl)
+                .apiKey(key)
                 .completionsPath("/chat/completions")
                 .embeddingsPath("/embeddings")
                 .restClientBuilder(restClientBuilder(timeout))

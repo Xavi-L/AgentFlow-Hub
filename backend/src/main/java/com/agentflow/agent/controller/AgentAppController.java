@@ -5,6 +5,7 @@ import com.agentflow.agent.dto.AgentAppSummaryResponse;
 import com.agentflow.agent.dto.CreateAgentAppRequest;
 import com.agentflow.agent.dto.UpdateAgentAppRequest;
 import com.agentflow.agent.service.AgentAppService;
+import com.agentflow.agent.settings.AgentExecutionOptionsResponse;
 import com.agentflow.common.api.ApiResponse;
 import com.agentflow.common.api.PageRequest;
 import com.agentflow.common.api.PageResult;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** HTTP boundary for the V30-V34 Agent root resource. */
@@ -31,6 +33,15 @@ public class AgentAppController {
 
     public AgentAppController(AgentAppService agentAppService) {
         this.agentAppService = agentAppService;
+    }
+
+    /** Returns only safe execution defaults, deployment ceilings and model capabilities. */
+    @GetMapping("/execution-options")
+    public ApiResponse<AgentExecutionOptionsResponse> executionOptions(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @RequestParam String modelName
+    ) {
+        return ApiResponse.success(agentAppService.executionOptions(currentUser, modelName));
     }
 
     /** Creates an Agent owned by the current JWT principal and returns 201 Created. */

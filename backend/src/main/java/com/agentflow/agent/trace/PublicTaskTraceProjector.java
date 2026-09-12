@@ -28,7 +28,7 @@ public class PublicTaskTraceProjector {
             for (JsonNode call : step.path("llmCalls")) {
                 ObjectNode request = pick(call.path("requestSnapshot"), "messages", "modelProvider", "modelName",
                         "provider", "model", "requestedModel", "temperature", "topP", "maxOutputTokens",
-                        "responseSchema", "responseFormat", "thinkingMode");
+                        "responseSchema", "responseFormat", "thinkingMode", "timeoutSeconds");
                 requireOptionalExactText(request, "responseFormat", "json_object");
                 requireOptionalExactText(request, "thinkingMode", "disabled");
                 if (request.has("responseFormat") && request.has("responseSchema")) {
@@ -58,6 +58,14 @@ public class PublicTaskTraceProjector {
                 "promptRulesVersion", "applicationRevision"));
         result.set("chatModel", pick(snapshot.path("chatModel"), "profileCode", "provider", "model",
                 "temperature", "topP", "contextWindow", "supportsUsage"));
+        if (snapshot.path("executionSettings").isObject()) {
+            ObjectNode settings = pick(snapshot.path("executionSettings"), "policyVersion", "decisionMaxOutputTokens",
+                    "finalMaxOutputTokens", "decisionResponseFormat", "thinkingMode", "modelCallTimeoutSeconds");
+            settings.set("sources", pick(snapshot.path("executionSettings").path("sources"),
+                    "decisionMaxOutputTokens", "finalMaxOutputTokens", "decisionResponseFormat", "thinkingMode",
+                    "modelCallTimeoutSeconds"));
+            result.set("executionSettings", settings);
+        }
         ObjectNode retrieval = pick(snapshot.path("retrieval"), "topK", "similarityThreshold", "useRerank");
         ArrayNode knowledgeBases = objectMapper.createArrayNode();
         for (JsonNode knowledgeBase : snapshot.path("retrieval").path("knowledgeBases")) {

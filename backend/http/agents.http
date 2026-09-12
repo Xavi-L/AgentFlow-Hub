@@ -1,4 +1,4 @@
-# V30-V34 Agent root-resource manual checks for IntelliJ IDEA HTTP Client.
+# Agent root-resource and advanced execution setting checks for IntelliJ IDEA HTTP Client.
 #
 # First register/login a disposable test user through user-auth.http. The token stays in
 # IDEA's local session as agentflowAccessToken; never paste a real token into this file.
@@ -904,5 +904,65 @@ X-Trace-Id: af-manual-agent-disable-no-auth-001
   client.test("Agent status actions require authentication", function () {
     client.assert(response.status === 401, "Expected HTTP 401");
     client.assert(response.body.code === "AUTH_UNAUTHENTICATED", "Expected AUTH_UNAUTHENTICATED");
+  });
+%}
+
+### Read deployment defaults, platform limits, and exact-model capabilities; never probes the model.
+GET {{baseUrl}}/api/v1/agents/execution-options?modelName=qwen3
+Authorization: Bearer {{agentflowAccessToken}}
+
+> {%
+  client.test("authenticated execution options expose only safe policy fields", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    var options = response.body.data;
+    client.assert(options.policyVersion === "agent-execution-policy-v1", "Expected policy version");
+    client.assert(options.modelName === "qwen3", "Expected selected model");
+    client.assert(options.limits.maxOutputTokens >= 2048, "Platform must allow the final reserve");
+    client.assert(typeof options.capabilities.jsonSchema === "boolean", "Expected explicit capability");
+    client.assert(options.apiKey === undefined && options.baseUrl === undefined, "No deployment credentials or address");
+  });
+%}
+
+### Store portable advanced overrides; model-specific modes require an explicit deployment allowlist.
+PATCH {{baseUrl}}/api/v1/agents/{{agentflowExplicitAgentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+
+{
+  "decisionMaxOutputTokens": 2048,
+  "finalMaxOutputTokens": 2048,
+  "decisionResponseFormat": "PROMPT_ONLY",
+  "thinkingMode": "PROVIDER_DEFAULT",
+  "modelCallTimeoutSeconds": 1
+}
+
+> {%
+  client.test("advanced overrides persist independently of total task budgets", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    client.assert(response.body.data.decisionMaxOutputTokens === 2048, "Expected decision override");
+    client.assert(response.body.data.finalMaxOutputTokens === 2048, "Expected final override");
+    client.assert(response.body.data.modelCallTimeoutSeconds === 1, "Boundary test only; not a recommended production timeout");
+  });
+%}
+
+### Explicit null restores inheritance; omitting these fields would retain the stored overrides.
+PATCH {{baseUrl}}/api/v1/agents/{{agentflowExplicitAgentId}}
+Authorization: Bearer {{agentflowAccessToken}}
+Content-Type: application/json
+
+{
+  "decisionMaxOutputTokens": null,
+  "finalMaxOutputTokens": null,
+  "decisionResponseFormat": null,
+  "thinkingMode": null,
+  "modelCallTimeoutSeconds": null
+}
+
+> {%
+  client.test("reset settings return explicit nulls", function () {
+    client.assert(response.status === 200, "Expected HTTP 200");
+    ["decisionMaxOutputTokens", "finalMaxOutputTokens", "decisionResponseFormat", "thinkingMode", "modelCallTimeoutSeconds"].forEach(function (field) {
+      client.assert(response.body.data[field] === null, "Expected inherited " + field);
+    });
   });
 %}

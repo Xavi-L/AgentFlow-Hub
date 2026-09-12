@@ -1,6 +1,8 @@
 package com.agentflow.agent.snapshot;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.agentflow.agent.settings.ResolvedAgentExecutionSettings;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
@@ -12,8 +14,15 @@ public record AgentTaskExecutionSnapshot(
         RuntimeSnapshot runtime,
         ChatModelSnapshot chatModel,
         RetrievalSnapshot retrieval,
-        List<ToolSnapshot> tools
+        List<ToolSnapshot> tools,
+        @JsonInclude(JsonInclude.Include.NON_NULL) ResolvedAgentExecutionSettings executionSettings
 ) {
+    /** Historical v1 snapshots had no per-Agent execution settings. Never invent their past values. */
+    public AgentTaskExecutionSnapshot(String snapshotVersion, AgentSnapshot agent, RuntimeSnapshot runtime,
+            ChatModelSnapshot chatModel, RetrievalSnapshot retrieval, List<ToolSnapshot> tools) {
+        this(snapshotVersion, agent, runtime, chatModel, retrieval, tools, null);
+    }
+
     public AgentTaskExecutionSnapshot {
         requireText(snapshotVersion, "snapshotVersion");
         Objects.requireNonNull(agent, "agent must not be null");

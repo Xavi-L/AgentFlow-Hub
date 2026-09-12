@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
@@ -242,7 +244,7 @@ class SpringAiOpenAiCompatibleLlmGatewayHttpTest {
     }
 
     @Test
-    void shouldClassifyMalformedJsonNoChoiceMultipleChoicesAndBlankContent() throws Exception {
+    void shouldDistinguishMalformedJsonOrChoicesFromEmptyContent() throws Exception {
         try (LocalChatStub stub = new LocalChatStub()) {
             LlmGateway gateway = gateway(stub.baseUrl(), "", Duration.ofSeconds(2));
 
@@ -275,9 +277,63 @@ class SpringAiOpenAiCompatibleLlmGatewayHttpTest {
                       ]
                     }
                     """, Duration.ZERO);
-            assertFailure(gateway, LlmFailureType.MALFORMED_RESPONSE);
+            assertFailure(gateway, LlmFailureType.EMPTY_RESPONSE);
 
             assertThat(stub.requestCount()).isEqualTo(4);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "truncated private content"})
+    void shouldClassifyLengthWithOrWithoutContentAndPreserveUsage(String content) throws Exception {
+        try (LocalChatStub stub = new LocalChatStub()) {
+            JsonNode response = OBJECT_MAPPER.readTree(successfulResponse(true));
+            ((ObjectNode) response.path("choices").path(0).path("message")).put("content", content);
+            ((ObjectNode) response.path("choices").path(0)).put("finish_reason", "length");
+            stub.respond(200, response.toString(), Duration.ZERO);
+
+            assertThatThrownBy(() -> gateway(stub.baseUrl(), "", Duration.ofSeconds(2)).chat(request()))
+                    .isInstanceOfSatisfying(LlmGatewayException.class, failure -> {
+                        assertThat(failure.failureType()).isEqualTo(LlmFailureType.OUTPUT_LIMIT);
+                        assertThat(failure.metadata().finishReason()).isEqualTo("length");
+                        assertThat(failure.metadata().usage()).isEqualTo(LlmTokenUsage.known(17, 5, 22));
+                        assertThat(failure.metadata().resolvedModel()).isEqualTo("resolved-model-b");
+                        assertThat(failure.metadata().providerRequestId()).isEqualTo("chatcmpl-provider-42");
+                        assertThat(failure.getMessage()).doesNotContain("truncated private content");
+                        assertThat(failure).hasNoCause();
+                    });
+            assertThat(stub.requestCount()).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void shouldIsolateConcurrentExplicitTimeoutsAndPreserveTheLegacyTransportTimeout() throws Exception {
+        try (LocalChatStub stub = new LocalChatStub(); ExecutorService calls = Executors.newFixedThreadPool(3)) {
+            stub.respond(200, successfulResponse(true), Duration.ofMillis(1800));
+            LlmGateway gateway = gateway(stub.baseUrl(), "", Duration.ofMillis(150));
+            LlmChatRequest original = request();
+            LlmChatRequest shortRequest = new LlmChatRequest(original.modelProvider(), original.modelName(),
+                    original.messages(), original.temperature(), original.topP(), original.maxOutputTokens(),
+                    null, null, null, 1);
+            LlmChatRequest longRequest = new LlmChatRequest(original.modelProvider(), original.modelName(),
+                    original.messages(), original.temperature(), original.topP(), original.maxOutputTokens(),
+                    null, null, null, 3);
+
+            Future<LlmChatResult> longCall = calls.submit(() -> gateway.chat(longRequest));
+            Future<LlmChatResult> shortCall = calls.submit(() -> gateway.chat(shortRequest));
+            Future<LlmChatResult> legacyCall = calls.submit(() -> gateway.chat(original));
+
+            assertThat(longCall.get(5, TimeUnit.SECONDS).content()).isEqualTo("provider answer");
+            for (Future<LlmChatResult> timedOutCall : List.of(shortCall, legacyCall)) {
+                assertThatThrownBy(() -> timedOutCall.get(5, TimeUnit.SECONDS))
+                        .hasCauseInstanceOf(LlmGatewayException.class)
+                        .satisfies(failure -> assertThat(((LlmGatewayException) failure.getCause()).failureType())
+                                .isEqualTo(LlmFailureType.TIMEOUT));
+            }
+            assertThat(stub.requestCount()).isEqualTo(3);
+            JsonNode body = OBJECT_MAPPER.readTree(stub.capturedRequest().body());
+            assertThat(body.has("timeoutSeconds")).isFalse();
+            assertThat(body.has("timeout_seconds")).isFalse();
         }
     }
 

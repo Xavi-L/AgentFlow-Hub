@@ -57,7 +57,8 @@ public class TracePayloadSanitizer {
             "maxoutputtokens",
             "responseschema",
             "responseformat",
-            "thinkingmode"
+            "thinkingmode",
+            "timeoutseconds"
     );
     private static final Set<String> LLM_MESSAGE_FIELDS = Set.of("role", "content");
     private static final Set<String> LLM_MESSAGE_ROLES = Set.of("SYSTEM", "USER", "ASSISTANT");
@@ -130,6 +131,13 @@ public class TracePayloadSanitizer {
                         field.getValue(), "json_object", label + "." + field.getKey());
                 case "thinkingmode" -> requireExactText(
                         field.getValue(), "disabled", label + "." + field.getKey());
+                case "timeoutseconds" -> {
+                    JsonNode timeout = requirePositiveInteger(field.getValue(), label + "." + field.getKey());
+                    if (!timeout.canConvertToInt() || timeout.intValue() > 600) {
+                        throw new IllegalArgumentException(label + ".timeoutSeconds must be between 1 and 600");
+                    }
+                    yield timeout;
+                }
                 default -> throw new IllegalStateException("Unhandled LLM request snapshot field");
             };
             projected.set(field.getKey(), safeValue);

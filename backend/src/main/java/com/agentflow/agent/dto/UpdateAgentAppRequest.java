@@ -25,8 +25,21 @@ public record UpdateAgentAppRequest(
         Integer maxSteps,
         Integer maxToolCalls,
         Integer maxTokens,
-        Integer timeoutSeconds
+        Integer timeoutSeconds,
+        Integer decisionMaxOutputTokens,
+        Integer finalMaxOutputTokens,
+        String decisionResponseFormat,
+        String thinkingMode,
+        Integer modelCallTimeoutSeconds
 ) {
+    /** Source compatibility for callers that inherit all advanced settings. */
+    public UpdateAgentAppRequest(Set<String> presentFields, String name, String description, String systemPrompt, String modelProvider, String modelName,
+            BigDecimal temperature, BigDecimal topP, Integer maxSteps, Integer maxToolCalls,
+            Integer maxTokens, Integer timeoutSeconds) {
+        this(presentFields, name, description, systemPrompt, modelProvider, modelName, temperature, topP,
+                maxSteps, maxToolCalls, maxTokens, timeoutSeconds, null, null, null, null, null);
+    }
+
     static final Set<String> CONFIG_FIELDS = Set.of(
             "name",
             "description",
@@ -38,7 +51,12 @@ public record UpdateAgentAppRequest(
             "maxSteps",
             "maxToolCalls",
             "maxTokens",
-            "timeoutSeconds"
+            "timeoutSeconds",
+            "decisionMaxOutputTokens",
+            "finalMaxOutputTokens",
+            "decisionResponseFormat",
+            "thinkingMode",
+            "modelCallTimeoutSeconds"
     );
 
     public UpdateAgentAppRequest {
@@ -95,4 +113,10 @@ public record UpdateAgentAppRequest(
     public boolean timeoutSecondsPresent() {
         return presentFields.contains("timeoutSeconds");
     }
+
+    public boolean decisionMaxOutputTokensPresent() { return presentFields.contains("decisionMaxOutputTokens"); }
+    public boolean finalMaxOutputTokensPresent() { return presentFields.contains("finalMaxOutputTokens"); }
+    public boolean decisionResponseFormatPresent() { return presentFields.contains("decisionResponseFormat"); }
+    public boolean thinkingModePresent() { return presentFields.contains("thinkingMode"); }
+    public boolean modelCallTimeoutSecondsPresent() { return presentFields.contains("modelCallTimeoutSeconds"); }
 }

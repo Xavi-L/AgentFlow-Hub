@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 import com.agentflow.agent.rag.SnapshotRagResult;
 import com.agentflow.agent.rag.SnapshotRagService;
 import com.agentflow.agent.snapshot.AgentTaskExecutionSnapshot;
+import com.agentflow.agent.settings.ResolvedAgentExecutionSettings;
 import com.agentflow.agent.task.execution.*;
 import com.agentflow.agent.task.model.*;
 import com.agentflow.agent.task.service.AgentTaskLifecycleTransactionService;
@@ -678,6 +679,166 @@ class TaskSnapshotAgentExecutorTest {
         assertThat(outcome.decisionTurnsUsed()).isEqualTo(1);
         verify(recorder).failStep(argThat(step -> step.stepType() == StepType.LLM_DECISION),
                 eq("AGENT_EXECUTION_FAILED"), anyString());
+    }
+
+    @Test
+    void v2SettingsOverrideChangedDeploymentDefaultsAndSurviveJsonRoundTrip() throws Exception {
+        TaskExecutionProperties deployment = new TaskExecutionProperties();
+        deployment.setDecisionMaxOutputTokens(19);
+        deployment.setFinalMaxOutputTokens(300);
+        deployment.setDecisionJsonSchemaEnabled(true);
+        executor = executor(deployment);
+        script(finish(), "Answer");
+        var requested = advancedRequest(2048, 3072, "JSON_OBJECT", "DISABLED", 120);
+        var frozen = mapper.readValue(mapper.writeValueAsString(requested.executionSnapshot()), AgentTaskExecutionSnapshot.class);
+        var request = new TaskExecutionRequest(101, 7, 8, "Investigate", frozen, 256,
+                now.get().plusSeconds(240), cancelled::get);
+        assertThat(executor.execute(request).resultType()).isEqualTo(TaskExecutionResultType.COMPLETED);
+        ArgumentCaptor<LlmChatRequest> captures = ArgumentCaptor.forClass(LlmChatRequest.class);
+        verify(gateway, times(2)).chat(captures.capture());
+        var decision = captures.getAllValues().getFirst();
+        var answer = captures.getAllValues().getLast();
+        assertThat(decision.maxOutputTokens()).isEqualTo(2048);
+        assertThat(decision.responseFormat()).isEqualTo("json_object");
+        assertThat(decision.responseSchema()).isNull();
+        assertThat(answer.maxOutputTokens()).isEqualTo(3072);
+        assertThat(answer.responseFormat()).isNull();
+        assertThat(answer.responseSchema()).isNull();
+        assertThat(captures.getAllValues()).allSatisfy(value -> {
+            assertThat(value.thinkingMode()).isEqualTo("disabled");
+            assertThat(value.timeoutSeconds()).isEqualTo(120);
+        });
+        assertThat(llmLogs.getFirst().requestSnapshot().path("timeoutSeconds").asInt()).isEqualTo(120);
+    }
+
+    @Test
+    void recordsReturnedUsageAndFinishReasonForOutputLimitWithoutPublishingRawResponse() {
+        when(gateway.chat(any())).thenThrow(new LlmGatewayException(LlmFailureType.OUTPUT_LIMIT,
+                "Output was truncated", new LlmFailureMetadata("frozen-model", "length",
+                LlmTokenUsage.known(784, 511, 1295), "request-limit", 29000)));
+        var outcome = executor.execute(advancedRequest(512, 2048, "PROMPT_ONLY", "PROVIDER_DEFAULT", 60));
+        assertThat(outcome.errorCode()).isEqualTo("AGENT_LLM_OUTPUT_LIMIT");
+        assertThat(outcome.tokenUsage().totalTokens()).isEqualTo(1295);
+        assertThat(outcome.tokenUsage().quality()).isEqualTo(TokenUsageQuality.EXACT);
+        assertThat(llmLogs).singleElement().satisfies(value -> {
+            assertThat(value.finishReason()).isEqualTo("length");
+            assertThat(value.responseText()).isNull();
+            assertThat(value.providerRequestId()).isEqualTo("request-limit");
+            assertThat(value.latencyMs()).isEqualTo(29000);
+        });
+        verifyNoInteractions(tools);
+        verify(gateway).chat(any());
+    }
+
+    @Test
+    void boundedV2CallTimeoutIsDifferentFromWholeTaskTimeout() {
+        when(gateway.chat(any())).thenAnswer(call -> {
+            new java.util.concurrent.CountDownLatch(1).await();
+            return result(finish());
+        });
+        var outcome = org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
+                java.time.Duration.ofSeconds(3), () -> executor.execute(
+                        advancedRequest(2048, 2048, "PROMPT_ONLY", "PROVIDER_DEFAULT", 1)));
+        assertThat(outcome.resultType()).isEqualTo(TaskExecutionResultType.FAILED);
+        assertThat(outcome.errorCode()).isEqualTo("AGENT_LLM_TIMEOUT");
+        assertThat(outcome.tokenUsage().quality()).isEqualTo(TokenUsageQuality.ESTIMATED);
+        verifyNoInteractions(tools);
+    }
+
+    @Test
+    void v2WithoutSettingsRejectsBeforeRetrievalAndV1RemainsReadable() throws Exception {
+        var legacy = request(3, 2, 50000);
+        var value = legacy.executionSnapshot();
+        var invalid = new AgentTaskExecutionSnapshot("agent-task-snapshot-v2", value.agent(), value.runtime(),
+                value.chatModel(), value.retrieval(), value.tools());
+        var request = new TaskExecutionRequest(101, 7, 8, "Investigate", invalid, 256,
+                legacy.deadlineAt(), cancelled::get);
+        assertThat(executor.execute(request).errorCode()).isEqualTo("AGENT_INVALID_SNAPSHOT");
+        verifyNoInteractions(gateway, tools, rag);
+        var reread = mapper.readValue(mapper.writeValueAsString(value), AgentTaskExecutionSnapshot.class);
+        assertThat(reread.snapshotVersion()).isEqualTo("agent-task-snapshot-v1");
+        assertThat(reread.executionSettings()).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"agent-runtime-rules-v1", "agent-runtime-rules-v2"})
+    void missingLookupIdentifiersCanFinishWithASeparateClarificationWithoutCallingTools(String rulesVersion) throws Exception {
+        String plan = "Explain that no order number or payment error code was supplied and request it.";
+        String answer = "请提供订单号或支付错误码；目前无法确认这笔订单的支付失败原因。";
+        script(mapper.createObjectNode().put("type", "FINISH").put("answerPlan", plan).toString(), answer);
+
+        var outcome = executor.execute(missingIdentifierRequest(rulesVersion));
+
+        assertThat(outcome.resultType()).isEqualTo(TaskExecutionResultType.COMPLETED);
+        assertThat(outcome.finalAnswer()).isEqualTo(answer);
+        assertThat(outcome.decisionTurnsUsed()).isEqualTo(1);
+        assertThat(outcome.toolCallsUsed()).isZero();
+        verifyNoInteractions(tools);
+        ArgumentCaptor<LlmChatRequest> requests = ArgumentCaptor.forClass(LlmChatRequest.class);
+        verify(gateway, times(2)).chat(requests.capture());
+        assertThat(llmLogs).extracting(LlmCallRecord::callType)
+                .containsExactly(LlmCallType.DECISION, LlmCallType.FINAL_GENERATION);
+        var decision = requests.getAllValues().getFirst();
+        var finalRequest = requests.getAllValues().getLast();
+        assertThat(mapper.readTree(finalRequest.messages().get(2).content()).path("answerPlan").asText())
+                .isEqualTo(plan);
+        if (TaskPromptBuilder.CURRENT_RULES_VERSION.equals(rulesVersion)) {
+            assertThat(decision.messages().get(1).content()).contains(
+                    "FINISH ends tool planning", "Never guess identifiers", "A FINISH clarification plan is a valid decision");
+            assertThat(finalRequest.messages().get(1).content()).contains("do not claim it is waiting");
+        } else {
+            assertThat(decision.messages().get(1).content()).doesNotContain("FINISH ends tool planning");
+            assertThat(finalRequest.messages().get(1).content()).doesNotContain("do not claim it is waiting");
+        }
+    }
+
+    @Test
+    void plainTextClarificationWithNormalStopIsStillAnInvalidDecisionAndIsNotRetried() {
+        when(gateway.chat(any())).thenReturn(new LlmChatResult(
+                "I need an order number or payment error code to analyze the failure reason. Please provide one of these identifiers.",
+                "google/gemma-4-e4b", "stop", LlmTokenUsage.known(784, 2054, 2838), "request", 103000));
+
+        var outcome = executor.execute(missingIdentifierRequest(TaskPromptBuilder.CURRENT_RULES_VERSION));
+
+        assertThat(outcome.resultType()).isEqualTo(TaskExecutionResultType.FAILED);
+        assertThat(outcome.errorCode()).isEqualTo("AGENT_INVALID_DECISION");
+        assertThat(outcome.tokenUsage().totalTokens()).isEqualTo(2838);
+        assertThat(outcome.toolCallsUsed()).isZero();
+        verify(gateway, times(1)).chat(any());
+        verifyNoInteractions(tools);
+        assertThat(llmLogs).extracting(LlmCallRecord::callType).containsExactly(LlmCallType.DECISION);
+    }
+
+    private TaskExecutionRequest missingIdentifierRequest(String rulesVersion) {
+        var base = advancedRequest(4096, 2048, "PROMPT_ONLY", "PROVIDER_DEFAULT", 120);
+        var value = base.executionSnapshot();
+        var runtime = new AgentTaskExecutionSnapshot.RuntimeSnapshot("agent-decision-json-v1", rulesVersion, "frozen-revision");
+        var orderSchema = mapper.createObjectNode().put("type", "object");
+        orderSchema.putObject("properties").putObject("orderNo").put("type", "string");
+        orderSchema.putArray("required").add("orderNo");
+        var paymentSchema = orderSchema.deepCopy();
+        paymentSchema.withObject("properties").putObject("errorCode").put("type", "string");
+        paymentSchema.remove("required");
+        paymentSchema.putArray("anyOf").addObject().putArray("required").add("orderNo");
+        paymentSchema.withArray("anyOf").addObject().putArray("required").add("errorCode");
+        var availableTools = List.of(
+                new AgentTaskExecutionSnapshot.ToolSnapshot("11", "order_query", "Order", "Get order",
+                        orderSchema, "hash-order", "builtin-v1", 1000),
+                new AgentTaskExecutionSnapshot.ToolSnapshot("12", "payment_log_query", "Payment", "Get payment",
+                        paymentSchema, "hash-payment", "builtin-v1", 1000));
+        var snapshot = new AgentTaskExecutionSnapshot(value.snapshotVersion(), value.agent(), runtime,
+                value.chatModel(), value.retrieval(), availableTools, value.executionSettings());
+        return new TaskExecutionRequest(101, 7, 8, "分析订单支付失败原因", snapshot, 256, base.deadlineAt(), cancelled::get);
+    }
+
+    private TaskExecutionRequest advancedRequest(int decision, int answer, String format, String thinking, int timeout) {
+        var base = request(3, 2, 50000);
+        var value = base.executionSnapshot();
+        var settings = new ResolvedAgentExecutionSettings("agent-execution-policy-v1", decision, answer, format,
+                thinking, timeout, java.util.Map.of("decisionMaxOutputTokens", "AGENT_OVERRIDE"));
+        var snapshot = new AgentTaskExecutionSnapshot("agent-task-snapshot-v2", value.agent(), value.runtime(),
+                value.chatModel(), value.retrieval(), value.tools(), settings);
+        return new TaskExecutionRequest(101, 7, 8, "Investigate", snapshot, 256, base.deadlineAt(), cancelled::get);
     }
 
     private TaskExecutionRequest request(int decisions, int toolCalls, int tokens) {

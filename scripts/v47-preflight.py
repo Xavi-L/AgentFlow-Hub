@@ -18,6 +18,26 @@ class NoRedirect(HTTPRedirectHandler):
         return None  # Never forward provider credentials to a redirect target.
 
 
+def model_capability_checks(env):
+    """Pure environment checks: opt-in modes must survive the runtime's exact-model policy."""
+    model = env.get('OPENAI_CHAT_MODEL', '')
+    checks = []
+    for name, flag, allowlist in (
+        ('decisionJsonSchemaCapability', 'AGENTFLOW_TASK_DECISION_JSON_SCHEMA_ENABLED',
+         'AGENTFLOW_AGENT_JSON_SCHEMA_MODELS'),
+        ('decisionJsonObjectCapability', 'AGENTFLOW_TASK_DECISION_JSON_OBJECT_ENABLED',
+         'AGENTFLOW_AGENT_JSON_OBJECT_MODELS'),
+        ('providerThinkingCapability', 'AGENTFLOW_TASK_PROVIDER_THINKING_DISABLED',
+         'AGENTFLOW_AGENT_THINKING_DISABLED_MODELS'),
+    ):
+        enabled = env.get(flag, 'false').strip().lower() == 'true'
+        verified_models = {item.strip() for item in env.get(allowlist, '').split(',') if item.strip()}
+        checks.append(dict(name=name, passed=not enabled or model in verified_models,
+                           detail=f'{flag}=true requires OPENAI_CHAT_MODEL to match an exact entry in {allowlist}; '
+                                  'otherwise the runtime falls back to its unverified-model defaults'))
+    return checks
+
+
 def main():
     env = os.environ
     checks = []
@@ -87,6 +107,7 @@ def main():
     thinking_mode = env.get('AGENTFLOW_TASK_PROVIDER_THINKING_DISABLED', 'false').strip().lower()
     check('providerThinkingMode', thinking_mode in ('true', 'false'),
           dict(disabled=thinking_mode == 'true', note='explicit provider opt-in; no reasoning content is recorded'))
+    checks.extend(model_capability_checks(env))
     final_cap = None
     try:
         configured_final = env.get('AGENTFLOW_TASK_FINAL_MAX_OUTPUT_TOKENS', '').strip()

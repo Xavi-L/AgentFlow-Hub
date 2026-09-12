@@ -6,5 +6,7 @@ public enum LlmFailureType {
     TIMEOUT,
     TRANSPORT,
     PROVIDER_REJECTED,
+    OUTPUT_LIMIT,
+    EMPTY_RESPONSE,
     MALFORMED_RESPONSE
 }

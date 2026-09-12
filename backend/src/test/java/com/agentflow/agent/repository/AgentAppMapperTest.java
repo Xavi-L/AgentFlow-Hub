@@ -30,7 +30,9 @@ class AgentAppMapperTest {
                 "WHERE id = ?",
                 "AND user_id = ?",
                 "AND deleted_at IS NULL",
-                "FOR UPDATE"
+                "FOR UPDATE",
+                "decision_max_output_tokens", "final_max_output_tokens", "decision_response_format",
+                "thinking_mode", "model_call_timeout_seconds"
         ).doesNotContain(
                 "status =",
                 "JOIN",
@@ -45,7 +47,8 @@ class AgentAppMapperTest {
                 AgentAppMapper.class.getName() + ".selectVisibleOwnedByIdForSnapshot"
         ).getBoundSql(Map.of("agentId", 301L, "userId", 101L));
         assertThat(snapshot.getSql()).contains("WHERE id = ?", "AND user_id = ?",
-                "AND deleted_at IS NULL", "FOR NO KEY UPDATE");
+                "AND deleted_at IS NULL", "FOR NO KEY UPDATE", "decision_max_output_tokens",
+                "final_max_output_tokens", "decision_response_format", "thinking_mode", "model_call_timeout_seconds");
     }
 
     @Test
@@ -82,6 +85,11 @@ class AgentAppMapperTest {
                 "max_tool_calls = ?",
                 "max_tokens = ?",
                 "timeout_seconds = ?",
+                "decision_max_output_tokens = ?",
+                "final_max_output_tokens = ?",
+                "decision_response_format = ?",
+                "thinking_mode = ?",
+                "model_call_timeout_seconds = ?",
                 "updated_at = ?"
         ).doesNotContain(
                 "id =",
@@ -105,6 +113,11 @@ class AgentAppMapperTest {
                         "agent.maxToolCalls",
                         "agent.maxTokens",
                         "agent.timeoutSeconds",
+                        "agent.decisionMaxOutputTokens",
+                        "agent.finalMaxOutputTokens",
+                        "agent.decisionResponseFormat",
+                        "agent.thinkingMode",
+                        "agent.modelCallTimeoutSeconds",
                         "agent.updatedAt",
                         "agentId",
                         "userId"

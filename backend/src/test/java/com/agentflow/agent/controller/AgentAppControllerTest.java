@@ -19,6 +19,7 @@ import com.agentflow.agent.dto.CreateAgentAppRequest;
 import com.agentflow.agent.dto.UpdateAgentAppRequest;
 import com.agentflow.agent.repository.AgentAppMapper;
 import com.agentflow.agent.service.AgentAppService;
+import com.agentflow.agent.settings.AgentExecutionSettingsPolicy;
 import com.agentflow.common.api.ApiResponse;
 import com.agentflow.common.api.PageRequest;
 import com.agentflow.common.api.PageResult;
@@ -43,6 +44,26 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 class AgentAppControllerTest {
+
+    @Test
+    void shouldExposeOnlySafeModelExecutionOptionsUsingTheAuthenticatedPrincipal() throws Exception {
+        AgentAppService service = Mockito.mock(AgentAppService.class);
+        AuthenticatedUser currentUser = authenticate();
+        var options = AgentExecutionSettingsPolicy.defaults().executionOptions("local-model");
+        when(service.executionOptions(currentUser, "local-model")).thenReturn(options);
+
+        String response = mockMvc(service).perform(get("/api/v1/agents/execution-options")
+                        .param("modelName", "local-model"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.modelName").value("local-model"))
+                .andExpect(jsonPath("$.data.defaults.decisionMaxOutputTokens").value(512))
+                .andExpect(jsonPath("$.data.defaults.decisionResponseFormat").value("PROMPT_ONLY"))
+                .andExpect(jsonPath("$.data.capabilities.jsonSchema").value(false))
+                .andExpect(jsonPath("$.data.apiKey").doesNotExist())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(response).contains("\"finalMaxOutputTokens\":null");
+        verify(service).executionOptions(currentUser, "local-model");
+    }
 
     @AfterEach
     void clearSecurityContext() {

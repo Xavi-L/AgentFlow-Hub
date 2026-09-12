@@ -53,7 +53,12 @@ public final class UpdateAgentAppRequestDeserializer extends StdDeserializer<Upd
                 nullableInteger(body, "maxSteps", parser),
                 nullableInteger(body, "maxToolCalls", parser),
                 nullableInteger(body, "maxTokens", parser),
-                nullableInteger(body, "timeoutSeconds", parser)
+                nullableInteger(body, "timeoutSeconds", parser),
+                nullableInteger(body, "decisionMaxOutputTokens", parser),
+                nullableInteger(body, "finalMaxOutputTokens", parser),
+                nullableText(body, "decisionResponseFormat", parser),
+                nullableText(body, "thinkingMode", parser),
+                nullableInteger(body, "modelCallTimeoutSeconds", parser)
         );
     }
 

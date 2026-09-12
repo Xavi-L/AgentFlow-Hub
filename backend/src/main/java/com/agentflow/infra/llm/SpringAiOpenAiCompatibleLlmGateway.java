@@ -60,7 +60,9 @@ public final class SpringAiOpenAiCompatibleLlmGateway implements LlmGateway {
         long startedAt = nanoTime.getAsLong();
 
         try {
-            ChatResponse response = chatModel.call(prompt);
+            ChatResponse response = request.timeoutSeconds() != null && chatModel instanceof TimeoutAwareChatModel timedModel
+                    ? timedModel.call(prompt, request.timeoutSeconds())
+                    : chatModel.call(prompt);
             long latencyMs = elapsedMillis(startedAt, nanoTime.getAsLong());
             return toResult(response, latencyMs);
         } catch (LlmGatewayException failure) {
@@ -181,28 +183,33 @@ public final class SpringAiOpenAiCompatibleLlmGateway implements LlmGateway {
         String content = generation == null || generation.getOutput() == null
                 ? null
                 : generation.getOutput().getText();
-        if (content == null || content.isBlank()) {
-            throw failure(
-                    LlmFailureType.MALFORMED_RESPONSE,
-                    "LLM provider response must contain non-blank content"
-            );
-        }
-
         ChatResponseMetadata metadata = response.getMetadata();
         String resolvedModel = metadata == null ? null : nullIfBlank(metadata.getModel());
         String providerRequestId = metadata == null ? null : nullIfBlank(metadata.getId());
-        String finishReason = generation.getMetadata() == null
+        String finishReason = generation == null || generation.getMetadata() == null
                 ? null
                 : nullIfBlank(generation.getMetadata().getFinishReason());
         if (finishReason != null) {
             finishReason = finishReason.toLowerCase(Locale.ROOT);
         }
 
+        LlmTokenUsage usage = tokenUsage(metadata);
+        LlmFailureMetadata failureMetadata = new LlmFailureMetadata(
+                resolvedModel, finishReason, usage, providerRequestId, latencyMs);
+        if ("length".equals(finishReason)) {
+            throw new LlmGatewayException(LlmFailureType.OUTPUT_LIMIT,
+                    "LLM provider reached the output token limit before completing the response", failureMetadata);
+        }
+        if (content == null || content.isBlank()) {
+            throw new LlmGatewayException(LlmFailureType.EMPTY_RESPONSE,
+                    "LLM provider returned an empty response", failureMetadata);
+        }
+
         return new LlmChatResult(
                 content,
                 resolvedModel,
                 finishReason,
-                tokenUsage(metadata),
+                usage,
                 providerRequestId,
                 latencyMs
         );

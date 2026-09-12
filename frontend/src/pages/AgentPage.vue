@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { agentApi, buildAgentConfig, defaultAgentDraft, draftFromAgent, isSelectableTool, MAX_AGENT_KNOWLEDGE_BINDINGS, sameAgentConfig, sameBindingIds, toggleBindingId, validateAgentDraft, validateToolSelection, type AgentConfig, type AgentDetail, type AgentDraft, type ToolDefinition } from '../lib/agent-api'
+import { agentApi, buildAgentConfig, restoreAgentDraft, draftFromAgent, isSelectableTool, MAX_AGENT_KNOWLEDGE_BINDINGS, sameAgentConfig, sameBindingIds, toggleBindingId, validateAgentDraft, validateToolSelection, type AgentConfig, type AgentDetail, type AgentDraft, type ToolDefinition } from '../lib/agent-api'
+import { useAgentExecutionOptions } from '../lib/agent-execution-options'
 import { agentDrafts, agentMutation } from '../lib/agent-requests'
 import { compatible, knowledgeApi, type KnowledgeBase } from '../lib/knowledge-api'
 import { requestScope } from '../lib/knowledge-requests'
@@ -12,7 +13,8 @@ import AgentWriteResult from '../components/AgentWriteResult.vue'
 const id = String(useRoute().params.agentId), scope = requestScope(), drafts = agentDrafts(id)
 const configWrite = agentMutation(scope, id, 'config'), kbWrite = agentMutation(scope, id, 'knowledge')
 const toolWrite = agentMutation(scope, id, 'tools'), statusWrite = agentMutation(scope, id, 'status')
-const draft = reactive<AgentDraft>(drafts.get<AgentDraft>('config') || defaultAgentDraft())
+const draft = reactive<AgentDraft>(restoreAgentDraft(drafts.get<AgentDraft>('config')))
+const execution = useAgentExecutionOptions(draft)
 const selectedKbs = ref(drafts.get<string[]>('knowledge') || []), selectedTools = ref(drafts.get<string[]>('tools') || [])
 watch(draft, value => drafts.set('config', value), { flush: 'sync' })
 watch(selectedKbs, value => drafts.set('knowledge', value), { flush: 'sync', deep: true })
@@ -76,7 +78,7 @@ function updateConfig(value: AgentDetail) {
   agent.value = { ...value, status: agent.value?.status ?? value.status }
 }
 async function saveConfig() {
-  configWrite.state.error = validateAgentDraft(draft)
+  configWrite.state.error = execution.validate(draft)
   if (configWrite.state.error || !agent.value) return
   scope.cancel('detail'); loading.value = false
   const config = buildAgentConfig(draft)
@@ -139,7 +141,7 @@ void refreshAgent(); void loadBindings('knowledge'); void loadBindings('tools');
     <p class="muted form-hint">配置、知识库绑定和工具绑定分别保存。草稿保留在当前标签页，退出登录后清除。</p>
     <div class="agent-detail-grid">
       <section class="panel composer" data-testid="agent-config"><div class="task-row-head"><h2>配置</h2><span class="small-tag">{{ dirty ? '有未保存草稿' : '与已读配置一致' }}</span></div>
-        <form @submit.prevent="saveConfig"><AgentConfigurationForm :draft="draft" :disabled="configWrite.state.busy" /><button class="primary wide" :disabled="configWrite.state.busy || !!configWrite.unknown()">保存配置</button></form>
+        <form @submit.prevent="saveConfig"><AgentConfigurationForm :draft="draft" :execution="execution.state" @retry-options="execution.reload" :disabled="configWrite.state.busy" /><button class="primary wide" :disabled="configWrite.state.busy || !!configWrite.unknown() || execution.state.loading">保存配置</button></form>
         <AgentWriteResult :mutation="configWrite" section="config" @readback="reconcileConfig" />
         <details v-if="configReadback"><summary>最近读回的服务端配置（草稿未覆盖）</summary><pre>{{ buildAgentConfig(draftFromAgent(configReadback)) }}</pre></details>
       </section>

@@ -121,6 +121,15 @@ The added scenario does not execute a task or call a provider. Its
 `knowledge-binding-limit-evidence.json`, screenshot and durable summary are linked
 from the [V49 acceptance record](../../slice-docs/50_KNOWLEDGE_BINDING_LIMIT_PACKAGE_INTERFACE.md).
 
+Agent advanced settings add three scenarios: nullable inheritance and explicit reset after
+an uncertain PATCH, exact-model capabilities and late-response isolation, and a real task
+whose frozen settings survive later Agent changes. The fixture allowlists only its controlled
+model; this is not evidence of a real model's JSON or thinking support. On 2026-09-11 the full
+entry passed 23/23 in 56.6 seconds. `advanced-settings-evidence.json` records the Agent before
+and after editing, the persisted v2 snapshot, and the controlled gateway's actual call settings.
+See the [advanced settings contract](../../slice-docs/51_AGENT_ADVANCED_SETTINGS_PACKAGE_INTERFACE.md)
+for configuration, migration, and verification details.
+
 ## V47 real-provider and Qdrant main-path E2E
 
 Latest follow-up (2026-09-10): V49 passed a fresh GLM-5.2/DashScope/Qdrant run with task
@@ -163,6 +172,17 @@ sources that file; use a file you control. Keep credentials out of the repositor
 | `AGENTFLOW_TASK_DECISION_JSON_SCHEMA_ENABLED` | Default false; true in run six, false for Zhipu; mutually exclusive with JSON object mode |
 | `AGENTFLOW_TASK_DECISION_JSON_OBJECT_ENABLED` | Default false; explicitly true for Zhipu DECISION calls; JSON object mode does not enforce the decision schema; final generation remains text |
 | `AGENTFLOW_TASK_PROVIDER_THINKING_DISABLED` | Default false, omitting this provider option; explicitly true for Zhipu to send `thinking.type=disabled` |
+| `AGENTFLOW_AGENT_JSON_SCHEMA_MODELS` | Comma-separated exact model IDs allowed to use schema mode; required when schema mode is enabled |
+| `AGENTFLOW_AGENT_JSON_OBJECT_MODELS` | Comma-separated exact model IDs allowed to use JSON object mode; required when JSON object mode is enabled |
+| `AGENTFLOW_AGENT_THINKING_DISABLED_MODELS` | Comma-separated exact model IDs allowed to disable thinking; required when that option is enabled |
+
+All three capability lists default to empty. The advanced-settings policy applies them to
+inherited modes as well as explicit Agent overrides. V47 preflight requires the selected
+`OPENAI_CHAT_MODEL` in each enabled option's list, so a missing capability fails before a
+generation call rather than silently testing a different request mode. For the previously
+accepted `glm-5.2` JSON-object/thinking-disabled configuration, explicitly set both
+`AGENTFLOW_AGENT_JSON_OBJECT_MODELS=glm-5.2` and
+`AGENTFLOW_AGENT_THINKING_DISABLED_MODELS=glm-5.2`; the launcher does not grant capabilities.
 
 From the repository root:
 

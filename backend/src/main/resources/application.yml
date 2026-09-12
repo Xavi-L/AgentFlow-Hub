@@ -35,6 +35,15 @@ logging:
     org.springframework.web: INFO
 
 agentflow:
+  agent:
+    execution-policy:
+      # Independent user override ceilings; execution defaults remain below task.execution.
+      max-output-tokens: ${AGENTFLOW_AGENT_MAX_OUTPUT_TOKENS:16384}
+      max-model-call-timeout-seconds: ${AGENTFLOW_AGENT_MAX_MODEL_CALL_TIMEOUT_SECONDS:600}
+      # Exact model names verified against the selected deployment's provider. Empty denies the option.
+      json-object-models: ${AGENTFLOW_AGENT_JSON_OBJECT_MODELS:}
+      json-schema-models: ${AGENTFLOW_AGENT_JSON_SCHEMA_MODELS:}
+      thinking-disabled-models: ${AGENTFLOW_AGENT_THINKING_DISABLED_MODELS:}
   api:
     prefix: /api/v1
   trace:
@@ -64,7 +73,7 @@ agentflow:
     execution:
       # V40 executes the frozen task snapshot through AgentEngine.
       mode: engine
-      # Per-decision ceiling (1..16384), still constrained by task/context budgets and final reserve.
+      # Inherited decision output cap (1..16384); Agent overrides remain within execution-policy limits.
       decision-max-output-tokens: ${AGENTFLOW_TASK_DECISION_MAX_OUTPUT_TOKENS:512}
       # Opt in only for providers verified against the unchanged decision schema; final stays text.
       decision-json-schema-enabled: ${AGENTFLOW_TASK_DECISION_JSON_SCHEMA_ENABLED:false}
@@ -72,7 +81,7 @@ agentflow:
       decision-json-object-enabled: ${AGENTFLOW_TASK_DECISION_JSON_OBJECT_ENABLED:false}
       # Only enable for a provider verified to accept thinking.type=disabled.
       provider-thinking-disabled: ${AGENTFLOW_TASK_PROVIDER_THINKING_DISABLED:false}
-      # Optional final ceiling (1..16384); empty preserves the frozen reserve as the output cap.
+      # Inherited final output cap (1..16384); empty uses the task's frozen final reserve.
       final-max-output-tokens: ${AGENTFLOW_TASK_FINAL_MAX_OUTPUT_TOKENS:}
   document:
     storage:

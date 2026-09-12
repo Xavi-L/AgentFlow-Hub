@@ -21,6 +21,7 @@ class LlmChatRequestTest {
         assertThat(plainJson.has("responseSchema")).isFalse();
         assertThat(plainJson.has("responseFormat")).isFalse();
         assertThat(plainJson.has("thinkingMode")).isFalse();
+        assertThat(plainJson.has("timeoutSeconds")).isFalse();
 
         LlmResponseSchema schema = schema();
         LlmChatRequest structured = new LlmChatRequest("openai-compatible", "model", messages(),
@@ -52,6 +53,20 @@ class LlmChatRequestTest {
         }
         assertThatThrownBy(() -> request(schema(), "json_object", "disabled"))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("mutually exclusive");
+    }
+
+    @Test
+    void acceptsExplicitTimeoutBoundariesAndRejectsOutsideTheRange() {
+        for (int timeout : List.of(1, 600)) {
+            LlmChatRequest request = new LlmChatRequest("openai-compatible", "model", messages(),
+                    BigDecimal.ZERO, BigDecimal.ONE, 512, null, null, null, timeout);
+            assertThat(mapper.valueToTree(request).path("timeoutSeconds").asInt()).isEqualTo(timeout);
+        }
+        for (int timeout : List.of(0, 601)) {
+            assertThatThrownBy(() -> new LlmChatRequest("openai-compatible", "model", messages(),
+                    BigDecimal.ZERO, BigDecimal.ONE, 512, null, null, null, timeout))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("timeoutSeconds");
+        }
     }
 
     private LlmChatRequest request(LlmResponseSchema schema, String format, String thinkingMode) {

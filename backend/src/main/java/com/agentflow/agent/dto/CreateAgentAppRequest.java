@@ -69,8 +69,21 @@ public record CreateAgentAppRequest(
 
         @Min(value = 1, message = "timeoutSeconds must be at least 1")
         @Max(value = 600, message = "timeoutSeconds must not exceed 600")
-        Integer timeoutSeconds
+        Integer timeoutSeconds,
+        Integer decisionMaxOutputTokens,
+        Integer finalMaxOutputTokens,
+        String decisionResponseFormat,
+        String thinkingMode,
+        Integer modelCallTimeoutSeconds
 ) {
+    /** Source compatibility for callers that inherit all advanced settings. */
+    public CreateAgentAppRequest(String name, String description, String systemPrompt, String modelProvider, String modelName,
+            BigDecimal temperature, BigDecimal topP, Integer maxSteps, Integer maxToolCalls,
+            Integer maxTokens, Integer timeoutSeconds) {
+        this(name, description, systemPrompt, modelProvider, modelName, temperature, topP,
+                maxSteps, maxToolCalls, maxTokens, timeoutSeconds, null, null, null, null, null);
+    }
+
     public static final BigDecimal DEFAULT_TEMPERATURE = new BigDecimal("0.2");
     public static final BigDecimal DEFAULT_TOP_P = new BigDecimal("0.8");
     public static final int DEFAULT_MAX_STEPS = 6;

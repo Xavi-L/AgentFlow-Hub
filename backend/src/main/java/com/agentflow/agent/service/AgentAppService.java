@@ -13,6 +13,8 @@ import com.agentflow.agent.dto.CreateAgentAppRequest;
 import com.agentflow.agent.dto.UpdateAgentAppRequest;
 import com.agentflow.agent.model.AgentApp;
 import com.agentflow.agent.repository.AgentAppMapper;
+import com.agentflow.agent.settings.AgentExecutionOptionsResponse;
+import com.agentflow.agent.settings.AgentExecutionSettingsPolicy;
 import com.agentflow.common.api.PageRequest;
 import com.agentflow.common.api.PageResult;
 import com.agentflow.common.error.BusinessException;
@@ -23,6 +25,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.Objects;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,9 +37,21 @@ public class AgentAppService {
     private static final String SUPPORTED_MODEL_PROVIDER = "openai-compatible";
 
     private final AgentAppMapper agentAppMapper;
+    private final AgentExecutionSettingsPolicy settingsPolicy;
 
     public AgentAppService(AgentAppMapper agentAppMapper) {
-        this.agentAppMapper = agentAppMapper;
+        this(agentAppMapper, AgentExecutionSettingsPolicy.defaults());
+    }
+
+    @Autowired
+    public AgentAppService(AgentAppMapper agentAppMapper, AgentExecutionSettingsPolicy settingsPolicy) {
+        this.agentAppMapper = Objects.requireNonNull(agentAppMapper);
+        this.settingsPolicy = Objects.requireNonNull(settingsPolicy);
+    }
+
+    public AgentExecutionOptionsResponse executionOptions(AuthenticatedUser currentUser, String modelName) {
+        Objects.requireNonNull(currentUser, "currentUser must not be null");
+        return settingsPolicy.executionOptions(modelName);
     }
 
     /** Creates one ACTIVE Agent whose owner always comes from the authenticated principal. */
@@ -83,6 +98,12 @@ public class AgentAppService {
         agentApp.setMaxToolCalls(maxToolCalls);
         agentApp.setMaxTokens(maxTokens);
         agentApp.setTimeoutSeconds(timeoutSeconds);
+        agentApp.setDecisionMaxOutputTokens(request.decisionMaxOutputTokens());
+        agentApp.setFinalMaxOutputTokens(request.finalMaxOutputTokens());
+        agentApp.setDecisionResponseFormat(request.decisionResponseFormat());
+        agentApp.setThinkingMode(request.thinkingMode());
+        agentApp.setModelCallTimeoutSeconds(request.modelCallTimeoutSeconds());
+        settingsPolicy.resolve(agentApp);
         agentApp.setStatus(ACTIVE_STATUS);
         // config remains null in the insert model so PostgreSQL applies its '{}'::jsonb default.
         OffsetDateTime now = OffsetDateTime.now();
@@ -167,10 +188,31 @@ public class AgentAppService {
         Integer updatedTimeoutSeconds = request.timeoutSecondsPresent()
                 ? normalized.timeoutSeconds()
                 : current.getTimeoutSeconds();
+        Integer updatedDecisionMaxOutputTokens = request.decisionMaxOutputTokensPresent()
+                ? request.decisionMaxOutputTokens() : current.getDecisionMaxOutputTokens();
+        Integer updatedFinalMaxOutputTokens = request.finalMaxOutputTokensPresent()
+                ? request.finalMaxOutputTokens() : current.getFinalMaxOutputTokens();
+        String updatedDecisionResponseFormat = request.decisionResponseFormatPresent()
+                ? request.decisionResponseFormat() : current.getDecisionResponseFormat();
+        String updatedThinkingMode = request.thinkingModePresent()
+                ? request.thinkingMode() : current.getThinkingMode();
+        Integer updatedModelCallTimeoutSeconds = request.modelCallTimeoutSecondsPresent()
+                ? request.modelCallTimeoutSeconds() : current.getModelCallTimeoutSeconds();
 
         if (updatedMaxToolCalls >= updatedMaxSteps) {
             throw invalid("maxToolCalls must be less than maxSteps");
         }
+
+        // Validate the merged model, budget and overrides before changing the locked row.
+        AgentApp candidate = new AgentApp();
+        candidate.setModelName(updatedModelName);
+        candidate.setMaxTokens(updatedMaxTokens);
+        candidate.setDecisionMaxOutputTokens(updatedDecisionMaxOutputTokens);
+        candidate.setFinalMaxOutputTokens(updatedFinalMaxOutputTokens);
+        candidate.setDecisionResponseFormat(updatedDecisionResponseFormat);
+        candidate.setThinkingMode(updatedThinkingMode);
+        candidate.setModelCallTimeoutSeconds(updatedModelCallTimeoutSeconds);
+        settingsPolicy.resolve(candidate);
 
         if (sameConfig(
                 current,
@@ -185,7 +227,11 @@ public class AgentAppService {
                 updatedMaxToolCalls,
                 updatedMaxTokens,
                 updatedTimeoutSeconds
-        )) {
+        ) && Objects.equals(current.getDecisionMaxOutputTokens(), updatedDecisionMaxOutputTokens)
+                && Objects.equals(current.getFinalMaxOutputTokens(), updatedFinalMaxOutputTokens)
+                && Objects.equals(current.getDecisionResponseFormat(), updatedDecisionResponseFormat)
+                && Objects.equals(current.getThinkingMode(), updatedThinkingMode)
+                && Objects.equals(current.getModelCallTimeoutSeconds(), updatedModelCallTimeoutSeconds)) {
             return AgentAppResponse.from(current);
         }
 
@@ -200,6 +246,11 @@ public class AgentAppService {
         current.setMaxToolCalls(updatedMaxToolCalls);
         current.setMaxTokens(updatedMaxTokens);
         current.setTimeoutSeconds(updatedTimeoutSeconds);
+        current.setDecisionMaxOutputTokens(updatedDecisionMaxOutputTokens);
+        current.setFinalMaxOutputTokens(updatedFinalMaxOutputTokens);
+        current.setDecisionResponseFormat(updatedDecisionResponseFormat);
+        current.setThinkingMode(updatedThinkingMode);
+        current.setModelCallTimeoutSeconds(updatedModelCallTimeoutSeconds);
         current.setUpdatedAt(OffsetDateTime.now());
 
         int affectedRows = agentAppMapper.updateConfigOwned(agentId, currentUser.id(), current);

@@ -3,6 +3,7 @@ package com.agentflow.agent.engine;
 import com.agentflow.agent.rag.SnapshotRagResult;
 import com.agentflow.agent.rag.SnapshotRagService;
 import com.agentflow.agent.snapshot.AgentTaskExecutionSnapshot;
+import com.agentflow.agent.settings.ResolvedAgentExecutionSettings;
 import com.agentflow.agent.task.execution.TaskExecutionOutcome;
 import com.agentflow.agent.task.execution.TaskExecutionRequest;
 import com.agentflow.agent.task.execution.TaskTokenUsage;
@@ -23,6 +24,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HexFormat;
@@ -82,7 +84,8 @@ public final class TaskSnapshotAgentExecutor {
         State state = new State(request);
         try {
             validate(request);
-            state.decisionResponseSchema = decisionJsonSchemaEnabled
+            state.decisionResponseSchema = (state.settings == null ? decisionJsonSchemaEnabled
+                    : "JSON_SCHEMA".equals(state.settings.decisionResponseFormat()))
                     ? AgentDecisionResponseSchema.fromTools(mapper, request.executionSnapshot().tools()) : null;
             state.recorder = recorderFactory.open(request.taskId());
             state.boundary();
@@ -108,7 +111,8 @@ public final class TaskSnapshotAgentExecutor {
                 int finalInput = TaskTokenEstimator.inputTokens(
                         prompts.finalAnswer(request, rag, state.observations, plan));
                 int cap = outputCap(state, messages, finalInput + request.finalTokenReserve(),
-                        decisionMaxOutputTokens, state.decisionResponseSchema);
+                        state.settings == null ? decisionMaxOutputTokens : state.settings.decisionMaxOutputTokens(),
+                        state.decisionResponseSchema);
                 phase(state, TaskPhase.DECIDING);
                 AgentDecision decision = callLlm(state, messages, cap, LlmCallType.DECISION,
                         text -> parser.parse(text, allowedTools));
@@ -125,7 +129,8 @@ public final class TaskSnapshotAgentExecutor {
             }
             List<LlmMessage> messages = prompts.finalAnswer(request, rag, state.observations, plan);
             // Optional extra output uses remaining budget; only the persisted reserve is guaranteed.
-            int desiredFinalCap = finalMaxOutputTokens == null ? request.finalTokenReserve()
+            int desiredFinalCap = state.settings != null ? state.settings.finalMaxOutputTokens()
+                    : finalMaxOutputTokens == null ? request.finalTokenReserve()
                     : Math.max(request.finalTokenReserve(), finalMaxOutputTokens);
             int cap = outputCap(state, messages, 0, desiredFinalCap, null);
             // A final call must retain the entire frozen output reserve, not a silently reduced cap.
@@ -194,9 +199,14 @@ public final class TaskSnapshotAgentExecutor {
                 type == LlmCallType.DECISION ? "Model decision" : "Final answer generation");
         var model = state.request.executionSnapshot().chatModel();
         LlmResponseSchema responseSchema = type == LlmCallType.DECISION ? state.decisionResponseSchema : null;
+        String format = state.settings == null ? decisionResponseFormat
+                : "JSON_OBJECT".equals(state.settings.decisionResponseFormat()) ? "json_object" : null;
+        String thinking = state.settings == null ? thinkingMode
+                : "DISABLED".equals(state.settings.thinkingMode()) ? "disabled" : null;
+        Integer timeout = state.settings == null ? null : state.settings.modelCallTimeoutSeconds();
         LlmChatRequest request = new LlmChatRequest(model.provider(), model.model(), messages,
                 model.temperature(), model.topP(), cap, responseSchema,
-                type == LlmCallType.DECISION ? decisionResponseFormat : null, thinkingMode);
+                type == LlmCallType.DECISION ? format : null, thinking, timeout);
         JsonNode requestJson = mapper.valueToTree(request);
         long started = System.nanoTime();
         LlmChatResult result = null;
@@ -205,12 +215,17 @@ public final class TaskSnapshotAgentExecutor {
         java.util.concurrent.atomic.AtomicBoolean callStarted = new java.util.concurrent.atomic.AtomicBoolean();
         try {
             state.boundary();
+            Instant callDeadline = state.request.deadlineAt();
+            boolean callLimitFirst = timeout != null && clock.instant().plusSeconds(timeout).isBefore(callDeadline);
+            if (callLimitFirst) callDeadline = clock.instant().plusSeconds(timeout);
             result = TaskExternalCallDeadline.call(() -> {
                 state.boundary();
                 if (type == LlmCallType.DECISION) state.turns++;
                 callStarted.set(true);
                 return gateway.chat(request);
-            }, state.request.deadlineAt(), clock, state::boundary);
+            }, callDeadline, clock, state::boundary,
+                    callLimitFirst ? "AGENT_LLM_TIMEOUT" : "TASK_TIMED_OUT",
+                    callLimitFirst ? "Model call exceeded its time limit" : "Task deadline was exceeded");
             if (result == null) throw new TaskExecutionAbort("AGENT_LLM_FAILED", "Model call returned no result");
             callUsage = measuredUsage(result, messages, responseSchema);
             state.account(callUsage);
@@ -218,27 +233,33 @@ public final class TaskSnapshotAgentExecutor {
             if (state.usage().totalTokens() > state.request.executionSnapshot().agent().maxTotalTokens()) {
                 throw tokenExhausted();
             }
+            if ("length".equalsIgnoreCase(result.finishReason())) {
+                throw new TaskExecutionAbort("AGENT_LLM_OUTPUT_LIMIT",
+                        "Model reached its output limit before completing a response");
+            }
             validated = validation.apply(result.content());
             if (result.content().getBytes(StandardCharsets.UTF_8).length > 192 * 1024) {
                 throw new TaskExecutionAbort("AGENT_RESPONSE_LIMIT", "Model response exceeds the bounded output size");
             }
         } catch (RuntimeException ex) {
+            LlmFailureMetadata failureMetadata = ex instanceof LlmGatewayException failure ? failure.metadata() : null;
             if (!callStarted.get()) {
                 TaskExecutionAbort abort = asAbort(ex, "AGENT_LLM_FAILED", "Model call failed");
                 failStep(state, step, abort);
                 throw abort;
             }
             if (callUsage == null) {
-                // A provider failure may still have consumed tokens; budget it conservatively.
-                callUsage = new TaskTokenUsage(estimatedInputTokens(messages, responseSchema), cap,
-                        TokenUsageQuality.ESTIMATED);
+                callUsage = failureMetadata == null ? null : knownUsage(failureMetadata.usage());
+                // A provider failure may still have consumed tokens; estimate only when no usable usage returned.
+                if (callUsage == null) callUsage = new TaskTokenUsage(
+                        estimatedInputTokens(messages, responseSchema), cap, TokenUsageQuality.ESTIMATED);
                 state.account(callUsage);
             }
             TaskExecutionAbort abort = asAbort(ex, "AGENT_LLM_FAILED", "Model call failed");
             // Failed decision records deliberately have no raw response body: malformed JSON
             // cannot trigger the Trace JSON sanitizer and replace the original safe failure.
             state.recorder.recordLlmCall(llmRecord(step, type, request, requestJson, result,
-                    callUsage, elapsed(started), null, abort));
+                    callUsage, elapsed(started), null, abort, failureMetadata));
             failStep(state, step, abort);
             throw abort;
         }
@@ -261,12 +282,19 @@ public final class TaskSnapshotAgentExecutor {
     private LlmCallRecord llmRecord(StepHandle step, LlmCallType type, LlmChatRequest request,
             JsonNode requestJson, LlmChatResult result, TaskTokenUsage usage,
             long latency, String response, TaskExecutionAbort error) {
+        return llmRecord(step, type, request, requestJson, result, usage, latency, response, error, null);
+    }
+
+    private LlmCallRecord llmRecord(StepHandle step, LlmCallType type, LlmChatRequest request,
+            JsonNode requestJson, LlmChatResult result, TaskTokenUsage usage,
+            long latency, String response, TaskExecutionAbort error, LlmFailureMetadata metadata) {
         return new LlmCallRecord(step, type, request.modelProvider(), request.modelName(),
-                result == null ? null : optional(result.resolvedModel(), 128), requestJson, response,
-                result == null ? null : optional(result.finishReason(), 64),
-                result == null ? null : optional(result.providerRequestId(), 255),
+                optional(result != null ? result.resolvedModel() : metadata == null ? null : metadata.resolvedModel(), 128),
+                requestJson, response,
+                optional(result != null ? result.finishReason() : metadata == null ? null : metadata.finishReason(), 64),
+                optional(result != null ? result.providerRequestId() : metadata == null ? null : metadata.providerRequestId(), 255),
                 usage.inputTokens(), usage.outputTokens(), usage.totalTokens(), usage.quality(),
-                result == null ? latency : result.latencyMs(),
+                result != null ? result.latencyMs() : metadata == null ? latency : metadata.latencyMs(),
                 error == null ? TraceRecordStatus.SUCCESS : TraceRecordStatus.FAILED,
                 error == null ? null : error.code(), error == null ? null : error.getMessage());
     }
@@ -341,7 +369,13 @@ public final class TaskSnapshotAgentExecutor {
 
     private TaskTokenUsage measuredUsage(LlmChatResult result, List<LlmMessage> messages,
             LlmResponseSchema responseSchema) {
-        LlmTokenUsage usage = result.usage();
+        TaskTokenUsage known = knownUsage(result.usage());
+        if (known != null) return known;
+        return new TaskTokenUsage(estimatedInputTokens(messages, responseSchema),
+                TaskTokenEstimator.textTokens(result.content()), TokenUsageQuality.ESTIMATED);
+    }
+
+    private TaskTokenUsage knownUsage(LlmTokenUsage usage) {
         if (usage != null && usage.known()) {
             if ((long) usage.inputTokens() + usage.outputTokens() != usage.totalTokens()) {
                 int total = Math.max(usage.totalTokens(), Math.addExact(usage.inputTokens(), usage.outputTokens()));
@@ -349,8 +383,7 @@ public final class TaskSnapshotAgentExecutor {
             }
             return new TaskTokenUsage(usage.inputTokens(), usage.outputTokens(), TokenUsageQuality.EXACT);
         }
-        return new TaskTokenUsage(estimatedInputTokens(messages, responseSchema),
-                TaskTokenEstimator.textTokens(result.content()), TokenUsageQuality.ESTIMATED);
+        return null;
     }
 
     private String safeDecision(AgentDecision decision) {
@@ -399,9 +432,12 @@ public final class TaskSnapshotAgentExecutor {
         var snapshot = request.executionSnapshot();
         var agent = snapshot.agent();
         var model = snapshot.chatModel();
-        if (!"agent-task-snapshot-v1".equals(snapshot.snapshotVersion())
+        boolean legacy = "agent-task-snapshot-v1".equals(snapshot.snapshotVersion());
+        boolean current = "agent-task-snapshot-v2".equals(snapshot.snapshotVersion());
+        if ((!legacy && !current) || (current && snapshot.executionSettings() == null)
+                || (legacy && snapshot.executionSettings() != null)
                 || !"agent-decision-json-v1".equals(snapshot.runtime().decisionProtocolVersion())
-                || !"agent-runtime-rules-v1".equals(snapshot.runtime().promptRulesVersion())
+                || !TaskPromptBuilder.supportsVersion(snapshot.runtime().promptRulesVersion())
                 || !"openai-compatible-default".equals(model.profileCode())
                 || !Long.toString(request.agentId()).equals(agent.agentId())
                 || !"ACTIVE".equals(agent.status()) || agent.systemPrompt() == null || agent.systemPrompt().isBlank()
@@ -411,6 +447,18 @@ public final class TaskSnapshotAgentExecutor {
                 || model.provider() == null || model.provider().isBlank() || model.model() == null || model.model().isBlank()
                 || model.contextWindow() < 1 || model.temperature() == null || model.topP() == null) {
             throw new TaskExecutionAbort("AGENT_INVALID_SNAPSHOT", "Frozen task configuration is unsupported");
+        }
+        if (current) {
+            var settings = snapshot.executionSettings();
+            if (settings.finalMaxOutputTokens() < request.finalTokenReserve()
+                    || settings.finalMaxOutputTokens() > 16384
+                    || settings.decisionMaxOutputTokens() < 1 || settings.decisionMaxOutputTokens() > 16384
+                    || settings.modelCallTimeoutSeconds() < 1 || settings.modelCallTimeoutSeconds() > 600
+                    || !Set.of("PROMPT_ONLY", "JSON_OBJECT", "JSON_SCHEMA").contains(settings.decisionResponseFormat())
+                    || !Set.of("PROVIDER_DEFAULT", "DISABLED").contains(settings.thinkingMode())
+                    || !"agent-execution-policy-v1".equals(settings.policyVersion())) {
+                throw new TaskExecutionAbort("AGENT_INVALID_SNAPSHOT", "Frozen execution settings are unsupported");
+            }
         }
         var retrieval = snapshot.retrieval();
         if (retrieval.topK() < 1 || retrieval.topK() > 100 || retrieval.similarityThreshold() == null
@@ -486,6 +534,17 @@ public final class TaskSnapshotAgentExecutor {
 
     private static TaskExecutionAbort asAbort(RuntimeException ex, String fallbackCode, String fallbackMessage) {
         if (ex instanceof TaskExecutionAbort abort) return abort;
+        if (ex instanceof LlmGatewayException failure) {
+            return switch (failure.failureType()) {
+                case OUTPUT_LIMIT -> new TaskExecutionAbort("AGENT_LLM_OUTPUT_LIMIT",
+                        "Model reached its output limit before completing a response");
+                case EMPTY_RESPONSE -> new TaskExecutionAbort("AGENT_LLM_EMPTY_RESPONSE",
+                        "Model returned no usable response content");
+                case TIMEOUT -> new TaskExecutionAbort("AGENT_LLM_TIMEOUT", "Model call exceeded its time limit");
+                case PROVIDER_REJECTED -> new TaskExecutionAbort("AGENT_LLM_REJECTED", "Model service rejected the request");
+                default -> new TaskExecutionAbort(fallbackCode, fallbackMessage);
+            };
+        }
         if (ex instanceof com.agentflow.common.error.BusinessException business) {
             return new TaskExecutionAbort(business.getErrorCode().getCode(), "Task tool validation or execution failed");
         }
@@ -513,6 +572,7 @@ public final class TaskSnapshotAgentExecutor {
 
     private final class State {
         private final TaskExecutionRequest request;
+        private final ResolvedAgentExecutionSettings settings;
         private LlmResponseSchema decisionResponseSchema;
         private ExecutionRecorder recorder;
         private StepHandle activeStep;
@@ -526,7 +586,10 @@ public final class TaskSnapshotAgentExecutor {
         private final Map<String, Integer> duplicateCounts = new HashMap<>();
         private final Map<String, ObjectNode> cachedObservations = new HashMap<>();
 
-        State(TaskExecutionRequest request) { this.request = request; }
+        State(TaskExecutionRequest request) {
+            this.request = request;
+            this.settings = request.executionSnapshot().executionSettings();
+        }
         void boundary() {
             if (request.cancellationProbe().isCancellationRequested()) {
                 throw new TaskExecutionAbort("TASK_CANCELLED", "Task cancellation was requested");

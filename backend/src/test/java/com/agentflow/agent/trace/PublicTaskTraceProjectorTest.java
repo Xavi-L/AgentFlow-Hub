@@ -22,6 +22,24 @@ class PublicTaskTraceProjectorTest {
     private final PublicTaskTraceProjector traces = new PublicTaskTraceProjector(objectMapper, payloads);
 
     @Test
+    void exposesFrozenExecutionSettingsWithoutInventingLegacyValuesOrLeakingUnknownFields() {
+        JsonNode projected = traces.executionSnapshot("""
+                {"snapshotVersion":"agent-task-snapshot-v2","executionSettings":{
+                  "policyVersion":"agent-execution-policy-v1","decisionMaxOutputTokens":2048,
+                  "finalMaxOutputTokens":2000,"decisionResponseFormat":"JSON_OBJECT",
+                  "thinkingMode":"DISABLED","modelCallTimeoutSeconds":120,
+                  "endpoint":"http://private","sources":{"decisionMaxOutputTokens":"AGENT_OVERRIDE",
+                    "modelCallTimeoutSeconds":"DEPLOYMENT_DEFAULT","secret":"private"}}}
+                """);
+        assertThat(projected.path("executionSettings").path("modelCallTimeoutSeconds").asInt()).isEqualTo(120);
+        assertThat(projected.path("executionSettings").path("sources").path("decisionMaxOutputTokens").asText())
+                .isEqualTo("AGENT_OVERRIDE");
+        assertThat(projected.toString()).doesNotContain("private", "endpoint", "secret");
+        assertThat(traces.executionSnapshot("{\"snapshotVersion\":\"agent-task-snapshot-v1\"}")
+                .has("executionSettings")).isFalse();
+    }
+
+    @Test
     void shouldMaskNestedSecretsAndStringifyBusinessIdsWithoutChangingUsageCounters() {
         JsonNode result = payloads.parse("""
                 {"stepId":9007199254740993,"chunk_id":9007199254740994,"documentIdSnapshot":91,

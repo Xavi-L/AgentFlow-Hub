@@ -23,7 +23,12 @@ public final class CreateAgentAppRequestDeserializer extends StdDeserializer<Cre
             "maxSteps",
             "maxToolCalls",
             "maxTokens",
-            "timeoutSeconds"
+            "timeoutSeconds",
+            "decisionMaxOutputTokens",
+            "finalMaxOutputTokens",
+            "decisionResponseFormat",
+            "thinkingMode",
+            "modelCallTimeoutSeconds"
     );
 
     public CreateAgentAppRequestDeserializer() {
@@ -62,7 +67,12 @@ public final class CreateAgentAppRequestDeserializer extends StdDeserializer<Cre
                 optionalInteger(body, "maxSteps", parser),
                 optionalInteger(body, "maxToolCalls", parser),
                 optionalInteger(body, "maxTokens", parser),
-                optionalInteger(body, "timeoutSeconds", parser)
+                optionalInteger(body, "timeoutSeconds", parser),
+                optionalInteger(body, "decisionMaxOutputTokens", parser),
+                optionalInteger(body, "finalMaxOutputTokens", parser),
+                optionalText(body, "decisionResponseFormat", parser),
+                optionalText(body, "thinkingMode", parser),
+                optionalInteger(body, "modelCallTimeoutSeconds", parser)
         );
     }
 

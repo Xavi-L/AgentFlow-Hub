@@ -14,15 +14,20 @@ final class TaskExternalCallDeadline {
     private TaskExternalCallDeadline() { }
 
     static <T> T call(Callable<T> action, Instant deadline, Clock clock, Runnable boundary) {
+        return call(action, deadline, clock, boundary, "TASK_TIMED_OUT", "Task deadline was exceeded");
+    }
+
+    static <T> T call(Callable<T> action, Instant deadline, Clock clock, Runnable boundary,
+            String timeoutCode, String timeoutMessage) {
         long allowedNanos = Duration.between(clock.instant(), deadline).toNanos();
-        if (allowedNanos <= 0) throw timedOut();
+        if (allowedNanos <= 0) throw new TaskExecutionAbort(timeoutCode, timeoutMessage);
         long started = System.nanoTime();
         FutureTask<T> pending = new FutureTask<>(action);
         Thread.ofVirtual().name("agent-task-external-call").start(pending);
         try {
             while (true) {
                 long remaining = allowedNanos - (System.nanoTime() - started);
-                if (remaining <= 0) throw timedOut();
+                if (remaining <= 0) throw new TaskExecutionAbort(timeoutCode, timeoutMessage);
                 try {
                     // On a normal return the caller must first account measured usage, then
                     // check cancellation. During a blocked call inspect its boundary promptly.
@@ -44,7 +49,4 @@ final class TaskExternalCallDeadline {
         }
     }
 
-    private static TaskExecutionAbort timedOut() {
-        return new TaskExecutionAbort("TASK_TIMED_OUT", "Task deadline was exceeded");
-    }
 }

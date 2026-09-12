@@ -31,6 +31,11 @@ public interface AgentAppMapper extends BaseMapper<AgentApp> {
                    max_tool_calls,
                    max_tokens,
                    timeout_seconds,
+                   decision_max_output_tokens,
+                   final_max_output_tokens,
+                   decision_response_format,
+                   thinking_mode,
+                   model_call_timeout_seconds,
                    status,
                    created_at,
                    updated_at
@@ -61,6 +66,11 @@ public interface AgentAppMapper extends BaseMapper<AgentApp> {
                    max_tool_calls,
                    max_tokens,
                    timeout_seconds,
+                   decision_max_output_tokens,
+                   final_max_output_tokens,
+                   decision_response_format,
+                   thinking_mode,
+                   model_call_timeout_seconds,
                    status,
                    created_at,
                    updated_at
@@ -82,7 +92,8 @@ public interface AgentAppMapper extends BaseMapper<AgentApp> {
     @Select("""
             SELECT id, name, description, system_prompt, model_provider, model_name,
                    temperature, top_p, max_steps, max_tool_calls, max_tokens,
-                   timeout_seconds, status, created_at, updated_at
+                   timeout_seconds, decision_max_output_tokens, final_max_output_tokens, decision_response_format, thinking_mode, model_call_timeout_seconds,
+                   status, created_at, updated_at
             FROM agent_app
             WHERE id = #{agentId}
               AND user_id = #{userId}
@@ -108,6 +119,11 @@ public interface AgentAppMapper extends BaseMapper<AgentApp> {
                 max_tool_calls = #{agent.maxToolCalls},
                 max_tokens = #{agent.maxTokens},
                 timeout_seconds = #{agent.timeoutSeconds},
+                decision_max_output_tokens = #{agent.decisionMaxOutputTokens,jdbcType=INTEGER},
+                final_max_output_tokens = #{agent.finalMaxOutputTokens,jdbcType=INTEGER},
+                decision_response_format = #{agent.decisionResponseFormat,jdbcType=VARCHAR},
+                thinking_mode = #{agent.thinkingMode,jdbcType=VARCHAR},
+                model_call_timeout_seconds = #{agent.modelCallTimeoutSeconds,jdbcType=INTEGER},
                 updated_at = #{agent.updatedAt}
             WHERE id = #{agentId}
               AND user_id = #{userId}

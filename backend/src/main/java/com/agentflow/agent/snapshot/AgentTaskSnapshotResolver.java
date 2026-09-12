@@ -7,8 +7,10 @@ import com.agentflow.agent.binding.model.BoundToolDefinitionRow;
 import com.agentflow.agent.binding.model.ReadyDocumentGenerationRow;
 import com.agentflow.agent.binding.repository.AgentKnowledgeBindingMapper;
 import com.agentflow.agent.binding.repository.AgentToolBindingMapper;
+import com.agentflow.agent.engine.TaskPromptBuilder;
 import com.agentflow.agent.model.AgentApp;
 import com.agentflow.agent.repository.AgentAppMapper;
+import com.agentflow.agent.settings.AgentExecutionSettingsPolicy;
 import com.agentflow.agent.snapshot.AgentTaskExecutionSnapshot.AgentSnapshot;
 import com.agentflow.agent.snapshot.AgentTaskExecutionSnapshot.ChatModelSnapshot;
 import com.agentflow.agent.snapshot.AgentTaskExecutionSnapshot.DocumentGenerationSnapshot;
@@ -37,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,7 +50,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class AgentTaskSnapshotResolver {
-    public static final String SNAPSHOT_VERSION = "agent-task-snapshot-v1";
+    public static final String SNAPSHOT_VERSION = "agent-task-snapshot-v2";
     public static final String CHUNK_STRATEGY_VERSION = KnowledgeReadConfiguration.CHUNK_STRATEGY_VERSION;
     public static final String EMBEDDING_PROFILE_CODE = KnowledgeReadConfiguration.EMBEDDING_PROFILE_CODE;
     public static final String CHAT_PROFILE_CODE = "openai-compatible-default";
@@ -62,13 +65,27 @@ public class AgentTaskSnapshotResolver {
     private final AgentToolBindingMapper toolBindingMapper;
     private final ObjectMapper objectMapper;
     private final String applicationRevision;
+    private final AgentExecutionSettingsPolicy executionSettingsPolicy;
 
     public AgentTaskSnapshotResolver(
             AgentAppMapper agentAppMapper,
             AgentKnowledgeBindingMapper knowledgeBindingMapper,
             AgentToolBindingMapper toolBindingMapper,
             ObjectMapper objectMapper,
-            @Value("${agentflow.runtime.application-revision:development}") String applicationRevision
+            String applicationRevision
+    ) {
+        this(agentAppMapper, knowledgeBindingMapper, toolBindingMapper, objectMapper,
+                applicationRevision, AgentExecutionSettingsPolicy.defaults());
+    }
+
+    @Autowired
+    public AgentTaskSnapshotResolver(
+            AgentAppMapper agentAppMapper,
+            AgentKnowledgeBindingMapper knowledgeBindingMapper,
+            AgentToolBindingMapper toolBindingMapper,
+            ObjectMapper objectMapper,
+            @Value("${agentflow.runtime.application-revision:development}") String applicationRevision,
+            AgentExecutionSettingsPolicy executionSettingsPolicy
     ) {
         this.agentAppMapper = Objects.requireNonNull(agentAppMapper, "agentAppMapper must not be null");
         this.knowledgeBindingMapper = Objects.requireNonNull(
@@ -77,6 +94,7 @@ public class AgentTaskSnapshotResolver {
         );
         this.toolBindingMapper = Objects.requireNonNull(toolBindingMapper, "toolBindingMapper must not be null");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
+        this.executionSettingsPolicy = Objects.requireNonNull(executionSettingsPolicy, "executionSettingsPolicy");
         this.applicationRevision = applicationRevision == null || applicationRevision.isBlank()
                 ? "development"
                 : applicationRevision.trim();
@@ -103,12 +121,13 @@ public class AgentTaskSnapshotResolver {
                 agentSnapshot,
                 new RuntimeSnapshot(
                         "agent-decision-json-v1",
-                        "agent-runtime-rules-v1",
+                        TaskPromptBuilder.CURRENT_RULES_VERSION,
                         applicationRevision
                 ),
                 chatModel,
                 retrieval,
-                tools
+                tools,
+                executionSettingsPolicy.resolve(agent)
         );
     }
 

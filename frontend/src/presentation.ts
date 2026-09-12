@@ -17,3 +17,15 @@ export function timestamp(value: unknown) {
 }
 export function pretty(value: unknown) { return JSON.stringify(value, (_, v) => typeof v === 'bigint' ? v.toString() : v, 2) }
 export function message(error: unknown) { return error instanceof Error ? error.message : '请求失败，请稍后重试。' }
+
+const modelFailures: Record<string, string> = {
+  AGENT_LLM_OUTPUT_LIMIT: '模型达到输出上限，未生成完整有效内容。请在 Agent 高级设置中检查对应的决策或最终回答输出上限，并核对任务总预算与超时。',
+  AGENT_LLM_EMPTY_RESPONSE: '模型未返回有效内容。请检查模型兼容性、思考策略和输出上限。',
+  AGENT_LLM_TIMEOUT: '模型调用超时。请检查单次模型调用超时、任务总超时及模型服务状态。',
+  AGENT_LLM_REJECTED: '模型服务拒绝了请求。请检查模型名称、输出格式和思考策略是否受支持，并查看 Trace 中的诊断。',
+  AGENT_INVALID_DECISION: '模型返回的决策不符合要求。请检查决策输出格式与模型兼容性，并查看 Trace 中的响应。',
+}
+/** Present actionable guidance without altering the stored public error code or evidence. */
+export function taskFailureMessage(code: string, original?: string | null): string {
+  return modelFailures[code] || original || '任务执行失败，请查看 Trace。'
+}

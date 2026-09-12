@@ -112,6 +112,8 @@ curl --fail-with-body http://127.0.0.1:8080/api/v1/auth/register \
 1. 登录后进入知识库页，创建知识库，上传 TXT/MD；显式执行解析、向量化，等到服务端返回
    `retrievalReadiness=READY`。上传成功或 `COMPLETED` 本身不足以证明可检索。
 2. 在 Agent 页创建 Agent，填写与已配置 Chat 服务匹配的 `openai-compatible` 模型、提示词和预算。
+   展开“高级执行设置”可调整决策/最终输出上限、决策格式、思考策略和单次模型超时；留空继承部署默认。
+   页面展示平台限制与最终回答预留，格式和思考选项取决于部署的模型能力白名单，详见[高级设置契约](slice-docs/51_AGENT_ADVANCED_SETTINGS_PACKAGE_INTERFACE.md)。
    配置、知识库绑定、工具绑定分别保存，选择 READY 知识库和 `order_query`、`payment_log_query`，启用 Agent。
 3. 从 Agent 详情进入运行页，提交“帮我分析 order_1024 支付失败的原因，并给出处理建议。”。
    按需要准备支付诊断文档，并要求模型结合两个工具结果和文档回答；工具查询的是库内演示数据。
@@ -130,7 +132,7 @@ bash scripts/v46-browser-acceptance.sh
 bash scripts/v48-failure-recovery-acceptance.sh --case F01_JSON
 ```
 
-V46 入口包含 V43/V45/V46 的 19 个受控浏览器回归；最后一条是 V48 单例诊断，
+V46 入口当前包含 V43/V45/V46、绑定上限与高级设置的 23 个受控浏览器回归；最后一条是 V48 单例诊断，
 完整 22 例矩阵使用 `bash scripts/v48-failure-recovery-acceptance.sh`。
 这些入口使用真实浏览器、JWT、PostgreSQL 与执行链路，模型/embedding/vector 及指定故障受控。
 它们默认创建新的临时库和证据目录，完成后清理进程、保留证据，不使用开发业务库。

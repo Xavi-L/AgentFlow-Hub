@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { agentApi, defaultAgentDraft, buildAgentConfig, validateAgentDraft, type AgentDraft, type AgentSummary } from '../lib/agent-api'
+import { agentApi, restoreAgentDraft, buildAgentConfig, type AgentDraft, type AgentSummary } from '../lib/agent-api'
+import { useAgentExecutionOptions } from '../lib/agent-execution-options'
 import { agentDrafts, agentMutation } from '../lib/agent-requests'
 import { requestScope } from '../lib/knowledge-requests'
 import type { Page } from '../lib/types'
@@ -10,7 +11,8 @@ import AgentWriteResult from '../components/AgentWriteResult.vue'
 
 const router = useRouter(), scope = requestScope(), drafts = agentDrafts('new')
 const mutation = agentMutation(scope, 'new', 'create')
-const draft = reactive<AgentDraft>(drafts.get<AgentDraft>('config') || defaultAgentDraft())
+const draft = reactive<AgentDraft>(restoreAgentDraft(drafts.get<AgentDraft>('config')))
+const execution = useAgentExecutionOptions(draft)
 watch(draft, value => drafts.set('config', value), { flush: 'sync' })
 const result = ref<Page<AgentSummary>>(), index = ref(1), loading = ref(false), error = ref('')
 async function refresh(page = index.value) {
@@ -20,7 +22,7 @@ async function refresh(page = index.value) {
   finally { if (flight.current()) loading.value = false }
 }
 async function create() {
-  mutation.state.error = validateAgentDraft(draft)
+  mutation.state.error = execution.validate(draft)
   if (mutation.state.error) return
   const config = buildAgentConfig(draft)
   const value = await mutation.run('创建 Agent', config, signal => agentApi.create(config, signal))
@@ -44,7 +46,7 @@ void refresh()
   <div class="page-heading"><div><p class="eyebrow">AGENTS / 执行配置</p><h1>Agent</h1><p class="muted">配置任务行为，绑定知识库与业务工具。</p></div><button class="secondary" @click="refresh()">刷新列表</button></div>
   <div class="agent-list-grid">
     <section class="panel composer" data-testid="agent-config"><p class="section-label">01 / 新的 Agent</p><h2>创建 Agent</h2>
-      <form @submit.prevent="create"><AgentConfigurationForm :draft="draft" :disabled="mutation.state.busy" /><button class="primary wide" :disabled="mutation.state.busy || !!mutation.unknown()">{{ mutation.state.busy ? '正在创建…' : '创建 Agent →' }}</button></form>
+      <form @submit.prevent="create"><AgentConfigurationForm :draft="draft" :execution="execution.state" @retry-options="execution.reload" :disabled="mutation.state.busy" /><button class="primary wide" :disabled="mutation.state.busy || !!mutation.unknown() || execution.state.loading">{{ mutation.state.busy ? '正在创建…' : '创建 Agent →' }}</button></form>
       <AgentWriteResult :mutation="mutation" section="create" create @readback="readback" />
     </section>
     <section class="panel composer" data-testid="agent-list" aria-label="Agent 列表" :aria-busy="loading">

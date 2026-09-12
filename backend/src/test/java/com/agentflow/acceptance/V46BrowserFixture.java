@@ -1,12 +1,18 @@
 package com.agentflow.acceptance;
 
 import com.agentflow.AgentFlowApplication;
+import com.agentflow.infra.llm.LlmGateway;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.Map;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
+import org.springframework.core.env.MapPropertySource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -19,11 +25,46 @@ public final class V46BrowserFixture {
                 "jdbc:postgresql://127\\.0\\.0\\.1:[0-9]+/agentflow_v43_browser")) {
             throw new IllegalArgumentException("V46 fixture requires the disposable loopback browser database");
         }
-        SpringApplication.run(new Class<?>[] {AgentFlowApplication.class, ControlledProviders.class}, args);
+        SpringApplication application = new SpringApplication(AgentFlowApplication.class, ControlledProviders.class);
+        // These are verified only against this controlled gateway. Unknown model names stay closed.
+        application.addInitializers(context -> context.getEnvironment().getPropertySources().addFirst(
+                new MapPropertySource("v46-controlled-model-capabilities", Map.of(
+                "agentflow.agent.execution-policy.json-object-models", "v43-controlled-model",
+                "agentflow.agent.execution-policy.json-schema-models", "v43-controlled-model",
+                "agentflow.agent.execution-policy.thinking-disabled-models", "v43-controlled-model"))));
+        application.run(args);
     }
 
     @TestConfiguration(proxyBeanMethods = false)
     public static class ControlledProviders extends V45BrowserFixture.ControlledProviders {
+        @Bean @Primary @Override
+        public LlmGateway browserLlm(ObjectMapper json) {
+            LlmGateway controlled = super.browserLlm(json);
+            Object requestLogLock = new Object();
+            return request -> {
+                try {
+                    var payload = json.readTree(request.messages().getLast().content());
+                    if (payload.path("userTask").asText().startsWith("Advanced settings freeze ")) {
+                        var record = json.createObjectNode()
+                                .put("userTask", payload.path("userTask").asText())
+                                .put("phase", payload.has("answerPlan") ? "FINAL" : "DECISION")
+                                .put("maxOutputTokens", request.maxOutputTokens())
+                                .put("timeoutSeconds", request.timeoutSeconds())
+                                .put("responseFormat", request.responseFormat())
+                                .put("thinkingMode", request.thinkingMode())
+                                .put("responseSchemaName", request.responseSchema() == null ? null : request.responseSchema().name());
+                        synchronized (requestLogLock) {
+                            Files.writeString(Path.of(System.getProperty("v43.control-dir")).resolve("advanced-llm-requests"),
+                                    record + "\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        }
+                    }
+                } catch (java.io.IOException error) {
+                    throw new IllegalStateException("Advanced settings controlled request recording failed", error);
+                }
+                return controlled.chat(request);
+            };
+        }
+
         @Bean @Override
         public ApplicationRunner seedBrowserFixture(JdbcTemplate jdbc, PasswordEncoder encoder) {
             return args -> {
