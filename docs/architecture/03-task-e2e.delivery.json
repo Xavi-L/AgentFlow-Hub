@@ -6,12 +6,12 @@
   "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/03-task-e2e.workflow.json",
   "output": "/Users/xavier/AgentFlow-Hub/docs/architecture/03-task-e2e.html",
   "specification": {
-    "sha256": "f7644a03c9f232546e0587a16fc0eeb2596c835bf28254f4067a3fce1cfbb366",
-    "bytes": 7161
+    "sha256": "6407631ade299c25dd362054024889372a1ec93e91bc0b87163263025dc96812",
+    "bytes": 6793
   },
   "artifact": {
-    "sha256": "fa0817b55ea07f2efa4481d5f16d87b5ab21093ea08ffd93f60fe411242cb5cc",
-    "bytes": 818082
+    "sha256": "cc7d1242ad84286dc7216536270393b26779a0cdf82d5a7a1770341862a701c7",
+    "bytes": 815273
   },
   "validation": {
     "checksPassed": 9,

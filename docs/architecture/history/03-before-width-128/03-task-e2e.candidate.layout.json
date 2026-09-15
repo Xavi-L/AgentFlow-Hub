@@ -1,0 +1,406 @@
+{
+  "contract": "readable-v2",
+  "viewBox": [
+    1326,
+    534
+  ],
+  "requiredViewBox": [
+    1326,
+    534
+  ],
+  "columns": [
+    123,
+    319.8,
+    555,
+    771,
+    977.4,
+    1227
+  ],
+  "nodes": [
+    {
+      "id": "wf-submit",
+      "lane": "wf-browser",
+      "col": 0,
+      "x": 48,
+      "y": 86,
+      "width": 150,
+      "height": 68
+    },
+    {
+      "id": "wf-observe",
+      "lane": "wf-browser",
+      "col": 5,
+      "x": 1152,
+      "y": 86,
+      "width": 150,
+      "height": 68
+    },
+    {
+      "id": "wf-gate",
+      "lane": "wf-services",
+      "col": 0,
+      "x": 48,
+      "y": 212,
+      "width": 150,
+      "height": 68
+    },
+    {
+      "id": "wf-persist",
+      "lane": "wf-services",
+      "col": 1,
+      "x": 244.8,
+      "y": 212,
+      "width": 150,
+      "height": 68
+    },
+    {
+      "id": "wf-tool",
+      "lane": "wf-services",
+      "col": 4,
+      "x": 902.4,
+      "y": 212,
+      "width": 150,
+      "height": 68
+    },
+    {
+      "id": "wf-settle",
+      "lane": "wf-services",
+      "col": 5,
+      "x": 1152,
+      "y": 212,
+      "width": 150,
+      "height": 68
+    },
+    {
+      "id": "wf-dispatch",
+      "lane": "wf-worker",
+      "col": 1,
+      "x": 244.8,
+      "y": 338,
+      "width": 150,
+      "height": 68
+    },
+    {
+      "id": "wf-claim",
+      "lane": "wf-worker",
+      "col": 2,
+      "x": 480,
+      "y": 338,
+      "width": 150,
+      "height": 68
+    },
+    {
+      "id": "wf-rag",
+      "lane": "wf-worker",
+      "col": 3,
+      "x": 696,
+      "y": 338,
+      "width": 150,
+      "height": 68
+    },
+    {
+      "id": "wf-decision",
+      "lane": "wf-worker",
+      "col": 4,
+      "x": 902.4,
+      "y": 338,
+      "width": 150,
+      "height": 68
+    },
+    {
+      "id": "wf-final",
+      "lane": "wf-worker",
+      "col": 5,
+      "x": 1152,
+      "y": 338,
+      "width": 150,
+      "height": 68
+    }
+  ],
+  "edges": [
+    {
+      "id": "wf-claim-rag",
+      "from": "wf-claim",
+      "to": "wf-rag",
+      "points": [
+        [
+          630,
+          372
+        ],
+        [
+          696,
+          372
+        ]
+      ]
+    },
+    {
+      "id": "wf-decision-final",
+      "from": "wf-decision",
+      "to": "wf-final",
+      "points": [
+        [
+          1052.4,
+          372
+        ],
+        [
+          1152,
+          372
+        ]
+      ]
+    },
+    {
+      "id": "wf-decision-tool",
+      "from": "wf-decision",
+      "to": "wf-tool",
+      "points": [
+        [
+          977.4,
+          338
+        ],
+        [
+          977.4,
+          280
+        ]
+      ]
+    },
+    {
+      "id": "wf-dispatch-claim",
+      "from": "wf-dispatch",
+      "to": "wf-claim",
+      "points": [
+        [
+          394.8,
+          372
+        ],
+        [
+          480,
+          372
+        ]
+      ]
+    },
+    {
+      "id": "wf-final-settle",
+      "from": "wf-final",
+      "to": "wf-settle",
+      "points": [
+        [
+          1227,
+          338
+        ],
+        [
+          1227,
+          280
+        ]
+      ]
+    },
+    {
+      "id": "wf-gate-persist",
+      "from": "wf-gate",
+      "to": "wf-persist",
+      "points": [
+        [
+          198,
+          246
+        ],
+        [
+          244.8,
+          246
+        ]
+      ]
+    },
+    {
+      "id": "wf-persist-dispatch",
+      "from": "wf-persist",
+      "to": "wf-dispatch",
+      "points": [
+        [
+          319.8,
+          280
+        ],
+        [
+          319.8,
+          338
+        ]
+      ]
+    },
+    {
+      "id": "wf-rag-decision",
+      "from": "wf-rag",
+      "to": "wf-decision",
+      "points": [
+        [
+          771,
+          406
+        ],
+        [
+          771,
+          422
+        ],
+        [
+          977.4,
+          422
+        ],
+        [
+          977.4,
+          406
+        ]
+      ]
+    },
+    {
+      "id": "wf-settle-observe",
+      "from": "wf-settle",
+      "to": "wf-observe",
+      "points": [
+        [
+          1227,
+          212
+        ],
+        [
+          1227,
+          154
+        ]
+      ]
+    },
+    {
+      "id": "wf-submit-gate",
+      "from": "wf-submit",
+      "to": "wf-gate",
+      "points": [
+        [
+          48,
+          120
+        ],
+        [
+          32,
+          120
+        ],
+        [
+          32,
+          300
+        ],
+        [
+          123,
+          300
+        ],
+        [
+          123,
+          280
+        ]
+      ]
+    },
+    {
+      "id": "wf-tool-decision",
+      "from": "wf-tool",
+      "to": "wf-decision",
+      "points": [
+        [
+          902.4,
+          246
+        ],
+        [
+          886.4,
+          246
+        ],
+        [
+          886.4,
+          365
+        ],
+        [
+          902.4,
+          365
+        ]
+      ]
+    }
+  ],
+  "labels": [
+    {
+      "edge": "wf-claim-rag",
+      "label": "claim 成功",
+      "x": 663,
+      "y": 362,
+      "width": 58,
+      "height": 14
+    },
+    {
+      "edge": "wf-decision-final",
+      "label": "FINISH / 次数上限",
+      "x": 1102.2,
+      "y": 362,
+      "width": 91.6,
+      "height": 14
+    },
+    {
+      "edge": "wf-decision-tool",
+      "label": "CALL_TOOL",
+      "x": 977.4,
+      "y": 328,
+      "width": 53.199999999999996,
+      "height": 14
+    },
+    {
+      "edge": "wf-dispatch-claim",
+      "label": "async · worker",
+      "x": 437.4,
+      "y": 362,
+      "width": 77.2,
+      "height": 14
+    },
+    {
+      "edge": "wf-final-settle",
+      "label": "返回 outcome",
+      "x": 1227,
+      "y": 328,
+      "width": 67.6,
+      "height": 14
+    },
+    {
+      "edge": "wf-gate-persist",
+      "label": "新请求",
+      "x": 221.4,
+      "y": 236,
+      "width": 38.8,
+      "height": 14
+    },
+    {
+      "edge": "wf-persist-dispatch",
+      "label": "提交后",
+      "x": 319.8,
+      "y": 310,
+      "width": 38.8,
+      "height": 14
+    },
+    {
+      "edge": "wf-rag-decision",
+      "label": "RAG 结果",
+      "x": 874.2,
+      "y": 412,
+      "width": 48.4,
+      "height": 14
+    },
+    {
+      "edge": "wf-settle-observe",
+      "label": "commit 后 · 持久回读",
+      "x": 1227,
+      "y": 202,
+      "width": 106,
+      "height": 14
+    },
+    {
+      "edge": "wf-submit-gate",
+      "label": "HTTP POST · JWT",
+      "x": 77.5,
+      "y": 290,
+      "width": 82,
+      "height": 14
+    },
+    {
+      "edge": "wf-tool-decision",
+      "label": "observation 回环",
+      "x": 886.4,
+      "y": 295.5,
+      "width": 86.8,
+      "height": 14
+    }
+  ],
+  "diagnostics": []
+}

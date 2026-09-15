@@ -28,7 +28,7 @@
       "type": "frontend",
       "label": "提交任务",
       "sublabel": "Bearer · 幂等 key",
-      "width": 128,
+      "width": 150,
       "height": 68
     },
     {
@@ -38,7 +38,7 @@
       "type": "security",
       "label": "认证 / 幂等门禁",
       "sublabel": "owner · admission · 查重",
-      "width": 128,
+      "width": 150,
       "height": 68
     },
     {
@@ -48,7 +48,7 @@
       "type": "database",
       "label": "快照与任务创建",
       "sublabel": "短事务 · QUEUED",
-      "width": 128,
+      "width": 150,
       "height": 68
     },
     {
@@ -58,7 +58,7 @@
       "type": "messagebus",
       "label": "after-commit 派发",
       "sublabel": "本地有界 executor",
-      "width": 128,
+      "width": 150,
       "height": 68
     },
     {
@@ -68,7 +68,7 @@
       "type": "security",
       "label": "条件 claim",
       "sublabel": "RUNNING · TASK_STARTED",
-      "width": 128,
+      "width": 150,
       "height": 68
     },
     {
@@ -78,7 +78,7 @@
       "type": "backend",
       "label": "前置冻结 RAG",
       "sublabel": "remote HTTP → canonical",
-      "width": 128,
+      "width": 150,
       "height": 68
     },
     {
@@ -88,7 +88,7 @@
       "type": "backend",
       "label": "决策 / 预算门禁",
       "sublabel": "DECISION · Chat HTTP",
-      "width": 128,
+      "width": 150,
       "height": 68
     },
     {
@@ -98,7 +98,7 @@
       "type": "backend",
       "label": "独立最终生成",
       "sublabel": "Chat HTTP · 引用校验",
-      "width": 128,
+      "width": 150,
       "height": 68
     },
     {
@@ -108,7 +108,7 @@
       "type": "backend",
       "label": "冻结工具调用",
       "sublabel": "校验 · handler · 审计",
-      "width": 128,
+      "width": 150,
       "height": 68
     },
     {
@@ -118,7 +118,7 @@
       "type": "database",
       "label": "Runner 终态提交",
       "sublabel": "取消仲裁 · 成功原子发布",
-      "width": 128,
+      "width": 150,
       "height": 68
     },
     {
@@ -128,7 +128,7 @@
       "type": "frontend",
       "label": "终态核对与展示",
       "sublabel": "GET task + Trace 一致",
-      "width": 128,
+      "width": 150,
       "height": 68
     }
   ],

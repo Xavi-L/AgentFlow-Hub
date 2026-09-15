@@ -1,22 +1,37 @@
 {
   "schemaVersion": 1,
   "evidenceKind": "image-capable-review",
-  "status": "fail",
-  "visual_review": "failed",
+  "status": "pass",
+  "visual_review": "passed",
   "correction_rounds": 1,
+  "correctionRoundScope": "This authorized width-repair cycle: one 150px -> 128px node-width change; no edits after successful validation. Earlier failed cycles remain in history.",
   "artifact": {
     "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/03-task-e2e.html",
-    "sha256": "fa0817b55ea07f2efa4481d5f16d87b5ab21093ea08ffd93f60fe411242cb5cc",
-    "bytes": 818082
+    "sha256": "cc7d1242ad84286dc7216536270393b26779a0cdf82d5a7a1770341862a701c7",
+    "bytes": 815273
   },
-  "scope": "READ + Still; reviewed first delivery at 1440x900 light and 2048x1320 dark. Compact candidate failed validation and was never delivered or browser-reviewed.",
+  "scope": "Actual automated screenshots inspected at 1440x900 light/dark and 2048x1320 light/dark; default classic preset, READ + Still. Four exact desktop sizes were measured by the separate automated browser command.",
   "screenshots": [
     "03-task-e2e.visual-check.1440x900.light.png",
+    "03-task-e2e.visual-check.1440x900.dark.png",
+    "03-task-e2e.visual-check.2048x1320.light.png",
     "03-task-e2e.visual-check.2048x1320.dark.png"
   ],
   "observations": [
-    "1440×900 下主图下部、工具节点及说明卡未能完整进入首屏。",
-    "2048×1320 下主图可见，但说明卡位于屏幕下方，仍有纵向溢出。",
-    "三泳道修正候选未通过工具回环路由校验；停止修正，保留失败回执。"
-  ]
+    "四张实际截图中，三泳道、全部节点、图例、导航工具条和三张说明卡均完整可见；无截断或横纵溢出。",
+    "主路径的创建、commit 后派发、worker 执行、终态提交与 Browser 核对可顺序追踪，工具回环以虚线区分。",
+    "observation 回环标签位于两条 JVM 泳道之间，RAG 结果路径位于 worker 泳道下方；没有看到标签覆盖其他关系或节点。",
+    "明暗主题下标题、节点、关系标签、卡片内容可辨认，节点文字保持在框内；最大视口主图与说明卡占据主要高度，没有明显的空白下半屏。",
+    "默认截图中没有残留的 focus/search/passport 浮层遮挡主图，截图画面无裁切或调试内容。"
+  ],
+  "limitations": [
+    "This is diagram artifact review, not business runtime/provider E2E evidence.",
+    "Supplementary interactive focus/search/passport/export checks were not performed: opening the local HTML in In-app Browser was blocked by its URL policy. Screenshot review covers default READ + Still state."
+  ],
+  "supplementaryInteractionReview": {
+    "status": "blocked_by_browser_url_policy",
+    "action": "Open exact delivered local HTML in In-app Browser for additional interaction review.",
+    "outcome": "Local file URL blocked; no workaround attempted.",
+    "automatedBrowserEvidenceUnaffected": true
+  }
 }

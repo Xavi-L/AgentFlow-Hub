@@ -2,7 +2,7 @@
 
 ## Scope and baseline
 
-已依次完成 **01 · System Context** 与 **02 · Backend Runtime Architecture**，均为 `architecture`。本轮施工 **03 · End-to-End Task Workflow**（workflow v2），目前因首版首屏溢出及当前修正候选的 desktop-readability 未通过而**未完成**。图 04–15 与最终独立 Architecture Audit 尚未施工。
+已依次完成 **01 · System Context**、**02 · Backend Runtime Architecture**（均为 `architecture`）及 **03 · End-to-End Task Workflow**（`workflow` v2）。图 03 当前交付的 artifact、browser evidence 与截图 visual review 均通过，旧失败记录保留为历史。图 04–15 与最终独立 Architecture Audit 尚未施工。
 
 - 图 01 交付日期：2026-09-14；图 02 于 2026-09-14 开始检查、2026-09-15 完成交付（Asia/Shanghai）。
 - 本地分支：`main`；HEAD：`ba04adc5308222635e6eb1a86a0981da8ede408c`（`docs: add Archify architecture atlas construction guide`）。未 fetch、未改变 Git 基线；此处指施工时本地 main。
@@ -17,7 +17,7 @@
 | --- | --- | --- | --- | --- |
 | 01 | System Context | architecture | 用户、浏览器前端、后端与哪些存储和外部服务交互？ | 完成：validate / deliver / browser / visual review 通过 |
 | 02 | Backend Runtime Architecture | architecture | Spring Boot 后端内部的主要运行时模块如何分工和连接？ | 完成：validate / deliver / browser / visual review 通过 |
-| 03 | End-to-End Task Workflow | workflow v2 | 提交 task 后，创建到最终答案如何推进，关键 gate 在哪里？ | **未完成**：首版 browser / visual review 失败；当前候选 artifact checks 9/9，但 showcase composition 有 1 项 desktop-readability error |
+| 03 | End-to-End Task Workflow | workflow v2 | 提交 task 后，创建到最终答案如何推进，关键 gate 在哪里？ | 完成：showcase validate / deliver 9/9，0 errors / 0 warnings；四尺寸 browser / 明暗截图 visual review 通过 |
 
 ## Evidence convention
 
@@ -425,17 +425,19 @@ node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/02-ba
 
 ## 图 03 Evidence index
 
-- **Diagram:** 03 · End-to-End Task Workflow（**未完成**）
+- **Diagram:** 03 · End-to-End Task Workflow（**完成**，2026-09-15 Asia/Hong_Kong）。
 - **Question:** 用户提交一个 Agent task 后，从创建到最终答案，完整 happy path 如何推进，关键 gate 在哪里？
 - **Type:** `workflow` / schema v2 / showcase。
 - **Primary path:** submit → auth/owner/admission/idempotency → config/snapshot → task + event 提交 → after-commit → executor claim → 前置 RAG → decision/tool loop → 独立 final → settlement → Browser 终态核对。
-- **Key nodes:** 首版 12 个节点，6 条职责泳道；工具为支路，11 个主路径节点。修正候选将同一创建事务内的 snapshot/persistence 合并为 11 个节点、3 条泳道；当前 artifact checks 9/9，showcase desktop-readability 未通过。
-- **Key evidence:** 下列逐边生产代码索引及工作记录。workflow 工具不支持 architecture 的 repository-evidence 核验；源码语义由本次读取确认，不声称工具自动验证。
-- **Unknowns:** 本轮未执行后端/数据库/provider/浏览器业务 E2E；成功率、真实环境 Bean/配置、远程取消与完整恢复策略未知。本文 HTML 的 Chrome 检查只测制图产物。
-- **JSON:** [首版 source](03-task-e2e.workflow.json)，与首版 HTML 回执字节一致；[未交付的修正候选](03-task-e2e.candidate.workflow.json)。
-- **HTML:** [首版 HTML](03-task-e2e.html)，仅供查看；存在桌面纵向溢出，**不是已完成交付**。
-- **Validation:** [首版 validate](03-task-e2e.validation.json) 9/9 / 0 errors / 0 warnings；[首版 deliver](03-task-e2e.delivery.json) 成功；[修正候选 validate](03-task-e2e.candidate.validation.json) 非零失败。
-- **Visual check:** [浏览器回执](03-task-e2e.visual-check.json) `fail`；[截图索引](03-task-e2e.visual-check.html)；[图像复核](03-task-e2e.visual-review.json) `failed` / `correction_rounds: 1`；[未完成状态记录](03-task-e2e.incomplete.json)。
+- **Key nodes:** 11 个节点、3 条 compact 泳道；工具为支路，10 个主路径节点；同一创建事务内的 snapshot/persistence 聚合为一个节点。
+- **Key evidence:** 下列逐边生产代码索引及施工记录；源码语义为静态证据，workflow 工具不支持 architecture 专用 repository-evidence 核验。
+- **Unknowns:** 未执行后端/数据库/provider 业务 E2E；真实成功率、远程取消、实际部署配置仍 UNKNOWN。浏览器验收只针对本张制图 HTML。
+- **JSON / HTML:** [正式 source](03-task-e2e.workflow.json) 与 [冻结 candidate](03-task-e2e.candidate.workflow.json) 字节相同；[当前正式 HTML](03-task-e2e.html)。
+- **Artifact validation:** [candidate validate](03-task-e2e.candidate.validation.json)、[正式 validate](03-task-e2e.validation.json)、[deliver](03-task-e2e.delivery.json) 均 exit 0 / showcase 9/9 / 0 errors / 0 warnings。
+- **Browser evidence:** [visual-check](03-task-e2e.visual-check.json) `pass`，四个 desktop viewport containment / readability / Viewer 均通过；[四张截图索引](03-task-e2e.visual-check.html)。
+- **Visual review:** [实际图像复核](03-task-e2e.visual-review.json) `passed`，已查看 1440×900 与 2048×1320 的 light/dark 四张截图；补充交互访问被本地文件 URL 策略阻止，未声明交互动作验收通过。
+- **Layout / fonts:** [最终 layout](03-task-e2e.candidate.layout.json)、[基线与当前测量](03-task-e2e.layout-measurements.json)、[全部 11 个节点与 22 个实际 SVG text 字号](03-task-e2e.text-fit.json)。
+- **Current acceptance / history:** [当前验收状态](03-task-e2e.acceptance.json) `complete`；[缩宽前失败基线](history/03-before-width-128/README.md)、[更早路由诊断和首版浏览器失败产物](history/03-before-supported-auto/README.md)。
 
 ### 逐边证据（首版稳定 ID）
 
@@ -456,7 +458,7 @@ node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/02-ba
 | `wf-final-settle` / 最终生成 → Runner settlement | Engine 返回 outcome；Runner 冻结 observedAt/deadline 仲裁，再同步进入 settlement 的独立短事务。 | [TaskSnapshotAgentExecutor](../../backend/src/main/java/com/agentflow/agent/engine/TaskSnapshotAgentExecutor.java) L157 `execute` → [TaskRunner](../../backend/src/main/java/com/agentflow/agent/task/execution/TaskRunner.java) L89 `run` → [TaskSettlementService](../../backend/src/main/java/com/agentflow/agent/task/execution/TaskSettlementService.java) L46 `settle` → [AgentTaskLifecycleTransactionService](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskLifecycleTransactionService.java) L152 `settleObserved` | outcome 不等于已持久终态。事务重新读取/锁定 task，持久取消可覆盖成功；成功时 finalAnswer、citations、全部 ANSWER_CHUNK 与 TASK_COMPLETED 原子提交。 | CODE_CONFIRMED |
 | `wf-settle-observe` / 成功提交 → Browser 终态核对 | 提交后的持久事实通过 GET Trace / SSE 回读；终态由 GET task + Trace 一致性确认，跨 HTTP 返回 Browser。 | [TaskEventQueryService](../../backend/src/main/java/com/agentflow/agent/task/service/TaskEventQueryService.java) L48 `findOwnedBatch` → [TaskSseService](../../backend/src/main/java/com/agentflow/agent/task/sse/TaskSseService.java) L59 `open`；[runtime.ts](../../frontend/src/stores/runtime.ts) L95 `settle` / L147 pump / L195 open | 观察侧只读。创建响应后已可 GET Trace + 订阅 SSE；本边只表达最终事实可见性，不表示到 settlement 后才建立连接。SSE EOF/断线不驱动执行。 | CODE_CONFIRMED |
 
-修正候选的 `wf-gate-persist` 合并首版 `wf-gate-snapshot` 与 `wf-snapshot-persist` 的职责；其余边沿用相同事实，候选不是已验证的新实现。泳道为职责聚合，实际线程/事务边界以节点、关系和本表为准。
+当前交付的 `wf-gate-persist` 合并首版 `wf-gate-snapshot` 与 `wf-snapshot-persist` 的职责；其余边沿用相同事实。制图验收通过不等同于新增或实测了业务实现。泳道为职责聚合，实际线程/事务边界以节点、关系和本表为准。
 
 ### 事务、Trace 与观察补充
 
@@ -485,7 +487,7 @@ node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/02-ba
 | SSE observation | 图 02 只读事件回读与图 03 的 GET/Trace/SSE 一致；Browser 不调用 Runner，重连不创建/恢复执行。 |
 | restart recovery | 图 03 不画重启重跑；完整 recovery 留待相应图，不声称已完成独立 Audit。 |
 
-## 图 03 未完成记录
+## 图 03 历史未完成记录（已归档）
 
 - 首版 source / HTML 已按文档文件名保存，validate 9/9 与 deliver 成功；浏览器首屏检查失败。为防止候选与旧 HTML 混淆，主 source 已恢复为成功 deliver 的精确字节，修正候选另存。
 - Chrome 检查实际运行并获得四尺寸测量，均为纵向溢出；不是环境 unavailable/skipped。实际查看了 1440×900 light 和 2048×1320 dark 两张截图，底部工具/说明卡未完整进入首屏，视觉复核失败。未声称其他截图已人工复核。
@@ -506,20 +508,20 @@ node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/02-ba
 | 1920×1080 | 1920×1463 | fail / pass / pass |
 | 2048×1320 | 2048×1488 | fail / pass / pass |
 
-### 完成标准状态
+### 图 03 当前完成标准状态
 
 - [x] 单一问题、workflow v2、证据先行；真实主链路、gate、边界与未知项已记录。
-- [x] 首版 JSON / HTML 保存，首版 validate / deliver 通过，逐边索引补齐。
-- [ ] 桌面首屏 containment 与视觉复核通过（当前失败）。
-- [ ] 紧凑修正候选 validate / deliver 通过（当前 artifact checks 9/9，showcase desktop-readability 未通过，未交付）。
-- [ ] 图 03 完成。
+- [x] 当前正式 JSON / HTML 保存，逐边索引补齐，旧失败证据归档。
+- [x] 四尺寸桌面首屏 containment / readability 与明暗截图视觉复核通过。
+- [x] 紧凑候选及正式 source validate / deliver 9/9 showcase，0 errors / 0 warnings。
+- [x] 图 03 完成；独立业务 runtime E2E 不在本张制图验收范围。
 - [x] **未开始图 04–15，未生成最终独立 ARCHITECTURE_AUDIT.md。**
 
 ### 图 03 限定修复记录：显式 left ports
 
 用户重新授权以 compact 三泳道 candidate 为唯一候选，仅修复 `wf-tool-decision`。本轮只为该 edge 增加 `fromSide: left` 与 `toSide: left`，已逐字段核对其他 node、edge、lane、card、mainPath 和 semanticChecks 完全不变。
 
-执行 `validate workflow docs/architecture/03-task-e2e.candidate.workflow.json --quality showcase --json`，exit **1**；新回执保存于 [candidate.validation.json](03-task-e2e.candidate.validation.json)。诊断仍为 `workflow/route-preset-conflict`，但 evidence 已确认为 **left → left**，route points 为 `(902.4,246) → (874.4,246) → (874.4,372) → (902.4,372)`，`supportedFixes` 为空。因此只修复自动 ports 选择尚不足以通过；本轮不推测未由该回执指出的更具体原因。
+执行 `validate workflow docs/architecture/03-task-e2e.candidate.workflow.json --quality showcase --json`，exit **1**；新回执保存于 [candidate.validation.json](history/03-earlier-route-attempts/left-ports.validation.json)。诊断仍为 `workflow/route-preset-conflict`，但 evidence 已确认为 **left → left**，route points 为 `(902.4,246) → (874.4,246) → (874.4,372) → (902.4,372)`，`supportedFixes` 为空。因此只修复自动 ports 选择尚不足以通过；本轮不推测未由该回执指出的更具体原因。
 
 按用户要求在此停止；未运行 `--layout-json`，未替换正式 JSON，未 deliver，未 visual-check / visual review，未手改 HTML，未开始图 04。正式首版 source/HTML 及既有浏览器失败证据保持原样；图 03 仍未完成。未完成记录中的 candidate 字节身份已更新为本轮候选。
 
@@ -527,7 +529,7 @@ node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/02-ba
 
 以当前 compact 三泳道 candidate 为唯一候选，仅为 `wf-rag-decision` 增加 `route: bottom-channel`。未增加 fromSide/toSide/channelY/via/labelAt，`wf-tool-decision` 的 return-left + left/left 及其他全部图定义保持不变；已与施工前 JSON 逐字段核对。
 
-执行用户指定的 showcase validate，exit **1**，stage `render`；完整回执保存于 [candidate.validation.json](03-task-e2e.candidate.validation.json)。本轮 causal diagnostic：
+执行用户指定的 showcase validate，exit **1**，stage `render`；完整回执保存于 [candidate.validation.json](history/03-earlier-route-attempts/rag-bottom-channel.validation.json)。本轮 causal diagnostic：
 
 - code：`workflow/route-preset-conflict`。
 - subject：workflow / `wf-tool-decision` / `wf-tool → wf-decision` / `return-left`。
@@ -544,7 +546,7 @@ node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/02-ba
 
 2026-09-15（Asia/Hong_Kong），用户重新授权一次逻辑修复及 compiler predicate 诊断。唯一候选仍为 compact 三泳道 candidate；只删除 `wf-rag-decision.route: bottom-channel` 以恢复自动路由，并为 `wf-tool-decision` 增加 `labelSegment: 1`。return-left + left/left 保留；其他 edge 字段、lanes、nodes、尺寸、mainPath、semanticChecks、cards 均与施工前一致。
 
-执行 `node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/03-task-e2e.candidate.workflow.json --quality showcase --json`，exit **1** / stage `render`，完整新回执保存于 [candidate.validation.json](03-task-e2e.candidate.validation.json)。code 为 `workflow/route-preset-conflict`；subject 为 workflow / `wf-tool-decision` / `wf-tool → wf-decision` / `return-left`。
+执行 `node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/03-task-e2e.candidate.workflow.json --quality showcase --json`，exit **1** / stage `render`，完整新回执保存于 [candidate.validation.json](history/03-before-supported-auto/03-task-e2e.candidate.validation.json)。code 为 `workflow/route-preset-conflict`；subject 为 workflow / `wf-tool-decision` / `wf-tool → wf-decision` / `return-left`。
 
 materialized points 为 `(902.4,246) → (874.4,246) → (874.4,372) → (902.4,372)`，chosen ports 为 left → left，段长 `28 / 126 / 28 px`；满足 endpoint stub ≥ 8px、interior turn ≥ 16px，preset topology 也通过。`labelSegment: 1` 得到 label point `(874.4,299)`，标签矩形为 `x=831, y=289, width=86.8, height=14`。这是失败候选在 feasibility 检查处的实际几何，不是成功交付的最终 layout。
 
@@ -574,7 +576,7 @@ materialized points 为 `(902.4,246) → (874.4,246) → (874.4,372) → (902.4,
 
 2026-09-15（Asia/Hong_Kong），基于 `c10ee75` 的候选，按上一轮 CLI `supportedFixes` 仅删除 `wf-tool-decision.route: return-left`；from/to、label、role、variant、left/left ports、`labelSegment: 1` 及所有其他图字段保持不变，已与修改前 JSON 深比较、Git 单行 diff 核对。未进行第二项布局调整。
 
-本轮使用当前安装的原 CLI `.agents/skills/archify/bin/archify.mjs` 执行用户指定的 `validate workflow … --quality showcase --json`。Skill metadata 为 `2.17`，package 为 `2.17.0-dev.1`；本轮未修改 Skill、未使用 instrumentation，compiler 与上一轮诊断前保存的原文件字节一致。完整回执为 [当前 validation](03-task-e2e.candidate.validation.json)，实际命令及退出码保存在 [acceptance](03-task-e2e.acceptance.json)。
+本轮使用当前安装的原 CLI `.agents/skills/archify/bin/archify.mjs` 执行用户指定的 `validate workflow … --quality showcase --json`。Skill metadata 为 `2.17`，package 为 `2.17.0-dev.1`；本轮未修改 Skill、未使用 instrumentation，compiler 与上一轮诊断前保存的原文件字节一致。完整回执为 [当前 validation](history/03-before-width-128/03-task-e2e.candidate.validation.json)，实际命令及退出码保存在 [acceptance](history/03-before-width-128/03-task-e2e.acceptance.json)。
 
 **实际结果：exit 1，stage check。9 项 artifact checks 全部通过，但 showcase composition 为 fail，errors = 1、warnings = 0。** properCrossings = 0、ambiguousCorridors = 0、labelRouteClearanceIssues = 0，最小 label-route clearance = 37px。上一轮路由冲突已不再阻塞；这些通过项不能替代完整 showcase 接受，也不是浏览器证据。
 
@@ -589,3 +591,60 @@ materialized points 为 `(902.4,246) → (874.4,246) → (874.4,372) → (902.4,
 旧失败回执、旧候选、探针和首版浏览器产物已按原字节保存在 [历史目录说明](history/03-before-supported-auto/README.md)。原 [predicate 文件](03-task-e2e.candidate.predicates.json) 保持不变，仅描述旧 return-left 候选，不能当作本轮自动路由的证据；本轮未沿用其路径或标签坐标。正式 source / HTML 和首版 browser / visual review 回执未更改，首版失败状态仍有效。
 
 按本轮失败分支停止：未运行 layout-json，未替换正式 JSON、deliver、visual-check 或 visual review，未修改业务代码或验证标准。图 03 仍为 incomplete；未开始图 04。
+
+### 图 03 完成记录：统一节点宽度 128px
+
+2026-09-15（Asia/Hong_Kong），从 `fbf5442` 基线继续，只把 11 个节点的 width 从 150 改为 128，height 保持 68。深比较确认所有节点 id/lane/col/type/label/sublabel、edges、cards、mainPath、semanticChecks 与 showcase 均不变；未设置 meta.viewBox。`wf-tool-decision` 保持无 route 字段、left/left、labelSegment 1；`wf-rag-decision` 保持自动路由。未修改业务代码、Skill renderer/checker、字号或质量门槛。
+
+修改前已原字节归档 candidate、失败 validation、acceptance、incomplete；额外执行 layout-json 诊断，exit 0，但没有把这项成功冒充完整 showcase 通过。缩宽后完整 validate 与 layout-json 均 exit 0；成功后冻结 candidate，原样复制正式 source，再执行正式 validate / deliver，全部 exit 0。实际命令及退出码均记在 [acceptance](03-task-e2e.acceptance.json)。
+
+| 布局量 | width 150 基线 | width 128 交付 |
+| --- | --- | --- |
+| viewBox / requiredViewBox | 1326×534 / 1326×534 | 1194×534 / 1194×534 |
+| columns | 123, 319.8, 555, 771, 977.4, 1227 | 112, 286.8, 500, 694, 878.4, 1106 |
+| 最右侧节点边界 | 1302 | 1170 |
+| lane 右边界 | 1310 | 1178 |
+| 最小节点字号（标题 / 副标题） | 11 / 8px | 11 / 8px，全部 11 节点一致 |
+| 930px 保守阅读宽度下最小 projected text | 5.61086px | 6.23116px ≥ 6px |
+
+最右侧内容贡献者是 col5 的 `wf-observe`、`wf-settle`、`wf-final`。实际宽度减少 **132px = 6 个逻辑 rank × 22px**；相邻 rank 节点净距保持 `46.8 / 85.2 / 66 / 56.4 / 99.6px`。节点右侧到 lane 边框 8px，lane 到画布右缘 16px；1194px 比 1240px 上限留出 **46px** 余量。这是内容边界随节点尺寸收缩，非填写小 viewBox 裁切。所有节点矩形如下，完整原版 CLI 测量另存 layout JSON。
+
+| Node | 基线 x / y / w / h | 当前 x / y / w / h |
+| --- | --- | --- |
+| `wf-submit` | 48 / 86 / 150 / 68 | 48 / 86 / 128 / 68 |
+| `wf-observe` | 1152 / 86 / 150 / 68 | 1042 / 86 / 128 / 68 |
+| `wf-gate` | 48 / 212 / 150 / 68 | 48 / 212 / 128 / 68 |
+| `wf-persist` | 244.8 / 212 / 150 / 68 | 222.8 / 212 / 128 / 68 |
+| `wf-tool` | 902.4 / 212 / 150 / 68 | 814.4 / 212 / 128 / 68 |
+| `wf-settle` | 1152 / 212 / 150 / 68 | 1042 / 212 / 128 / 68 |
+| `wf-dispatch` | 244.8 / 338 / 150 / 68 | 222.8 / 338 / 128 / 68 |
+| `wf-claim` | 480 / 338 / 150 / 68 | 436 / 338 / 128 / 68 |
+| `wf-rag` | 696 / 338 / 150 / 68 | 630 / 338 / 128 / 68 |
+| `wf-decision` | 902.4 / 338 / 150 / 68 | 814.4 / 338 / 128 / 68 |
+| `wf-final` | 1152 / 338 / 150 / 68 | 1042 / 338 / 128 / 68 |
+
+当前原版 `fittedNodeFontSize` 使用 `floor(min(preferred, (width−8)/(textUnits×0.6))×10)/10` 并受 minimum 下限约束。逐节点调用原版函数确认 128px 未触发任何标题/副标题降字号，且已从 deliver 后实际 SVG 提取全部 **22 个 node text** 再核对：11 个标题都是 11px，11 个副标题都是 8px。checker 的成功回执中 `minProjectedNodeTextPx: null` 表示没有记录失败项，不据此虚构数值；6.23116px 是基于全部实际源字号和 930/1194 的独立计算，浏览器实际记录见下表。
+
+最终自动 feedback points 为 `(814.4,246) → (798.4,246) → (798.4,365) → (814.4,365)`；`labelSegment: 1` 的实际 label point 是 `(798.4,295.5)`，label mask 为 `(755,285.5,86.8,14)`。当前 RAG 自动路径为 `(694,406) → (694,422) → (878.4,422) → (878.4,406)`，其 label point 是 `(786.2,412)`。没有沿用旧 return-left 标签位置。artifact metrics 确认 properCrossings = 0、ambiguousCorridors = 0、labelRouteClearanceIssues = 0、最小 label-route clearance = 36.6px；节点/标签/语义检查均通过。
+
+#### 当前三个验收层
+
+- **Artifact validation: passed。** candidate 与正式 source validate 均为 showcase 9/9、0 errors、0 warnings；deliver 成功，正式 source 与冻结 candidate 字节一致。
+- **Browser evidence: passed。** 原版 visual-check exit 0，绑定本次新 HTML；默认 READ + Still，四尺寸 light 测量、1440×900 和 2048×1320 light/dark 截图覆盖完整。
+- **Visual review: passed。** 实际查看上述四张截图，主路径/回环可追踪，RAG 与 feedback 标签分离，节点文字未溢出，三张说明卡与图例完整进入首屏；最大视口没有明显空白下半屏。本轮 correction_rounds = 1，仅指这次授权的宽度修复，此前失败轮次保留为历史。
+
+| Viewport | scrollWidth × scrollHeight | 实际最小节点文本 | Containment / readability / Viewer |
+| --- | --- | --- | --- |
+| 1440×900 | 1440×900 | 8px | pass / pass / pass |
+| 1600×1000 | 1600×1000 | 8px | pass / pass / pass |
+| 1920×1080 | 1920×1080 | 8px | pass / pass / pass |
+| 2048×1320 | 2048×1320 | 8px | pass / pass / pass |
+
+补充交互复核尝试通过 In-app Browser 打开本地正式 HTML，被浏览器本地文件 URL 策略阻止；未绕过策略或改用间接访问。该补充项没有执行 search/focus/passport/export 动作，不记为这些动作通过。已完成的原版 Chrome 四尺寸自动测量和四张实际截图复核是独立证据，不受此限制影响；视觉判断限于默认阅读画面。
+
+| 本次 deliver 身份 | SHA-256 | Bytes |
+| --- | --- | --- |
+| specification | `6407631ade299c25dd362054024889372a1ec93e91bc0b87163263025dc96812` | 6793 |
+| artifact | `cc7d1242ad84286dc7216536270393b26779a0cdf82d5a7a1770341862a701c7` | 815273 |
+
+旧失败回执与 probe 均保留；过时的主目录 incomplete 标记已移入历史，当前状态由 acceptance 表示。没有手改已交付 HTML；没有开始图 04，也未生成最终独立 Architecture Audit。

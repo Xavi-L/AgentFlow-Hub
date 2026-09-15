@@ -1,7 +1,8 @@
 {
   "schemaVersion": 1,
-  "status": "incomplete",
-  "history": "history/03-before-supported-auto",
+  "status": "complete",
+  "history": "history/03-before-width-128",
+  "scope": "All 11 node widths 150 -> 128; every other source field unchanged.",
   "commands": [
     {
       "command": [
@@ -14,41 +15,99 @@
         "showcase",
         "--json"
       ],
-      "exitCode": 1,
+      "exitCode": 0,
       "receipt": "03-task-e2e.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        ".agents/skills/archify/bin/archify.mjs",
+        "validate",
+        "workflow",
+        "docs/architecture/03-task-e2e.candidate.workflow.json",
+        "--quality",
+        "showcase",
+        "--layout-json"
+      ],
+      "exitCode": 0,
+      "receipt": "03-task-e2e.candidate.layout.json",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        ".agents/skills/archify/bin/archify.mjs",
+        "validate",
+        "workflow",
+        "docs/architecture/03-task-e2e.workflow.json",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "exitCode": 0,
+      "receipt": "03-task-e2e.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        ".agents/skills/archify/bin/archify.mjs",
+        "deliver",
+        "workflow",
+        "docs/architecture/03-task-e2e.workflow.json",
+        "docs/architecture/03-task-e2e.html",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "exitCode": 0,
+      "receipt": "03-task-e2e.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        ".agents/skills/archify/bin/archify.mjs",
+        "visual-check",
+        "docs/architecture/03-task-e2e.html",
+        "--json"
+      ],
+      "exitCode": 0,
+      "receipt": "03-task-e2e.visual-check.json",
       "stderr": ""
     }
   ],
-  "browserEvidence": "not_run",
-  "visualReview": "not_run",
+  "browserEvidence": "passed",
+  "visualReview": "passed",
   "nextDiagramStarted": false,
-  "candidate": {
-    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/03-task-e2e.candidate.workflow.json",
-    "sha256": "a5819223a6371655160504fe6558b9be2d2f8061f7830bd39ccb8d008a0cc40a",
-    "bytes": 6793
-  },
+  "formalSourceReplaced": true,
+  "delivered": true,
   "artifactValidation": {
-    "status": "failed",
+    "status": "passed",
     "checksPassed": 9,
     "checkCount": 9,
     "compositionProfile": "showcase",
-    "compositionStatus": "fail",
-    "errors": 1,
+    "compositionStatus": "pass",
+    "errors": 0,
     "warnings": 0
   },
-  "scopeVerification": {
-    "onlyChange": "Deleted wf-tool-decision.route; every other diagram field unchanged.",
-    "passed": true
+  "specification": {
+    "sha256": "6407631ade299c25dd362054024889372a1ec93e91bc0b87163263025dc96812",
+    "bytes": 6793
   },
-  "skillVerification": {
-    "skillMetadataVersion": "2.17",
-    "packageVersion": "2.17.0-dev.1",
-    "cli": ".agents/skills/archify/bin/archify.mjs",
-    "skillModifiedThisRound": false,
-    "compilerMatchesPreviousOriginalSnapshot": true,
-    "temporaryInstrumentationUsed": false
+  "artifact": {
+    "sha256": "cc7d1242ad84286dc7216536270393b26779a0cdf82d5a7a1770341862a701c7",
+    "bytes": 815273
   },
-  "layoutJsonRun": false,
-  "formalSourceReplaced": false,
-  "delivered": false
+  "visualReviewReceipt": "03-task-e2e.visual-review.json",
+  "layoutMeasurements": "03-task-e2e.layout-measurements.json",
+  "textFitEvidence": "03-task-e2e.text-fit.json",
+  "candidateMatchesFormalSource": true,
+  "layoutJsonRun": true,
+  "correctionRounds": 1,
+  "historicalFailureRecords": [
+    "history/03-before-supported-auto",
+    "history/03-before-width-128"
+  ]
 }

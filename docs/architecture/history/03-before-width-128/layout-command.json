@@ -1,0 +1,14 @@
+{
+  "command": [
+    "node",
+    ".agents/skills/archify/bin/archify.mjs",
+    "validate",
+    "workflow",
+    "docs/architecture/03-task-e2e.candidate.workflow.json",
+    "--quality",
+    "showcase",
+    "--layout-json"
+  ],
+  "exitCode": 0,
+  "stderr": ""
+}
