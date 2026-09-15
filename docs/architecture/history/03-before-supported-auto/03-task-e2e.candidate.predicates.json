@@ -1,0 +1,375 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "temporary-compiler-predicate-probe",
+  "compilerOk": false,
+  "diagnostics": [
+    {
+      "code": "workflow/route-preset-conflict",
+      "severity": "error",
+      "message": "Workflow edge \"wf-tool-decision\" cannot satisfy route preset \"return-left\" under readable-v2 constraints (minimum 8px endpoint stubs, 16px interior turns, and 28px direct clearance).",
+      "subject": {
+        "diagramType": "workflow",
+        "edge": "wf-tool-decision",
+        "from": "wf-tool",
+        "to": "wf-decision",
+        "route": "return-left"
+      },
+      "evidence": {
+        "attemptedCandidateFamily": "return-left",
+        "points": [
+          [
+            902.4,
+            246
+          ],
+          [
+            874.4,
+            246
+          ],
+          [
+            874.4,
+            372
+          ],
+          [
+            902.4,
+            372
+          ]
+        ],
+        "fromSide": "left",
+        "toSide": "left",
+        "requiredEndpointStubPx": 8,
+        "requiredInteriorSegmentPx": 16,
+        "requiredDirectClearancePx": 28
+      },
+      "supportedFixes": [
+        "remove route from edge \"wf-tool-decision\" so readable-v2 can use its verified automatic candidate"
+      ]
+    }
+  ],
+  "probe": {
+    "edgeId": "wf-tool-decision",
+    "route": "return-left",
+    "fromSide": "left",
+    "toSide": "left",
+    "labelSegment": 1,
+    "points": [
+      [
+        902.4,
+        246
+      ],
+      [
+        874.4,
+        246
+      ],
+      [
+        874.4,
+        372
+      ],
+      [
+        902.4,
+        372
+      ]
+    ],
+    "labelPoint": [
+      874.4,
+      299
+    ],
+    "labelRect": {
+      "x": 831,
+      "y": 289,
+      "width": 86.8,
+      "height": 14
+    },
+    "predicates": {
+      "orthogonalRoute": true,
+      "routeHonorsEndpointSides": true,
+      "routeMeetsHardRhythm": true,
+      "routeClearsEndpointNodes": true,
+      "routeClearsUnrelatedNodes": true,
+      "routeLabelClearsNodes": true,
+      "routeClearsPlacedLabels": false,
+      "routeClearsLegend": true,
+      "routeClearsSceneLabelObstacles": true,
+      "routeClearsFrameBorders": true,
+      "routeFitsCanvasOrigin": true
+    },
+    "overallFeasible": false,
+    "presetTopologyMatches": true,
+    "nodeLabelOverlaps": [],
+    "unrelatedNodeIntersections": [],
+    "placedConflicts": [
+      {
+        "kind": "candidate-route-vs-placed-label",
+        "otherEdge": "wf-rag-decision",
+        "otherLabel": {
+          "x": 850,
+          "y": 352,
+          "width": 48.4,
+          "height": 14
+        },
+        "segmentIndex": 1,
+        "segment": {
+          "start": [
+            874.4,
+            246
+          ],
+          "end": [
+            874.4,
+            372
+          ]
+        },
+        "clearancePx": 0,
+        "requiredClearancePx": 4
+      }
+    ],
+    "sceneConflicts": [],
+    "borderRuns": [],
+    "fromNode": {
+      "id": "wf-tool",
+      "x": 902.4,
+      "y": 212,
+      "width": 150,
+      "height": 68
+    },
+    "toNode": {
+      "id": "wf-decision",
+      "x": 902.4,
+      "y": 338,
+      "width": 150,
+      "height": 68
+    },
+    "columns": [
+      123,
+      319.8,
+      555,
+      771,
+      977.4,
+      1227
+    ],
+    "placedEdges": [
+      {
+        "id": "wf-claim-rag",
+        "points": [
+          [
+            630,
+            372
+          ],
+          [
+            696,
+            372
+          ]
+        ],
+        "label": {
+          "x": 634,
+          "y": 352,
+          "width": 58,
+          "height": 14
+        }
+      },
+      {
+        "id": "wf-decision-final",
+        "points": [
+          [
+            1052.4,
+            372
+          ],
+          [
+            1152,
+            372
+          ]
+        ],
+        "label": {
+          "x": 1056.4,
+          "y": 352,
+          "width": 91.6,
+          "height": 14
+        }
+      },
+      {
+        "id": "wf-decision-tool",
+        "points": [
+          [
+            977.4,
+            338
+          ],
+          [
+            977.4,
+            280
+          ]
+        ],
+        "label": {
+          "x": 950.8,
+          "y": 318,
+          "width": 53.199999999999996,
+          "height": 14
+        }
+      },
+      {
+        "id": "wf-dispatch-claim",
+        "points": [
+          [
+            394.8,
+            372
+          ],
+          [
+            480,
+            372
+          ]
+        ],
+        "label": {
+          "x": 398.79999999999995,
+          "y": 352,
+          "width": 77.2,
+          "height": 14
+        }
+      },
+      {
+        "id": "wf-final-settle",
+        "points": [
+          [
+            1227,
+            338
+          ],
+          [
+            1227,
+            280
+          ]
+        ],
+        "label": {
+          "x": 1193.2,
+          "y": 318,
+          "width": 67.6,
+          "height": 14
+        }
+      },
+      {
+        "id": "wf-gate-persist",
+        "points": [
+          [
+            198,
+            246
+          ],
+          [
+            244.8,
+            246
+          ]
+        ],
+        "label": {
+          "x": 202,
+          "y": 226,
+          "width": 38.8,
+          "height": 14
+        }
+      },
+      {
+        "id": "wf-persist-dispatch",
+        "points": [
+          [
+            319.8,
+            280
+          ],
+          [
+            319.8,
+            338
+          ]
+        ],
+        "label": {
+          "x": 300.40000000000003,
+          "y": 300,
+          "width": 38.8,
+          "height": 14
+        }
+      },
+      {
+        "id": "wf-rag-decision",
+        "points": [
+          [
+            846,
+            372
+          ],
+          [
+            902.4,
+            372
+          ]
+        ],
+        "label": {
+          "x": 850,
+          "y": 352,
+          "width": 48.4,
+          "height": 14
+        }
+      },
+      {
+        "id": "wf-settle-observe",
+        "points": [
+          [
+            1227,
+            212
+          ],
+          [
+            1227,
+            154
+          ]
+        ],
+        "label": {
+          "x": 1174,
+          "y": 192,
+          "width": 106,
+          "height": 14
+        }
+      },
+      {
+        "id": "wf-submit-gate",
+        "points": [
+          [
+            48,
+            120
+          ],
+          [
+            32,
+            120
+          ],
+          [
+            32,
+            300
+          ],
+          [
+            123,
+            300
+          ],
+          [
+            123,
+            280
+          ]
+        ],
+        "label": {
+          "x": 36.5,
+          "y": 280,
+          "width": 82,
+          "height": 14
+        }
+      }
+    ]
+  },
+  "input": {
+    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/03-task-e2e.candidate.workflow.json",
+    "sha256": "90b7c24f91e7adeaf661c9f30bc0fd07c65f83c6fc83cb1586dea7637fcb6269",
+    "bytes": 6823
+  },
+  "qualityProfile": "showcase",
+  "validation": {
+    "receipt": "03-task-e2e.candidate.validation.json",
+    "exitCode": 1,
+    "stage": "render"
+  },
+  "instrumentation": {
+    "method": "Instrumented a temporary compiler copy under /tmp and imported the original dependencies; captured the first matching materialized return-left candidate immediately before the original feasibility check.",
+    "compilerSource": ".agents/skills/archify/renderers/workflow/workflow-compiler.mjs",
+    "compilerSourceUnchanged": true,
+    "entryPoint": "compileWorkflow({workflow, qualityProfile: \"showcase\"})",
+    "probeSite": "readablePresetVia, after normalizeRoutePoints and before readableCandidateIsFeasible",
+    "predicateEvaluation": "Called all eleven original predicates independently against the same points and current pathCache; routing and validation decisions were not changed.",
+    "scope": "Local compiler feasibility evidence only; no completed layout, delivery, browser check, or visual review.",
+    "probeExitCode": 0,
+    "probeExitCodeMeaning": "Diagnostic capture completed; compilerOk remains false."
+  }
+}

@@ -2,51 +2,136 @@
   "schemaVersion": 1,
   "ok": false,
   "command": "validate",
-  "stage": "render",
+  "stage": "check",
   "type": "workflow",
   "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/03-task-e2e.candidate.workflow.json",
-  "error": "Workflow edge \"wf-tool-decision\" cannot satisfy route preset \"return-left\" under readable-v2 constraints (minimum 8px endpoint stubs, 16px interior turns, and 28px direct clearance).",
+  "error": "Final artifact check failed.",
   "diagnostics": [
     {
-      "code": "workflow/route-preset-conflict",
+      "code": "composition/desktop-readability",
       "severity": "error",
-      "message": "Workflow edge \"wf-tool-decision\" cannot satisfy route preset \"return-left\" under readable-v2 constraints (minimum 8px endpoint stubs, 16px interior turns, and 28px direct clearance).",
+      "message": "Final artifact failed composition/desktop-readability.",
       "subject": {
-        "diagramType": "workflow",
-        "edge": "wf-tool-decision",
-        "from": "wf-tool",
-        "to": "wf-decision",
-        "route": "return-left"
+        "check": "composition"
       },
       "evidence": {
-        "attemptedCandidateFamily": "return-left",
-        "points": [
-          [
-            902.4,
-            246
-          ],
-          [
-            874.4,
-            246
-          ],
-          [
-            874.4,
-            372
-          ],
-          [
-            902.4,
-            372
-          ]
-        ],
-        "fromSide": "left",
-        "toSide": "left",
-        "requiredEndpointStubPx": 8,
-        "requiredInteriorSegmentPx": 16,
-        "requiredDirectClearancePx": 28
+        "viewportWidth": 1440,
+        "viewportHeight": 900,
+        "availableDiagramWidth": 930,
+        "viewBoxWidth": 1326,
+        "scale": 0.7013574660633484,
+        "text": "Bearer · 幂等 key",
+        "detail": "context",
+        "sourceFontPx": 8,
+        "projectedFontPx": 5.610859728506787,
+        "minimumProjectedFontPx": 6
       },
       "supportedFixes": [
-        "remove route from edge \"wf-tool-decision\" so readable-v2 can use its verified automatic candidate"
+        "reduce the viewBox width, shorten node copy, widen affected nodes, or split the diagram so node context remains at least 6px at a 1440px desktop viewport"
       ]
     }
-  ]
+  ],
+  "checker": {
+    "ok": false,
+    "file": "/Users/xavier/AgentFlow-Hub/docs/architecture/03-task-e2e.candidate.workflow.json",
+    "checks": [
+      {
+        "name": "single_svg",
+        "ok": true,
+        "details": [
+          "found 1 <svg> block(s)"
+        ]
+      },
+      {
+        "name": "finite_svg",
+        "ok": true,
+        "details": []
+      },
+      {
+        "name": "orthogonal_arrows",
+        "ok": true,
+        "details": []
+      },
+      {
+        "name": "label_route_clearance",
+        "ok": true,
+        "details": []
+      },
+      {
+        "name": "relationship_crossings",
+        "ok": true,
+        "details": []
+      },
+      {
+        "name": "relationship_corridors",
+        "ok": true,
+        "details": []
+      },
+      {
+        "name": "container_border_runs",
+        "ok": true,
+        "details": []
+      },
+      {
+        "name": "route_rhythm",
+        "ok": true,
+        "details": []
+      },
+      {
+        "name": "legend_clearance",
+        "ok": true,
+        "details": []
+      }
+    ],
+    "composition": {
+      "schemaVersion": 1,
+      "profile": "showcase",
+      "status": "fail",
+      "summary": {
+        "errors": 1,
+        "warnings": 0
+      },
+      "metrics": {
+        "properCrossings": 0,
+        "ambiguousCorridors": 0,
+        "containerBorderRuns": 0,
+        "labelRouteClearanceIssues": 0,
+        "minLabelRouteClearance": 37,
+        "desktopReadabilityIssues": 1,
+        "minProjectedNodeTextPx": 5.610859728506787,
+        "maxBends": 3,
+        "routesOverSuggestedBends": 1,
+        "maxStretch": 1.306,
+        "routesOverSuggestedStretch": 0,
+        "minSegmentPx": 16,
+        "minInteriorSegmentPx": 91,
+        "shortSegmentCount": 0,
+        "shortEndpointSegmentCount": 0,
+        "shortInteriorSegmentCount": 0,
+        "microSegmentCount": 0
+      },
+      "suggestedLimits": {
+        "bendsPerRelationship": 2,
+        "stretch": 1.35,
+        "segmentPx": 16,
+        "microSegmentPx": 8
+      },
+      "issues": [
+        {
+          "severity": "error",
+          "code": "composition/desktop-readability",
+          "viewportWidth": 1440,
+          "viewportHeight": 900,
+          "availableDiagramWidth": 930,
+          "viewBoxWidth": 1326,
+          "scale": 0.7013574660633484,
+          "text": "Bearer · 幂等 key",
+          "detail": "context",
+          "sourceFontPx": 8,
+          "projectedFontPx": 5.610859728506787,
+          "minimumProjectedFontPx": 6
+        }
+      ]
+    }
+  }
 }

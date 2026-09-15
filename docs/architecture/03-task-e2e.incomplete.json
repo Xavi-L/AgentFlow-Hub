@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "incomplete",
-  "reason": "Scoped labelSegment repair failed showcase validation; materialized return-left route intersects the previously placed RAG result label.",
+  "reason": "Automatic feedback routing passes all 9 artifact checks, but showcase composition fails desktop readability at 1440x900.",
   "deliveredSpecification": {
     "sha256": "f7644a03c9f232546e0587a16fc0eeb2596c835bf28254f4067a3fce1cfbb366",
     "bytes": 7161
@@ -14,117 +14,103 @@
   "visualReview": "failed",
   "candidate": {
     "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/03-task-e2e.candidate.workflow.json",
-    "sha256": "90b7c24f91e7adeaf661c9f30bc0fd07c65f83c6fc83cb1586dea7637fcb6269",
+    "sha256": "a5819223a6371655160504fe6558b9be2d2f8061f7830bd39ccb8d008a0cc40a",
     "validation": "03-task-e2e.candidate.validation.json",
     "delivered": false,
-    "predicateDiagnostics": "03-task-e2e.candidate.predicates.json"
+    "bytes": 6793
   },
   "unresolved": [
     "Delivered six-lane artifact overflows all four desktop viewports vertically.",
-    "Compact candidate wf-tool-decision fails routeClearsPlacedLabels: its vertical segment intersects the wf-rag-decision label rectangle (0px clearance; 4px required)."
+    "Compact candidate fails composition/desktop-readability: context text Bearer · 幂等 key projects to 5.610859728506787px at 1440x900; 6px required."
   ],
   "nextDiagramStarted": false,
   "latestAttempt": {
-    "scope": "Removed wf-rag-decision.route bottom-channel and added wf-tool-decision.labelSegment 1; return-left and left/left retained; all other diagram fields unchanged.",
+    "scope": "Only deleted wf-tool-decision.route return-left; kept left/left ports and labelSegment 1; every other diagram field unchanged.",
     "validationExitCode": 1,
-    "diagnosticCode": "workflow/route-preset-conflict",
+    "diagnosticCode": "composition/desktop-readability",
     "subject": {
-      "diagramType": "workflow",
-      "edge": "wf-tool-decision",
-      "from": "wf-tool",
-      "to": "wf-decision",
-      "route": "return-left"
+      "check": "composition"
     },
     "evidence": {
-      "attemptedCandidateFamily": "return-left",
-      "points": [
-        [
-          902.4,
-          246
-        ],
-        [
-          874.4,
-          246
-        ],
-        [
-          874.4,
-          372
-        ],
-        [
-          902.4,
-          372
-        ]
-      ],
-      "fromSide": "left",
-      "toSide": "left",
-      "requiredEndpointStubPx": 8,
-      "requiredInteriorSegmentPx": 16,
-      "requiredDirectClearancePx": 28
+      "viewportWidth": 1440,
+      "viewportHeight": 900,
+      "availableDiagramWidth": 930,
+      "viewBoxWidth": 1326,
+      "scale": 0.7013574660633484,
+      "text": "Bearer · 幂等 key",
+      "detail": "context",
+      "sourceFontPx": 8,
+      "projectedFontPx": 5.610859728506787,
+      "minimumProjectedFontPx": 6
     },
-    "segmentLengthsPx": [
-      28,
-      126,
-      28
-    ],
-    "labelSegment": 1,
-    "labelPoint": [
-      874.4,
-      299
-    ],
-    "labelRect": {
-      "x": 831,
-      "y": 289,
-      "width": 86.8,
-      "height": 14
-    },
-    "predicates": {
-      "orthogonalRoute": true,
-      "routeHonorsEndpointSides": true,
-      "routeMeetsHardRhythm": true,
-      "routeClearsEndpointNodes": true,
-      "routeClearsUnrelatedNodes": true,
-      "routeLabelClearsNodes": true,
-      "routeClearsPlacedLabels": false,
-      "routeClearsLegend": true,
-      "routeClearsSceneLabelObstacles": true,
-      "routeClearsFrameBorders": true,
-      "routeFitsCanvasOrigin": true
-    },
-    "predicateDiagnostics": "03-task-e2e.candidate.predicates.json",
-    "placedConflicts": [
-      {
-        "kind": "candidate-route-vs-placed-label",
-        "otherEdge": "wf-rag-decision",
-        "otherLabel": {
-          "x": 850,
-          "y": 352,
-          "width": 48.4,
-          "height": 14
-        },
-        "segmentIndex": 1,
-        "segment": {
-          "start": [
-            874.4,
-            246
-          ],
-          "end": [
-            874.4,
-            372
-          ]
-        },
-        "clearancePx": 0,
-        "requiredClearancePx": 4
-      }
-    ],
     "supportedFixes": [
-      "remove route from edge \"wf-tool-decision\" so readable-v2 can use its verified automatic candidate"
+      "reduce the viewBox width, shorten node copy, widen affected nodes, or split the diagram so node context remains at least 6px at a 1440px desktop viewport"
     ],
+    "artifactChecksPassed": 9,
+    "artifactCheckCount": 9,
+    "composition": {
+      "schemaVersion": 1,
+      "profile": "showcase",
+      "status": "fail",
+      "summary": {
+        "errors": 1,
+        "warnings": 0
+      },
+      "metrics": {
+        "properCrossings": 0,
+        "ambiguousCorridors": 0,
+        "containerBorderRuns": 0,
+        "labelRouteClearanceIssues": 0,
+        "minLabelRouteClearance": 37,
+        "desktopReadabilityIssues": 1,
+        "minProjectedNodeTextPx": 5.610859728506787,
+        "maxBends": 3,
+        "routesOverSuggestedBends": 1,
+        "maxStretch": 1.306,
+        "routesOverSuggestedStretch": 0,
+        "minSegmentPx": 16,
+        "minInteriorSegmentPx": 91,
+        "shortSegmentCount": 0,
+        "shortEndpointSegmentCount": 0,
+        "shortInteriorSegmentCount": 0,
+        "microSegmentCount": 0
+      },
+      "suggestedLimits": {
+        "bendsPerRelationship": 2,
+        "stretch": 1.35,
+        "segmentPx": 16,
+        "microSegmentPx": 8
+      },
+      "issues": [
+        {
+          "severity": "error",
+          "code": "composition/desktop-readability",
+          "viewportWidth": 1440,
+          "viewportHeight": 900,
+          "availableDiagramWidth": 930,
+          "viewBoxWidth": 1326,
+          "scale": 0.7013574660633484,
+          "text": "Bearer · 幂等 key",
+          "detail": "context",
+          "sourceFontPx": 8,
+          "projectedFontPx": 5.610859728506787,
+          "minimumProjectedFontPx": 6
+        }
+      ]
+    },
+    "scopeVerificationPassed": true,
     "compilerSourceUnchanged": true,
-    "stoppedBy": "User instruction: report concrete feasibility predicates after a failed showcase validation; do not make another diagram change.",
+    "stoppedBy": "User instruction: on failure, verify the single-field edit and installed original Skill, report the new diagnostic, and make no other diagram changes.",
     "layoutJsonRun": false,
     "formalSourceReplaced": false,
     "delivered": false,
     "visualCheckRun": false,
     "visualReviewRun": false
+  },
+  "historicalDiagnostics": {
+    "previousCandidate": "history/03-before-supported-auto/03-task-e2e.candidate.workflow.json",
+    "previousValidation": "history/03-before-supported-auto/03-task-e2e.candidate.validation.json",
+    "previousPredicates": "history/03-before-supported-auto/03-task-e2e.candidate.predicates.json",
+    "previousState": "history/03-before-supported-auto/03-task-e2e.incomplete.json"
   }
 }

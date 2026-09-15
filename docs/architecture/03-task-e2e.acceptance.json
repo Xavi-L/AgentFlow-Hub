@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "status": "incomplete",
+  "history": "history/03-before-supported-auto",
+  "commands": [
+    {
+      "command": [
+        "node",
+        ".agents/skills/archify/bin/archify.mjs",
+        "validate",
+        "workflow",
+        "docs/architecture/03-task-e2e.candidate.workflow.json",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "exitCode": 1,
+      "receipt": "03-task-e2e.candidate.validation.json",
+      "stderr": ""
+    }
+  ],
+  "browserEvidence": "not_run",
+  "visualReview": "not_run",
+  "nextDiagramStarted": false,
+  "candidate": {
+    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/03-task-e2e.candidate.workflow.json",
+    "sha256": "a5819223a6371655160504fe6558b9be2d2f8061f7830bd39ccb8d008a0cc40a",
+    "bytes": 6793
+  },
+  "artifactValidation": {
+    "status": "failed",
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "fail",
+    "errors": 1,
+    "warnings": 0
+  },
+  "scopeVerification": {
+    "onlyChange": "Deleted wf-tool-decision.route; every other diagram field unchanged.",
+    "passed": true
+  },
+  "skillVerification": {
+    "skillMetadataVersion": "2.17",
+    "packageVersion": "2.17.0-dev.1",
+    "cli": ".agents/skills/archify/bin/archify.mjs",
+    "skillModifiedThisRound": false,
+    "compilerMatchesPreviousOriginalSnapshot": true,
+    "temporaryInstrumentationUsed": false
+  },
+  "layoutJsonRun": false,
+  "formalSourceReplaced": false,
+  "delivered": false
+}
