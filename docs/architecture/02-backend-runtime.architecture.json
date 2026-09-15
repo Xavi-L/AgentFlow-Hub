@@ -1,0 +1,484 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "02 · Backend Runtime Architecture — AgentFlow Hub",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1370,
+      850
+    ],
+    "repository": {
+      "url": "https://github.com/Xavi-L/AgentFlow-Hub",
+      "provider": "github",
+      "revision": "ba04adc5308222635e6eb1a86a0981da8ede408c",
+      "link_mode": "local-only"
+    }
+  },
+  "components": [
+    {
+      "id": "runtime-api",
+      "type": "security",
+      "label": "API / 身份",
+      "sublabel": "Controller · JWT / owner",
+      "pos": [
+        65,
+        355
+      ],
+      "size": [
+        190,
+        110
+      ],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/agentflow/user/security/JwtAuthenticationFilter.java",
+          "line": 66,
+          "label": "JWT 认证身份"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/task/controller/AgentTaskController.java",
+          "line": 38,
+          "label": "Task REST 入口"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/task/controller/AgentTaskSseController.java",
+          "line": 36,
+          "label": "SSE 独立入口"
+        }
+      ]
+    },
+    {
+      "id": "runtime-task",
+      "type": "backend",
+      "label": "Task 应用服务",
+      "sublabel": "幂等 · 创建 / 取消 / 查询",
+      "pos": [
+        395,
+        355
+      ],
+      "size": [
+        205,
+        110
+      ],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/task/service/AgentTaskRestService.java",
+          "line": 43,
+          "label": "REST 应用适配"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/task/service/AgentTaskApplicationService.java",
+          "line": 45,
+          "label": "幂等编排"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/task/service/AgentTaskCreationTransactionService.java",
+          "line": 61,
+          "label": "创建事务"
+        }
+      ]
+    },
+    {
+      "id": "runtime-dispatch",
+      "type": "backend",
+      "label": "Dispatch / Runner",
+      "sublabel": "有界派发 · claim / 收尾",
+      "pos": [
+        740,
+        355
+      ],
+      "size": [
+        205,
+        110
+      ],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/task/dispatch/AfterCommitTaskDispatchCoordinator.java",
+          "line": 30,
+          "label": "提交后派发"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/task/dispatch/BoundedTaskDispatcher.java",
+          "line": 27,
+          "label": "本地 executor"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/task/execution/TaskRunner.java",
+          "line": 59,
+          "label": "领取与结果收尾"
+        }
+      ]
+    },
+    {
+      "id": "runtime-engine",
+      "type": "backend",
+      "label": "Agent Runtime",
+      "sublabel": "快照执行 · 决策 / 最终生成",
+      "pos": [
+        1085,
+        355
+      ],
+      "size": [
+        235,
+        110
+      ],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/engine/DefaultAgentEngine.java",
+          "line": 72,
+          "label": "Task 快照重载"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/engine/TaskSnapshotAgentExecutor.java",
+          "line": 95,
+          "label": "任务 Engine"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/engine/TaskExternalCallDeadline.java",
+          "line": 67,
+          "label": "受限工作与等待"
+        }
+      ]
+    },
+    {
+      "id": "runtime-config",
+      "type": "backend",
+      "label": "配置与 Snapshot",
+      "sublabel": "草稿 / 版本 → 执行快照",
+      "pos": [
+        395,
+        95
+      ],
+      "size": [
+        205,
+        100
+      ],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/service/AgentAppService.java",
+          "line": 144,
+          "label": "草稿管理"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/configversion/AgentConfigVersionTransactions.java",
+          "line": 80,
+          "label": "配置版本选择"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/snapshot/AgentTaskSnapshotResolver.java",
+          "line": 137,
+          "label": "实际快照解析"
+        }
+      ]
+    },
+    {
+      "id": "runtime-rag",
+      "type": "backend",
+      "label": "Retrieval / RAG",
+      "sublabel": "冻结语料 · canonical 校验",
+      "pos": [
+        740,
+        95
+      ],
+      "size": [
+        205,
+        100
+      ],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/rag/SnapshotRagService.java",
+          "line": 65,
+          "label": "快照检索"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/knowledge/repository/KnowledgeChunkMapper.java",
+          "line": 1,
+          "label": "canonical 数据回查"
+        }
+      ]
+    },
+    {
+      "id": "runtime-gateways",
+      "type": "backend",
+      "label": "Provider Gateways",
+      "sublabel": "Chat · embedding · vector",
+      "pos": [
+        1085,
+        95
+      ],
+      "size": [
+        235,
+        100
+      ],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/agentflow/infra/llm/SpringAiOpenAiCompatibleLlmGateway.java",
+          "line": 57,
+          "label": "Chat 适配器"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/knowledge/vector/DashScopeEmbeddingGateway.java",
+          "line": 35,
+          "label": "embedding 适配器"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/knowledge/vector/QdrantVectorStoreGateway.java",
+          "line": 77,
+          "label": "vector 适配器"
+        }
+      ]
+    },
+    {
+      "id": "runtime-persistence",
+      "type": "database",
+      "label": "事务 / Repositories",
+      "sublabel": "各领域 Mapper → PostgreSQL",
+      "pos": [
+        395,
+        680
+      ],
+      "size": [
+        205,
+        100
+      ],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/task/service/AgentTaskLifecycleTransactionService.java",
+          "line": 51,
+          "label": "生命周期短事务"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/task/repository/AgentTaskMapper.java",
+          "line": 60,
+          "label": "Task SQL"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/trace/ExecutionRecorderTransactionService.java",
+          "line": 65,
+          "label": "Trace 短事务"
+        }
+      ]
+    },
+    {
+      "id": "runtime-trace",
+      "type": "backend",
+      "label": "Trace / Event / SSE",
+      "sublabel": "记录事实 · 持久化回放",
+      "pos": [
+        740,
+        680
+      ],
+      "size": [
+        205,
+        100
+      ],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/trace/PersistentExecutionRecorder.java",
+          "line": 19,
+          "label": "写侧 Recorder"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/trace/TaskTraceQueryService.java",
+          "line": 93,
+          "label": "owner Trace 聚合"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/task/sse/TaskSseService.java",
+          "line": 59,
+          "label": "只读事件观察"
+        }
+      ]
+    },
+    {
+      "id": "runtime-tools",
+      "type": "backend",
+      "label": "Tool Runtime",
+      "sublabel": "冻结工具校验 · 内置 Handler",
+      "pos": [
+        1085,
+        680
+      ],
+      "size": [
+        235,
+        100
+      ],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/agentflow/tool/DefaultToolRuntime.java",
+          "line": 74,
+          "label": "task-scoped 执行"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/tool/BuiltinToolExecutor.java",
+          "line": 43,
+          "label": "Handler 白名单"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/tool/ToolCallLogService.java",
+          "line": 58,
+          "label": "工具审计写入"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "单个 Spring Boot JVM · 内部职责聚合",
+      "wraps": [
+        "runtime-api",
+        "runtime-config",
+        "runtime-task",
+        "runtime-dispatch",
+        "runtime-engine",
+        "runtime-rag",
+        "runtime-gateways",
+        "runtime-tools",
+        "runtime-trace",
+        "runtime-persistence"
+      ],
+      "pad": 24
+    }
+  ],
+  "connections": [
+    {
+      "id": "runtime-api-task",
+      "from": "runtime-api",
+      "to": "runtime-task",
+      "label": "sync · REST 适配",
+      "variant": "emphasis",
+      "labelAt": [
+        325,
+        433
+      ]
+    },
+    {
+      "id": "runtime-task-dispatch",
+      "from": "runtime-task",
+      "to": "runtime-dispatch",
+      "label": "提交后 async",
+      "variant": "emphasis"
+    },
+    {
+      "id": "runtime-dispatch-engine",
+      "from": "runtime-dispatch",
+      "to": "runtime-engine",
+      "label": "同步执行",
+      "variant": "emphasis",
+      "labelAt": [
+        977,
+        413
+      ]
+    },
+    {
+      "id": "runtime-api-config",
+      "from": "runtime-api",
+      "to": "runtime-config",
+      "label": "sync · 配置管理",
+      "variant": "default"
+    },
+    {
+      "id": "runtime-task-config",
+      "from": "runtime-task",
+      "to": "runtime-config",
+      "label": "sync · 版本 / 快照",
+      "variant": "default"
+    },
+    {
+      "id": "runtime-task-persistence",
+      "from": "runtime-task",
+      "to": "runtime-persistence",
+      "label": "DB · 创建 / 取消",
+      "variant": "default",
+      "labelAt": [
+        498,
+        580
+      ]
+    },
+    {
+      "id": "runtime-engine-rag",
+      "from": "runtime-engine",
+      "to": "runtime-rag",
+      "label": "受限调用 · RAG",
+      "variant": "default"
+    },
+    {
+      "id": "runtime-engine-gateways",
+      "from": "runtime-engine",
+      "to": "runtime-gateways",
+      "label": "受限调用 · LLM",
+      "variant": "default"
+    },
+    {
+      "id": "runtime-rag-gateways",
+      "from": "runtime-rag",
+      "to": "runtime-gateways",
+      "label": "sync · 向量网关",
+      "variant": "default"
+    },
+    {
+      "id": "runtime-engine-tools",
+      "from": "runtime-engine",
+      "to": "runtime-tools",
+      "label": "sync · task 工具",
+      "variant": "default",
+      "labelAt": [
+        1203,
+        580
+      ]
+    },
+    {
+      "id": "runtime-engine-trace",
+      "from": "runtime-engine",
+      "to": "runtime-trace",
+      "label": "sync · 记录",
+      "variant": "default"
+    },
+    {
+      "id": "runtime-task-trace",
+      "from": "runtime-task",
+      "to": "runtime-trace",
+      "label": "sync · Trace 查询",
+      "variant": "default"
+    },
+    {
+      "id": "runtime-trace-persistence",
+      "from": "runtime-trace",
+      "to": "runtime-persistence",
+      "label": "DB · 写入 / 回读",
+      "variant": "default",
+      "labelAt": [
+        670,
+        753
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "执行与事务边界",
+      "items": [
+        "创建 / 快照解析在短事务；commit 后才派发。",
+        "Runner 负责终态收尾；Engine 返回执行结果。"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "存储与观察职责",
+      "items": [
+        "各领域有自身 Mapper；图中 DB 边是代表性连接。",
+        "SSE 入口直接回读持久事件，不调用 Runner。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "外部工作边界",
+      "items": [
+        "受限调用：外派工作并等待；慢 I/O 在长事务之外。",
+        "网关 / JDBC 跨网络，依赖见图 01；本轮未做真实服务验收。"
+      ]
+    }
+  ]
+}

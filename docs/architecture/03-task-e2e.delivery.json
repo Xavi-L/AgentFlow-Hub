@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "workflow",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/03-task-e2e.workflow.json",
+  "output": "/Users/xavier/AgentFlow-Hub/docs/architecture/03-task-e2e.html",
+  "specification": {
+    "sha256": "f7644a03c9f232546e0587a16fc0eeb2596c835bf28254f4067a3fce1cfbb366",
+    "bytes": 7161
+  },
+  "artifact": {
+    "sha256": "fa0817b55ea07f2efa4481d5f16d87b5ab21093ea08ffd93f60fe411242cb5cc",
+    "bytes": 818082
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

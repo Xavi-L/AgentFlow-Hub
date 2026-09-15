@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/02-backend-runtime.architecture.json",
+  "output": "/Users/xavier/AgentFlow-Hub/docs/architecture/02-backend-runtime.html",
+  "specification": {
+    "sha256": "95ded8029cb40029f6fa9481b7e7e6e22b5bc85efdfd993f9f79580f5dd991ee",
+    "bytes": 12348
+  },
+  "artifact": {
+    "sha256": "609657a101113011bcf1d1fa36b759fb06ce2c674ef911d08c2daf021b175daf",
+    "bytes": 817817
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  },
+  "evidence": {
+    "verified": true,
+    "repository": "https://github.com/Xavi-L/AgentFlow-Hub",
+    "revision": "ba04adc5308222635e6eb1a86a0981da8ede408c",
+    "references": 29,
+    "linkMode": "local-only"
+  }
+}

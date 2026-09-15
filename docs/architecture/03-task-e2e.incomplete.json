@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "status": "incomplete",
+  "reason": "Archify two consecutive non-improving repair rounds stop condition",
+  "deliveredSpecification": {
+    "sha256": "f7644a03c9f232546e0587a16fc0eeb2596c835bf28254f4067a3fce1cfbb366",
+    "bytes": 7161
+  },
+  "deliveredArtifact": {
+    "sha256": "fa0817b55ea07f2efa4481d5f16d87b5ab21093ea08ffd93f60fe411242cb5cc",
+    "bytes": 818082
+  },
+  "browserEvidence": "failed",
+  "visualReview": "failed",
+  "candidate": {
+    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/03-task-e2e.candidate.workflow.json",
+    "sha256": "fe1f6ad876302654bbf39a1ae770a675456c343244b6a0a7c0befd532b879642",
+    "validation": "03-task-e2e.candidate.validation.json",
+    "delivered": false
+  },
+  "unresolved": [
+    "Delivered six-lane artifact overflows all four desktop viewports vertically.",
+    "Compact candidate wf-tool-decision return-left route is infeasible; preceding automatic routing crossed wf-final-settle."
+  ],
+  "nextDiagramStarted": false
+}

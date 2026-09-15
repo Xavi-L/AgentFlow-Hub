@@ -1,0 +1,296 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "03 · End-to-End Task Workflow — AgentFlow Hub",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "wf-browser",
+      "label": "Browser / 提交与只读观察"
+    },
+    {
+      "id": "wf-services",
+      "label": "JVM / 领域服务与短事务"
+    },
+    {
+      "id": "wf-worker",
+      "label": "JVM / 异步任务编排"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "wf-submit",
+      "lane": "wf-browser",
+      "col": 0,
+      "type": "frontend",
+      "label": "提交任务",
+      "sublabel": "Bearer · 幂等 key",
+      "width": 150,
+      "height": 68
+    },
+    {
+      "id": "wf-gate",
+      "lane": "wf-services",
+      "col": 0,
+      "type": "security",
+      "label": "认证 / 幂等门禁",
+      "sublabel": "owner · admission · 查重",
+      "width": 150,
+      "height": 68
+    },
+    {
+      "id": "wf-persist",
+      "lane": "wf-services",
+      "col": 1,
+      "type": "database",
+      "label": "快照与任务创建",
+      "sublabel": "短事务 · QUEUED",
+      "width": 150,
+      "height": 68
+    },
+    {
+      "id": "wf-dispatch",
+      "lane": "wf-worker",
+      "col": 1,
+      "type": "messagebus",
+      "label": "after-commit 派发",
+      "sublabel": "本地有界 executor",
+      "width": 150,
+      "height": 68
+    },
+    {
+      "id": "wf-claim",
+      "lane": "wf-worker",
+      "col": 2,
+      "type": "security",
+      "label": "条件 claim",
+      "sublabel": "RUNNING · TASK_STARTED",
+      "width": 150,
+      "height": 68
+    },
+    {
+      "id": "wf-rag",
+      "lane": "wf-worker",
+      "col": 3,
+      "type": "backend",
+      "label": "前置冻结 RAG",
+      "sublabel": "remote HTTP → canonical",
+      "width": 150,
+      "height": 68
+    },
+    {
+      "id": "wf-decision",
+      "lane": "wf-worker",
+      "col": 4,
+      "type": "backend",
+      "label": "决策 / 预算门禁",
+      "sublabel": "DECISION · Chat HTTP",
+      "width": 150,
+      "height": 68
+    },
+    {
+      "id": "wf-final",
+      "lane": "wf-worker",
+      "col": 5,
+      "type": "backend",
+      "label": "独立最终生成",
+      "sublabel": "Chat HTTP · 引用校验",
+      "width": 150,
+      "height": 68
+    },
+    {
+      "id": "wf-tool",
+      "lane": "wf-services",
+      "col": 4,
+      "type": "backend",
+      "label": "冻结工具调用",
+      "sublabel": "校验 · handler · 审计",
+      "width": 150,
+      "height": 68
+    },
+    {
+      "id": "wf-settle",
+      "lane": "wf-services",
+      "col": 5,
+      "type": "database",
+      "label": "Runner 终态提交",
+      "sublabel": "取消仲裁 · 成功原子发布",
+      "width": 150,
+      "height": 68
+    },
+    {
+      "id": "wf-observe",
+      "lane": "wf-browser",
+      "col": 5,
+      "type": "frontend",
+      "label": "终态核对与展示",
+      "sublabel": "GET task + Trace 一致",
+      "width": 150,
+      "height": 68
+    }
+  ],
+  "edges": [
+    {
+      "id": "wf-submit-gate",
+      "from": "wf-submit",
+      "to": "wf-gate",
+      "label": "HTTP POST · JWT",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "wf-gate-persist",
+      "from": "wf-gate",
+      "to": "wf-persist",
+      "label": "新请求",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "wf-persist-dispatch",
+      "from": "wf-persist",
+      "to": "wf-dispatch",
+      "label": "提交后",
+      "role": "main",
+      "variant": "emphasis",
+      "route": "straight",
+      "labelDy": 40
+    },
+    {
+      "id": "wf-dispatch-claim",
+      "from": "wf-dispatch",
+      "to": "wf-claim",
+      "label": "async · worker",
+      "role": "async",
+      "variant": "emphasis"
+    },
+    {
+      "id": "wf-claim-rag",
+      "from": "wf-claim",
+      "to": "wf-rag",
+      "label": "claim 成功",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "wf-rag-decision",
+      "from": "wf-rag",
+      "to": "wf-decision",
+      "label": "RAG 结果",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "wf-decision-final",
+      "from": "wf-decision",
+      "to": "wf-final",
+      "label": "FINISH / 次数上限",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "wf-decision-tool",
+      "from": "wf-decision",
+      "to": "wf-tool",
+      "label": "CALL_TOOL",
+      "role": "branch",
+      "variant": "default"
+    },
+    {
+      "id": "wf-tool-decision",
+      "from": "wf-tool",
+      "to": "wf-decision",
+      "label": "observation 回环",
+      "role": "return",
+      "variant": "dashed",
+      "route": "return-left"
+    },
+    {
+      "id": "wf-final-settle",
+      "from": "wf-final",
+      "to": "wf-settle",
+      "label": "返回 outcome",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "wf-settle-observe",
+      "from": "wf-settle",
+      "to": "wf-observe",
+      "label": "commit 后 · 持久回读",
+      "role": "main",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "创建 / 执行门禁",
+      "items": [
+        "owner + admission / 幂等；新建校验 ACTIVE、READY、工具。",
+        "版本、Snapshot、QUEUED 与 TASK_CREATED 同事务；commit 后才派发。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "执行事实 / 成功发布",
+      "items": [
+        "慢 I/O 无长事务；Trace 分步落库；空 RAG 可继续。",
+        "FINISH 或次数上限转独立 final；取消、token 等 gate 仍可阻止成功。",
+        "终态事务原子写答案、引用、ANSWER_CHUNK 与 TASK_COMPLETED。"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "观察边界",
+      "items": [
+        "创建响应后 GET Trace → 按 cursor SSE；执行中即可观察。",
+        "终态由 GET task + Trace 核对；断线不是任务终态。",
+        "幂等复用不派发；claim 未取得不执行；本地取消不证明远端停止。"
+      ]
+    }
+  ],
+  "mainPath": [
+    "wf-submit",
+    "wf-gate",
+    "wf-persist",
+    "wf-dispatch",
+    "wf-claim",
+    "wf-rag",
+    "wf-decision",
+    "wf-final",
+    "wf-settle",
+    "wf-observe"
+  ],
+  "semanticChecks": {
+    "allowedRoots": [
+      "wf-submit"
+    ],
+    "allowedTerminals": [
+      "wf-observe"
+    ],
+    "requiredEdges": [
+      {
+        "from": "wf-persist",
+        "to": "wf-dispatch"
+      },
+      {
+        "from": "wf-tool",
+        "to": "wf-decision"
+      },
+      {
+        "from": "wf-final",
+        "to": "wf-settle"
+      }
+    ],
+    "requiredPaths": [
+      {
+        "from": "wf-submit",
+        "to": "wf-observe"
+      }
+    ]
+  }
+}

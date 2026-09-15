@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "image-capable-review",
+  "status": "pass",
+  "visual_review": "passed",
+  "correction_rounds": 0,
+  "reviewedAt": "2026-09-15",
+  "artifact": {
+    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/02-backend-runtime.html",
+    "sha256": "609657a101113011bcf1d1fa36b759fb06ce2c674ef911d08c2daf021b175daf",
+    "bytes": 817817
+  },
+  "scope": "Default READ + Still; four endpoint viewport/theme screenshots reviewed with image reader. No claim of manual interaction or export testing.",
+  "screenshots": [
+    "02-backend-runtime.visual-check.1440x900.light.png",
+    "02-backend-runtime.visual-check.1440x900.dark.png",
+    "02-backend-runtime.visual-check.2048x1320.light.png",
+    "02-backend-runtime.visual-check.2048x1320.dark.png"
+  ],
+  "observations": [
+    "API → Task → Dispatch/Runner → Agent Runtime 主路径清楚；10 个职责节点均在单一 JVM 边界内。",
+    "未发现节点遮挡、标签与非所属路径覆盖；失败分支未占据主图。",
+    "提交后 async、受限调用、代表性 DB 边与 SSE 回读语义在默认 READ 标签和三张说明卡中可见。",
+    "1440×900 标题换行但无页面溢出；2048×1320 主图与说明卡纵向布局平衡；明暗主题均已查看。"
+  ],
+  "correction": "最终交付后的截图复核未要求修正；交付前的候选布局调整不计为视觉修正轮次。"
+}

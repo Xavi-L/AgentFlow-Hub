@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "image-capable-review",
+  "status": "pass",
+  "visual_review": "passed",
+  "correction_rounds": 1,
+  "artifact": {
+    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/01-system-context.html",
+    "sha256": "1217a99affcea90d3d92280c32005da8553fea7fc9a90f64b21c5a88b0b9bd35",
+    "bytes": 816620
+  },
+  "scope": "Default READ + Still; four endpoint viewport/theme screenshots reviewed with image reader. No claim of manual interaction or export testing.",
+  "screenshots": [
+    "01-system-context.visual-check.1440x900.light.png",
+    "01-system-context.visual-check.1440x900.dark.png",
+    "01-system-context.visual-check.2048x1320.light.png",
+    "01-system-context.visual-check.2048x1320.dark.png"
+  ],
+  "observations": [
+    "主路径 用户→Vue→Backend→PostgreSQL 可见；9 个主要节点，无任务内部线程池。",
+    "Chat 与 embedding 分离，remote 条件、Redis 非任务队列和 owner 边界在默认阅读视图可见。",
+    "未发现节点遮挡、标签覆盖其他路径或不相关节点；大尺寸纵向布局平衡。",
+    "明暗主题均已查看，图例与导航控件未遮挡正文。"
+  ],
+  "correction": "首次截图发现 tag 在 READ 下被收起；将 remote/依赖/授权条件置于 sublabel 与 card 后重新 validate、deliver、visual-check。"
+}

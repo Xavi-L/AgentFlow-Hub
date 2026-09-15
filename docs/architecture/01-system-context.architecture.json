@@ -1,0 +1,407 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "01 · System Context — AgentFlow Hub",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1370,
+      850
+    ],
+    "repository": {
+      "url": "https://github.com/Xavi-L/AgentFlow-Hub",
+      "provider": "github",
+      "revision": "ba04adc5308222635e6eb1a86a0981da8ede408c",
+      "link_mode": "local-only"
+    }
+  },
+  "components": [
+    {
+      "id": "context-user",
+      "type": "external",
+      "label": "用户 / Browser",
+      "sublabel": "操作与查看",
+      "tag": "客户端",
+      "pos": [
+        230,
+        95
+      ],
+      "size": [
+        165,
+        100
+      ],
+      "sources": [
+        {
+          "path": "frontend/src/pages/TasksPage.vue",
+          "line": 1,
+          "label": "任务交互页面"
+        }
+      ]
+    },
+    {
+      "id": "context-vue",
+      "type": "frontend",
+      "label": "Vue Frontend",
+      "sublabel": "浏览器内运行 · Vite :5173（开发）",
+      "tag": "开发：Vite :5173",
+      "pos": [
+        200,
+        365
+      ],
+      "size": [
+        225,
+        100
+      ],
+      "sources": [
+        {
+          "path": "frontend/src/main.ts",
+          "line": 8,
+          "label": "Vue 挂载"
+        },
+        {
+          "path": "frontend/src/lib/api.ts",
+          "line": 15,
+          "label": "REST 与 JWT"
+        },
+        {
+          "path": "frontend/src/lib/stream.ts",
+          "line": 14,
+          "label": "SSE 观察"
+        }
+      ]
+    },
+    {
+      "id": "context-backend",
+      "type": "backend",
+      "label": "Spring Boot Backend",
+      "sublabel": "JWT 身份 → owner 授权",
+      "tag": "JWT → ACTIVE 用户 → owner",
+      "pos": [
+        620,
+        355
+      ],
+      "size": [
+        275,
+        120
+      ],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/agentflow/user/security/JwtAuthenticationFilter.java",
+          "line": 66,
+          "label": "认证身份"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/task/service/TaskEventQueryService.java",
+          "line": 48,
+          "label": "owner 授权"
+        },
+        {
+          "path": "backend/src/main/resources/application.yml",
+          "line": 30,
+          "label": "Actuator 配置"
+        }
+      ]
+    },
+    {
+      "id": "context-postgres",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "业务持久化 + 共享演示表",
+      "tag": "运行必需 · JDBC",
+      "pos": [
+        1085,
+        355
+      ],
+      "size": [
+        235,
+        120
+      ],
+      "sources": [
+        {
+          "path": "backend/src/main/resources/db/migration/V18__create_agent_task_and_event.sql",
+          "line": 5,
+          "label": "Task 与事件持久化"
+        },
+        {
+          "path": "backend/src/main/resources/db/migration/V12__create_demo_order_payment_data.sql",
+          "line": 5,
+          "label": "内置工具共享数据"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/agent/task/repository/AgentTaskMapper.java",
+          "line": 175,
+          "label": "owner SQL"
+        }
+      ]
+    },
+    {
+      "id": "context-chat",
+      "type": "external",
+      "label": "Chat / LLM provider",
+      "sublabel": "模型路径必需 · OpenAI-compatible",
+      "tag": "模型路径必需",
+      "pos": [
+        620,
+        95
+      ],
+      "size": [
+        275,
+        100
+      ],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/agentflow/config/SpringAiConfig.java",
+          "line": 77,
+          "label": "Chat HTTP 配置"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/infra/llm/SpringAiOpenAiCompatibleLlmGateway.java",
+          "line": 57,
+          "label": "同步模型调用"
+        }
+      ]
+    },
+    {
+      "id": "context-embedding",
+      "type": "external",
+      "label": "DashScope embedding",
+      "sublabel": "remote 必需 · 文档 / 查询向量",
+      "tag": "remote 模式必需",
+      "pos": [
+        1085,
+        95
+      ],
+      "size": [
+        235,
+        100
+      ],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/agentflow/knowledge/vector/RemoteVectorizationGatewayConfiguration.java",
+          "line": 18,
+          "label": "remote 条件"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/knowledge/vector/DashScopeEmbeddingGateway.java",
+          "line": 35,
+          "label": "POST embeddings"
+        }
+      ]
+    },
+    {
+      "id": "context-redis",
+      "type": "database",
+      "label": "Redis",
+      "sublabel": "条件健康检查 · 非任务队列",
+      "tag": "不承担 task queue",
+      "pos": [
+        200,
+        680
+      ],
+      "size": [
+        225,
+        100
+      ],
+      "sources": [
+        {
+          "path": "backend/pom.xml",
+          "line": 95,
+          "label": "Redis starter"
+        },
+        {
+          "path": "backend/src/main/resources/application-dev.yml",
+          "line": 23,
+          "label": "Redis 配置"
+        }
+      ]
+    },
+    {
+      "id": "context-files",
+      "type": "database",
+      "label": "文档文件存储",
+      "sublabel": "本地目录 · 上传 / 解析必需",
+      "tag": "上传 / 解析必需",
+      "pos": [
+        620,
+        680
+      ],
+      "size": [
+        275,
+        100
+      ],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/agentflow/knowledge/storage/DocumentStorageConfig.java",
+          "line": 20,
+          "label": "本地实现注册"
+        },
+        {
+          "path": "backend/src/main/java/com/agentflow/knowledge/storage/LocalDocumentStorage.java",
+          "line": 42,
+          "label": "文件写入和读取"
+        },
+        {
+          "path": "backend/src/main/resources/application.yml",
+          "line": 102,
+          "label": "文档目录配置"
+        }
+      ]
+    },
+    {
+      "id": "context-qdrant",
+      "type": "database",
+      "label": "Qdrant",
+      "sublabel": "remote 必需 · 向量存储",
+      "tag": "remote 模式必需",
+      "pos": [
+        1085,
+        680
+      ],
+      "size": [
+        235,
+        100
+      ],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/agentflow/knowledge/vector/QdrantVectorStoreGateway.java",
+          "line": 46,
+          "label": "REST 向量存储"
+        },
+        {
+          "path": "compose.yml",
+          "line": 7,
+          "label": "仅 Qdrant 容器"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "客户端 · Browser 内执行",
+      "wraps": [
+        "context-user",
+        "context-vue"
+      ],
+      "pad": 22
+    },
+    {
+      "kind": "security-group",
+      "label": "服务端 JVM · 身份与 owner 信任边界",
+      "wraps": [
+        "context-backend"
+      ],
+      "pad": 24
+    },
+    {
+      "kind": "region",
+      "label": "模型服务 · 独立进程 / 网络边界",
+      "wraps": [
+        "context-chat",
+        "context-embedding"
+      ],
+      "pad": 24
+    }
+  ],
+  "connections": [
+    {
+      "id": "context-user-ui",
+      "from": "context-user",
+      "to": "context-vue",
+      "label": "页面交互",
+      "variant": "emphasis",
+      "labelAt": [
+        313,
+        280
+      ]
+    },
+    {
+      "id": "context-frontend-api",
+      "from": "context-vue",
+      "to": "context-backend",
+      "label": "HTTP · REST / SSE",
+      "variant": "emphasis"
+    },
+    {
+      "id": "context-backend-sql",
+      "from": "context-backend",
+      "to": "context-postgres",
+      "label": "JDBC · 同步 SQL",
+      "variant": "emphasis",
+      "labelAt": [
+        1036,
+        407
+      ]
+    },
+    {
+      "id": "context-backend-chat",
+      "from": "context-backend",
+      "to": "context-chat",
+      "label": "HTTP(S) · 同步 Chat",
+      "variant": "default",
+      "labelAt": [
+        757,
+        266
+      ]
+    },
+    {
+      "id": "context-backend-embedding",
+      "from": "context-backend",
+      "to": "context-embedding",
+      "label": "HTTP(S) · 同步 embedding",
+      "variant": "default"
+    },
+    {
+      "id": "context-backend-files",
+      "from": "context-backend",
+      "to": "context-files",
+      "label": "本地文件 I/O",
+      "variant": "default",
+      "labelAt": [
+        757,
+        580
+      ]
+    },
+    {
+      "id": "context-backend-qdrant",
+      "from": "context-backend",
+      "to": "context-qdrant",
+      "label": "HTTP · 同步向量读写",
+      "variant": "default"
+    },
+    {
+      "id": "context-backend-redis",
+      "from": "context-backend",
+      "to": "context-redis",
+      "label": "TCP · 条件健康检查",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "访问与观察",
+      "items": [
+        "浏览器经 REST + Bearer JWT 请求后端；SSE 事件由后端返回。",
+        "开发期 /api 经 Vite 代理；刷新与重连恢复观察。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "依赖与数据边界",
+      "items": [
+        "PostgreSQL 必需；订单 / 支付工具读取共享演示表。",
+        "JDBC / HTTP 跨网络；文档文件走本地 I/O。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "证据边界",
+      "items": [
+        "真实外部服务本轮未验收；local 向量模式采用进程内适配器。",
+        "/api/v1/health 是存活检查；依赖与任务准入须分别确认。"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "validate",
+  "stage": "render",
+  "type": "workflow",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/03-task-e2e.candidate.workflow.json",
+  "error": "Workflow edge \"wf-tool-decision\" cannot satisfy route preset \"return-left\" under readable-v2 constraints (minimum 8px endpoint stubs, 16px interior turns, and 28px direct clearance).",
+  "diagnostics": [
+    {
+      "code": "workflow/route-preset-conflict",
+      "severity": "error",
+      "message": "Workflow edge \"wf-tool-decision\" cannot satisfy route preset \"return-left\" under readable-v2 constraints (minimum 8px endpoint stubs, 16px interior turns, and 28px direct clearance).",
+      "subject": {
+        "diagramType": "workflow",
+        "edge": "wf-tool-decision",
+        "from": "wf-tool",
+        "to": "wf-decision",
+        "route": "return-left"
+      },
+      "evidence": {
+        "attemptedCandidateFamily": "return-left",
+        "points": [
+          [
+            977.4,
+            280
+          ],
+          [
+            874.4,
+            280
+          ],
+          [
+            874.4,
+            338
+          ],
+          [
+            977.4,
+            338
+          ]
+        ],
+        "fromSide": "bottom",
+        "toSide": "top",
+        "requiredEndpointStubPx": 8,
+        "requiredInteriorSegmentPx": 16,
+        "requiredDirectClearancePx": 28
+      },
+      "supportedFixes": []
+    }
+  ]
+}

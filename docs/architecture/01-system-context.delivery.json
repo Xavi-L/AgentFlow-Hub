@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/01-system-context.architecture.json",
+  "output": "/Users/xavier/AgentFlow-Hub/docs/architecture/01-system-context.html",
+  "specification": {
+    "sha256": "5fb5bc33dbc77c7411793b5b262bd1bd0a9aa5f60ebfc0ced44b04afbfd3c0da",
+    "bytes": 9695
+  },
+  "artifact": {
+    "sha256": "1217a99affcea90d3d92280c32005da8553fea7fc9a90f64b21c5a88b0b9bd35",
+    "bytes": 816620
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  },
+  "evidence": {
+    "verified": true,
+    "repository": "https://github.com/Xavi-L/AgentFlow-Hub",
+    "revision": "ba04adc5308222635e6eb1a86a0981da8ede408c",
+    "references": 21,
+    "linkMode": "local-only"
+  }
+}
