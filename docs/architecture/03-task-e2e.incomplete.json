@@ -14,7 +14,7 @@
   "visualReview": "failed",
   "candidate": {
     "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/03-task-e2e.candidate.workflow.json",
-    "sha256": "bdcf05d86710c178435d0783fc848d99eaec1375802e7c50776a5e1ee4cf08f9",
+    "sha256": "6ca9539b5c691fe19b5bf37057cdff9196851a085c1f3aed36a41de2383294b5",
     "validation": "03-task-e2e.candidate.validation.json",
     "delivered": false
   },
@@ -24,15 +24,49 @@
   ],
   "nextDiagramStarted": false,
   "latestAttempt": {
-    "scope": "Only wf-tool-decision fromSide/toSide set to left; no other diagram fields changed.",
+    "scope": "Only wf-rag-decision.route set to bottom-channel; all other diagram fields unchanged.",
     "validationExitCode": 1,
     "diagnosticCode": "workflow/route-preset-conflict",
-    "ports": [
-      "left",
-      "left"
+    "subject": {
+      "diagramType": "workflow",
+      "edge": "wf-tool-decision",
+      "from": "wf-tool",
+      "to": "wf-decision",
+      "route": "return-left"
+    },
+    "evidence": {
+      "attemptedCandidateFamily": "return-left",
+      "points": [
+        [
+          854,
+          246
+        ],
+        [
+          826,
+          246
+        ],
+        [
+          826,
+          372
+        ],
+        [
+          854,
+          372
+        ]
+      ],
+      "fromSide": "left",
+      "toSide": "left",
+      "requiredEndpointStubPx": 8,
+      "requiredInteriorSegmentPx": 16,
+      "requiredDirectClearancePx": 28
+    },
+    "segmentLengthsPx": [
+      28,
+      126,
+      28
     ],
     "supportedFixes": [],
-    "stoppedBy": "User instruction: save new causal diagnostic and stop on failed validate.",
+    "stoppedBy": "User instruction: save full diagnostic after one scoped change; no second speculative modification.",
     "layoutJsonRun": false,
     "formalSourceReplaced": false,
     "delivered": false,

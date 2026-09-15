@@ -181,7 +181,8 @@
       "to": "wf-decision",
       "label": "RAG 结果",
       "role": "main",
-      "variant": "emphasis"
+      "variant": "emphasis",
+      "route": "bottom-channel"
     },
     {
       "id": "wf-decision-final",

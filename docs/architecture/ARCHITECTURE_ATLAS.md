@@ -522,3 +522,20 @@ node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/02-ba
 执行 `validate workflow docs/architecture/03-task-e2e.candidate.workflow.json --quality showcase --json`，exit **1**；新回执保存于 [candidate.validation.json](03-task-e2e.candidate.validation.json)。诊断仍为 `workflow/route-preset-conflict`，但 evidence 已确认为 **left → left**，route points 为 `(902.4,246) → (874.4,246) → (874.4,372) → (902.4,372)`，`supportedFixes` 为空。因此只修复自动 ports 选择尚不足以通过；本轮不推测未由该回执指出的更具体原因。
 
 按用户要求在此停止；未运行 `--layout-json`，未替换正式 JSON，未 deliver，未 visual-check / visual review，未手改 HTML，未开始图 04。正式首版 source/HTML 及既有浏览器失败证据保持原样；图 03 仍未完成。未完成记录中的 candidate 字节身份已更新为本轮候选。
+
+### 图 03 限定修复记录：RAG bottom-channel
+
+以当前 compact 三泳道 candidate 为唯一候选，仅为 `wf-rag-decision` 增加 `route: bottom-channel`。未增加 fromSide/toSide/channelY/via/labelAt，`wf-tool-decision` 的 return-left + left/left 及其他全部图定义保持不变；已与施工前 JSON 逐字段核对。
+
+执行用户指定的 showcase validate，exit **1**，stage `render`；完整回执保存于 [candidate.validation.json](03-task-e2e.candidate.validation.json)。本轮 causal diagnostic：
+
+- code：`workflow/route-preset-conflict`。
+- subject：workflow / `wf-tool-decision` / `wf-tool → wf-decision` / `return-left`。
+- evidence：attemptedCandidateFamily 为 `return-left`；要求 endpoint stub ≥ 8px、interior turn ≥ 16px、direct clearance ≥ 28px。
+- generated route points：`(854,246) → (826,246) → (826,372) → (854,372)`；按坐标计算段长为 `28 / 126 / 28 px`。
+- chosen ports：`left → left`。
+- supportedFixes：`[]`。
+
+该回执说明显式 ports 和上述段长仍不足以通过完整路由约束，但没有指出具体的 corridor 冲突对象，不能据此确认 ingress corridor 竞争就是根因。本轮不继续推测性修改。
+
+按用户要求停止；未执行 layout-json，未替换正式 JSON，未 deliver，未 visual-check / visual review，未修改已交付 HTML，未开始图 04。图 03 仍未完成。
