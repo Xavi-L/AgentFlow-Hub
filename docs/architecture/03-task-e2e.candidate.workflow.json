@@ -206,7 +206,9 @@
       "label": "observation 回环",
       "role": "return",
       "variant": "dashed",
-      "route": "return-left"
+      "route": "return-left",
+      "fromSide": "left",
+      "toSide": "left"
     },
     {
       "id": "wf-final-settle",

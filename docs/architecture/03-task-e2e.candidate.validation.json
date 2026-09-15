@@ -22,24 +22,24 @@
         "attemptedCandidateFamily": "return-left",
         "points": [
           [
-            977.4,
-            280
+            902.4,
+            246
           ],
           [
             874.4,
-            280
+            246
           ],
           [
             874.4,
-            338
+            372
           ],
           [
-            977.4,
-            338
+            902.4,
+            372
           ]
         ],
-        "fromSide": "bottom",
-        "toSide": "top",
+        "fromSide": "left",
+        "toSide": "left",
         "requiredEndpointStubPx": 8,
         "requiredInteriorSegmentPx": 16,
         "requiredDirectClearancePx": 28

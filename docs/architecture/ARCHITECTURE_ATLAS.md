@@ -514,3 +514,11 @@ node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/02-ba
 - [ ] 紧凑修正候选 validate / deliver 通过（路由未通过，未交付）。
 - [ ] 图 03 完成。
 - [x] **未开始图 04–15，未生成最终独立 ARCHITECTURE_AUDIT.md。**
+
+### 图 03 限定修复记录：显式 left ports
+
+用户重新授权以 compact 三泳道 candidate 为唯一候选，仅修复 `wf-tool-decision`。本轮只为该 edge 增加 `fromSide: left` 与 `toSide: left`，已逐字段核对其他 node、edge、lane、card、mainPath 和 semanticChecks 完全不变。
+
+执行 `validate workflow docs/architecture/03-task-e2e.candidate.workflow.json --quality showcase --json`，exit **1**；新回执保存于 [candidate.validation.json](03-task-e2e.candidate.validation.json)。诊断仍为 `workflow/route-preset-conflict`，但 evidence 已确认为 **left → left**，route points 为 `(902.4,246) → (874.4,246) → (874.4,372) → (902.4,372)`，`supportedFixes` 为空。因此只修复自动 ports 选择尚不足以通过；本轮不推测未由该回执指出的更具体原因。
+
+按用户要求在此停止；未运行 `--layout-json`，未替换正式 JSON，未 deliver，未 visual-check / visual review，未手改 HTML，未开始图 04。正式首版 source/HTML 及既有浏览器失败证据保持原样；图 03 仍未完成。未完成记录中的 candidate 字节身份已更新为本轮候选。
