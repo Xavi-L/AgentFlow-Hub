@@ -539,3 +539,33 @@ node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/02-ba
 该回执说明显式 ports 和上述段长仍不足以通过完整路由约束，但没有指出具体的 corridor 冲突对象，不能据此确认 ingress corridor 竞争就是根因。本轮不继续推测性修改。
 
 按用户要求停止；未执行 layout-json，未替换正式 JSON，未 deliver，未 visual-check / visual review，未修改已交付 HTML，未开始图 04。图 03 仍未完成。
+
+### 图 03 限定修复记录：feedback labelSegment
+
+2026-09-15（Asia/Hong_Kong），用户重新授权一次逻辑修复及 compiler predicate 诊断。唯一候选仍为 compact 三泳道 candidate；只删除 `wf-rag-decision.route: bottom-channel` 以恢复自动路由，并为 `wf-tool-decision` 增加 `labelSegment: 1`。return-left + left/left 保留；其他 edge 字段、lanes、nodes、尺寸、mainPath、semanticChecks、cards 均与施工前一致。
+
+执行 `node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/03-task-e2e.candidate.workflow.json --quality showcase --json`，exit **1** / stage `render`，完整新回执保存于 [candidate.validation.json](03-task-e2e.candidate.validation.json)。code 为 `workflow/route-preset-conflict`；subject 为 workflow / `wf-tool-decision` / `wf-tool → wf-decision` / `return-left`。
+
+materialized points 为 `(902.4,246) → (874.4,246) → (874.4,372) → (902.4,372)`，chosen ports 为 left → left，段长 `28 / 126 / 28 px`；满足 endpoint stub ≥ 8px、interior turn ≥ 16px，preset topology 也通过。`labelSegment: 1` 得到 label point `(874.4,299)`，标签矩形为 `x=831, y=289, width=86.8, height=14`。这是失败候选在 feasibility 检查处的实际几何，不是成功交付的最终 layout。
+
+按本轮明确授权读取 workflow compiler，在 `/tmp` 的 compiler 副本中进行一次诊断性 instrumentation：导入原始依赖，在 `readablePresetVia` materialize points 后、原可行性检查前，独立调用全部 predicate 并读取当前 pathCache 的障碍物。未改变原路由/判断逻辑；Skill 原文件从未改写，诊断后与施工前字节比较一致。完整结果及方法保存在 [candidate.predicates.json](03-task-e2e.candidate.predicates.json)，其诊断、points 与普通 CLI 回执一致，并绑定当前 candidate。探针退出 0 只表示采集完成，`compilerOk` 仍为 false。
+
+| Predicate | 当前 materialized route 结果 |
+| --- | --- |
+| `orthogonalRoute` | PASS |
+| `routeHonorsEndpointSides` | PASS |
+| `routeMeetsHardRhythm` | PASS |
+| `routeClearsEndpointNodes` | PASS |
+| `routeClearsUnrelatedNodes` | PASS |
+| `routeLabelClearsNodes` | PASS |
+| `routeClearsPlacedLabels` | **FAIL** |
+| `routeClearsLegend` | PASS |
+| `routeClearsSceneLabelObstacles` | PASS |
+| `routeClearsFrameBorders` | PASS |
+| `routeFitsCanvasOrigin` | PASS |
+
+唯一失败 predicate 为 **`routeClearsPlacedLabels`**。具体分支是 candidate route 对已经放置的其他 edge label 的 clearance 检查：回环 segment 1 `(874.4,246) → (874.4,372)` 穿过 `wf-rag-decision` 的“RAG 结果”标签矩形 `x=850, y=352, width=48.4, height=14`，实际 clearance 为 **0px**，要求 ≥ **4px**。本轮 feedback label 对所有节点均无 overlap，因此 `labelSegment: 1` 已消除本轮该标签与节点的冲突，但仍不足以让整条 return-left route 可行。
+
+供诊断参照，当前已放置的 `wf-rag-decision` 自动路径为 `(846,372) → (902.4,372)`；compiler 的 col3 / col4 中心分别为 `771 / 977.4`（差 206.4px，节点水平净距 56.4px）。这些是失败候选的局部状态；未获得成功的完整 layout-json，不能据此宣称最终 proper crossing、ambiguous corridor、viewBox 或桌面验收通过。
+
+本次 `supportedFixes` 为 `remove route from edge "wf-tool-decision" so readable-v2 can use its verified automatic candidate`。仅记录 CLI 建议，未应用；没有进行第二个图定义修改。按失败分支停止，未执行 layout-json、正式 JSON 替换、deliver、visual-check 或 visual review，未改已交付 HTML，未开始图 04。图 03 仍未完成。

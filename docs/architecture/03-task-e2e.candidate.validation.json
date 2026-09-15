@@ -22,19 +22,19 @@
         "attemptedCandidateFamily": "return-left",
         "points": [
           [
-            854,
+            902.4,
             246
           ],
           [
-            826,
+            874.4,
             246
           ],
           [
-            826,
+            874.4,
             372
           ],
           [
-            854,
+            902.4,
             372
           ]
         ],
@@ -44,7 +44,9 @@
         "requiredInteriorSegmentPx": 16,
         "requiredDirectClearancePx": 28
       },
-      "supportedFixes": []
+      "supportedFixes": [
+        "remove route from edge \"wf-tool-decision\" so readable-v2 can use its verified automatic candidate"
+      ]
     }
   ]
 }

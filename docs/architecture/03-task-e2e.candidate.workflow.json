@@ -181,8 +181,7 @@
       "to": "wf-decision",
       "label": "RAG 结果",
       "role": "main",
-      "variant": "emphasis",
-      "route": "bottom-channel"
+      "variant": "emphasis"
     },
     {
       "id": "wf-decision-final",
@@ -209,7 +208,8 @@
       "variant": "dashed",
       "route": "return-left",
       "fromSide": "left",
-      "toSide": "left"
+      "toSide": "left",
+      "labelSegment": 1
     },
     {
       "id": "wf-final-settle",

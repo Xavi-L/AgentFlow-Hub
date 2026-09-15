@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "incomplete",
-  "reason": "Archify two consecutive non-improving repair rounds stop condition",
+  "reason": "Scoped labelSegment repair failed showcase validation; materialized return-left route intersects the previously placed RAG result label.",
   "deliveredSpecification": {
     "sha256": "f7644a03c9f232546e0587a16fc0eeb2596c835bf28254f4067a3fce1cfbb366",
     "bytes": 7161
@@ -14,17 +14,18 @@
   "visualReview": "failed",
   "candidate": {
     "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/03-task-e2e.candidate.workflow.json",
-    "sha256": "6ca9539b5c691fe19b5bf37057cdff9196851a085c1f3aed36a41de2383294b5",
+    "sha256": "90b7c24f91e7adeaf661c9f30bc0fd07c65f83c6fc83cb1586dea7637fcb6269",
     "validation": "03-task-e2e.candidate.validation.json",
-    "delivered": false
+    "delivered": false,
+    "predicateDiagnostics": "03-task-e2e.candidate.predicates.json"
   },
   "unresolved": [
     "Delivered six-lane artifact overflows all four desktop viewports vertically.",
-    "Compact candidate wf-tool-decision return-left route is infeasible; preceding automatic routing crossed wf-final-settle."
+    "Compact candidate wf-tool-decision fails routeClearsPlacedLabels: its vertical segment intersects the wf-rag-decision label rectangle (0px clearance; 4px required)."
   ],
   "nextDiagramStarted": false,
   "latestAttempt": {
-    "scope": "Only wf-rag-decision.route set to bottom-channel; all other diagram fields unchanged.",
+    "scope": "Removed wf-rag-decision.route bottom-channel and added wf-tool-decision.labelSegment 1; return-left and left/left retained; all other diagram fields unchanged.",
     "validationExitCode": 1,
     "diagnosticCode": "workflow/route-preset-conflict",
     "subject": {
@@ -38,19 +39,19 @@
       "attemptedCandidateFamily": "return-left",
       "points": [
         [
-          854,
+          902.4,
           246
         ],
         [
-          826,
+          874.4,
           246
         ],
         [
-          826,
+          874.4,
           372
         ],
         [
-          854,
+          902.4,
           372
         ]
       ],
@@ -65,8 +66,61 @@
       126,
       28
     ],
-    "supportedFixes": [],
-    "stoppedBy": "User instruction: save full diagnostic after one scoped change; no second speculative modification.",
+    "labelSegment": 1,
+    "labelPoint": [
+      874.4,
+      299
+    ],
+    "labelRect": {
+      "x": 831,
+      "y": 289,
+      "width": 86.8,
+      "height": 14
+    },
+    "predicates": {
+      "orthogonalRoute": true,
+      "routeHonorsEndpointSides": true,
+      "routeMeetsHardRhythm": true,
+      "routeClearsEndpointNodes": true,
+      "routeClearsUnrelatedNodes": true,
+      "routeLabelClearsNodes": true,
+      "routeClearsPlacedLabels": false,
+      "routeClearsLegend": true,
+      "routeClearsSceneLabelObstacles": true,
+      "routeClearsFrameBorders": true,
+      "routeFitsCanvasOrigin": true
+    },
+    "predicateDiagnostics": "03-task-e2e.candidate.predicates.json",
+    "placedConflicts": [
+      {
+        "kind": "candidate-route-vs-placed-label",
+        "otherEdge": "wf-rag-decision",
+        "otherLabel": {
+          "x": 850,
+          "y": 352,
+          "width": 48.4,
+          "height": 14
+        },
+        "segmentIndex": 1,
+        "segment": {
+          "start": [
+            874.4,
+            246
+          ],
+          "end": [
+            874.4,
+            372
+          ]
+        },
+        "clearancePx": 0,
+        "requiredClearancePx": 4
+      }
+    ],
+    "supportedFixes": [
+      "remove route from edge \"wf-tool-decision\" so readable-v2 can use its verified automatic candidate"
+    ],
+    "compilerSourceUnchanged": true,
+    "stoppedBy": "User instruction: report concrete feasibility predicates after a failed showcase validation; do not make another diagram change.",
     "layoutJsonRun": false,
     "formalSourceReplaced": false,
     "delivered": false,
