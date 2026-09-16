@@ -1,0 +1,736 @@
+{
+  "evidenceKind": "independent-fixed-geometry-analysis-not-native-archify",
+  "nativeArchifyValidate": "NOT_RUN",
+  "nativeArchifyDeliver": "NOT_RUN",
+  "browserEvidence": "NOT_RUN",
+  "visualReview": "NOT_RUN",
+  "issueCount": 0,
+  "issues": [],
+  "minOtherLabelRouteClearance": 24.0,
+  "minimumSegmentPx": 10.0,
+  "minimumInteriorSegmentPx": 24.0,
+  "minProjectedNodeTextPx": 7.484909456740443,
+  "intentionalSharedEndpointCorridors": [
+    {
+      "code": "shared-endpoint-corridor",
+      "edge": "sp-existing",
+      "other": "sp-again",
+      "length": 24.0,
+      "sharedNodes": [
+        "sp-read"
+      ]
+    }
+  ],
+  "columns": [
+    112.0,
+    310.8,
+    495.20000000000005,
+    679.6,
+    799.6,
+    919.6
+  ],
+  "viewBox": [
+    994,
+    534
+  ],
+  "laneHeight": 106,
+  "laneGap": 20,
+  "nodes": {
+    "sp-input": {
+      "id": "sp-input",
+      "lane": "save",
+      "col": 0,
+      "type": "backend",
+      "label": "冻结的观察结果",
+      "sublabel": "outcome + observedAt",
+      "width": 128,
+      "height": 68,
+      "x": 48.0,
+      "y": 86.0,
+      "cx": 112.0,
+      "cy": 120.0
+    },
+    "sp-read": {
+      "id": "sp-read",
+      "lane": "save",
+      "col": 1,
+      "type": "database",
+      "label": "每次先回读",
+      "sublabel": "现有终态优先",
+      "width": 128,
+      "height": 68,
+      "x": 246.8,
+      "y": 86.0,
+      "cx": 310.8,
+      "cy": 120.0
+    },
+    "sp-write": {
+      "id": "sp-write",
+      "lane": "save",
+      "col": 2,
+      "type": "database",
+      "label": "短事务保存",
+      "sublabel": "行锁 · 取消优先",
+      "width": 128,
+      "height": 68,
+      "x": 431.20000000000005,
+      "y": 86.0,
+      "cx": 495.20000000000005,
+      "cy": 120.0
+    },
+    "sp-done": {
+      "id": "sp-done",
+      "lane": "save",
+      "col": 3,
+      "type": "database",
+      "label": "终态已确认",
+      "sublabel": "保存或回读成立",
+      "width": 128,
+      "height": 68,
+      "x": 615.6,
+      "y": 86.0,
+      "cx": 679.6,
+      "cy": 120.0
+    },
+    "sp-degrade": {
+      "id": "sp-degrade",
+      "lane": "failure",
+      "col": 0,
+      "type": "security",
+      "label": "关闭任务准入",
+      "sublabel": "DOWN · 不虚构终态",
+      "width": 128,
+      "height": 68,
+      "x": 48.0,
+      "y": 212.0,
+      "cx": 112.0,
+      "cy": 246.0
+    },
+    "sp-classify": {
+      "id": "sp-classify",
+      "lane": "failure",
+      "col": 1,
+      "type": "security",
+      "label": "判定是否可重试",
+      "sublabel": "DB瞬态且次数未满",
+      "width": 128,
+      "height": 68,
+      "x": 246.8,
+      "y": 212.0,
+      "cx": 310.8,
+      "cy": 246.0
+    },
+    "sp-readback": {
+      "id": "sp-readback",
+      "lane": "failure",
+      "col": 2,
+      "type": "database",
+      "label": "立即再回读",
+      "sublabel": "未知COMMIT / 0行",
+      "width": 128,
+      "height": 68,
+      "x": 431.20000000000005,
+      "y": 212.0,
+      "cx": 495.20000000000005,
+      "cy": 246.0
+    },
+    "sp-backoff": {
+      "id": "sp-backoff",
+      "lane": "retry",
+      "col": 1,
+      "type": "backend",
+      "label": "有界退避",
+      "sublabel": "100ms / 500ms",
+      "width": 128,
+      "height": 68,
+      "x": 246.8,
+      "y": 338.0,
+      "cx": 310.8,
+      "cy": 372.0
+    }
+  },
+  "routes": {
+    "sp-begin": {
+      "edge": {
+        "id": "sp-begin",
+        "from": "sp-input",
+        "to": "sp-read",
+        "label": "开始保存",
+        "role": "main",
+        "variant": "emphasis",
+        "route": "straight",
+        "fromSide": "right",
+        "toSide": "left"
+      },
+      "points": [
+        [
+          176.0,
+          120.0
+        ],
+        [
+          246.8,
+          120.0
+        ]
+      ]
+    },
+    "sp-live": {
+      "edge": {
+        "id": "sp-live",
+        "from": "sp-read",
+        "to": "sp-write",
+        "label": "非终态",
+        "role": "main",
+        "variant": "emphasis",
+        "route": "straight",
+        "fromSide": "right",
+        "toSide": "left"
+      },
+      "points": [
+        [
+          374.8,
+          120.0
+        ],
+        [
+          431.20000000000005,
+          120.0
+        ]
+      ]
+    },
+    "sp-existing": {
+      "edge": {
+        "id": "sp-existing",
+        "from": "sp-read",
+        "to": "sp-done",
+        "label": "已终态",
+        "role": "branch",
+        "variant": "default",
+        "fromSide": "top",
+        "toSide": "top",
+        "via": [
+          [
+            310.8,
+            32
+          ],
+          [
+            679.6,
+            32
+          ]
+        ],
+        "labelSegment": 1
+      },
+      "points": [
+        [
+          310.8,
+          86.0
+        ],
+        [
+          310.8,
+          32
+        ],
+        [
+          679.6,
+          32
+        ],
+        [
+          679.6,
+          86.0
+        ]
+      ]
+    },
+    "sp-read-fail": {
+      "edge": {
+        "id": "sp-read-fail",
+        "from": "sp-read",
+        "to": "sp-classify",
+        "label": "首次回读异常",
+        "role": "error",
+        "variant": "security",
+        "route": "straight",
+        "fromSide": "bottom",
+        "toSide": "top",
+        "labelDy": 39
+      },
+      "points": [
+        [
+          310.8,
+          154.0
+        ],
+        [
+          310.8,
+          212.0
+        ]
+      ]
+    },
+    "sp-commit": {
+      "edge": {
+        "id": "sp-commit",
+        "from": "sp-write",
+        "to": "sp-done",
+        "label": "保存成功",
+        "role": "main",
+        "variant": "emphasis",
+        "route": "straight",
+        "fromSide": "right",
+        "toSide": "left"
+      },
+      "points": [
+        [
+          559.2,
+          120.0
+        ],
+        [
+          615.6,
+          120.0
+        ]
+      ]
+    },
+    "sp-uncertain": {
+      "edge": {
+        "id": "sp-uncertain",
+        "from": "sp-write",
+        "to": "sp-readback",
+        "label": "异常或0行",
+        "role": "error",
+        "variant": "security",
+        "route": "straight",
+        "fromSide": "bottom",
+        "toSide": "top",
+        "labelDy": 39
+      },
+      "points": [
+        [
+          495.20000000000005,
+          154.0
+        ],
+        [
+          495.20000000000005,
+          212.0
+        ]
+      ]
+    },
+    "sp-confirm": {
+      "edge": {
+        "id": "sp-confirm",
+        "from": "sp-readback",
+        "to": "sp-done",
+        "label": "已终态",
+        "role": "branch",
+        "variant": "default",
+        "fromSide": "right",
+        "toSide": "bottom",
+        "via": [
+          [
+            679.6,
+            246
+          ]
+        ],
+        "labelSegment": 0
+      },
+      "points": [
+        [
+          559.2,
+          246.0
+        ],
+        [
+          679.6,
+          246
+        ],
+        [
+          679.6,
+          154.0
+        ]
+      ]
+    },
+    "sp-unconfirmed": {
+      "edge": {
+        "id": "sp-unconfirmed",
+        "from": "sp-readback",
+        "to": "sp-classify",
+        "label": "尚未确认",
+        "role": "error",
+        "variant": "security",
+        "route": "straight",
+        "fromSide": "left",
+        "toSide": "right"
+      },
+      "points": [
+        [
+          431.20000000000005,
+          246.0
+        ],
+        [
+          374.8,
+          246.0
+        ]
+      ]
+    },
+    "sp-retry": {
+      "edge": {
+        "id": "sp-retry",
+        "from": "sp-classify",
+        "to": "sp-backoff",
+        "label": "可重试",
+        "role": "branch",
+        "variant": "default",
+        "route": "straight",
+        "fromSide": "bottom",
+        "toSide": "top",
+        "labelDy": 39
+      },
+      "points": [
+        [
+          310.8,
+          280.0
+        ],
+        [
+          310.8,
+          338.0
+        ]
+      ]
+    },
+    "sp-fail": {
+      "edge": {
+        "id": "sp-fail",
+        "from": "sp-classify",
+        "to": "sp-degrade",
+        "label": "永久 / 耗尽",
+        "role": "error",
+        "variant": "security",
+        "route": "straight",
+        "fromSide": "left",
+        "toSide": "right"
+      },
+      "points": [
+        [
+          246.8,
+          246.0
+        ],
+        [
+          176.0,
+          246.0
+        ]
+      ]
+    },
+    "sp-again": {
+      "edge": {
+        "id": "sp-again",
+        "from": "sp-backoff",
+        "to": "sp-read",
+        "label": "同一观察结果",
+        "role": "return",
+        "variant": "dashed",
+        "fromSide": "bottom",
+        "toSide": "top",
+        "via": [
+          [
+            310.8,
+            416
+          ],
+          [
+            20,
+            416
+          ],
+          [
+            20,
+            20
+          ],
+          [
+            286.8,
+            20
+          ],
+          [
+            286.8,
+            62
+          ],
+          [
+            310.8,
+            62
+          ]
+        ],
+        "labelSegment": 1
+      },
+      "points": [
+        [
+          310.8,
+          406.0
+        ],
+        [
+          310.8,
+          416
+        ],
+        [
+          20,
+          416
+        ],
+        [
+          20,
+          20
+        ],
+        [
+          286.8,
+          20
+        ],
+        [
+          286.8,
+          62
+        ],
+        [
+          310.8,
+          62
+        ],
+        [
+          310.8,
+          86.0
+        ]
+      ]
+    },
+    "sp-interrupt": {
+      "edge": {
+        "id": "sp-interrupt",
+        "from": "sp-backoff",
+        "to": "sp-degrade",
+        "label": "退避被中断",
+        "role": "error",
+        "variant": "security",
+        "fromSide": "left",
+        "toSide": "bottom",
+        "via": [
+          [
+            34,
+            372
+          ],
+          [
+            34,
+            310
+          ],
+          [
+            112,
+            310
+          ]
+        ],
+        "labelSegment": 2
+      },
+      "points": [
+        [
+          246.8,
+          372.0
+        ],
+        [
+          34,
+          372
+        ],
+        [
+          34,
+          310
+        ],
+        [
+          112,
+          310
+        ],
+        [
+          112.0,
+          280.0
+        ]
+      ]
+    }
+  },
+  "labels": {
+    "sp-begin": {
+      "x": 187.20000000000002,
+      "y": 100.0,
+      "width": 48.4,
+      "height": 14,
+      "point": [
+        211.4,
+        110.0
+      ],
+      "text": "开始保存"
+    },
+    "sp-live": {
+      "x": 383.6,
+      "y": 100.0,
+      "width": 38.8,
+      "height": 14,
+      "point": [
+        403.0,
+        110.0
+      ],
+      "text": "非终态"
+    },
+    "sp-existing": {
+      "x": 475.80000000000007,
+      "y": 12.0,
+      "width": 38.8,
+      "height": 14,
+      "point": [
+        495.20000000000005,
+        22.0
+      ],
+      "text": "已终态"
+    },
+    "sp-read-fail": {
+      "x": 277.0,
+      "y": 173.0,
+      "width": 67.6,
+      "height": 14,
+      "point": [
+        310.8,
+        183.0
+      ],
+      "text": "首次回读异常"
+    },
+    "sp-commit": {
+      "x": 563.2,
+      "y": 100.0,
+      "width": 48.4,
+      "height": 14,
+      "point": [
+        587.4000000000001,
+        110.0
+      ],
+      "text": "保存成功"
+    },
+    "sp-uncertain": {
+      "x": 468.6,
+      "y": 173.0,
+      "width": 53.199999999999996,
+      "height": 14,
+      "point": [
+        495.20000000000005,
+        183.0
+      ],
+      "text": "异常或0行"
+    },
+    "sp-confirm": {
+      "x": 600.0000000000001,
+      "y": 226.0,
+      "width": 38.8,
+      "height": 14,
+      "point": [
+        619.4000000000001,
+        236.0
+      ],
+      "text": "已终态"
+    },
+    "sp-unconfirmed": {
+      "x": 378.8,
+      "y": 226.0,
+      "width": 48.4,
+      "height": 14,
+      "point": [
+        403.0,
+        236.0
+      ],
+      "text": "尚未确认"
+    },
+    "sp-retry": {
+      "x": 291.40000000000003,
+      "y": 299.0,
+      "width": 38.8,
+      "height": 14,
+      "point": [
+        310.8,
+        309.0
+      ],
+      "text": "可重试"
+    },
+    "sp-fail": {
+      "x": 180.0,
+      "y": 226.0,
+      "width": 62.8,
+      "height": 14,
+      "point": [
+        211.4,
+        236.0
+      ],
+      "text": "永久 / 耗尽"
+    },
+    "sp-again": {
+      "x": 131.60000000000002,
+      "y": 396.0,
+      "width": 67.6,
+      "height": 14,
+      "point": [
+        165.4,
+        406.0
+      ],
+      "text": "同一观察结果"
+    },
+    "sp-interrupt": {
+      "x": 44.0,
+      "y": 290.0,
+      "width": 58.0,
+      "height": 14,
+      "point": [
+        73.0,
+        300.0
+      ],
+      "text": "退避被中断"
+    }
+  },
+  "frames": [
+    {
+      "id": "save",
+      "x": 40,
+      "y": 52,
+      "width": 938,
+      "height": 106
+    },
+    {
+      "id": "failure",
+      "x": 40,
+      "y": 178,
+      "width": 938,
+      "height": 106
+    },
+    {
+      "id": "retry",
+      "x": 40,
+      "y": 304,
+      "width": 938,
+      "height": 106
+    }
+  ],
+  "sceneLabels": [
+    {
+      "id": "save",
+      "x": 54,
+      "y": 64,
+      "width": 173.6,
+      "height": 14
+    },
+    {
+      "id": "failure",
+      "x": 54,
+      "y": 190,
+      "width": 173.6,
+      "height": 14
+    },
+    {
+      "id": "retry",
+      "x": 54,
+      "y": 316,
+      "width": 198.4,
+      "height": 14
+    }
+  ],
+  "legendBaseline": 454,
+  "limitations": [
+    "Narrow reproduction of fixed readable-v2 placement and fully authored routes only; no original CLI, schema validator or automatic solver executed.",
+    "Legend packing, native artifact composition and real browser containment remain to be checked.",
+    "Shared semantic endpoints are not treated as unrelated crossing/corridor errors; their overlapping segments are reported separately."
+  ],
+  "inputSha256": "7da010503c5b9eee0f34cb01601c6178f29af9c06ab1a07b23d1e0512154fd6b",
+  "baselineSha256": "fd70b472875132ddd8d09ee4190189ab82cd4d6ba543717dfc1d3eb5f055f32b",
+  "semanticPreservation": {
+    "nodesUnchanged": 8,
+    "relationshipsPreserved": 12,
+    "lanesUnchanged": 3,
+    "cardsUnchanged": 3,
+    "labelsUnchanged": true,
+    "mainPathUnchanged": true,
+    "semanticChecksUnchanged": true,
+    "businessCodeChanged": false,
+    "skillChanged": false
+  }
+}

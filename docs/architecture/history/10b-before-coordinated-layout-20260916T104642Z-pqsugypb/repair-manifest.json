@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "purpose": "10B authored-layout candidate; native validation not yet executed",
+  "repository": "Xavi-L/AgentFlow-Hub",
+  "observedRemoteHead": "7e1e8bb7c2ae55b44726b410fb2546cb64d4a401",
+  "target": "docs/architecture/10-settlement.candidate.workflow.json",
+  "original": {
+    "gitBlobSha1": "5981848bf77f3902d67adb5879230b98e231c74a",
+    "sha256": "fd70b472875132ddd8d09ee4190189ab82cd4d6ba543717dfc1d3eb5f055f32b",
+    "bytes": 6472
+  },
+  "repaired": {
+    "filename": "10-settlement.repaired.candidate.workflow.json",
+    "sha256": "7da010503c5b9eee0f34cb01601c6178f29af9c06ab1a07b23d1e0512154fd6b",
+    "bytes": 8109
+  },
+  "modeledCompiler": {
+    "path": ".agents/skills/archify/renderers/workflow/workflow-compiler.mjs",
+    "gitBlobSha1": "81ba79a14895072643ea680b6eb304c45b0b8e29"
+  },
+  "invariantsVerified": {
+    "nodesUnchanged": 8,
+    "relationshipsPreserved": 12,
+    "lanesUnchanged": 3,
+    "cardsUnchanged": 3,
+    "labelsUnchanged": true,
+    "mainPathUnchanged": true,
+    "semanticChecksUnchanged": true,
+    "businessCodeChanged": false,
+    "skillChanged": false
+  },
+  "validation": {
+    "independentGeometry": "PASS",
+    "nativeArchifyValidate": "NOT_RUN",
+    "nativeArchifyDeliver": "NOT_RUN",
+    "browserEvidence": "NOT_RUN",
+    "visualReview": "NOT_RUN"
+  }
+}

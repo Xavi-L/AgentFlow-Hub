@@ -1,0 +1,6 @@
+{
+  "command": "python3 archify10b_repair/apply_repair.py . --apply",
+  "exit_code": 0,
+  "stdout": "Workflow compiler identity matches modeled source.\nBaseline and semantic-preservation checks passed. Target: /Users/xavier/AgentFlow-Hub/docs/architecture/10-settlement.candidate.workflow.json\nApplied candidate only. Backup: /Users/xavier/AgentFlow-Hub/docs/architecture/history/10b-before-coordinated-layout-20260916T104642Z-pqsugypb\nNot a delivery or acceptance. Run original Archify validate, then deliver/browser review if successful.\n",
+  "stderr": ""
+}

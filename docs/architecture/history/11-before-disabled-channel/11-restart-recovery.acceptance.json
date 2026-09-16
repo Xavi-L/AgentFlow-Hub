@@ -1,0 +1,38 @@
+{
+  "diagram": "11",
+  "date": "2026-09-16",
+  "baseline_head": "7e1e8bb7c2ae55b44726b410fb2546cb64d4a401",
+  "status": "incomplete",
+  "artifact_validation": "not_run",
+  "browser_evidence": "not_run",
+  "visual_review": "not_run",
+  "commands": [
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/11-restart-recovery.candidate.workflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/11-before-ready-straight/11-restart-recovery.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/11-restart-recovery.candidate.workflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "11-restart-recovery.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/11-restart-recovery.candidate.workflow.json --quality showcase --layout-json",
+      "exit_code": 1,
+      "receipt": "11-restart-recovery.layout.json",
+      "stderr": ""
+    }
+  ],
+  "repairs": [
+    {
+      "subject": "rr-ready-edge",
+      "change": {
+        "route": "straight"
+      },
+      "reason": "Separate ready path from diagnosed unrelated scan-fail corridor."
+    }
+  ]
+}

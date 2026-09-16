@@ -1,0 +1,33 @@
+{
+  "date": "2026-09-16",
+  "evidenceKind": "image-capable-reviewer",
+  "artifact": {
+    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/10-settlement.html",
+    "sha256": "c8fcaf357f648c7dbeadeb55756ba8f1640ebbee20a85487e65c0a7c6263828d",
+    "bytes": 811362
+  },
+  "visual_review": "passed",
+  "correction_rounds": 0,
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "images_inspected": [
+    "10-settlement.visual-check.1440x900.light.png",
+    "10-settlement.visual-check.1440x900.dark.png",
+    "10-settlement.visual-check.2048x1320.light.png",
+    "10-settlement.visual-check.2048x1320.dark.png"
+  ],
+  "observations": [
+    "实际打开1440×900和2048×1320的light/dark四张PNG，均为本次成功deliver后生成。",
+    "正常退避返回从backoff底部沿紫色虚线外圈到read顶部；退避中断从左侧沿红色虚线进入degrade底部，端口、方向、颜色与标签可区分。",
+    "sp-existing与sp-again在read顶部有24px共同端点段；紫色入箭头与灰色离开后去done的实线可追踪，没有误读为绕过read的直接控制边。",
+    "主路径清楚，未见节点/标签遮挡；图例在外圈下方，与路径及导航分离。",
+    "四视口containment/readability通过；最大视口主图、图例与说明卡片纵向分布均衡。"
+  ],
+  "limitations": [
+    "检查默认READ/Still截图；未另测focus/search/passport操作或导出文件。",
+    "共用端点段确实存在；properCrossings/ambiguousCorridors为0不等于所有线段完全不共线。",
+    "这是布局交付验收，不是业务/真实provider或数据库故障注入验收。"
+  ]
+}

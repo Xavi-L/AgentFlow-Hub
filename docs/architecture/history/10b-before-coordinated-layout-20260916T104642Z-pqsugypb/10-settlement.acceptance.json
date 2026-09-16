@@ -1,0 +1,111 @@
+{
+  "diagram": "10",
+  "part": "10-settlement",
+  "diagram_type": "workflow",
+  "date": "2026-09-16",
+  "baseline_head": "0320892af12fdafb1b5ae89e9135b987dbd1630a",
+  "status": "incomplete",
+  "artifact_validation": "failed",
+  "browser_evidence": "not_run",
+  "visual_review": "not_run",
+  "commands": [
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/10-settlement.candidate.workflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/10b-before-retry-straight/10-settlement.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/10-settlement.candidate.workflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/10b-straight-conflict/10-settlement.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/10-settlement.candidate.workflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "10-settlement.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/10-settlement.candidate.workflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "10-settlement.handoff.validation.json",
+      "stderr": ""
+    }
+  ],
+  "repairs": [
+    {
+      "subject": "sp-retry",
+      "fields": {
+        "route": "straight"
+      },
+      "baseline": "history/10b-before-retry-straight"
+    },
+    {
+      "subject": "sp-retry",
+      "removed": "route",
+      "fromSide": "left",
+      "toSide": "left",
+      "reason": "separate retry from the diagnosed right-side sp-confirm/sp-uncertain corridors; original straight candidate infeasible"
+    }
+  ],
+  "delivery": "not_run",
+  "formal_specification": null,
+  "html": null,
+  "stop_reason": "Two focused sp-retry repairs failed before composition checks; earlier four crossing/corridor issues remain unverified, not proven resolved by the lower raw diagnostic count.",
+  "current_diagnostic": {
+    "code": "workflow/explicit-pin-conflict",
+    "severity": "error",
+    "message": "Workflow edge \"sp-retry\" has explicit geometry that violates readable route feasibility with authored endpoint sides.",
+    "subject": {
+      "diagramType": "workflow",
+      "edge": "sp-retry",
+      "from": "sp-classify",
+      "to": "sp-backoff"
+    },
+    "evidence": {
+      "invariant": "readable route feasibility with authored endpoint sides",
+      "conflictingPins": [
+        {
+          "edge": "sp-retry",
+          "field": "fromSide",
+          "path": "/edges/8/fromSide",
+          "value": "left"
+        },
+        {
+          "edge": "sp-retry",
+          "field": "toSide",
+          "path": "/edges/8/toSide",
+          "value": "left"
+        }
+      ],
+      "actualCoordinates": {
+        "sourceAnchor": [
+          246.8,
+          265
+        ],
+        "targetAnchor": [
+          246.8,
+          403
+        ]
+      },
+      "fromSide": "left",
+      "toSide": "left",
+      "attemptedCandidateFamilies": [
+        "facing-straight",
+        "horizontal-then-vertical",
+        "vertical-then-horizontal",
+        "lane-gap-corridor",
+        "column-gap-corridor",
+        "outside-left",
+        "outside-right",
+        "top-corridor",
+        "bottom-corridor"
+      ],
+      "candidateCount": 9
+    },
+    "supportedFixes": []
+  },
+  "unknown": "Native CLI does not expose which individual readability feasibility predicate failed or a chosen feasible route; no supportedFixes provided."
+}

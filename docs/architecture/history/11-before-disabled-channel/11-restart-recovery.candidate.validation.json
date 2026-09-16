@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "validate",
+  "stage": "render",
+  "type": "workflow",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/11-restart-recovery.candidate.workflow.json",
+  "error": "Workflow layout validation failed:\n- [composition/ambiguous-corridor] showcase workflow edges[1] id \"rr-disabled-clear\" \"rr-disabled\" -> \"rr-final\" shares a 80px corridor with edges[9] id \"rr-scan-fail\" \"rr-controlled\" -> \"rr-closed\" at [527.2, 312] -> [607.2, 312] (segments 1 and 1; minimum 8px) — adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+  "diagnostics": [
+    {
+      "code": "composition/ambiguous-corridor",
+      "severity": "error",
+      "message": "[composition/ambiguous-corridor] showcase workflow edges[1] id \"rr-disabled-clear\" \"rr-disabled\" -> \"rr-final\" shares a 80px corridor with edges[9] id \"rr-scan-fail\" \"rr-controlled\" -> \"rr-closed\" at [527.2, 312] -> [607.2, 312] (segments 1 and 1; minimum 8px) — adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+      "subject": {
+        "diagramType": "workflow",
+        "collection": "edges",
+        "index": 1,
+        "id": "rr-disabled-clear",
+        "from": "rr-disabled",
+        "to": "rr-final"
+      },
+      "evidence": {
+        "otherRelationship": {
+          "diagramType": "workflow",
+          "collection": "edges",
+          "index": 9,
+          "id": "rr-scan-fail",
+          "from": "rr-controlled",
+          "to": "rr-closed"
+        },
+        "overlapLengthPx": 80,
+        "minimumPx": 8,
+        "from": [
+          527.2,
+          312
+        ],
+        "to": [
+          607.2,
+          312
+        ],
+        "segmentIndex": 1,
+        "otherSegmentIndex": 1
+      },
+      "supportedFixes": [
+        "adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge"
+      ]
+    }
+  ]
+}

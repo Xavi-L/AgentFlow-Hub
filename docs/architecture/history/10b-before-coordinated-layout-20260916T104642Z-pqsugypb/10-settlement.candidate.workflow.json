@@ -109,10 +109,7 @@
       "to": "sp-read",
       "label": "开始保存",
       "role": "main",
-      "variant": "emphasis",
-      "route": "straight",
-      "fromSide": "right",
-      "toSide": "left"
+      "variant": "emphasis"
     },
     {
       "id": "sp-live",
@@ -120,10 +117,7 @@
       "to": "sp-write",
       "label": "非终态",
       "role": "main",
-      "variant": "emphasis",
-      "route": "straight",
-      "fromSide": "right",
-      "toSide": "left"
+      "variant": "emphasis"
     },
     {
       "id": "sp-existing",
@@ -131,20 +125,7 @@
       "to": "sp-done",
       "label": "已终态",
       "role": "branch",
-      "variant": "default",
-      "fromSide": "top",
-      "toSide": "top",
-      "via": [
-        [
-          310.8,
-          32
-        ],
-        [
-          679.6,
-          32
-        ]
-      ],
-      "labelSegment": 1
+      "variant": "default"
     },
     {
       "id": "sp-read-fail",
@@ -152,11 +133,7 @@
       "to": "sp-classify",
       "label": "首次回读异常",
       "role": "error",
-      "variant": "security",
-      "route": "straight",
-      "fromSide": "bottom",
-      "toSide": "top",
-      "labelDy": 39
+      "variant": "security"
     },
     {
       "id": "sp-commit",
@@ -164,10 +141,7 @@
       "to": "sp-done",
       "label": "保存成功",
       "role": "main",
-      "variant": "emphasis",
-      "route": "straight",
-      "fromSide": "right",
-      "toSide": "left"
+      "variant": "emphasis"
     },
     {
       "id": "sp-uncertain",
@@ -175,11 +149,7 @@
       "to": "sp-readback",
       "label": "异常或0行",
       "role": "error",
-      "variant": "security",
-      "route": "straight",
-      "fromSide": "bottom",
-      "toSide": "top",
-      "labelDy": 39
+      "variant": "security"
     },
     {
       "id": "sp-confirm",
@@ -187,16 +157,7 @@
       "to": "sp-done",
       "label": "已终态",
       "role": "branch",
-      "variant": "default",
-      "fromSide": "right",
-      "toSide": "bottom",
-      "via": [
-        [
-          679.6,
-          246
-        ]
-      ],
-      "labelSegment": 0
+      "variant": "default"
     },
     {
       "id": "sp-unconfirmed",
@@ -204,10 +165,7 @@
       "to": "sp-classify",
       "label": "尚未确认",
       "role": "error",
-      "variant": "security",
-      "route": "straight",
-      "fromSide": "left",
-      "toSide": "right"
+      "variant": "security"
     },
     {
       "id": "sp-retry",
@@ -216,10 +174,8 @@
       "label": "可重试",
       "role": "branch",
       "variant": "default",
-      "route": "straight",
-      "fromSide": "bottom",
-      "toSide": "top",
-      "labelDy": 39
+      "fromSide": "left",
+      "toSide": "left"
     },
     {
       "id": "sp-fail",
@@ -227,10 +183,7 @@
       "to": "sp-degrade",
       "label": "永久 / 耗尽",
       "role": "error",
-      "variant": "security",
-      "route": "straight",
-      "fromSide": "left",
-      "toSide": "right"
+      "variant": "security"
     },
     {
       "id": "sp-again",
@@ -238,36 +191,7 @@
       "to": "sp-read",
       "label": "同一观察结果",
       "role": "return",
-      "variant": "dashed",
-      "fromSide": "bottom",
-      "toSide": "top",
-      "via": [
-        [
-          310.8,
-          416
-        ],
-        [
-          20,
-          416
-        ],
-        [
-          20,
-          20
-        ],
-        [
-          286.8,
-          20
-        ],
-        [
-          286.8,
-          62
-        ],
-        [
-          310.8,
-          62
-        ]
-      ],
-      "labelSegment": 1
+      "variant": "dashed"
     },
     {
       "id": "sp-interrupt",
@@ -275,24 +199,7 @@
       "to": "sp-degrade",
       "label": "退避被中断",
       "role": "error",
-      "variant": "security",
-      "fromSide": "left",
-      "toSide": "bottom",
-      "via": [
-        [
-          34,
-          372
-        ],
-        [
-          34,
-          310
-        ],
-        [
-          112,
-          310
-        ]
-      ],
-      "labelSegment": 2
+      "variant": "security"
     }
   ],
   "mainPath": [

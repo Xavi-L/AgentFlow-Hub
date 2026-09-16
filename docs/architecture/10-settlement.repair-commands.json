@@ -1,0 +1,32 @@
+[
+  {
+    "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/10-settlement.candidate.workflow.json --quality showcase --json",
+    "exit_code": 0,
+    "receipt": "10-settlement.candidate.validation.json",
+    "stderr": ""
+  },
+  {
+    "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/10-settlement.candidate.workflow.json --quality showcase --layout-json",
+    "exit_code": 0,
+    "receipt": "10-settlement.layout.json",
+    "stderr": ""
+  },
+  {
+    "command": "node .agents/skills/archify/bin/archify.mjs deliver workflow docs/architecture/10-settlement.workflow.json docs/architecture/10-settlement.html --quality showcase --json",
+    "exit_code": 0,
+    "receipt": "10-settlement.delivery.json",
+    "stderr": ""
+  },
+  {
+    "command": "node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/10-settlement.html --json",
+    "exit_code": 0,
+    "receipt": "10-settlement.visual-check.json",
+    "stderr": ""
+  },
+  {
+    "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/10-settlement.workflow.json --quality showcase --json",
+    "exit_code": 0,
+    "receipt": "10-settlement.validation.json",
+    "stderr": ""
+  }
+]

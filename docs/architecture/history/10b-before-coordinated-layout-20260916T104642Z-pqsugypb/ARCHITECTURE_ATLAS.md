@@ -2,7 +2,7 @@
 
 ## Scope and baseline
 
-已依次完成 **01 · System Context**、**02 · Backend Runtime Architecture**（均为 `architecture`）及 **03 · End-to-End Task Workflow**（`workflow` v2）。图 03 当前交付的 artifact、browser evidence 与截图 visual review 均通过，旧失败记录保留为历史。图 04 已完成 Task Creation and Dispatch Sequence，图 05 已完成 Agent Execution Loop（workflow v2）；图 06 RAG Data Flow 已完成修复包应用，artifact、browser evidence 与截图 visual review 均通过，旧失败证据保留；图 07 Tool Invocation Sequence 已完成 artifact、browser 和视觉验收；图 08 Task Lifecycle 已完成三层验收；图 09 派发与并发控制已完成三层验收；图 10 已完成：10A原产物保持不变，10B协调布线修复经原版artifact、browser与实际视觉复核通过，整体complete；图 11 已施工但原版compiler验证失败，保持incomplete；图 12–15 与最终独立 Architecture Audit 尚未施工。
+已依次完成 **01 · System Context**、**02 · Backend Runtime Architecture**（均为 `architecture`）及 **03 · End-to-End Task Workflow**（`workflow` v2）。图 03 当前交付的 artifact、browser evidence 与截图 visual review 均通过，旧失败记录保留为历史。图 04 已完成 Task Creation and Dispatch Sequence，图 05 已完成 Agent Execution Loop（workflow v2）；图 06 RAG Data Flow 已完成修复包应用，artifact、browser evidence 与截图 visual review 均通过，旧失败证据保留；图 07 Tool Invocation Sequence 已完成 artifact、browser 和视觉验收；图 08 Task Lifecycle 已完成三层验收；图 09 派发与并发控制已完成三层验收；图 10 已拆为10A执行中断lifecycle与10B终态保存workflow：10A三层验收通过，10B原版路由验证失败，整体incomplete；图 11–15 与最终独立 Architecture Audit 尚未施工。
 
 - 图 01 交付日期：2026-09-14；图 02 于 2026-09-14 开始检查、2026-09-15 完成交付（Asia/Shanghai）。
 - 图 01/02 施工基线分支：`main`；HEAD：`ba04adc5308222635e6eb1a86a0981da8ede408c`（`docs: add Archify architecture atlas construction guide`）。未 fetch、未改变 Git 基线；此处指施工时本地 main。
@@ -26,8 +26,7 @@
 | 07 | Tool Invocation Sequence | sequence | 模型决定调用工具后，定义、校验、执行、结果与后续模型调用如何串起来？ | complete：9/9 showcase，0 errors / 0 warnings；四视口 browser 与双主题截图 visual review passed |
 | 08 | Task Lifecycle | lifecycle | Task 的持久状态是什么，哪些触发与 guard 允许转换？ | complete：9/9 showcase，0 errors / 0 warnings；四视口 browser 与双主题截图 visual review passed |
 | 09 | Dispatch, Thread Pool and Concurrency Control | workflow v2 | 已提交任务如何经线程池、队列、claim和实际工作许可形成背压？ | complete：9/9 showcase，0 errors / 0 warnings；四视口browser和双主题visual review passed |
-| 10 | Failure, Cancellation and Settlement Lifecycle | lifecycle + workflow v2 | 执行中断与终态保存失败分别如何收敛？ | complete：10A原件不变；10B协调布线修复后9/9、0 errors / 0 warnings，四视口browser与双主题visual review passed |
-| 11 | Restart Recovery and Controlled Cutover | workflow v2 | 受控重启如何识别遗留任务、收尾并开放准入？ | incomplete：两轮定向布局修复后原版compiler内部异常，未deliver/browser/visual review |
+| 10 | Failure, Cancellation and Settlement Lifecycle | lifecycle + workflow v2 | 执行中断与终态保存失败分别如何收敛？ | incomplete：10A三层passed；10B sp-retry路由可行性失败，未deliver/browser/visual review |
 
 ## Evidence convention
 
@@ -1327,10 +1326,10 @@ V0.2 冷切换说明是 **DOC_DECLARED 的操作前置**，相应锁/准入/结�
 ## 图 10 Evidence index
 
 - **Diagram / Question:** Failure, Cancellation and Settlement Lifecycle；timeout、cancel、provider failure 或终态保存失败分别怎样收敛？2026-09-16。
-- **Type / Scope:** 按指南13.2拆分10A `lifecycle`（6状态/5关系）与10B `workflow` v2（8节点/12关系），均showcase。10A是两条独立的本地生命周期，不是新增TaskStatus；10B为数据库保存过程。图10当前整体 **complete**，10B本次修复验收见末节；不开始图11。
+- **Type / Scope:** 按指南13.2拆分10A `lifecycle`（6状态/5关系）与10B `workflow` v2（8节点/12关系），均showcase。10A是两条独立的本地生命周期，不是新增TaskStatus；10B为数据库保存过程。图10整体 **incomplete**，不开始图11。
 - **Primary path:** 观察调用结束 → Engine结束后冻结outcome → 每次先回读 → 短事务保存 → 终态确认；中断不响应body独立存活。异常保存先回读，允许的瞬态数据库故障才有界退避；无法确认时关闭准入。
 - **10A:** [候选](10-failure-cancel.candidate.lifecycle.json)、[正式源](10-failure-cancel.lifecycle.json)、[HTML](10-failure-cancel.html)、[候选validate](10-failure-cancel.candidate.validation.json)、[正式交接validate](10-failure-cancel.validation.json)、[deliver](10-failure-cancel.delivery.json)、[原版browser](10-failure-cancel.visual-check.json)、[截图集](10-failure-cancel.visual-check.html)、[独立视觉复核](10-failure-cancel.visual-review.json)、[acceptance](10-failure-cancel.acceptance.json)。
-- **10B:** [候选](10-settlement.candidate.workflow.json)、[正式源](10-settlement.workflow.json)、[HTML](10-settlement.html)、[候选validate](10-settlement.candidate.validation.json)、[正式交接validate](10-settlement.validation.json)、[deliver](10-settlement.delivery.json)、[原版layout](10-settlement.layout.json)、[browser](10-settlement.visual-check.json)、[截图集](10-settlement.visual-check.html)、[视觉复核](10-settlement.visual-review.json)、[acceptance](10-settlement.acceptance.json)。旧[交接失败回执](10-settlement.handoff.validation.json)保持历史失败，不作为当前验收。
+- **10B:** [候选](10-settlement.candidate.workflow.json)、[最新失败回执](10-settlement.candidate.validation.json)、[交接复验失败回执](10-settlement.handoff.validation.json)、[acceptance](10-settlement.acceptance.json)。没有正式JSON或HTML，未deliver/browser/visual review。
 - **Overall acceptance:** [图10分层状态](10-acceptance.json)。不能用10A通过替代10B验收。
 
 ### 四个必须分开的事实（CODE_CONFIRMED）
@@ -1358,7 +1357,7 @@ V0.2 冷切换说明是 **DOC_DECLARED 的操作前置**，相应锁/准入/结�
 
 TaskExternalCallDeadline在嵌套同步调用中继承父boundary/许可，已abandoned父调用不能启动后续工作。10A不画观察方到“强制退出”的箭头；本地线程、DB状态和provider服务端三者不合并。对应TEST_CONFIRMED为[TaskExternalCallDeadlineTest](../../backend/src/test/java/com/agentflow/agent/engine/TaskExternalCallDeadlineTest.java)：不响应中断body在waiter退出后active=1/permits=0，真正退出后归还；取得许可尚未进入时取消、重复run、launch失败均精确归还。本轮只读取断言，未运行测试。
 
-### 10B逐边证据（CODE_CONFIRMED；业务语义在本次布局修复中保持不变）
+### 10B逐边证据（CODE_CONFIRMED；布局尚未通过）
 
 以下所有控制边均来自[TaskSettlementService.settle / persistence retry](../../backend/src/main/java/com/agentflow/agent/task/execution/TaskSettlementService.java)，事务写入委托[AgentTaskLifecycleTransactionService.settleObserved](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskLifecycleTransactionService.java)，条件更新由[AgentTaskMapper](../../backend/src/main/java/com/agentflow/agent/task/repository/AgentTaskMapper.java)执行。
 
@@ -1392,9 +1391,7 @@ TaskExternalCallDeadline在嵌套同步调用中继承父boundary/许可，已ab
 - **DOC_DECLARED：** [V0.2-B验收操作说明](../../scripts/v02b-interruption-acceptance.md)描述受控执行方法；本轮没有启动该验收或新生成真实provider证据。
 - **UNKNOWN：** 真实provider中断/计费停止、部署取消延迟、目标数据库可用性、生产故障下持久化结果均未运行验证。代码只证明本地机制与边界。没有扩展图11恢复，也没有添加业务代码。
 
-### 图 10上一轮验收与停止点（历史记录）
-
-以下为协调布线修复前的事实；原始Atlas和分层acceptance已保存在[修复前快照](history/10b-before-coordinated-layout-20260916T104642Z-pqsugypb/)，本次通过结果见下一节。
+### 图 10实际验收与停止点
 
 | 部分 | Artifact validation | Browser evidence | Visual review | 总状态 |
 | --- | --- | --- | --- | --- |
@@ -1417,133 +1414,8 @@ TaskExternalCallDeadline在嵌套同步调用中继承父boundary/许可，已ab
 
 10B[初版回执](history/10b-before-retry-straight/10-settlement.candidate.validation.json)有4项：sp-confirm与sp-retry proper crossing；sp-again与sp-unconfirmed共享54px竖向通道；sp-existing与sp-uncertain共享184.4px横向通道；sp-retry与sp-uncertain共享50px竖向通道。定向修复1只设sp-retry为straight，[回执](history/10b-straight-conflict/10-settlement.candidate.validation.json)为workflow/route-preset-conflict，bottom→top，points=[[310.8,280],[310.8,338]]，supportedFixes=[]。修复2撤销straight，仅对同一subject指定left/left以避开已诊断右侧通道；仍无法生成可行路线。
 
-**上一轮原版诊断：** workflow/explicit-pin-conflict，subject=sp-retry（sp-classify→sp-backoff），invariant=`readable route feasibility with authored endpoint sides`；冲突字段`/edges/8/fromSide=left`、`/edges/8/toSide=left`；sourceAnchor=[246.8,265]、targetAnchor=[246.8,403]。尝试9类候选：facing-straight、horizontal-then-vertical、vertical-then-horizontal、lane-gap-corridor、column-gap-corridor、outside-left、outside-right、top-corridor、bottom-corridor。supportedFixes为空，未生成被接受的最终route points；CLI未暴露具体失败predicate，不能仅凭端点断定是某一标签/节点碰撞。
+**最新原版诊断：** workflow/explicit-pin-conflict，subject=sp-retry（sp-classify→sp-backoff），invariant=`readable route feasibility with authored endpoint sides`；冲突字段`/edges/8/fromSide=left`、`/edges/8/toSide=left`；sourceAnchor=[246.8,265]、targetAnchor=[246.8,403]。尝试9类候选：facing-straight、horizontal-then-vertical、vertical-then-horizontal、lane-gap-corridor、column-gap-corridor、outside-left、outside-right、top-corridor、bottom-corridor。supportedFixes为空，未生成被接受的最终route points；CLI未暴露具体失败predicate，不能仅凭端点断定是某一标签/节点碰撞。
 
 空supportedFixes诊断后按Skill允许条件只读workflow compiler，确认可行性还检查标签、其他节点/标签、scene及frame等，并未获得可复现的单predicate结论，未修改或instrument Skill。两轮定向修复均在composition之前失败；原4项没有被重新完整评估，不能将回执4→1→1当成几何改善。按[Archify SKILL.md](../../.agents/skills/archify/SKILL.md)的“If two consecutive rounds do not improve that best count, stop and report the unresolved diagnostics truthfully.”停止本轮B布局，保留最新candidate及全部历史，不继续轮换preset、不deliver失败候选。
 
 本轮只新增图10产物并更新Atlas，原图01–09与其他工作树改动保留。未修改业务代码、Skill、验证标准或手改生成HTML；未用裁切、overflow:hidden或缩小字体过关。未开始图11，未提交推送。
-
-
-### 图 10B协调布线修复与最终验收（2026-09-16）
-
-本轮基线为main@7e1e8bb7c2ae55b44726b410fb2546cb64d4a401的dirty working tree。先读用户修复包[REPAIR_NOTES](history/10b-before-coordinated-layout-20260916T104642Z-pqsugypb/REPAIR_NOTES.md)，把它作为待验候选。运行安全脚本dry-run exit0，确认候选基线与modeled workflow compiler Git blob `81ba79a14895072643ea680b6eb304c45b0b8e29`均匹配；再整组apply exit0。[dry-run回执](10-settlement.package-dry-run.json)、[apply回执](10-settlement.package-apply.json)记录实际输出与退出码。没有另外应用patch，没有修改Skill或10A。
-
-旧10B候选及相邻JSON回执由应用脚本先复制到[唯一history目录](history/10b-before-coordinated-layout-20260916T104642Z-pqsugypb/)，旧Atlas及整体acceptance也存入该目录。包内独立报告保持其NOT_RUN声明，并以[预测报告原件](history/10b-before-coordinated-layout-20260916T104642Z-pqsugypb/10-settlement.independent-check.json)保存；它不是本轮原版验收。
-
-**语义保留：** 8个节点、12条关系、3泳道、3张cards、全部文案、mainPath与semanticChecks保持不变。节点lane/col/type/width/height不变，只按整包更改连线几何。正常退避返回sp-again保持同一观察结果，只重试数据库保存，不重执行Engine/provider；sp-interrupt仍表示退避中断后降级。代码证据和四种取消/保存事实的区分沿用上节，本轮没有新的业务或外部服务验收。
-
-**原版Artifact validation：passed。** 候选validate、layout-json、deliver及交接前正式源validate均实际exit0；完整9/9 artifact checks，composition 0 errors / 0 warnings。properCrossings=0、ambiguousCorridors=0、labelRouteClearanceIssues=0、containerBorderRuns=0，标签对其他关系最小净距24px。最短端点段10px，interior24px、micro0。原版记录shortSegmentCount=1（一个10px端点段），shortInteriorSegmentCount=0；端点超过8px硬门槛，未被列为error/warning。maxBends=6、maxStretch=3.292，各有2条超过建议值。保留这些实际指标，不称所有路线最短或完全没有短段。
-
-**原版布局对比：** [比较记录](10-settlement.layout-comparison.json)逐一对比columns、8个节点矩形、12条最终路径和12个标签位置；容差1e-8，无差异。原版label x/y是标签定位点，对照独立报告的point，而非其mask左上角。columns=[112,310.8,495.20000000000005,679.6,799.6,919.6]，viewBox=requiredViewBox=[994,534]。[本次SVG测量](10-settlement.svg-measurements.json)确认lane y=52/178/304、height106、gap20，节点top=86/212/338，均128×68；全部8个节点标题11px、副标题8px，未缩小字体。
-
-- sp-again最终路径：[(310.8,406),(310.8,416),(20,416),(20,20),(286.8,20),(286.8,62),(310.8,62),(310.8,86)]；标签“同一观察结果”定位点(165.4,406)。
-- sp-interrupt最终路径：[(246.8,372),(34,372),(34,310),(112,310),(112,280)]；“退避被中断”定位点(73,300)。
-- sp-existing从read顶部(310.8,86)经y32到done顶部；与sp-again在x310.8、y62..86共用24px端点段，确实存在，未隐藏。原版非共享端点crossing/corridor为0不等于图中没有任何共线。
-
-候选通过后原字节复制为正式源，再deliver。随后只对本次成功生成的HTML运行visual-check，原版回执exit0/status=pass；未重绘或手改HTML。
-
-| 10B Viewport（light） | scrollWidth × scrollHeight | diagramWidth | 最小预计节点字号 | containment/readability |
-| --- | --- | --- | --- | --- |
-| 1440×900 | 1440×900 | 1132px | 8px | pass |
-| 1600×1000 | 1600×1000 | 1176px | 8px | pass |
-| 1920×1080 | 1920×1080 | 1325px | 8px | pass |
-| 2048×1320 | 2048×1320 | 1726px | 8px | pass |
-
-**Browser evidence：passed；visual review：passed，correction_rounds=0。** 两端点1440×900与2048×1320另有light/dark四张PNG，全部实际打开复核。正常退避从底部沿紫色虚线外圈回读，退避中断从左端口沿红色虚线到关闭准入，路径、标签和方向可区分。read顶部共同端点段可沿紫色入箭头与灰色出线追踪，不表示绕过read直接保存。节点、关系标签、图例与卡片无可见遮挡；图例位于回环下方，导航不压主图；大屏纵向占用均衡。复核范围为默认READ/Still，未另测focus/search/passport或导出文件。原版visualReview=pending保持不变，独立视觉判断另存。
-
-| 部分 | Artifact | Browser | Visual review | 当前状态 |
-| --- | --- | --- | --- | --- |
-| 10A | passed（原回执不变） | passed（原回执不变） | passed（原回执不变） | complete |
-| 10B | passed，9/9、0 errors / 0 warnings | passed | passed，0轮视觉修复 | complete |
-| 图10整体 | passed | passed | passed | complete |
-
-全部真实命令与退出码见[本轮命令记录](10-settlement.repair-commands.json)及[10B acceptance](10-settlement.acceptance.json)，[整体状态](10-acceptance.json)已更新。specification SHA-256=`7da010503c5b9eee0f34cb01601c6178f29af9c06ab1a07b23d1e0512154fd6b`（8109 bytes）；artifact SHA-256=`c8fcaf357f648c7dbeadeb55756ba8f1640ebbee20a85487e65c0a7c6263828d`（811362 bytes），采用原版deliver回执值，与browser绑定一致。10A全部原文件及历史记录保持不变；未开始图11，未提交推送。
-
-
-## 图 11 施工前工作记录（2026-09-16）
-
-本图只回答受控单机重启的进程锁、准入、遗留任务识别与持久收尾，使用workflow v2/showcase。基线main@7e1e8bb7c2ae55b44726b410fb2546cb64d4a401，dirty working tree；图01–10及其未提交修复保留，不开始图12。
-
-- CODE_CONFIRMED：TaskRecoveryConfiguration先取得绝对稳定路径FileLock再Flyway；DISABLED也需要锁。进程静态持有锁，无destroy/close；ContextClosed只关闭准入，锁到JVM退出由OS释放。
-- CODE_CONFIRMED：StartupCoordinator只运行一次，起始准入关闭；DISABLED只查有无QUEUED/RUNNING，存在则保持关闭。CONTROLLED_SINGLE_HOST按id游标批次读候选，每项REQUIRES_NEW收尾，末次清零复查、requireHeld后open。异常中止扫描并保持DOWN，不重新dispatch。
-- CODE_CONFIRMED：recover行锁重查、校验不变量、汇总已记录usage、结束RUNNING step/tool、条件终态写与metadata/event为同一物理事务。QUEUED→FAILED/dispatch lost，RUNNING→FAILED/interrupted，持久取消优先CANCELLED；既有终态不动。
-- CODE_CONFIRMED：cold-cutover脚本核对指定Java PID、SIGTERM后确认不存在或zombie才记录退出并exec新Java；超时/观测异常拒绝替换。操作者负责全域旧JVM清点，锁不提供跨主机fencing。
-- TEST_CONFIRMED（读取断言，未运行）：RecoveryPostgresIntegrationTest、test_task_cold_cutover.py和v02a-restart-acceptance.py覆盖原子回滚、竞争取消/幂等、未知usage、锁互斥、disabled gate、旧JVM退出、无外部重发。
-- DOC_DECLARED / UNKNOWN：受控说明不是本轮真实provider或数据库运行证明；部署锁路径一致性、全域旧执行器已退出、远端计算已停止均未验证。
-
-## 图 11 Evidence index
-
-- **Diagram / Question:** Restart Recovery and Controlled Cutover；新JVM怎样在单主机冷切换前提下识别遗留任务、收尾并开放准入？
-- **Type:** `workflow` / schema v2 / showcase；9节点、11条具名关系、3卡片。只有本图，不增加lifecycle子图或图12。
-- **Primary path:** JVM启动 → 进程锁及迁移 → 模式分流 → 受控分页扫描并逐项原子收尾 → 候选清零与锁有效确认 → 开放准入。DISABLED单独只读分支；旧JVM退出是外部操作前提，不是新JVM扫描时间戳得出的结论。
-- **Key nodes:** rr-lock汇总先锁后迁移；rr-controlled汇总内部分页循环和每项独立事务；rr-final是两分支汇合，DISABLED已在前一步查无遗留，这里只再次requireHeld，CONTROLLED才额外hasCandidates清零复查。未把这些汇总节点画成新增服务或DB状态。
-- **JSON:** [当前候选](11-restart-recovery.candidate.workflow.json)。**没有正式JSON或HTML。**
-- **Validation:** [原版当前失败回执](11-restart-recovery.candidate.validation.json)、[上一轮layout诊断](11-restart-recovery.layout.json)、[只读compiler调用栈](11-restart-recovery.compiler-diagnostic.json)、[分层acceptance](11-restart-recovery.acceptance.json)。调用栈不是artifact验收；失败layout未提供最终坐标。
-- **Status:** artifact failed；deliver/browser/visual review not_run；整体incomplete。节点、关系、mainPath和semanticChecks均保留。
-
-### 模式、进程锁与冷切换证据（CODE_CONFIRMED）
-
-[TaskRecoveryProperties](../../backend/src/main/java/com/agentflow/agent/task/recovery/TaskRecoveryProperties.java)只接受DISABLED、CONTROLLED_SINGLE_HOST，默认DISABLED；batch默认100、合法1–1000。每种模式都要求非空lockPath；[application.yml](../../backend/src/main/resources/application.yml)从AGENTFLOW_TASK_RECOVERY_MODE、AGENTFLOW_TASK_RECOVERY_LOCK_PATH读取，路径默认空，不是自动选一个安全路径。目标进程环境覆盖未检查。
-
-[TaskExecutionProcessLock.acquire](../../backend/src/main/java/com/agentflow/agent/task/recovery/TaskExecutionProcessLock.java)要求绝对路径，创建父目录后realPath规范化；先拒绝本JVM已持有的路径或同文件别名，避免第二个descriptor关闭影响POSIX锁。拒绝fileStore类型含nfs/smb/cifs/fuse，NOFOLLOW_LINKS打开、tryLock取独占锁。空锁或异常包装TASK_EXECUTION_NOT_READY并导致启动失败；这不证明所有网络文件系统都能识别，也不提供跨主机fencing。
-
-锁由静态HELD_UNTIL_PROCESS_EXIT引用，Bean的destroyMethod为空，没有Context关闭释放路径；OS在JVM退出时释放。ContextClosedEvent使[TaskExecutionAdmission](../../backend/src/main/java/com/agentflow/agent/task/recovery/TaskExecutionAdmission.java)进入SHUTTING_DOWN，不允许open，但不等于JVM退出，也不等于远端provider停工。同一主机、同一DB执行域必须约定同一稳定本地锁文件；不同文件/不同主机不在本锁互斥范围。旧版不遵守锁协议的JVM无法靠新锁排除。
-
-[task-cold-cutover.py](../../scripts/task-cold-cutover.py)要求显式old-pid（>1且非自身）、绝对lock-path、新命令直接java（不允许shell/Maven包装），ps comm必须是java。以exclusive create保留切换记录，发SIGTERM；ps明确无PID或zombie才证明该指定进程已退出。默认60秒后仍存活或ps观测失败均拒绝替换，不自动SIGKILL、不用取得锁绕过退出前提。记录oldJvmExited/时间，设置受控模式及路径，再os.execvp新Java。操作者必须清点该执行域全部旧执行器；脚本不自动发现其他JVM，record也不是新Coordinator读取校验的凭证。
-
-### 逐边调用与失败边界（CODE_CONFIRMED）
-
-| Edge | source → target | 方法、guard、事务/状态影响 |
-| --- | --- | --- |
-| rr-start-lock | rr-start → rr-lock | [TaskRecoveryConfiguration.taskExecutionProcessLock / taskRecoveryMigrationStrategy](../../backend/src/main/java/com/agentflow/agent/task/recovery/TaskRecoveryConfiguration.java)：准入构造即关闭，锁Bean依赖确保Flyway写schema前已经取锁并requireHeld |
-| rr-lock-mode | rr-lock → rr-mode | 迁移成功，Spring启动到[TaskRecoveryStartupCoordinator.run](../../backend/src/main/java/com/agentflow/agent/task/recovery/TaskRecoveryStartupCoordinator.java)的HIGHEST_PRECEDENCE ApplicationRunner；AtomicBoolean禁止重入，close(RECOVERY_STARTING)、生成run UUID、requireHeld。不是后台定时恢复 |
-| rr-lock-halt | rr-lock → rr-halt | 锁失败拒绝Bean初始化；Flyway失败close(MIGRATION_FAILED)并重新抛出，阻止启动。此终端不承诺Actuator仍可响应，与运行中DOWN分开 |
-| rr-disabled-mode | rr-mode → rr-disabled | mode=DISABLED调用hasCandidates，只查全表QUEUED/RUNNING存在性，不写任务、step/tool或事件 |
-| rr-controlled-mode | rr-mode → rr-controlled | CONTROLLED_SINGLE_HOST进入cursor=0的分页循环，selectCandidateIds(cursor,batchSize)，按id升序，逐个recover(id,runId)，返回后cursor=id |
-| rr-disabled-clear | rr-disabled → rr-final | DISABLED hasCandidates=false进入共同的最后持锁检查；不会执行受控分支的第二次hasCandidates。该汇总节点标题“清零与持锁确认”不能解释为DISABLED也恢复任务 |
-| rr-disabled-closed | rr-disabled → rr-closed | 有遗留close(DISABLED_WITH_LEGACY_TASKS)并return；初始读取异常也catch并保持关闭，输出stage/reason诊断，不调用事务收尾 |
-| rr-scan-done | rr-controlled → rr-final | 分页直到空批次（最初无候选也可），再FINAL_CANDIDATE_CHECK hasCandidates；不是全批次一个事务，也没有按年龄/心跳认定任务过期 |
-| rr-scan-fail | rr-controlled → rr-closed | 任一候选读取、单项事务、usage或不变量异常停止扫描；单项事务回滚，先前已提交项保留；日志包括stage、taskId、runId、reason。无本进程自动重扫/业务重执行 |
-| rr-ready-edge | rr-final → rr-ready | 受控模式确认无候选（DISABLED已先查过），再次requireHeld后admission.open；health()映射UP。仅开放正常新任务入口，不重新派发遗留task |
-| rr-final-fail | rr-final → rr-closed | 受控最终仍有遗留，或最后requireHeld/open失败被catch；close并health DOWN。开放时仍受shuttingDown/settlementFailed锁存约束 |
-
-[TaskRecoveryMapper](../../backend/src/main/java/com/agentflow/agent/task/recovery/TaskRecoveryMapper.java)查询条件只有status IN ('QUEUED','RUNNING')及分页id>cursor，无“超过若干分钟即安全接管”的时间判断，无租约所有者或跨主机锁。准入在扫描前关闭以阻止本进程写入；正确性还依赖操作者确认旧执行器退出。
-
-READY只是task准入与该HealthIndicator状态，不等于所有健康组件UP。requireReady调用点包括[AgentTaskRestService](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskRestService.java)、[AgentTaskApplicationService](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskApplicationService.java)、[CreationTransactionService](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskCreationTransactionService.java)、[LifecycleTransactionService](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskLifecycleTransactionService.java)、[BoundedTaskDispatcher](../../backend/src/main/java/com/agentflow/agent/task/dispatch/BoundedTaskDispatcher.java)、[TaskRunner](../../backend/src/main/java/com/agentflow/agent/task/execution/TaskRunner.java)。恢复Coordinator/TransactionService无Dispatcher、Engine或provider依赖。
-
-### 单任务原子收尾（rr-controlled内部，CODE_CONFIRMED）
-
-[TaskRecoveryTransactionService.recover](../../backend/src/main/java/com/agentflow/agent/task/recovery/TaskRecoveryTransactionService.java)为REQUIRES_NEW、timeout30。锁定task行后，缺失或已终态返回false不改写；校验QUEUED没有执行证据和计数，非终态无旧recovery metadata/终态发布，拒绝PENDING tool；校验持久usage与已记录LLM事实一致。异常不变量不能通过“强制FAILED”掩盖。
-
-| 原状态/条件 | task终态及原因 | 元数据与保留边界 |
-| --- | --- | --- |
-| QUEUED，无取消 | FAILED / SYSTEM_ERROR / TASK_RESTART_DISPATCH_LOST | executionOutcome=NOT_STARTED，record/counterCompleteness=COMPLETE；不添加TASK_STARTED，不重投 |
-| RUNNING，无取消 | FAILED / SYSTEM_ERROR / TASK_RESTART_INTERRUPTED | executionOutcome=UNKNOWN，record/counterCompleteness=UNCONFIRMED；即使task期限已过也不编造TIMED_OUT |
-| 持久cancel_requested_at非空 | CANCELLED / USER_CANCELLED，公开errorCode为空 | metadata仍记之前状态的restart reason；QUEUED取消异常另标queuedCancellationAnomaly，不放宽生产schema |
-| 已终态 | 不变 | 幂等跳过，原答案、事件及调用事实不重写 |
-
-聚合LLM日志按记录id去重，校验task归属、token非负/总数及质量，UNKNOWN不得带数值；加法溢出拒绝。只汇总已持久的EXACT/ESTIMATED/MIXED记录，不猜未记录调用的usage。task token_usage_quality统一UNKNOWN，metadata分别保存recordedUsage和previousTaskUsage；计数与execution_snapshot不重算/重写。
-
-同一物理事务结束RUNNING step/tool为FAILED/TASK_RESTART_INTERRUPTED，条件写task状态/version/cancel值、清phase/答案/引用、写completed_at及recovery_metadata，最后通过原[TaskEventAppender](../../backend/src/main/java/com/agentflow/agent/task/service/TaskEventAppender.java)追加唯一TASK_FAILED或TASK_CANCELLED。step/tool更新、task条件0行、事件序号或插入任一点失败都回滚本项；已完成step/tool、LLM/RAG记录保留。metadata recoveredAt是恢复观察时间，不是实际执行耗时。[V22 migration](../../backend/src/main/resources/db/migration/V22__add_task_recovery_metadata.sql)只为FAILED+TASK_RESTART_INTERRUPTED允许未知latency，其余生命周期约束保留。
-
-这与图10B运行期有界保存重试不同：本Coordinator遇到异常关闭准入，不在当前启动过程内重试或自动续跑。COMMIT已发生但响应丢失也可能留下“任务已终态、准入DOWN”；后续新JVM重扫跳过已终态，不重复事件。单task原子，不是全域扫描原子。
-
-### 测试、声明及未知范围
-
-**TEST_CONFIRMED，仅检查断言，本轮未执行：**
-
-- [TaskRecoveryPostgresIntegrationTest](../../backend/src/test/java/com/agentflow/agent/task/recovery/TaskRecoveryPostgresIntegrationTest.java)：分页、QUEUED/RUNNING原因差异、保留快照/计数/已成功调用、UNKNOWN usage与未知latency；step/tool/task/sequence/event/zero-row六处故障全部回滚；校验矛盾事实拒绝写入；行锁等待取消提交后CANCELLED且重复恢复无第二终态事件。
-- [test_task_cold_cutover.py](../../scripts/test_task_cold_cutover.py)：SIGTERM与不存在/zombie才exec，观测失败/存活超时拒绝，record不伪造退出。mock进程观测断言不等于本轮实际停止旧JVM。
-- [v02a-restart-acceptance.py](../../scripts/v02a-restart-acceptance.py)：A01–A08覆盖QUEUED、RUNNING、迟到/工具/最终LLM日志、取消和过期task；A09既有终态不变；A10各写点回滚；A11批间退出及COMMIT丢响应后重入保持已提交事实；A12两种模式第二JVM锁冲突；A13 DISABLED遗留门禁；A14矛盾事实/查询失败关闭；A15只读GET/Trace/SSE与幂等请求；A16旧快照/混合usage；A17真实旧版JVM冷切换。Context关闭不释放锁在本轮属于生产代码证据，不把它归入未检查到的脚本断言。检查external counts和Runner receipts以区分“没发外部请求”和“没错误重投任务”。这些是受控场景断言，不是本轮17/17新通过。
-
-**DOC_DECLARED：** [受控重启验收说明](../../scripts/v02a-restart-acceptance.md)说明独立HTTP夹具、真实本地JVM/PostgreSQL及固定前锁协议旧版revision；不证明生产冷切换、真实provider终止或计费。**UNKNOWN：** 当前部署锁路径/文件系统、全域旧JVM清点、远端工作状态及生产故障恢复结果。新代码只取得自己的锁，不能验证前锁协议旧JVM已经退出。
-
-### 图11布局诊断及实际停止点
-
-[初版](history/11-before-ready-straight/11-restart-recovery.candidate.validation.json)validate exit1：rr-ready-edge与rr-scan-fail在x982、y196..246共享50px通道。定向修复1仅给rr-ready-edge增加route=straight；[回执](history/11-before-disabled-channel/11-restart-recovery.candidate.validation.json)exit1，原冲突不再报告，但rr-disabled-clear与rr-scan-fail在y312、x527.2..607.2共享80px通道。诊断数1→1，没有新的最小值。
-
-定向修复2仅给rr-disabled-clear增加channelY=322，尝试分开回执标明的水平通道，未改任何语义或其他节点/关系。原版当前validate exit1，code=`internal/unclassified`，stage=render，errorName=TypeError，message=`Cannot read properties of undefined (reading 'length')`，subject仅给出当前输入路径，evidence未给出具体edge/坐标，supportedFixes=[]。没有原版最终路径或viewBox，不作猜测。
-
-在两轮定向失败及unsupported内部诊断后，仅只读检查原版compiler并直接调用export的compileWorkflow保存原始异常栈，未修改/插桩Skill。可复现调用链：validateReadablePinnedGeometry → pathFor → readableAutomaticRoute → readableAutomaticVia → classifyFailedAutomaticCandidatePins → candidateLabelRect → workflowEdgeLabelPoint:3620。源码中readableAutomaticCandidateSet的rawCandidates仅有family/via；points只在映射到candidates时生成。失败分类函数却对rawCandidates解构points，导致后续读取undefined.length。这解释当前内部异常，但不能证明原候选的剩余路由/标签可行性，不能将其当作已通过布局。
-
-按[Archify SKILL.md](../../.agents/skills/archify/SKILL.md)“If two consecutive rounds do not improve that best count, stop and report the unresolved diagnostics truthfully.”停止继续布局。两轮均未得到低于1的有效诊断数；内部异常先于完整artifact/composition，不能称底层冲突消失。最新候选、所有历史及实际退出码已保留；artifact failed、deliver/browser/visual review not_run，整体incomplete。未生成正式JSON/HTML、未降低quality、未删semanticChecks、未修改Skill或业务代码，未开始图12，未提交推送。

@@ -1,0 +1,296 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "11 · 重启恢复与受控切换",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "boot",
+      "label": "启动与准入 · 先锁后迁移"
+    },
+    {
+      "id": "inspect",
+      "label": "模式分支 · 只读检查或受控收尾"
+    },
+    {
+      "id": "failure",
+      "label": "失败边界 · 不续跑旧业务"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "rr-start",
+      "lane": "boot",
+      "col": 0,
+      "type": "backend",
+      "label": "JVM 启动",
+      "sublabel": "准入初始关闭",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "rr-lock",
+      "lane": "boot",
+      "col": 1,
+      "type": "security",
+      "label": "进程锁与迁移",
+      "sublabel": "先取锁·再Flyway",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "rr-mode",
+      "lane": "boot",
+      "col": 2,
+      "type": "backend",
+      "label": "启动恢复分流",
+      "sublabel": "仅运行一次",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "rr-ready",
+      "lane": "boot",
+      "col": 4,
+      "type": "backend",
+      "label": "开放任务准入",
+      "sublabel": "READY · health UP",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "rr-halt",
+      "lane": "inspect",
+      "col": 1,
+      "type": "security",
+      "label": "启动拒绝",
+      "sublabel": "锁或迁移失败",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "rr-disabled",
+      "lane": "inspect",
+      "col": 2,
+      "type": "database",
+      "label": "只读检查",
+      "sublabel": "DISABLED",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "rr-controlled",
+      "lane": "inspect",
+      "col": 3,
+      "type": "database",
+      "label": "扫描并逐项收尾",
+      "sublabel": "分页·单任务短事务",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "rr-final",
+      "lane": "inspect",
+      "col": 4,
+      "type": "database",
+      "label": "清零与持锁确认",
+      "sublabel": "受控模式末次复查",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "rr-closed",
+      "lane": "failure",
+      "col": 3,
+      "type": "security",
+      "label": "保持准入关闭",
+      "sublabel": "诊断 · health DOWN",
+      "width": 128,
+      "height": 68
+    }
+  ],
+  "edges": [
+    {
+      "id": "rr-start-lock",
+      "from": "rr-start",
+      "to": "rr-lock",
+      "label": "初始化",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "rr-lock-mode",
+      "from": "rr-lock",
+      "to": "rr-mode",
+      "label": "迁移成功",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "rr-lock-halt",
+      "from": "rr-lock",
+      "to": "rr-halt",
+      "label": "失败",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "id": "rr-disabled-mode",
+      "from": "rr-mode",
+      "to": "rr-disabled",
+      "label": "禁用恢复",
+      "role": "branch",
+      "variant": "default"
+    },
+    {
+      "id": "rr-controlled-mode",
+      "from": "rr-mode",
+      "to": "rr-controlled",
+      "label": "受控单机",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "rr-disabled-clear",
+      "from": "rr-disabled",
+      "to": "rr-final",
+      "label": "无遗留",
+      "role": "branch",
+      "variant": "default"
+    },
+    {
+      "id": "rr-disabled-closed",
+      "from": "rr-disabled",
+      "to": "rr-closed",
+      "label": "有遗留或读失败",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "id": "rr-scan-done",
+      "from": "rr-controlled",
+      "to": "rr-final",
+      "label": "扫描结束",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "rr-scan-fail",
+      "from": "rr-controlled",
+      "to": "rr-closed",
+      "label": "读写或不变量失败",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "id": "rr-ready-edge",
+      "from": "rr-final",
+      "to": "rr-ready",
+      "label": "清零且持锁",
+      "role": "main",
+      "variant": "emphasis",
+      "route": "straight"
+    },
+    {
+      "id": "rr-final-fail",
+      "from": "rr-final",
+      "to": "rr-closed",
+      "label": "遗留或锁失效",
+      "role": "error",
+      "variant": "security"
+    }
+  ],
+  "mainPath": [
+    "rr-start",
+    "rr-lock",
+    "rr-mode",
+    "rr-controlled",
+    "rr-final",
+    "rr-ready"
+  ],
+  "semanticChecks": {
+    "allowedRoots": [
+      "rr-start"
+    ],
+    "allowedTerminals": [
+      "rr-ready",
+      "rr-halt",
+      "rr-closed"
+    ],
+    "requiredEdges": [
+      {
+        "from": "rr-start",
+        "to": "rr-lock"
+      },
+      {
+        "from": "rr-lock",
+        "to": "rr-mode"
+      },
+      {
+        "from": "rr-lock",
+        "to": "rr-halt"
+      },
+      {
+        "from": "rr-mode",
+        "to": "rr-disabled"
+      },
+      {
+        "from": "rr-mode",
+        "to": "rr-controlled"
+      },
+      {
+        "from": "rr-disabled",
+        "to": "rr-final"
+      },
+      {
+        "from": "rr-disabled",
+        "to": "rr-closed"
+      },
+      {
+        "from": "rr-controlled",
+        "to": "rr-final"
+      },
+      {
+        "from": "rr-controlled",
+        "to": "rr-closed"
+      },
+      {
+        "from": "rr-final",
+        "to": "rr-ready"
+      },
+      {
+        "from": "rr-final",
+        "to": "rr-closed"
+      }
+    ]
+  },
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "先确认旧 JVM 已退出",
+      "items": [
+        "cold-cutover 对指定Java PID发SIGTERM；退出或zombie才记录并exec，超时/观测失败拒绝。",
+        "单主机、同一数据库执行域、稳定本地绝对锁路径；操作者清点全部旧执行器，非跨主机fencing。"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "只收尾持久事实",
+      "items": [
+        "受控模式按id分页，每项行锁、校验、step/tool收尾、终态与事件原子提交；失败只回滚本项。",
+        "QUEUED记未启动，RUNNING结果未知；取消优先，usage仅汇总已记录事实，不重发模型/工具。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "进程锁与准入分开",
+      "items": [
+        "DISABLED也持锁；有遗留就关闭，无遗留可开放。受控模式为CONTROLLED_SINGLE_HOST。",
+        "Context关闭准入但不释放锁；JVM退出才释放。恢复失败保留诊断，不在本进程自动重扫。"
+      ]
+    }
+  ]
+}

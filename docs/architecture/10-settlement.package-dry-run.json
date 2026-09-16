@@ -1,0 +1,6 @@
+{
+  "command": "python3 archify10b_repair/apply_repair.py .",
+  "exit_code": 0,
+  "stdout": "Workflow compiler identity matches modeled source.\nBaseline and semantic-preservation checks passed. Target: /Users/xavier/AgentFlow-Hub/docs/architecture/10-settlement.candidate.workflow.json\nDRY RUN. No file changed. Repeat with --apply to write the candidate only.\n",
+  "stderr": ""
+}

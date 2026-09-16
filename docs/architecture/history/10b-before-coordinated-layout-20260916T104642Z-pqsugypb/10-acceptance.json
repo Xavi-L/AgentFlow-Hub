@@ -1,0 +1,24 @@
+{
+  "diagram": "10",
+  "date": "2026-09-16",
+  "status": "incomplete",
+  "artifact_validation": "incomplete",
+  "browser_evidence": "incomplete",
+  "visual_review": "incomplete",
+  "parts": [
+    {
+      "id": "10A",
+      "type": "lifecycle",
+      "status": "complete",
+      "acceptance": "10-failure-cancel.acceptance.json"
+    },
+    {
+      "id": "10B",
+      "type": "workflow",
+      "status": "incomplete",
+      "acceptance": "10-settlement.acceptance.json"
+    }
+  ],
+  "reason": "10B original showcase validation fails on sp-retry; no 10B formal JSON, HTML, browser or visual review.",
+  "next_diagram_started": false
+}

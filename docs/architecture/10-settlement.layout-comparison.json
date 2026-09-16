@@ -1,0 +1,22 @@
+{
+  "evidenceKind": "comparison-of-native-layout-to-package-predictions",
+  "native_receipt": "10-settlement.layout.json",
+  "package_report": "history/10b-before-coordinated-layout-20260916T104642Z-pqsugypb/10-settlement.independent-check.json",
+  "tolerance": 1e-08,
+  "differences": [],
+  "viewBox": [
+    994,
+    534
+  ],
+  "requiredViewBox": [
+    994,
+    534
+  ],
+  "nodes_compared": 8,
+  "edges_compared": 12,
+  "labels_compared": 12,
+  "label_coordinate_note": "Native x/y are label point, compared to independent point rather than mask top-left.",
+  "laneHeight": 106,
+  "laneGap": 20,
+  "lane_measurement_note": "Delivered SVG has lane y=52/178/304, height=106; gap=20. See 10-settlement.svg-measurements.json."
+}

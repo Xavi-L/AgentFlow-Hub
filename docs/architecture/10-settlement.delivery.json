@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "workflow",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/10-settlement.workflow.json",
+  "output": "/Users/xavier/AgentFlow-Hub/docs/architecture/10-settlement.html",
+  "specification": {
+    "sha256": "7da010503c5b9eee0f34cb01601c6178f29af9c06ab1a07b23d1e0512154fd6b",
+    "bytes": 8109
+  },
+  "artifact": {
+    "sha256": "c8fcaf357f648c7dbeadeb55756ba8f1640ebbee20a85487e65c0a7c6263828d",
+    "bytes": 811362
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

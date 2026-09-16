@@ -1,0 +1,422 @@
+{
+  "contract": "readable-v2",
+  "viewBox": [
+    994,
+    534
+  ],
+  "requiredViewBox": [
+    994,
+    534
+  ],
+  "columns": [
+    112,
+    310.8,
+    495.20000000000005,
+    679.6,
+    799.6,
+    919.6
+  ],
+  "nodes": [
+    {
+      "id": "sp-input",
+      "lane": "save",
+      "col": 0,
+      "x": 48,
+      "y": 86,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "sp-read",
+      "lane": "save",
+      "col": 1,
+      "x": 246.8,
+      "y": 86,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "sp-write",
+      "lane": "save",
+      "col": 2,
+      "x": 431.20000000000005,
+      "y": 86,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "sp-done",
+      "lane": "save",
+      "col": 3,
+      "x": 615.6,
+      "y": 86,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "sp-degrade",
+      "lane": "failure",
+      "col": 0,
+      "x": 48,
+      "y": 212,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "sp-classify",
+      "lane": "failure",
+      "col": 1,
+      "x": 246.8,
+      "y": 212,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "sp-readback",
+      "lane": "failure",
+      "col": 2,
+      "x": 431.20000000000005,
+      "y": 212,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "sp-backoff",
+      "lane": "retry",
+      "col": 1,
+      "x": 246.8,
+      "y": 338,
+      "width": 128,
+      "height": 68
+    }
+  ],
+  "edges": [
+    {
+      "id": "sp-again",
+      "from": "sp-backoff",
+      "to": "sp-read",
+      "points": [
+        [
+          310.8,
+          406
+        ],
+        [
+          310.8,
+          416
+        ],
+        [
+          20,
+          416
+        ],
+        [
+          20,
+          20
+        ],
+        [
+          286.8,
+          20
+        ],
+        [
+          286.8,
+          62
+        ],
+        [
+          310.8,
+          62
+        ],
+        [
+          310.8,
+          86
+        ]
+      ]
+    },
+    {
+      "id": "sp-begin",
+      "from": "sp-input",
+      "to": "sp-read",
+      "points": [
+        [
+          176,
+          120
+        ],
+        [
+          246.8,
+          120
+        ]
+      ]
+    },
+    {
+      "id": "sp-commit",
+      "from": "sp-write",
+      "to": "sp-done",
+      "points": [
+        [
+          559.2,
+          120
+        ],
+        [
+          615.6,
+          120
+        ]
+      ]
+    },
+    {
+      "id": "sp-confirm",
+      "from": "sp-readback",
+      "to": "sp-done",
+      "points": [
+        [
+          559.2,
+          246
+        ],
+        [
+          679.6,
+          246
+        ],
+        [
+          679.6,
+          154
+        ]
+      ]
+    },
+    {
+      "id": "sp-existing",
+      "from": "sp-read",
+      "to": "sp-done",
+      "points": [
+        [
+          310.8,
+          86
+        ],
+        [
+          310.8,
+          32
+        ],
+        [
+          679.6,
+          32
+        ],
+        [
+          679.6,
+          86
+        ]
+      ]
+    },
+    {
+      "id": "sp-fail",
+      "from": "sp-classify",
+      "to": "sp-degrade",
+      "points": [
+        [
+          246.8,
+          246
+        ],
+        [
+          176,
+          246
+        ]
+      ]
+    },
+    {
+      "id": "sp-interrupt",
+      "from": "sp-backoff",
+      "to": "sp-degrade",
+      "points": [
+        [
+          246.8,
+          372
+        ],
+        [
+          34,
+          372
+        ],
+        [
+          34,
+          310
+        ],
+        [
+          112,
+          310
+        ],
+        [
+          112,
+          280
+        ]
+      ]
+    },
+    {
+      "id": "sp-live",
+      "from": "sp-read",
+      "to": "sp-write",
+      "points": [
+        [
+          374.8,
+          120
+        ],
+        [
+          431.20000000000005,
+          120
+        ]
+      ]
+    },
+    {
+      "id": "sp-read-fail",
+      "from": "sp-read",
+      "to": "sp-classify",
+      "points": [
+        [
+          310.8,
+          154
+        ],
+        [
+          310.8,
+          212
+        ]
+      ]
+    },
+    {
+      "id": "sp-retry",
+      "from": "sp-classify",
+      "to": "sp-backoff",
+      "points": [
+        [
+          310.8,
+          280
+        ],
+        [
+          310.8,
+          338
+        ]
+      ]
+    },
+    {
+      "id": "sp-uncertain",
+      "from": "sp-write",
+      "to": "sp-readback",
+      "points": [
+        [
+          495.20000000000005,
+          154
+        ],
+        [
+          495.20000000000005,
+          212
+        ]
+      ]
+    },
+    {
+      "id": "sp-unconfirmed",
+      "from": "sp-readback",
+      "to": "sp-classify",
+      "points": [
+        [
+          431.20000000000005,
+          246
+        ],
+        [
+          374.8,
+          246
+        ]
+      ]
+    }
+  ],
+  "labels": [
+    {
+      "edge": "sp-again",
+      "label": "同一观察结果",
+      "x": 165.4,
+      "y": 406,
+      "width": 67.6,
+      "height": 14
+    },
+    {
+      "edge": "sp-begin",
+      "label": "开始保存",
+      "x": 211.4,
+      "y": 110,
+      "width": 48.4,
+      "height": 14
+    },
+    {
+      "edge": "sp-commit",
+      "label": "保存成功",
+      "x": 587.4000000000001,
+      "y": 110,
+      "width": 48.4,
+      "height": 14
+    },
+    {
+      "edge": "sp-confirm",
+      "label": "已终态",
+      "x": 619.4000000000001,
+      "y": 236,
+      "width": 38.8,
+      "height": 14
+    },
+    {
+      "edge": "sp-existing",
+      "label": "已终态",
+      "x": 495.20000000000005,
+      "y": 22,
+      "width": 38.8,
+      "height": 14
+    },
+    {
+      "edge": "sp-fail",
+      "label": "永久 / 耗尽",
+      "x": 211.4,
+      "y": 236,
+      "width": 62.8,
+      "height": 14
+    },
+    {
+      "edge": "sp-interrupt",
+      "label": "退避被中断",
+      "x": 73,
+      "y": 300,
+      "width": 58,
+      "height": 14
+    },
+    {
+      "edge": "sp-live",
+      "label": "非终态",
+      "x": 403,
+      "y": 110,
+      "width": 38.8,
+      "height": 14
+    },
+    {
+      "edge": "sp-read-fail",
+      "label": "首次回读异常",
+      "x": 310.8,
+      "y": 183,
+      "width": 67.6,
+      "height": 14
+    },
+    {
+      "edge": "sp-retry",
+      "label": "可重试",
+      "x": 310.8,
+      "y": 309,
+      "width": 38.8,
+      "height": 14
+    },
+    {
+      "edge": "sp-uncertain",
+      "label": "异常或0行",
+      "x": 495.20000000000005,
+      "y": 183,
+      "width": 53.199999999999996,
+      "height": 14
+    },
+    {
+      "edge": "sp-unconfirmed",
+      "label": "尚未确认",
+      "x": 403,
+      "y": 236,
+      "width": 48.4,
+      "height": 14
+    }
+  ],
+  "diagnostics": []
+}
