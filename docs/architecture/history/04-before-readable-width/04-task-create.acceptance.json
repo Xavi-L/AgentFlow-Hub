@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "status": "in_progress",
+  "commands": [
+    {
+      "command": [
+        "node",
+        ".agents/skills/archify/bin/archify.mjs",
+        "validate",
+        "sequence",
+        "docs/architecture/04-task-create.candidate.sequence.json",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "exitCode": 1,
+      "receipt": "04-task-create.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        ".agents/skills/archify/bin/archify.mjs",
+        "validate",
+        "sequence",
+        "docs/architecture/04-task-create.candidate.sequence.json",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "exitCode": 1,
+      "receipt": "04-task-create.candidate.validation.json",
+      "stderr": ""
+    }
+  ],
+  "browserEvidence": "not_run",
+  "visualReview": "not_run",
+  "nextDiagramStarted": false,
+  "repairRounds": [
+    {
+      "subject": "layout/constraint: overlapping horizontal message spans need 28px vertical separation",
+      "change": "Spread message y values to at least 28px; aligned frames, activation intervals and canvas height.",
+      "previousDiagnosticCount": 7,
+      "history": "history/04-message-spacing"
+    }
+  ]
+}

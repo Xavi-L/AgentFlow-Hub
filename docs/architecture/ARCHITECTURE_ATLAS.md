@@ -2,14 +2,14 @@
 
 ## Scope and baseline
 
-已依次完成 **01 · System Context**、**02 · Backend Runtime Architecture**（均为 `architecture`）及 **03 · End-to-End Task Workflow**（`workflow` v2）。图 03 当前交付的 artifact、browser evidence 与截图 visual review 均通过，旧失败记录保留为历史。图 04–15 与最终独立 Architecture Audit 尚未施工。
+已依次完成 **01 · System Context**、**02 · Backend Runtime Architecture**（均为 `architecture`）及 **03 · End-to-End Task Workflow**（`workflow` v2）。图 03 当前交付的 artifact、browser evidence 与截图 visual review 均通过，旧失败记录保留为历史。图 04 已完成 Task Creation and Dispatch Sequence，图 05 已完成 Agent Execution Loop（workflow v2）；图 06 RAG Data Flow 已完成证据与候选，但布局验证失败，保持 incomplete；图 07–15 与最终独立 Architecture Audit 尚未施工。
 
 - 图 01 交付日期：2026-09-14；图 02 于 2026-09-14 开始检查、2026-09-15 完成交付（Asia/Shanghai）。
-- 本地分支：`main`；HEAD：`ba04adc5308222635e6eb1a86a0981da8ede408c`（`docs: add Archify architecture atlas construction guide`）。未 fetch、未改变 Git 基线；此处指施工时本地 main。
+- 图 01/02 施工基线分支：`main`；HEAD：`ba04adc5308222635e6eb1a86a0981da8ede408c`（`docs: add Archify architecture atlas construction guide`）。未 fetch、未改变 Git 基线；此处指施工时本地 main。
 - 工作树：**dirty**。施工前已有 V0.3 配置/评估/episode 相关改动、`application-dev.yml`、规格文档和未跟踪的 `.agents/` 等内容。本图按实际文件检查；没有把这些改动视为 HEAD 已提交行为。
 - Archify：仓库本地 `.agents/skills/archify/SKILL.md`，metadata version `2.17`；`showcase` 质量，中文 Viewer，静态默认视图。
 - 未运行外部业务 runtime：本轮未启动 Spring Boot、PostgreSQL、Redis、Qdrant、Chat、DashScope，也未执行付费请求或真实服务验收。图展示代码/配置支持的逻辑关系，不证明部署中的连通性、生产拓扑或 provider 行为。
-- 本轮仅新增图 03 的 source、HTML、修正候选与证据侧文件并更新本 Atlas；图 01/02 产物及既有业务代码改动保留。图 03 的通过项与失败项分别记录。
+- 最新图 06 施工新增候选、失败诊断及证据记录并更新本 Atlas，尚未交付 HTML；图 01–05 原产物及既有业务代码改动保留。各图基线、历史失败与分层验收分别见对应章节。
 
 ## Diagram index
 
@@ -18,6 +18,9 @@
 | 01 | System Context | architecture | 用户、浏览器前端、后端与哪些存储和外部服务交互？ | 完成：validate / deliver / browser / visual review 通过 |
 | 02 | Backend Runtime Architecture | architecture | Spring Boot 后端内部的主要运行时模块如何分工和连接？ | 完成：validate / deliver / browser / visual review 通过 |
 | 03 | End-to-End Task Workflow | workflow v2 | 提交 task 后，创建到最终答案如何推进，关键 gate 在哪里？ | 完成：showcase validate / deliver 9/9，0 errors / 0 warnings；四尺寸 browser / 明暗截图 visual review 通过 |
+| 04 | Task Creation and Dispatch Sequence | sequence | 创建请求按何顺序处理，何时跨越 COMMIT 与 async dispatch？ | 完成：showcase validate / deliver 9/9，0 errors / 0 warnings；四尺寸 browser / 双主题截图 visual review 通过 |
+| 05 | Agent Execution Loop | workflow v2 | task 进入 runtime 后，如何完成预检索、decision/tool 回环与独立 final generation？ | 完成：showcase validate / deliver 9/9，0 errors / 0 warnings；四尺寸 browser / 双主题截图 visual review 通过 |
+| 06 | RAG Data Flow | dataflow | 文档从上传到被一次Agent task检索并进入模型上下文，数据经历什么路径？ | incomplete：当前布局9项诊断；未deliver / browser / visual review，已按两轮未进展规则停止 |
 
 ## Evidence convention
 
@@ -648,3 +651,332 @@ materialized points 为 `(902.4,246) → (874.4,246) → (874.4,372) → (902.4,
 | artifact | `cc7d1242ad84286dc7216536270393b26779a0cdf82d5a7a1770341862a701c7` | 815273 |
 
 旧失败回执与 probe 均保留；过时的主目录 incomplete 标记已移入历史，当前状态由 acceptance 表示。没有手改已交付 HTML；没有开始图 04，也未生成最终独立 Architecture Audit。
+
+## 图 04 施工前工作记录
+
+2026-09-15（Asia/Hong_Kong），当前 main / HEAD `460c6caf27f01383b0478a81b9acb3ce77b01187`，未 fetch。已重新读取下述生产代码与 migration；既有业务、规格、本地配置及 `.agents/` 未跟踪内容保持原状。用户标题中的 System Context 对应指南图 01；本轮按其明确编号及指南 §7 施工 **04 · Task Creation and Dispatch Sequence**，类型 **sequence**，不开始图 05。
+
+唯一问题：一次 task create request 在后端内部严格按什么顺序处理，并在何时跨越 DB transaction、COMMIT 和 async dispatch？
+
+### CODE_CONFIRMED nodes / edges
+
+- API client → AgentTaskController.create → AgentTaskRestService.create → AgentTaskApplicationService.createTaskWithResult；owner 取 JWT principal，Idempotency-Key 映射 clientRequestId，DTO 接受可选 configVersionId。图将这三层同步薄入口聚合为一个生命线，真实类名逐边索引保留，不伪造新业务类。
+- Application 在无创建事务的范围先 requireReady、校验、计算请求 fingerprint，再调用 AgentTaskQueryService.findByUserAndClientRequestId（独立 REQUIRES_NEW 只读）。同 owner/key 命中且 fingerprint 相同直接复用；不同则 TASK_IDEMPOTENCY_CONFLICT，不重选配置或派发。
+- 仅未命中进入 AgentTaskCreationTransactionService.createNew 的 REPEATABLE_READ 事务。先 AgentConfigVersionTransactions.selectForTask：显式 id 取同 owner/agent 版本；省略/null capture 当前草稿，按内容复用或插入版本。不是选择“最新已发布版本”。
+- 然后 AgentTaskSnapshotResolver.resolveConfiguration 基于版本配置选择与当前 owner、ACTIVE、READY、工具定义解析实际 snapshot。两个 resolver 的 REQUIRED 事务参与外层 RR；没有模型、向量、handler 慢调用。
+- AgentTaskMapper.insertTask 写 QUEUED、execution_snapshot、config identity、预算；TaskEventAppender.append 在同一事务内分配序号并写 TASK_CREATED；随后 coordinator.dispatchAfterCommit 只注册 synchronization。
+- 事务代理完成物理 COMMIT 后同步触发 AfterCommitTaskDispatchCoordinator.afterCommit → TaskDispatcher.dispatch 的当前实现 BoundedTaskDispatcher → agentTaskExecutor.execute(runDispatched)。executor 配置为本地 ThreadPoolTaskExecutor、AbortPolicy、agent-task- 前缀；不是 Redis/消息代理。
+- TaskRunner.runDispatched → run 由 worker 执行。AgentTaskLifecycleTransactionService.claim 在 REQUIRES_NEW 中条件 UPDATE QUEUED 且未取消 → RUNNING/PREPARING，配对写 TASK_STARTED；没领到则退出。claim 提交返回后才可进入 Engine；本图到此停止，不展开图 05。
+- 请求线程在 afterCommit 回调返回后逐层返回；HTTP 201/200 取决于 winning INSERT / 复用。worker claim 与 HTTP 响应之间无跨线程顺序保证；图用并行分支表达，不能解释为响应是 worker 启动门槛。
+
+### CODE_CONFIRMED states / boundaries / failure paths
+
+- Browser/JVM 的 HTTP/JWT、owner 与 DB JDBC 边界；同一创建 RR 事务、COMMIT、请求线程 afterCommit、executor async boundary、worker claim 独立事务分开。QUEUED 不等于运行中，RUNNING 是成功 claim 后的持久状态。
+- V18 owner/clientRequestId 唯一约束；V23 不可变配置表与 task/config 联合 FK 支持上述持久关系。初始幂等读先于 createNew；唯一约束失败须等创建事务退出后独立回读 winner。40001 在无 winner 时最多重新进入创建事务 3 次；没有业务执行重试。
+- auth/admission/配置/快照校验失败不进入新任务派发；回滚不触发 afterCommit。dispatch 抛异常时 coordinator 调用 TaskSettlementService.rejectDispatch，后者经 markDispatchRejected 的 REQUIRES_NEW 条件写 FAILED + TASK_FAILED；已有终态只读认可，持久化失败可能降级 admission，不能保证补偿必成功。
+- Worker 已接收但 claim 前 admission/claim 抛异常，也由 runDispatched 走拒绝持久化；claim 返回 null 直接退出。只作必要失败旁注，不展开完整并发/恢复图。
+
+### TEST_CONFIRMED / DOC_DECLARED / UNKNOWN
+
+- 已读取 AfterCommitTaskDispatchCoordinatorTest 的回滚不派发、只在 afterCommit 派发、拒绝委托 settlement 断言；AgentTaskApplicationServiceTest 的幂等直接复用/冲突、失败事务后 winner 回读、created 不受 task status 影响、显式版本与省略请求 fingerprint 区别、40001 有限重试断言。均是测试代码静态确认，本轮未执行，不记为新测试 PASSED。
+- V0.3 配置切片文档描述显式版本与省略捕获当前草稿；V0.1 task execution 文档含历史 snapshot/runtime 声明。前者既有 dirty 状态保持，文档与历史验收不能替代当前代码。v03a-postgres-acceptance.sh 已定位，未执行真实 PostgreSQL/provider 验收。
+- 当前 frontend api.createTask 只发送 userInput；后端 DTO 支持 configVersionId，不能画成当前 UI 已提供版本选择。图的 API Client 包含直接 API 调用者。
+- 未证明实际部署 profile、网络/DB 可用性、异步排队时长、worker 与 response 的具体交错或真实创建成功率；未运行后端、数据库、provider 或业务 E2E。
+
+## 图 04 Evidence index
+
+- **Diagram:** 04 · Task Creation and Dispatch Sequence（完成）。
+- **Question:** 一次 task create request 在后端严格按什么顺序处理，并在何时跨越 COMMIT 与 async dispatch？
+- **Type:** `sequence` / schema v1 / showcase；7 条职责生命线、17 条消息、3 个时段。
+- **Primary path:** JWT/owner → admission + 幂等回读 → 新建 RR → selectForTask → resolveConfiguration → task/event → 注册回调 → COMMIT → afterCommit → executor → worker claim。
+- **Key nodes:** 下表给出显示别名与实际类映射；这些是同步职责聚合，不是新增类或新服务。
+- **Key evidence:** 下列逐消息代码/方法索引；V18 owner/key 唯一约束、任务事件表和 V23 配置身份约束。
+- **Unknowns:** 未进行新的业务测试、真实 PostgreSQL/provider/E2E；实际配置、排队时长、HTTP/worker 的具体交错与真实失败率未测。Archify 通过不升级为业务运行证明。
+- **JSON / HTML:** [正式 sequence](04-task-create.sequence.json)、[冻结 candidate](04-task-create.candidate.sequence.json) 字节一致；[正式 HTML](04-task-create.html)。
+- **Artifact validation:** [candidate](04-task-create.candidate.validation.json)、[正式 validate](04-task-create.validation.json)、[deliver](04-task-create.delivery.json) 均 exit 0 / showcase 9/9 / 0 errors / 0 warnings。
+- **Browser evidence:** [visual-check](04-task-create.visual-check.json) `pass`；四个 desktop viewport containment/readability/Viewer 通过，light/dark 端点截图齐全。
+- **Visual review:** [实际截图复核](04-task-create.visual-review.json) `passed`；[截图索引](04-task-create.visual-check.html)。只评价真实截图中的默认 READ + Still 状态，不声称交互功能/E2E 已测试。
+- **Acceptance:** [命令、退出码及独立三层状态](04-task-create.acceptance.json)。
+
+### 图 04 参与者到当前实现的映射
+
+| 显示生命线 | 当前真实类 / 方法 |
+| --- | --- |
+| API Client | 当前 frontend `api.createTask` 与直接 HTTP API client；后端完整接口 `POST /api/v1/agents/{agentId}/tasks`。当前 UI 只发送 userInput，不能推断已有版本选择 UI。 |
+| 创建入口 | `AgentTaskController.create → AgentTaskRestService.create → AgentTaskApplicationService.createTaskWithResult`；幂等读取委托 `AgentTaskQueryService`。 |
+| 创建事务 | `AgentTaskCreationTransactionService.createNew` 及包围它的 Spring 事务代理；绿色激活条表达创建 DB transaction 区间。 |
+| 配置与快照 | `AgentConfigVersionTransactions.selectForTask/configuration`，随后 `AgentTaskSnapshotResolver.resolveConfiguration`。分别是版本选择与实际依赖解析。 |
+| PostgreSQL | `AgentTaskMapper`、`AgentTaskEventMapper`、`AgentConfigVersionMapper` 等 SQL 的持久化端。 |
+| 提交后派发 | `AfterCommitTaskDispatchCoordinator` 注册/回调 → `TaskDispatcher` 接口的 `BoundedTaskDispatcher` 实现 → `agentTaskExecutor`。 |
+| TaskRunner | `TaskRunner.runDispatched/run`；通过 `AgentTaskLifecycleTransactionService.claim` 领取。 |
+
+### 图 04 逐消息证据
+
+每行均为 **CODE_CONFIRMED 静态证据**。箭头表示方法委托、返回或标注过的框架动作；不是本轮网络调用日志。`tc-lookup-result` 标签中的复用/继续由 Application 决定，数据库只返回已有行或空值。
+
+| Message ID | Source → target | Mechanism / sync-async | Source / class / method | Persistence / boundary |
+| --- | --- | --- | --- | --- |
+| tc-request | API Client → 创建入口 | HTTP POST；JWT principal owner；Controller → Rest → Application 同步委托 | [AgentTaskController](../../backend/src/main/java/com/agentflow/agent/task/controller/AgentTaskController.java) L38 `public ResponseEntity` → [AgentTaskRestService](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskRestService.java) L43 `public CreateTaskResponse create` | Idempotency-Key → clientRequestId；DTO 的 configVersionId 可选；此时尚未创建事务 |
+| tc-lookup | 创建入口 → PostgreSQL | admission/校验/fingerprint 后独立 REQUIRES_NEW readOnly 回读 | [AgentTaskApplicationService](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskApplicationService.java) L45 `public CreateAgentTaskResult createTaskWithResult` → [AgentTaskQueryService](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskQueryService.java) L20 `public AgentTask findByUserAndClientRequestId` → [AgentTaskMapper](../../backend/src/main/java/com/agentflow/agent/task/repository/AgentTaskMapper.java) L68 `AgentTask selectByUserAndClientRequestId` | 以 user_id + client_request_id 查找；非创建事务中的读 |
+| tc-lookup-result | PostgreSQL → 创建入口 | 同步返回 existing/null；Application 才比较 fingerprint | [AgentTaskApplicationService](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskApplicationService.java) L80 `private static AgentTask sameRequestOrConflict` / [TaskRequestFingerprint](../../backend/src/main/java/com/agentflow/agent/task/service/TaskRequestFingerprint.java) L35 `public Fingerprint calculate(long agentId, String originalInput, Long` | 命中相同请求直接返回 created=false；不进入后续新建链，冲突抛 TASK_IDEMPOTENCY_CONFLICT |
+| tc-create-new | 创建入口 → 创建事务 | createNew 的事务代理建立 REPEATABLE_READ；再次 admission | [AgentTaskCreationTransactionService](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskCreationTransactionService.java) L61 `public AgentTask createNew` | 仅未命中才发生；失败回滚后 App 的独立查询可读并发 winner |
+| tc-select-version | 创建事务 → 配置与快照 | 同步 selectForTask，默认 REQUIRED 加入创建事务 | [AgentConfigVersionTransactions](../../backend/src/main/java/com/agentflow/agent/configversion/AgentConfigVersionTransactions.java) L80 `public AgentConfigVersion selectForTask` / [AgentConfigVersionTransactions](../../backend/src/main/java/com/agentflow/agent/configversion/AgentConfigVersionTransactions.java) L50 `public Published capture` | 显式版本验证同 owner/agent；省略/null 捕获当前草稿并按内容复用/插入版本 |
+| tc-version | 配置与快照 → 创建事务 | 同步返回选定的 AgentConfigVersion | [AgentConfigVersionTransactions](../../backend/src/main/java/com/agentflow/agent/configversion/AgentConfigVersionTransactions.java) L141 `private AgentConfigVersion requiredVersion` / [AgentConfigVersionTransactions](../../backend/src/main/java/com/agentflow/agent/configversion/AgentConfigVersionTransactions.java) L101 `public AgentConfiguration configuration` | 不可变配置选择仍不是实际执行 snapshot；新 task 会关联版本 |
+| tc-resolve | 创建事务 → 配置与快照 | 随后调用 resolveConfiguration，同步参与同一 RR | [AgentTaskCreationTransactionService](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskCreationTransactionService.java) L64 `AgentTaskExecutionSnapshot snapshot =` → [AgentTaskSnapshotResolver](../../backend/src/main/java/com/agentflow/agent/snapshot/AgentTaskSnapshotResolver.java) L137 `public AgentTaskExecutionSnapshot resolveConfiguration` | 读取当前 owner/Agent ACTIVE、知识 READY generation、工具 schema/handler；不调用模型/向量服务 |
+| tc-snapshot | 配置与快照 → 创建事务 | 同步返回实际 AgentTaskExecutionSnapshot | [AgentTaskSnapshotResolver](../../backend/src/main/java/com/agentflow/agent/snapshot/AgentTaskSnapshotResolver.java) L137 `public AgentTaskExecutionSnapshot resolveConfiguration` / [AgentTaskSnapshotResolver](../../backend/src/main/java/com/agentflow/agent/snapshot/AgentTaskSnapshotResolver.java) L229 `private RetrievalSnapshot resolveRetrievalRows` | 冻结运行所需实际值；READY 文档总数为 0 时拒绝创建 |
+| tc-insert | 创建事务 → PostgreSQL | 顺序 insertTask → eventAppender.append → eventMapper 增序号/insertEvent | [AgentTaskCreationTransactionService](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskCreationTransactionService.java) L98 `if (taskMapper.insertTask(task) != 1)` / [TaskEventAppender](../../backend/src/main/java/com/agentflow/agent/task/service/TaskEventAppender.java) L33 `public long append` / [AgentTaskEventMapper](../../backend/src/main/java/com/agentflow/agent/task/repository/AgentTaskEventMapper.java) L22 `Long incrementAndGetSequence` | 同一事务写 QUEUED、execution_snapshot、版本身份、预算、TASK_CREATED；尚未执行 |
+| tc-register | 创建事务 → 提交后派发 | 同步注册 TransactionSynchronization；此时不 dispatch | [AgentTaskCreationTransactionService](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskCreationTransactionService.java) L104 `dispatchCoordinator.dispatchAfterCommit` → [AfterCommitTaskDispatchCoordinator](../../backend/src/main/java/com/agentflow/agent/task/dispatch/AfterCommitTaskDispatchCoordinator.java) L30 `public void dispatchAfterCommit` | 要求实际事务与 synchronization 均 active；回滚不会触发 afterCommit |
+| tc-commit | 创建事务 → PostgreSQL | Spring 事务代理物理 COMMIT；不是业务类手写 commit 方法 | [AgentTaskCreationTransactionService](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskCreationTransactionService.java) L60 `@Transactional(isolation = Isolation.REPEATABLE_READ)` / [AfterCommitTaskDispatchCoordinator](../../backend/src/main/java/com/agentflow/agent/task/dispatch/AfterCommitTaskDispatchCoordinator.java) L37 `public void afterCommit` | task/snapshot/TASK_CREATED 原子可见后，才允许回调派发 |
+| tc-after-commit | 创建事务代理 → 提交后派发 | 请求线程的 afterCommit 回调同步调用 TaskDispatcher.dispatch | [AfterCommitTaskDispatchCoordinator](../../backend/src/main/java/com/agentflow/agent/task/dispatch/AfterCommitTaskDispatchCoordinator.java) L37 `public void afterCommit` → [TaskDispatcher](../../backend/src/main/java/com/agentflow/agent/task/dispatch/TaskDispatcher.java) L6 `void dispatch` → [BoundedTaskDispatcher](../../backend/src/main/java/com/agentflow/agent/task/dispatch/BoundedTaskDispatcher.java) L27 `public void dispatch` | afterCommit 在 COMMIT 后，不等同于新 worker；拒绝走独立 settlement |
+| tc-async | 提交后派发 → TaskRunner | 本地 ThreadPoolTaskExecutor.execute(lambda)，跨入 agent-task-* worker | [BoundedTaskDispatcher](../../backend/src/main/java/com/agentflow/agent/task/dispatch/BoundedTaskDispatcher.java) L30 `executor.execute` / [AgentTaskDispatcherConfiguration](../../backend/src/main/java/com/agentflow/agent/task/dispatch/AgentTaskDispatcherConfiguration.java) L17 `public ThreadPoolTaskExecutor agentTaskExecutor` → [TaskRunner](../../backend/src/main/java/com/agentflow/agent/task/execution/TaskRunner.java) L101 `public void runDispatched` | 有界 executor + AbortPolicy；图不引入 Redis queue 或分布式消息投递 |
+| tc-created | 创建事务 → 创建入口 | 事务代理及 afterCommit 返回后，App 形成 CreateAgentTaskResult(created=true) | [AgentTaskApplicationService](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskApplicationService.java) L60 `return new CreateAgentTaskResult(creationTransactionService.createNew` | 新建成功由 winning INSERT 决定；并发 loser 用事务外 winner 回读返回 created=false |
+| tc-response | 创建入口 → API Client | HTTP 响应；主链路新建 201，复用分支 200 | [AgentTaskController](../../backend/src/main/java/com/agentflow/agent/task/controller/AgentTaskController.java) L45 `return ResponseEntity.status` / [AgentTaskRestService](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskRestService.java) L52 `return new CreateTaskResponse` | 与 worker claim 没有跨线程 happens-before 保证；不证明实际执行状态 |
+| tc-claim | TaskRunner → PostgreSQL | worker → lifecycle.claim 的 REQUIRES_NEW 短事务 | [TaskRunner](../../backend/src/main/java/com/agentflow/agent/task/execution/TaskRunner.java) L59 `public void run(long taskId)` → [AgentTaskLifecycleTransactionService](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskLifecycleTransactionService.java) L51 `public AgentTask claim` → [AgentTaskMapper](../../backend/src/main/java/com/agentflow/agent/task/repository/AgentTaskMapper.java) L97 `AgentTask claimQueued` | 仅 QUEUED 且未持久取消可写 RUNNING/PREPARING、startedAt；取得行才配对 TASK_STARTED |
+| tc-claimed | PostgreSQL → TaskRunner | claim 事务提交后返回 task；空结果直接退出 | [AgentTaskLifecycleTransactionService](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskLifecycleTransactionService.java) L51 `public AgentTask claim` / [TaskRunner](../../backend/src/main/java/com/agentflow/agent/task/execution/TaskRunner.java) L61 `AgentTask task = lifecycleTransactions.claim` | 成功领取后才解析持久 snapshot 并在无数据库事务时进入 Engine；本图止于该边界 |
+
+### 失败分支、状态与证据边界
+
+- **幂等先行：** `AgentTaskApplicationService` 对同 owner/key 先查后建；fingerprint 由原始 input、agentId、显式 configVersionId 的请求域决定。显式版本变更、显式与省略形态改变都可能冲突，不以“最终配置相同”替代请求一致性。
+- **并发失败回读：** DataIntegrityViolation 退出创建事务代理后才调用 QueryService 的 REQUIRES_NEW；无 winner 传播原错误。有序列化异常时先回读，未命中最多 3 次完整创建尝试，不重试 Engine/provider。图以卡片保留分支，不展开全并发图。
+- **拒绝补偿：** `AfterCommitTaskDispatchCoordinator.compensateRejectedDispatch → TaskSettlementService.rejectDispatch → AgentTaskLifecycleTransactionService.markDispatchRejected`，后者 REQUIRES_NEW timeout=5，仅 QUEUED 且未取消行转 FAILED/SYSTEM_ERROR/TASK_DISPATCH_REJECTED，并同事务写 TASK_FAILED。已终态可认可；写失败可能关闭 admission，不能画成必然落库成功。`TaskRunner.runDispatched` 还处理已接收但进入 claim 前抛异常的情况。该边界与图 03 的“outcome 不等于持久终态”一致。
+- **响应与执行：** 并行分支中的横向对齐仅表示无跨线程顺序约束，并不表示它们同一时刻发生。请求线程先完成 afterCommit 调用；worker 可能在响应之前或之后 claim。201 只表示此次 winning INSERT，200 只表示复用；任何一项均不是 RUNNING/COMPLETED 的证明。
+- **DB transaction 范围：** 中间时段的创建事务拥有配置/快照/task/event 语义，不表示 Browser/worker 加入事务；最后 claim 是另一个物理事务。创建流程中没有模型/向量/工具慢调用。COMMIT 箭头表达事务代理的 JDBC 提交，不虚构 `createNew()` 里的手工 commit 调用。
+- **持久结构：** [V18 migration](../../backend/src/main/resources/db/migration/V18__create_agent_task_and_event.sql) 的 `UNIQUE(user_id, client_request_id)`、task/event FK 与 event 序号唯一约束；[V23 migration](../../backend/src/main/resources/db/migration/V23__create_agent_config_version.sql) 的不可变配置 trigger、内容唯一约束与 task/config 联合 FK；[TaskStatus](../../backend/src/main/java/com/agentflow/agent/task/model/TaskStatus.java) 区分 QUEUED/RUNNING/终态。图未把 phase PREPARING 当作 status。
+- **TEST_CONFIRMED（只读断言，未执行）：** [ApplicationServiceTest](../../backend/src/test/java/com/agentflow/agent/task/service/AgentTaskApplicationServiceTest.java) 覆盖复用、不再创建、fingerprint 冲突、并发 winner 回读、created 不依赖 task status、显式版本/请求形态与有限 40001 重试；[AfterCommitTest](../../backend/src/test/java/com/agentflow/agent/task/dispatch/AfterCommitTaskDispatchCoordinatorTest.java) 覆盖 rollback/afterCommit/拒绝委托。未把直接手动触发 synchronization 的 mock 测试当成真实 DB COMMIT 或线上线程证明。
+- **DOC_DECLARED / UNKNOWN：** [V0.3 配置切片](../../V0.3-slice-docs/01_CONFIG_VERSION_AND_EVALUATION_PACKAGE_INTERFACE.md) §3.3 与当前省略/null capture 事实一致；[V0.1 执行切片](../../V0.1-slice-docs/41_AGENT_TASK_EXECUTION_PACKAGE_INTERFACE.md) 的历史 snapshot/验收数字不作为本轮结果；[v03a 验收脚本](../../scripts/v03a-postgres-acceptance.sh) 仅定位未运行。指南候选名 `AgentTaskDispatcher` 以当前实际 `TaskDispatcher` + `BoundedTaskDispatcher` 替代。
+
+### 图 04 修复与验收记录
+
+1. 首版因 7 组消息在相同横向空间内间隔不足 28px 而 render 失败；按诊断统一调整 y，并同步事务框、activation 与完整画布高度。原候选与回执保存在 [消息间距历史](history/04-message-spacing/04-task-create.candidate.validation.json)。
+2. 随后 artifact checks 9/9，但 7px participant context 在 1120px viewBox 的保守投影仅 5.8125px。按 supportedFix 缩紧 `column_fit: spread` 的实际排布至 1060px，得到 6.14151px；未减字号、未隐藏 overflow、未裁切。原失败证据保存在 [可读宽度历史](history/04-before-readable-width/04-task-create.candidate.validation.json)。
+3. 首次 deliver 通过，但浏览器 1440×900 高出 26px、1600×1000 高出 2px。真实截图显示冗余仓库名后缀使标题换为两行；仅去掉该后缀，保留图名、全部参与者/消息/卡片。重新 validate / deliver / visual-check 全部通过。首版 source/HTML/浏览器回执及截图保存在 [标题修复前历史](history/04-before-title-fit/04-task-create.visual-check.html)。
+4. 当前 17 条消息、7 个参与者的 artifact checks 9/9，composition errors = 0、warnings = 0；properCrossings = 0、ambiguousCorridors = 0、labelRouteClearanceIssues = 0。实际 viewBox 1060×664；不把成功 CLI 检查称为业务架构运行验收。
+5. 实际查看 1440×900 与 2048×1320 的 light/dark 四张截图；标题单行，主时序、事务/COMMIT/async 边界、并行分支、图例与说明卡完整可见。最大视口主图和卡片合理占据纵向空间，没有明显空白下半屏。默认画面无残留浮层；未另行声称搜索/聚焦/导出动作测试通过。visual `correction_rounds: 1` 只计一次标题视觉修复，前两次为交付前诊断修复。
+
+| Viewport | scrollWidth × scrollHeight | 最小节点文本 | Containment / readability / Viewer |
+| --- | --- | --- | --- |
+| 1440×900 | 1440×900 | 6.1415px | pass / pass / pass |
+| 1600×1000 | 1600×1000 | 6.5047px | pass / pass / pass |
+| 1920×1080 | 1920×1080 | 7px | pass / pass / pass |
+| 2048×1320 | 2048×1320 | 7px | pass / pass / pass |
+
+| 本次 deliver 身份 | SHA-256 | Bytes |
+| --- | --- | --- |
+| specification | `45a640ccc53d4bcaff3bcb5342a408c87a0c9a4a12d9d73102964a0a1c19b92c` | 5769 |
+| artifact | `8693f8146a44ca3ddd5da911a26a8574f80ade4d211c7df94ec20a795a1fa403` | 816209 |
+
+### 图 04 完成标准
+
+- [x] 只回答创建请求的调用顺序与 COMMIT/async 边界，按指南图 04 使用 sequence；没有重画图 01 System Context。
+- [x] 初始幂等回读、显式/省略版本、实际 snapshot、task/event 写入、回调注册/触发、拒绝补偿、worker claim 均追踪到当前生产代码与持久结构。
+- [x] 事务内、COMMIT 后、executor 异步及 claim 独立事务显式区分；不混同任务创建、执行与 HTTP 响应。
+- [x] source/HTML 已保存，validate/deliver 通过，逐消息证据、未知项与历史失败回执完整。
+- [x] 四桌面尺寸 browser evidence 与双主题实际截图 visual review 通过；分别记录三层验收。
+- [x] 图 01–03 产物与业务代码保持不变。图 04 完成后停止，未开始图 05，未生成最终独立 Architecture Audit。
+
+
+## 图 05 施工前工作记录
+
+2026-09-15（Asia/Shanghai），main / HEAD `460c6caf27f01383b0478a81b9acb3ce77b01187`，未 fetch；基于当前 dirty working tree。图 04 已交付但未提交，保留全部产物；既有业务、规格和 Skill 文件不改。使用本地 Archify metadata 2.17 / package 2.17.0-dev.1。此记录先于图 05 Typed JSON 写入。
+
+唯一问题：task 已进入 runtime 后，如何从冻结上下文完成一次预检索、decision/tool 回环与独立 final generation？类型 workflow v2 / showcase；只施工图 05，不开始图 06。
+
+### CODE_CONFIRMED nodes
+
+- `loop-entry`：AgentEngineTaskExecutionDelegate.execute → DefaultAgentEngine.execute(TaskExecutionRequest) → TaskSnapshotAgentExecutor.execute；该重载使用持久任务快照，不是旧 AgentExecutionCommand 路径。validate 检查快照/协议后打开 recorder。
+- `loop-rag`：SnapshotRagService.retrieve，一次 PRE_RETRIEVAL；query 是 userInput，语料来自 snapshot.retrieval，按 owner/document generation 回查 canonical chunk。空语料不调用 embedding/vector；空命中可继续。
+- `loop-budget`：while 顶部 State.boundary、maxDecisionTurns/maxToolCalls，以及 decision 前 outputCap 的总 token/context window/final reserve 检查。节点聚合每轮门禁，不表示 token 一定在 prompt 构造前估算。
+- `loop-decision`：TaskPromptBuilder.decision → callLlm(DECISION) → LlmGateway.chat → AgentDecisionParser.parse；模型调用与严格整段 JSON 解析合并为职责节点。只能 CALL_TOOL 或 FINISH；工具选择限于 frozen availableTools。
+- `loop-tool`：invokeTool → task-scoped DefaultToolRuntime；当前只支持 order_query/payment_log_query 的只读 builtin，执行前检查 live ACTIVE/冻结 schema/实现/参数/取消期限。成功结果转 observations；第二次相同意图经重新验证复用缓存，第三次中止。
+- `loop-limited`：达到 decision/tool 次数上限时设置 termination reason，追加只读 BUDGET_LIMIT observation，并生成受限 answerPlan；不是新模型调用。
+- `loop-final`：TaskPromptBuilder.finalAnswer → outputCap → 独立 FINAL_GENERATION 模型请求 → validateCitations；final cap 必须保有 frozen reserve，引用只可来自预检索白名单。
+- `loop-outcome`：TaskExecutionOutcome.completed 返回答案、使用量、计数与引用；Engine 不写持久终态。Runner 后续结算不在本图展开。
+
+### CODE_CONFIRMED edges / boundaries
+
+- entry → RAG → 每轮门禁 → decision/parse 是 TaskSnapshotAgentExecutor.execute 内顺序控制流。RAG 不是模型可选择的新 action，也不在工具回环中重跑。
+- decision → tool 仅 CALL_TOOL；tool → budget 携带成功/复用 observation，下一轮重建 prompt。RAG evidence、citationIds 与全部 observations 同时进入 decision 和 final 的 common payload；它们都是 UNTRUSTED_DATA，不是持久跨任务 memory。
+- decision → final 仅 FINISH，answerPlan 可表达缺少输入并请求用户以新任务补充。FINISH 不表示问题已解决，也没有 WAIT / 自动恢复 action。
+- budget → limited → final 仅次数上限；最终调用仍受 token/取消/期限限制，可能失败。没有工具可选时 parser 拒绝 CALL_TOOL；maxToolCalls=0 会在首轮直接走受限 final。
+- final → outcome 需调用、引用与边界校验成功。其余失败由 execute catch/failure 映射 FAILED、CANCELLED 或 TIMED_OUT outcome，使用量已测得的部分保留，不等于 DB 结算成功。
+- 工作流箭头表示调用/分支与数据携带，不是不同进程或一条长事务。外部 I/O 通过 TaskExternalCallDeadline 的实际工作虚拟线程执行，worker 有界等待并观察取消/期限；Future.cancel 不能证明 provider 停止。Recorder/phase 各自短事务，慢 I/O 不持有数据库事务。
+
+### CODE_CONFIRMED failure / trace facts
+
+- malformed/未知字段/重复键/未知工具 → AGENT_INVALID_DECISION；该 Engine 分支不做自动 JSON 修复或重试模型调用。重复意图第三次 → AGENT_DUPLICATE_TOOL_LOOP；工具撤销/参数/调用失败中止。
+- token/context 空间不足、provider 输出限制/失败、未知引用、取消及 task deadline 均可阻止最终答案。单次模型超时 AGENT_LLM_TIMEOUT 与整任务 TASK_TIMED_OUT 分开；远端是否继续计算 UNKNOWN。
+- retrieve/callLlm/invokeTool 调用 startStep/completeStep/failStep，记录 RAG/LLM/tool facts；RAG_FINISHED、DECISION_FINISHED、TOOL_STARTED/FINISHED、FINAL_GENERATION_STARTED 是阶段事件，不是 TASK_COMPLETED。缺失 provider usage 保守 ESTIMATED，混合为 MIXED；失败 DECISION 日志不写原始 malformed response。
+
+### TEST_CONFIRMED facts
+
+已逐项读取 TaskSnapshotAgentExecutorTest 的断言，**本轮未执行，不记为新 PASSED**：executesFrozenRagDecisionToolsAndSeparateFinalGenerationWithOrderedFacts；emptyRagStillAllowsToolsAndToolBudgetForcesARestrictedFinal；decisionBudgetForcesFinalWithoutAnotherDecisionRequest；canonicalDuplicateReusesSecondObservationAndRejectsThirdWithoutCallingRuntimeAgain；malformedDecisionPersistsSafeFailedLogWithUsageAndLatencyWithoutRawResponse；actualOverBudgetUsageIsRetainedBeforeFailure；insufficientBudgetBlocksProviderBeforeFirstDecision；cancellationAfterProviderResponsePreservesUsageAndStopsFurtherIo；deadlineAfterProviderResponsePreservesUsageAndStopsFurtherIo；fabricatedFinalCitationFailsAfterRecordingFinalUsage；missingLookupIdentifiersCanFinishWithASeparateClarificationWithoutCallingTools；plainTextClarificationWithNormalStopIsStillAnInvalidDecisionAndIsNotRetried。这些是受控依赖断言，不是本轮真实 provider/E2E 证据。
+
+### DOC_DECLARED only / UNKNOWN
+
+指南 §8 提及 retrieval selection；当前实现只有 snapshot-scoped PRE_RETRIEVAL，并无模型选择 retrieval action。图遵循已读代码，不从 Agent 概念加入 planner、reflection、memory、self-correction 或 autonomous sub-agent。历史切片/验收数字不作本轮成功证据。未启动后端、DB、向量服务或 LLM，未执行真实 provider 请求；目标部署连通性、取消后的远端行为、回答质量、实际耗时和失败率均 UNKNOWN。图 05 artifact/browser/visual review 在验收前均 pending。
+
+## 图 05 Evidence index
+
+- **Diagram:** 05 · Agent Execution Loop（完成）。
+- **Question:** task 已进入 runtime 后，如何从冻结上下文完成一次预检索、decision/tool 回环与独立 final generation？
+- **Type:** `workflow` / schema v2 / readable-v2 / showcase；8 个节点、9 条关系、3 个职责泳道。泳道不表示线程池、服务进程或数据库事务。
+- **Primary path:** TaskExecutionRequest → 一次 PRE_RETRIEVAL → 每轮门禁 → DECISION + strict parse → FINISH plan → 独立 final + 引用校验 → TaskExecutionOutcome；CALL_TOOL 经 observation 回到门禁。
+- **Key nodes / evidence:** 施工前工作记录中的 8 个节点及下表逐边方法索引。`loop-decision` 合并模型调用与解析、`loop-final` 合并生成与引用校验，未虚构新的 Service。`database` 类型在 workflow 图例表示“上下文 / 追踪”，RAG 节点不是另一个数据库服务。
+- **Unknowns:** 未运行新的业务单测/集成测试、PostgreSQL、真实模型/向量 provider；性能、回答质量、实际外部调用终止、当前目标部署连通性均未测。图的三层验收不升级为业务 E2E。
+- **JSON / HTML:** [正式 workflow](05-agent-loop.workflow.json)、[冻结 candidate](05-agent-loop.candidate.workflow.json) 字节一致；[正式 HTML](05-agent-loop.html)。
+- **Artifact validation:** [candidate validate](05-agent-loop.candidate.validation.json)、[正式 validate](05-agent-loop.validation.json)、[deliver](05-agent-loop.delivery.json) 均 exit 0，showcase 9/9，composition errors=0 / warnings=0。
+- **Browser evidence:** [原版 visual-check](05-agent-loop.visual-check.json) exit 0 / pass；四尺寸 containment、readability、Viewer chrome 通过。回执内 `visualReview: pending` 按工具契约原样保留。
+- **Visual review:** [独立截图复核](05-agent-loop.visual-review.json) passed / correction_rounds=0；实际打开 [四张明暗截图](05-agent-loop.visual-check.html) 后形成，不以机器检查冒充视觉判断。只评默认 READ + Still 的可见布局；没有声称 search/focus/passport 操作或导出验收。
+- **Acceptance:** [本轮原始命令、退出码及三层状态](05-agent-loop.acceptance.json)；[布局 receipt](05-agent-loop.layout.json)；[全部节点字体测量](05-agent-loop.layout-measurements.json)。
+
+### 图 05 逐边 CODE_CONFIRMED 证据
+
+边表示 Engine 中顺序控制流、条件分支或回到循环，并非每条边都新增跨线程、跨网络或数据库提交。外部调用的真实边界另列于表后。
+
+| Edge ID | Source → target / condition | Current class / method evidence | Mechanism / data / persistence |
+| --- | --- | --- | --- |
+| loop-entry-rag | 快照执行入口 → 一次预检索 | [TaskSnapshotAgentExecutor](../../backend/src/main/java/com/agentflow/agent/engine/TaskSnapshotAgentExecutor.java) L95 `execute`，L168 `retrieve`；[SnapshotRagService](../../backend/src/main/java/com/agentflow/agent/rag/SnapshotRagService.java) L65 `retrieve(request,boundaryCheck)` | 校验快照、打开 recorder 后顺序调用一次；PRE_RETRIEVAL step，userInput 查询冻结 KB/document generation，结果日志和 RAG_FINISHED。标签省略因为两个节点已完整表达顺序动作，不省略额外协议/条件。 |
+| loop-rag-budget | 一次预检索 → 每轮门禁 | 同一 `execute`：`rag = retrieve(state)` 位于 `while(true)` 之前 | RAG evidence/hits 保留在本次执行局部状态；空命中仍进入 gate，无重复检索。节点“可空证据”及卡片已表达此条件，边未加重复标签。 |
+| loop-budget-decision | 轮次 / token 允许 → DECISION + parse | `execute` 的 while 顶部；L377 `outputCap`；[TaskPromptBuilder](../../backend/src/main/java/com/agentflow/agent/engine/TaskPromptBuilder.java) L71 `decision`；Executor L210 `callLlm`；[AgentDecisionParser](../../backend/src/main/java/com/agentflow/agent/engine/AgentDecisionParser.java) L29 `parse` | 次数门禁后构造 messages，估算 decision input，预留 final prompt + reserved_final_tokens，再调用模型；State.boundary 可随时中止。严格 whole-response JSON，无多余字段/重复键；只选 frozen availableTools。 |
+| loop-decision-tool | CALL_TOOL → 快照工具调用 | `AgentDecisionParser.parseToolCall` L53；Executor L327 `invokeTool`；[DefaultToolRuntime](../../backend/src/main/java/com/agentflow/tool/DefaultToolRuntime.java) L170 `executeTask`、L254 `validateTaskTool` | 按 frozen toolCode 找 toolId；taskScoped command 带 task/step/owner/snapshot/deadline/probe。实际 handler 前仍读当前 ACTIVE、核验 schema/实现/参数；不是任意网络工具或自动 sub-agent。 |
+| loop-tool-budget | 成功/复用 observation → 下一轮门禁 | Executor `invokeTool` 向 `state.observations` 追加，返回 while；PromptBuilder L98 `observation`、L110 `common` | 按 toolCode + canonical arguments 识别重复；首次执行、第二次 validateTaskSnapshot 后复用，第三次失败。下一轮 decision 和后续 final 都取得完整当前 observations；不重新 PRE_RETRIEVAL。 |
+| loop-decision-final | FINISH → 独立 final | Parser L79 `parseFinalAnswer`；Executor `execute` 的 `FinalAnswerDecision` 分支 / break → `prompts.finalAnswer`；PromptBuilder L89 `finalAnswer` | FINISH 提供 answerPlan，不提供已发布答案。独立文本生成请求使用同一 RAG、observations；没有 CALL_TOOL/FINISH 输出 schema，仍受总预算与 frozen reserve 约束。 |
+| loop-budget-limited | 次数达到上限 → BUDGET_LIMIT / 受限计划 | Executor `execute`：`MAX_DECISION_TURNS` / `MAX_TOOL_CALLS` → break → `reason != ANSWERED` | 追加 `{type:BUDGET_LIMIT,reason,readOnly:true}`，设置受限 plan。maxToolCalls=0 也走此路；不是 token 耗尽后仍必定生成。此节点无新模型请求或单独持久 task 状态。 |
+| loop-limited-final | 受限 plan → final | 同一 `execute`：预算分支结束后 `prompts.finalAnswer`、`outputCap`、`FINAL_GENERATION_STARTED`、`callLlm(FINAL_GENERATION)` | 若剩余 cap 小于 finalTokenReserve 则 abort；否则才发独立最终请求。成功 outcome 的 termination reason 保留具体次数上限。 |
+| loop-final-outcome | final 调用 / 引用校验成功 → 返回结果 | Executor L425 `validateCitations`、L437 `citations`，`execute` 返回 `TaskExecutionOutcome.completed`；[TaskRunner](../../backend/src/main/java/com/agentflow/agent/task/execution/TaskRunner.java) L59 `run` | 白名单引用来自 rag.hits，答案、计数、usage 与实际使用引用组成内存 outcome。Runner 才负责后续 deadline arbitration 与 settlement；不把 outcome 当作已持久 COMPLETED。节点已标“返回执行结果”，故边省略重复标签。 |
+
+### 图 05 状态、Trace 与失败边界
+
+- **真实入口：** [AgentEngineTaskExecutionDelegate.execute](../../backend/src/main/java/com/agentflow/agent/task/execution/AgentEngineTaskExecutionDelegate.java) 在 engine mode 注入；[DefaultAgentEngine.execute(TaskExecutionRequest)](../../backend/src/main/java/com/agentflow/agent/engine/DefaultAgentEngine.java) L72 委托 taskExecutor。旧 command 重载会取 live Agent/tools，不是本图路径。Runner 成功 claim 后解析持久 snapshot，进入 delegate 前确认无 DB transaction。
+- **检索选择与无数据：** SnapshotRagService 由 snapshot.retrieval 冻结语料驱动；不接受 decision 中的 retrieval action。空 corpus 直接空结果，不发 embedding/vector；候选经 canonical SQL 与 generation/owner 等校验，无有效命中也继续。没有工具可用时 CALL_TOOL 不在 allowedTools 中而解析失败，FINISH 可基于已有证据/澄清计划结束；maxToolCalls=0 则按计数分支直接受限 final。没有为本图展开 ingestion/RAG pipeline，图 06 未施工。
+- **上下文：** TaskPromptBuilder.common 把 userTask、knowledgeEvidence、citationIds、observations 放入 payload。decision 另加 availableTools/schema 与剩余次数；final 另加 answerPlan，不再加工具规划协议。支持的 v2 prompt 明确缺失输入可 FINISH 后请求新任务补充；不是 WAIT，也不会自动 resume。untrusted 工具结果/知识不能修改 system rules。
+- **跨线程 / I/O：** [TaskExternalCallDeadline.call](../../backend/src/main/java/com/agentflow/agent/engine/TaskExternalCallDeadline.java) 将实际工作放在 virtual-thread FutureTask，worker 有界等待并在返回前后检查 boundary。RAG 的远程 embedding/vector 取决于 adapter；Chat 跨 provider I/O；当前 task tool 仅本地只读 builtin，不能画成网络工具服务。嵌套 boundary 与实际-work permit 防止晚结果推进下一步；取消 Future 或本地等待结束不证明远端计算已停。
+- **持久短事务：** [ExecutionRecorderTransactionService](../../backend/src/main/java/com/agentflow/agent/trace/ExecutionRecorderTransactionService.java) 的 startStep/completeStep/failStep、recordLlmCall、recordRagRetrieval、appendEvent 均 REQUIRES_NEW；[AgentTaskLifecycleTransactionService.changePhase](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskLifecycleTransactionService.java) L66 单独短事务更新 phase。RETRIEVING、DECIDING、EXECUTING_TOOL、GENERATING 是 phase，不是 task status。
+- **Trace 实体：** [V19](../../backend/src/main/resources/db/migration/V19__create_agent_execution_trace.sql) 定义 agent_step、llm_call_log、rag_retrieval_log/hit、tool_call_log 的 task/step 关系与 call_type/step_type 约束。[TaskEventAppender](../../backend/src/main/java/com/agentflow/agent/task/service/TaskEventAppender.java) 分配事件序号并同事务写事件；不存在图中虚构的消息代理。RAG_FINISHED、DECISION_FINISHED、TOOL_STARTED/FINISHED、FINAL_GENERATION_STARTED 仅阶段事实；Engine 不直接写 TASK_COMPLETED。
+- **失败映射：** Executor L541 `failure` 保留计数/usage，TASK_CANCELLED → cancelled、TASK_TIMED_OUT → timedOut、其他 → failed；token 不足使用 TOKEN_BUDGET_EXHAUSTED reason。malformed decision、未知工具、重复循环、工具失败、provider 失败/输出上限/单次超时、无效引用均可中止。该 Engine 分支不自动修复 JSON 或重试模型请求；不对 provider SDK 内部策略作额外保证。
+- **使用量：** `callLlm` 在取消/超时仲裁前记录可观察返回 usage；缺失 usage 保守估算，混合值标 MIXED。malformed DECISION 不记录原始响应正文。`V20__preserve_task_token_overruns.sql` 的历史持久化边界不意味着模型可无限超支；本轮图只陈述已读计费/失败行为，不重验数据库。
+- **跨图一致性：** 承接图 04 的 claim 后 executionRequest；与图 03 一致，RAG 一次、工具回环、独立 final、outcome 后才 settlement。快照不回读 mutable draft，但工具紧急撤销与 canonical chunk 的实时验证仍存在。SSE/刷新/恢复不进入这个 loop 的执行触发路径。
+
+### 图 05 实际布局、修复与验收
+
+- 首轮 CLI exit 1，仅 `schema/required`：根对象缺少必填 `diagram_type`。原候选、回执与 acceptance 保留在 [历史诊断](history/05-required-type/05-agent-loop.candidate.validation.json)。只补 `diagram_type: workflow` 后完整验证通过；未进行几何修复，所有 9 条关系保持自动路由，无 via/channel/端口/label 偏移。
+- `viewBox = requiredViewBox = [1018,534]`；列中心为 `[112,268,424,598.8,773.6,929.6]`。全部节点 128×68，三泳道节点 y 为 86/212/338，间隔126。最右节点 outcome 右界993.6，小于1018；没有以缩小 viewBox 裁切。
+- Tool feedback 最终 points：`(534.8,120) → (424,120) → (424,212)`；标签 `(479.4,110)`，86.8×14。CALL_TOOL 从 decision 顶部到 tool 底部；feedback 从 tool 左侧回 budget 顶部，两者不共享 corridor。proper crossings=0、ambiguous corridors=0、label-route issues=0。
+- 正式 SVG 逐一读取所有 8 个节点的全部 16 段文字：标题11px、副标题8px，未缩小源字号。以930px保守阅读宽度计算最小投影 `8×930/1018 = 7.30845px`；不是仅抽查一个节点。机器 composition 的 `minProjectedNodeTextPx:null` 是无失败项时的空值，未误写成零或凭此声称最小字号。
+- candidate / official validate、deliver 均 exit0 / 9/9 / 0 errors / 0 warnings。正式 source 5576 bytes，SHA-256 `547ee6dcc919b2b29d7c1224cfa094b737bf2e6a40f88bea8ecc617fac1f5eb1`；HTML 807523 bytes，SHA-256 `037962f43c24d28968987d267a358e79fd1078097db09efb4c79fa9021ef1ff8`。未手改 HTML 或 Skill，未新增隐藏 overflow/缩放/裁切规则。
+- visual-check exit0；1440×900、1600×1000、1920×1080、2048×1320 的 scrollWidth/scrollHeight 分别恰等于对应 viewport，overflowX/Y=false，readability 与 Viewer chrome 通过；每尺寸实际报告最小节点文字8px。1440及2048的light/dark截图均完整。实际四图视觉复核 passed，correction_rounds=0；主线/工具回环/次数侧支可分辨，节点、卡片、图例、dock 无相互遮挡，最大尺寸首屏完整。
+- 未运行业务测试或真实 provider 验收；图 05 完成仅指本图证据、artifact、browser、visual review 门禁。图 01–04 原产物保持，图 06 未开始，本轮未提交推送。
+
+
+## 图 06 施工前工作记录
+
+2026-09-15（Asia/Shanghai），main / HEAD `460c6caf27f01383b0478a81b9acb3ce77b01187`，未 fetch，基于当前 dirty working tree。图 04/05 已交付但尚未提交，全部保留；既有业务/规格/配置与 Skill 不改。Archify metadata 2.17 / package 2.17.0-dev.1，dataflow schema v1，showcase，中文、静态 classic。此记录先于 Typed JSON 写入。
+
+唯一问题：文档从上传到被一次 Agent task 检索并进入模型上下文，数据经历什么路径？只施工图 06，不开始图 07；不展开工具执行、任务状态机或全套重处理恢复。
+
+### CODE_CONFIRMED nodes / data assets
+
+- `rag-file`：KnowledgeDocumentService.upload 校验 JWT owner/ACTIVE KB 后由 LocalDocumentStorage.store 保存 TXT/MD 原始字节、DB 保存 storage key 与 PENDING 元数据。不是对象存储云服务；上传不会自动解析或向量化。
+- `rag-parsed`：显式 process-pending → DocumentProcessingService.parseAndChunk → DocumentParserResolver；ParsedDocument 是内存规范化文本与标题区段，不是新持久化表。
+- `rag-chunks`：DocumentChunker 生成 ChunkDraft；DocumentProcessingTransactionService 同事务落所有 knowledge_chunk 与 parse COMPLETED。chunk 带正文、title_path、content_hash、vector_generation、structured-token-v1，vectorization=PENDING。
+- `rag-embedding`：另一次显式 vectorize-pending，在短事务认领当前代 chunk 后把正文交 EmbeddingGateway，得到派生浮点向量。remote 是 DashScope text-embedding-v4；图中的 remote 模式关系不证明已运行真实 provider。
+- `rag-vector`：QdrantVectorStoreGateway.upsert 保存 vectorId、向量和过滤 payload；payload 有 owner/KB/document/chunkIndex/generation/hash，不含正文。Qdrant 是派生索引，正文真值仍在 PostgreSQL。
+- `rag-ready`：upsert 成功后编排器另行回写 vectorId + COMPLETED；DocumentReadinessRow.readiness 从当前代统计与固定配置派生 READY。它不是 Qdrant 主动写 PG，也不是单独可写状态。
+- `rag-task`：任务创建时 AgentTaskSnapshotResolver.resolveConfiguration 读取所选 KB 当前可用 document generation，冻结进 execution_snapshot；检索输入还有原始 userInput。snapshot 不等于拷贝全文。
+- `rag-query`：SnapshotRagService.retrieve 用 userInput 构造 query embedding；固定1024维，复用冻结语料范围，没有模型生成 query rewrite。
+- `rag-search`：Qdrant 的 points/query 使用 query向量 + owner/KB/document generation filter，返回候选 vectorId/chunkId/score/contentHash，不返回正文或完整向量。
+- `rag-context`：候选 locator 经 KnowledgeChunkMapper.selectSnapshotRetrievableChunks 回读 canonical PG 正文，再核对 frozen generation、vectorId、hash/实际正文；过滤无效候选、阈值/去重/排序/topK，生成 bounded UNTRUSTED evidence 与 S1…引用。
+- `rag-model`：TaskPromptBuilder.common 将 evidence/citationIds、userTask/observations 放入 decision 与独立 final 的模型 messages；不是把原始文件或向量直接当 prompt。
+- `rag-trace`：ExecutionRecorderTransactionService 的 RAG retrieval/hit快照与 LLM call记录。引用来源、正文快照、score、generation、调用/usage各有事实；最终引用需经 Executor 白名单校验，outcome由Runner另行结算。
+
+### CODE_CONFIRMED flows / boundaries
+
+Ingestion：file → parsed（显式 process读取原始字节）；parsed → chunks（结构化文本分块并短事务落库）；chunks → embedding（另行 vectorize取正文）；embedding → vector（向量 + scoped payload）；vector → ready（编排器收到确认后独立写PG）；chunks → ready（仅当前 generation统计）；ready → task（创建时重新验证并冻结document generation）。这条数据谱系不表示上传自动串起所有动作。
+
+Retrieval：task → query（userInput与冻结范围）；query → search（query向量与范围过滤）；vector → search（索引候选）；search → context（locator/score/hash）；chunks → context（SQL正文与scope/version核验）；context → model（证据、引用白名单）；context → trace（retrieval/hit快照）；model → trace（LLM调用与使用量）。所有箭头都有数据意义；不是未经证明的队列/网络连接。
+
+慢 embedding/vector I/O 不持有处理/向量化数据库长事务，认领/回写是独立短事务。文件与DB、Qdrant与DB不是分布式原子事务；upsert结果不明或完成状态回写失败保留PROCESSING屏障。上传失败尝试清理文件，但不声称崩溃下绝无孤儿。
+
+### CODE_CONFIRMED READY / generation / failure facts
+
+- owner/KB/document可见；KB ACTIVE，parse COMPLETED；配置为 dashscope/text-embedding-v4、chunkSize800/chunkOverlap120，当前代仅一种且为 structured-token-v1；当前代 chunk 非空、全为向量化COMPLETED，才是READY。PENDING/PROCESSING向量化为INDEXING；completed+failed为DEGRADED；配置/策略不支持、零chunk或全失败为FAILED；禁用KB或未完成parse为NOT_READY（parse FAILED另为FAILED）。必须按实际优先级解释。
+- Readiness来自PG事实，不向Qdrant探测点存在/在线状态。创建门禁与当前generation SQL + resolver配置校验配合，未取得任何可用document则RAG_KNOWLEDGE_NOT_READY。
+- V11给document/chunk加generation默认0；显式重处理在条件更新中推进document generation，旧任务的冻结generation不会自动改成新版。runtime canonical SQL还要求chunk generation等于document当前generation，因此失效/撤销语料只能被丢弃，不能fall forward。
+- ChunkVectorIdentityFactory 的稳定vectorId由owner/KB/document/chunkIndex/contentHash派生，**不包含generation**；generation是payload/SQL检索隔离字段，不杜撰它进入ID哈希。
+- 解析/embedding失败分别落FAILED；未知upsert保留PROCESSING；检索 provider失败中止RAG，空有效命中可返回空证据继续Agent。取消/期限限制本地后续工作，不能证明远端停止。
+
+### TEST_CONFIRMED facts
+
+已读取断言，**本轮未执行，不记为新测试PASSED**：KnowledgeReadinessPostgresIntegrationTest.shouldExposeFiveStatesAndCurrentGenerationCountsThroughListAndDetail（11组状态、旧代不污染、新代零chunk不被旧代救活、snapshot只取READY）；SnapshotRagServiceTest.freezesCorpusAndKeepsOnlyCanonicalCurrentScopedHashMatchedContent / revokedOrCleanedGenerationIsEmptyEvidenceAndDoesNotFallback（错误owner/generation/hash被丢弃，不回落）；ChunkVectorizationServiceTest.shouldVectorizePendingChunkWithStableIdentityAndQdrantReadyPayload / shouldKeepProcessingBarrierWhenVectorUpsertOutcomeIsUnknown（payload无正文、成功后回写、结果不明屏障）。这些断言不证明本轮真实DashScope/Qdrant联通。
+
+### DOC_DECLARED only / UNKNOWN
+
+指南§9的Ingestion/Retrieval是数据谱系，当前实现将上传、process-pending、vectorize-pending分成三个入口；不能照箭头误写为后台自动pipeline。历史slice中的队列/后续能力及历史真实验收数字不作为本轮证据。未启动应用、DB、provider或业务E2E；目标配置、索引实际完整性、真实检索质量、延迟、外部取消效果UNKNOWN。独立KnowledgeContextService/KnowledgeChatService路径不是本图的Agent task runtime；不把其上下文预算与SnapshotRagService的字节限制混用。
+
+## 图 06 Evidence index
+
+- **Diagram:** 06 · RAG Data Flow（**incomplete**）。
+- **Question:** 文档从上传到被一次 Agent task 检索并进入模型上下文，数据经历什么路径？
+- **Type:** `dataflow` / schema v1 / showcase；12 个数据/职责节点、15 条具名 flow。横向 stages 是数据职责列，上部 ingestion、下部 retrieval，中间 READY 冻结交接；不是时间轴、自动队列或事务边界。
+- **Primary path:** 原始文件 → ParsedDocument → current-generation chunks → embedding → vector index → PG回写/派生READY → task冻结语料 → userInput/query embedding → scope search → canonical正文核验/上下文 → decision/final；检索/调用事实进入Trace。
+- **Key nodes / evidence:** 上述施工前清单与逐边索引，生产代码与迁移重新读取；不能以历史切片声明替代当前实现。
+- **Unknowns:** 未运行本轮业务单测/集成测试、后端、PostgreSQL、真实DashScope/Qdrant；provider连通性、点完整性、检索质量、超时后的远端计算均未证明。当前布局尚未通过，不能确认实际浏览器容纳与可读性。
+- **JSON:** [当前唯一 candidate](06-rag-dataflow.candidate.dataflow.json)；未替换正式 `06-rag-dataflow.dataflow.json`。
+- **HTML:** 未生成；未执行deliver，不存在可交付的本图HTML。
+- **Artifact validation:** **failed**，原版CLI exit1，当前 render/layout 有9项diagnostics；未进入完整9项artifact checks，不得表述为9/9或完整showcase成功。[最新完整原始回执](06-rag-dataflow.candidate.validation.json)。
+- **Browser evidence:** **not_run**，因本次deliver未执行，没有可检查的新HTML；不是Chrome不可用的skipped，也不是已测试后失败。
+- **Visual review:** **not_run**，未检查本图截图或HTML，不虚构视觉通过。
+- **Acceptance:** [命令/退出码/停止条件](06-rag-dataflow.acceptance.json)；[全历史诊断与当前causal evidence](06-rag-dataflow.diagnostic-summary.json)。
+
+### 图 06 逐 flow 证据
+
+各关系均为 **CODE_CONFIRMED 静态源码**；下表中的同步或短事务不是本轮实际请求日志。图里的RAW文件、parsed文本、chunk generation、embedding、vector reference、retrieval result、model context及citation/Trace分别有节点/明确字段，未混为一个“RAG数据库”。
+
+| Flow ID | 数据 / 条件 | 当前实现定位 | 边界与限定 |
+| --- | --- | --- | --- |
+| rag-file-parsed | 原始TXT/MD字节 → ParsedDocument | [KnowledgeDocumentService.upload](../../backend/src/main/java/com/agentflow/knowledge/service/KnowledgeDocumentService.java)；[LocalDocumentStorage.store/open](../../backend/src/main/java/com/agentflow/knowledge/storage/LocalDocumentStorage.java)；[DocumentProcessingService.processPending/parseAndChunk](../../backend/src/main/java/com/agentflow/knowledge/service/DocumentProcessingService.java) | 上传先存文件/key与PENDING，解析由独立HTTP process-pending触发。不是上传回调自动运行；本地Files I/O，不是云对象存储。 |
+| rag-parsed-chunks | normalized文本/title sections → ChunkDraft / knowledge_chunk | [DocumentParserResolver.parse](../../backend/src/main/java/com/agentflow/knowledge/parser/DocumentParserResolver.java)；[DocumentChunker.chunk](../../backend/src/main/java/com/agentflow/knowledge/chunk/DocumentChunker.java)；[DocumentProcessingTransactionService.persistChunksAndMarkCompleted](../../backend/src/main/java/com/agentflow/knowledge/service/DocumentProcessingTransactionService.java) | ParsedDocument只在内存；按estimated tokens/段落边界及overlap分块，全部chunks与parse COMPLETED一个REQUIRES_NEW事务提交。chunk向量状态此时仍PENDING。 |
+| rag-chunks-embedding | 当前代chunk正文 → embedding vector | [ChunkVectorizationService.vectorizePending](../../backend/src/main/java/com/agentflow/knowledge/service/ChunkVectorizationService.java)；[ChunkVectorizationTransactionService.claimPendingChunk](../../backend/src/main/java/com/agentflow/knowledge/service/ChunkVectorizationTransactionService.java) | 另行HTTP vectorize-pending，先锁父document并核对当前generation/parse完成/可见，再认领PENDING；外部EmbeddingGateway调用不持有该DB事务。 |
+| rag-embedding-vector | vector + scoped payload → Qdrant point | `ChunkVectorizationService.payloadFor`；[ChunkVectorIdentityFactory.create](../../backend/src/main/java/com/agentflow/knowledge/vector/ChunkVectorIdentityFactory.java)；[QdrantVectorStoreGateway.upsert](../../backend/src/main/java/com/agentflow/knowledge/vector/QdrantVectorStoreGateway.java) | remote PUT `/collections/{collection}/points?wait=true`；稳定vectorId来自owner/KB/document/index/contentHash，generation另存payload，不在ID派生材料中。payload无正文。 |
+| rag-vector-ready | upsert确认 → PG vectorId / COMPLETED回写 | `ChunkVectorizationService.vectorizePending` 的upsert返回后 → `ChunkVectorizationTransactionService.markCompleted` | 编排器写独立短事务；箭头不是Qdrant直连写PG。外部upsert与PG回写不原子；结果未知或回写失败经markOutcomeUnknown保留PROCESSING屏障。 |
+| rag-chunks-ready | 当前代chunk向量状态统计 → readiness | [KnowledgeDocumentReadMapper.selectReadinessByDocumentIds](../../backend/src/main/java/com/agentflow/knowledge/repository/KnowledgeDocumentReadMapper.java)；[DocumentReadinessRow.readiness](../../backend/src/main/java/com/agentflow/knowledge/readiness/DocumentReadinessRow.java)；[KnowledgeReadConfiguration](../../backend/src/main/java/com/agentflow/knowledge/readiness/KnowledgeReadConfiguration.java) | owner-scoped LEFT JOIN，仅kc.vector_generation=kd.vector_generation；配置/策略和完整性共同判定。READY是PG派生读模型，没有新增可写READY列，也不测Qdrant在线。 |
+| rag-ready-task | 可用document generation → execution_snapshot | [AgentTaskSnapshotResolver.resolveConfiguration/resolveRetrievalRows](../../backend/src/main/java/com/agentflow/agent/snapshot/AgentTaskSnapshotResolver.java)；[AgentKnowledgeBindingMapper.selectSelectedReadyDocumentGenerations](../../backend/src/main/java/com/agentflow/agent/binding/repository/AgentKnowledgeBindingMapper.java) | task创建时选定KB，SQL筛当前代、非空、全completed、单一策略，resolver再检查fixed profile/strategy。不是信任前端READY字段；全无可用document会拒绝新task。冻结ID+generation，未拷贝全文。 |
+| rag-task-query | userInput + frozen corpus → query embedding | [SnapshotRagService.retrieve](../../backend/src/main/java/com/agentflow/agent/rag/SnapshotRagService.java) | once PRE_RETRIEVAL，query即原始userInput；固定dashscope/text-embedding-v4与1024维。空corpus不调用provider；无query rewrite模型。 |
+| rag-query-search | query vector + owner/KB/document generation filter → search | `SnapshotRagService.retrieve` → `new VectorSearchRequest`；`QdrantVectorStoreGateway.search/scopeFilter` | remote POST `/collections/{collection}/points/query`；每KB有界候选预算，全局候选上限200；不是跨owner的全库搜索。 |
+| rag-vector-search | vector index → candidate locators | `QdrantVectorStoreGateway.search/parseSearchHits` | 请求with_payload为chunkId/contentHash、with_vector=false；结果含vectorId、score。此flow表示索引数据被query读取，不虚构另一个Qdrant集群。 |
+| rag-search-context | candidate ID / score / hash → verified hit | `SnapshotRagService.retrieve/isVerified` | 每个候选必须通过PG回读与身份/hash校验；无效候选计stale，阈值过滤、按chunk去重、全局排序后取topK。向量命中不等于可引用正文。 |
+| rag-chunks-context | canonical PG正文 + 当前scope/generation → 有效证据 | [KnowledgeChunkMapper.selectSnapshotRetrievableChunks](../../backend/src/main/java/com/agentflow/knowledge/repository/KnowledgeChunkMapper.java)；`SnapshotRagService.isVerified/boundedResult` | SQL同时要求当前document generation和冻结generation；匹配owner、KB ACTIVE/可见、document完成/可见、chunk向量完成/策略、非空vectorId/hash；Java核对vectorId、payload hash、DB hash与实际正文hash。只取canonical正文，不fall forward。 |
+| rag-context-model | UNTRUSTED evidence + citationIds → LlmMessage payload | [TaskPromptBuilder.common/decision/finalAnswer](../../backend/src/main/java/com/agentflow/agent/engine/TaskPromptBuilder.java)；[TaskSnapshotAgentExecutor.execute/callLlm](../../backend/src/main/java/com/agentflow/agent/engine/TaskSnapshotAgentExecutor.java) | boundedResult分配S1…并限每hit正文2000 UTF-8 bytes、evidence总计12000 bytes。decision/final分别取同一rag结果；原文件/向量不直接进入prompt。工具回环留给图05/07，不在本图展开。 |
+| rag-context-trace | retrieval/hit数据 → Trace快照 | `TaskSnapshotAgentExecutor.retrieve/ragRecord`；[ExecutionRecorderTransactionService.recordRagRetrieval](../../backend/src/main/java/com/agentflow/agent/trace/ExecutionRecorderTransactionService.java) | 独立短事务保存query/corpus/topK/threshold/候选有效stale数及hit的citationId、contentSnapshot、document/chunk/generation/score/metadata；成功后RAG_FINISHED。失败同样可有失败日志。 |
+| rag-model-trace | 模型调用 / usage → llm_call_log | `TaskSnapshotAgentExecutor.callLlm`；`ExecutionRecorderTransactionService.recordLlmCall` | DECISION与FINAL_GENERATION分别记录；已返回usage与估算质量保留。最终答案citation由Executor.validateCitations对白名单验证后才返回outcome，Runner持久结算另有边界，不能把调用Trace当作成功发布。 |
+
+### READY、版本与存储依据
+
+- **READY完整条件：** document/KB在owner可见域，KB ACTIVE、parse COMPLETED；provider/model为dashscope/text-embedding-v4，chunk参数800/120；当前代chunk非空、只有structured-token-v1一种策略，全部vectorization COMPLETED。配置和策略不兼容优先FAILED；正常配置下pending/processing存在则INDEXING；completed+failed为DEGRADED；零chunk/全failed为FAILED。KB禁用优先NOT_READY，parse FAILED为FAILED，其他未完成parse为NOT_READY。这是DocumentReadinessRow的实际顺序，不用upload success或parse COMPLETED替代。
+- **快照准入与运行时不同：** 新建task必须取得至少一个符合门禁的document；已经冻结的task运行时可能因删除/重处理/撤销而无有效命中，此时可返回空证据。不能由runtime可空倒推新task准入不要求READY。
+- **版本推进：** [V11](../../backend/src/main/resources/db/migration/V11__create_knowledge_document_reprocess_task.sql) 为document/chunk加入generation默认0；[KnowledgeDocumentMapper](../../backend/src/main/java/com/agentflow/knowledge/repository/KnowledgeDocumentMapper.java) 的重处理条件更新推进generation，后续重新解析/向量化。旧task不会改写snapshot或自动选择新代。本图只保留版本隔离事实，不绘制整个重处理补偿状态机。
+- **持久化谱系：** [V3](../../backend/src/main/resources/db/migration/V3__create_knowledge_document.sql) 文件元数据/key与owner/KB FK；[V4](../../backend/src/main/resources/db/migration/V4__create_knowledge_chunk.sql) canonical正文及document/KB/owner复合FK；[V5](../../backend/src/main/resources/db/migration/V5__add_chunk_vectorization_state.sql) content_hash、vector_id、向量化状态约束；[V19](../../backend/src/main/resources/db/migration/V19__create_agent_execution_trace.sql) RAG hit内容/引用/身份快照及LLM调用记录。原始文件、DB真值、派生向量索引和历史Trace不是同一个存储对象。
+- **模式边界：** [RemoteVectorizationGatewayConfiguration](../../backend/src/main/java/com/agentflow/knowledge/vector/RemoteVectorizationGatewayConfiguration.java) 仅remote启用DashScope/Qdrant adapter并核对维度。实际环境可能选择开发替代实现；本图标识remote逻辑关系，不证明本轮已触达真实服务，也不推断production部署位置。
+- **受控测试边界：** 施工前所列4组测试只读断言未执行。readiness集成测试源码覆盖11组状态及旧代不污染；vector测试明确payload无content、unknown upsert不markFailed；snapshot RAG测试排除错误owner/generation/hash、失效语料不回落。没有把测试命名或历史通过数字升级为新的运行成功。
+- **跨图一致性：** 图04创建时冻结ready document generation；图05在loop前一次PRE_RETRIEVAL，evidence给每次decision/独立final；outcome后才Runner结算。检索空结果、取消、超时与远端继续计算的unknown均保留；图07未施工。
+
+### 图 06 当前未解决诊断与停止条件
+
+所有修改均来自CLI明确诊断，只改具名flow的路由/端口/标签位置；12个节点和15条数据关系及全部语义标签保留，未缩小字体、降低showcase、修改renderer/checker或业务代码。dataflow schema没有semanticChecks字段，没有删除此类检查。
+
+诊断数按实际回执依次为 `19 → 18 → 16 → 15 → 14 → 12 → 10 → 12 → 9 → 10 → 9`。初始自动路由穿过不相关节点，若干自动端口展开生成7px内部段；局部直线、端口与via修复降低了数量，但最近两次对rag-chunks-context的修改未刷新最佳9项。
+
+| Current code | Subject | 当前几何证据 |
+| --- | --- | --- |
+| clean-flow/edge-through-node | rag-vector-search（2项） | `(888,161)→(745,161)`穿rag-embedding；`(745,161)→(745,382)`穿rag-context。 |
+| composition/ambiguous-corridor | rag-vector-search vs rag-chunks-context | 共享`(745,340)→(745,356)`，长度16px，超过8px检测下限。 |
+| composition/micro-segment | rag-search-context | 内部段`(637.5,396)→(637.5,389)`仅7px。 |
+| composition/micro-segment | rag-context-model | 内部段`(852.5,389)→(852.5,382)`仅7px。 |
+| composition/label-route-clearance | rag-chunks-embedding | “正文”标签rect `[621,140,34,16]`与rag-chunks-context竖段`(626,161)→(626,100)`距离0。 |
+| composition/label-route-clearance | rag-search-context | “候选引用”标签rect `[612,372,51,16]`与rag-vector-search末段距离0。 |
+| layout/constraint | rag-chunks-ready标签 | “当前代统计”覆盖rag-chunks。 |
+| layout/constraint | rag-context-trace标签 | “检索快照”覆盖rag-context。 |
+
+完整evidence/subject/supportedFixes见原始回执与diagnostic-summary，不以本表取代原件。CLI对上述几何支持调整端口/route/via/channel或移动相关stage/row，对标签支持labelAt/labelDx/labelDy/labelSegment；本轮不再尝试新的修复。
+
+停止依据为[本地Archify SKILL.md](../../.agents/skills/archify/SKILL.md) Fast authoring path第5项原文：**“If two consecutive rounds do not improve that best count, stop and report the unresolved diagnostics truthfully.”** 当前最佳9，最近两轮10→9触发该条件，因此图06保持incomplete。所有历史候选/失败回执/acceptance在`history/06-round-01`至`history/06-round-10`，没有改写成成功证据。正式JSON、deliver、visual-check、视觉复核均未执行；图01–05保留，不开始图07。本轮未提交推送。

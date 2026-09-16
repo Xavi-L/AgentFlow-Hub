@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "workflow",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/05-agent-loop.workflow.json",
+  "output": "/Users/xavier/AgentFlow-Hub/docs/architecture/05-agent-loop.html",
+  "specification": {
+    "sha256": "547ee6dcc919b2b29d7c1224cfa094b737bf2e6a40f88bea8ecc617fac1f5eb1",
+    "bytes": 5576
+  },
+  "artifact": {
+    "sha256": "037962f43c24d28968987d267a358e79fd1078097db09efb4c79fa9021ef1ff8",
+    "bytes": 807523
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

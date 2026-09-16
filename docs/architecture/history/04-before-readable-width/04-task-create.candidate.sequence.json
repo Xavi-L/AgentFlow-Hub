@@ -1,0 +1,253 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "04 · Task Creation and Dispatch — AgentFlow Hub",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [
+      1120,
+      664
+    ]
+  },
+  "participants": [
+    {
+      "id": "tc-client",
+      "type": "frontend",
+      "label": "API Client",
+      "sublabel": "Browser / HTTP"
+    },
+    {
+      "id": "tc-api",
+      "type": "backend",
+      "label": "创建入口",
+      "sublabel": "Controller / App"
+    },
+    {
+      "id": "tc-create",
+      "type": "backend",
+      "label": "创建事务",
+      "sublabel": "createNew · RR"
+    },
+    {
+      "id": "tc-config",
+      "type": "backend",
+      "label": "配置与快照",
+      "sublabel": "select / resolve"
+    },
+    {
+      "id": "tc-db",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "task · event"
+    },
+    {
+      "id": "tc-dispatch",
+      "type": "messagebus",
+      "label": "提交后派发",
+      "sublabel": "Coordinator"
+    },
+    {
+      "id": "tc-runner",
+      "type": "backend",
+      "label": "TaskRunner",
+      "sublabel": "agent-task-*"
+    }
+  ],
+  "segments": [
+    {
+      "from": 146,
+      "to": 236,
+      "label": "01 · 创建事务外 / 幂等短路"
+    },
+    {
+      "from": 244,
+      "to": 466,
+      "label": "02 · 同一 DB transaction / REPEATABLE_READ"
+    },
+    {
+      "from": 476,
+      "to": 592,
+      "label": "03 · COMMIT 后 / async 分支"
+    }
+  ],
+  "messages": [
+    {
+      "id": "tc-request",
+      "from": "tc-client",
+      "to": "tc-api",
+      "y": 168,
+      "label": "POST task · JWT/key",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tc-lookup",
+      "from": "tc-api",
+      "to": "tc-db",
+      "y": 196,
+      "label": "admission 后 · owner/key 回读",
+      "variant": "security"
+    },
+    {
+      "id": "tc-lookup-result",
+      "from": "tc-db",
+      "to": "tc-api",
+      "y": 224,
+      "label": "命中按 fingerprint 复用；未命中继续",
+      "variant": "return"
+    },
+    {
+      "id": "tc-create-new",
+      "from": "tc-api",
+      "to": "tc-create",
+      "y": 260,
+      "label": "createNew",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tc-select-version",
+      "from": "tc-create",
+      "to": "tc-config",
+      "y": 288,
+      "label": "selectForTask",
+      "variant": "default"
+    },
+    {
+      "id": "tc-version",
+      "from": "tc-config",
+      "to": "tc-create",
+      "y": 316,
+      "label": "配置版本",
+      "variant": "return"
+    },
+    {
+      "id": "tc-resolve",
+      "from": "tc-create",
+      "to": "tc-config",
+      "y": 344,
+      "label": "resolveConfiguration",
+      "variant": "default"
+    },
+    {
+      "id": "tc-snapshot",
+      "from": "tc-config",
+      "to": "tc-create",
+      "y": 372,
+      "label": "实际 snapshot",
+      "variant": "return"
+    },
+    {
+      "id": "tc-insert",
+      "from": "tc-create",
+      "to": "tc-db",
+      "y": 400,
+      "label": "写 QUEUED + snapshot + TASK_CREATED",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tc-register",
+      "from": "tc-create",
+      "to": "tc-dispatch",
+      "y": 428,
+      "label": "注册 afterCommit（尚未派发）",
+      "variant": "default"
+    },
+    {
+      "id": "tc-commit",
+      "from": "tc-create",
+      "to": "tc-db",
+      "y": 456,
+      "label": "COMMIT · 创建事务结束",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tc-after-commit",
+      "from": "tc-create",
+      "to": "tc-dispatch",
+      "y": 488,
+      "label": "afterCommit → dispatch",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tc-async",
+      "from": "tc-dispatch",
+      "to": "tc-runner",
+      "y": 516,
+      "label": "async · execute",
+      "variant": "dashed"
+    },
+    {
+      "id": "tc-created",
+      "from": "tc-create",
+      "to": "tc-api",
+      "y": 516,
+      "label": "返回新建结果",
+      "variant": "return"
+    },
+    {
+      "id": "tc-response",
+      "from": "tc-api",
+      "to": "tc-client",
+      "y": 548,
+      "label": "201 · 新建",
+      "variant": "return"
+    },
+    {
+      "id": "tc-claim",
+      "from": "tc-runner",
+      "to": "tc-db",
+      "y": 548,
+      "label": "claim · REQUIRES_NEW",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tc-claimed",
+      "from": "tc-db",
+      "to": "tc-runner",
+      "y": 576,
+      "label": "RUNNING/PREPARING + TASK_STARTED",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "tc-create",
+      "from": 252,
+      "to": 464,
+      "type": "backend"
+    },
+    {
+      "participant": "tc-runner",
+      "from": 536,
+      "to": 584,
+      "type": "backend"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "幂等 / 配置分支",
+      "items": [
+        "同 owner/key + 同 fingerprint：200 复用，不再创建或派发；不同则冲突。",
+        "configVersionId 显式取版本；省略则捕获当前草稿。随后解析实际快照并校验 ACTIVE / READY / 工具。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "回滚 / 拒绝边界",
+      "items": [
+        "创建回滚不派发；并发写冲突在事务退出后独立回读 winner。",
+        "派发拒绝：独立短事务条件写 FAILED + TASK_FAILED；持久化失败仍可能降级，不能声称必成功。"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "两个线程 / 不同事实",
+      "items": [
+        "afterCommit 在请求线程调用有界 executor；HTTP 响应与 worker claim 无固定先后。",
+        "claim 未取得就退出；成功提交 RUNNING 后才进入 Engine。201 不代表已执行；本图不展开执行循环。"
+      ]
+    }
+  ]
+}

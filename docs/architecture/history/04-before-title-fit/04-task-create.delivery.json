@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "sequence",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/04-task-create.sequence.json",
+  "output": "/Users/xavier/AgentFlow-Hub/docs/architecture/04-task-create.html",
+  "specification": {
+    "sha256": "0f0e7274ad530e4650eac4a376238da77f4bc707dc1a4e9e6b896158ebdbd921",
+    "bytes": 5787
+  },
+  "artifact": {
+    "sha256": "608b1e4965ffd6579075b890108e8c5a299fa0a91a2215f7275229357abec476",
+    "bytes": 816263
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

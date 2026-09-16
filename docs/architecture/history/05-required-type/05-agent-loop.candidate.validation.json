@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "validate",
+  "stage": "render",
+  "type": "workflow",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/05-agent-loop.candidate.workflow.json",
+  "error": "workflow schema validation failed:\n  / must have required property 'diagram_type' {\"missingProperty\":\"diagram_type\"}",
+  "diagnostics": [
+    {
+      "code": "schema/required",
+      "severity": "error",
+      "message": "/ must have required property 'diagram_type' {\"missingProperty\":\"diagram_type\"}",
+      "subject": {
+        "diagramType": "workflow",
+        "path": "/"
+      },
+      "evidence": {
+        "keyword": "required",
+        "missingProperty": "diagram_type"
+      },
+      "supportedFixes": [
+        "add required property \"diagram_type\""
+      ]
+    }
+  ]
+}

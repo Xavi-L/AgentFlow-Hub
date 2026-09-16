@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "image-capable-review",
+  "status": "pass",
+  "visual_review": "passed",
+  "correction_rounds": 1,
+  "artifact": {
+    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/04-task-create.html",
+    "sha256": "8693f8146a44ca3ddd5da911a26a8574f80ade4d211c7df94ec20a795a1fa403",
+    "bytes": 816209
+  },
+  "scope": "Actual screenshots inspected: 1440x900 light/dark and 2048x1320 light/dark; default classic READ + Still. Four exact desktop sizes measured by original automated visual-check.",
+  "screenshots": [
+    "04-task-create.visual-check.1440x900.light.png",
+    "04-task-create.visual-check.1440x900.dark.png",
+    "04-task-create.visual-check.2048x1320.light.png",
+    "04-task-create.visual-check.2048x1320.dark.png"
+  ],
+  "observations": [
+    "标题已单行显示，四张截图中主图、所有消息、图例和三张说明卡完整可见。",
+    "创建事务区间、COMMIT、afterCommit、async 派发与 claim 可追踪；HTTP 与 worker 分支分置左右，无关系线互相遮挡。",
+    "明暗主题下参与者与关系文字可辨认，标签没有遮挡其他箭头，最大视口纵向布局均衡。",
+    "默认画面没有残留的搜索/聚焦/说明浮层；未执行独立交互功能或导出动作测试。"
+  ],
+  "limitations": [
+    "Diagram artifact review only; no new database/provider/business E2E execution."
+  ]
+}

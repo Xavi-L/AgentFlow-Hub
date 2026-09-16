@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "validate",
+  "stage": "render",
+  "type": "sequence",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/04-task-create.candidate.sequence.json",
+  "error": "Sequence layout validation failed:\n- Messages \"admission 后 · owner/key 回读\" and \"命中按 fingerprint 复用；未命中继续\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"selectForTask\" and \"配置版本\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"配置版本\" and \"resolveConfiguration\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"resolveConfiguration\" and \"实际 snapshot\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"实际 snapshot\" and \"写 QUEUED + snapshot + TASK_CREATED\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"写 QUEUED + snapshot + TASK_CREATED\" and \"注册 afterCommit（尚未派发）\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"注册 afterCommit（尚未派发）\" and \"COMMIT · 创建事务结束\" are less than 28px apart and share horizontal space — spread their y values.",
+  "diagnostics": [
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"admission 后 · owner/key 回读\" and \"命中按 fingerprint 复用；未命中继续\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"selectForTask\" and \"配置版本\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"配置版本\" and \"resolveConfiguration\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"resolveConfiguration\" and \"实际 snapshot\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"实际 snapshot\" and \"写 QUEUED + snapshot + TASK_CREATED\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"写 QUEUED + snapshot + TASK_CREATED\" and \"注册 afterCommit（尚未派发）\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"注册 afterCommit（尚未派发）\" and \"COMMIT · 创建事务结束\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    }
+  ]
+}

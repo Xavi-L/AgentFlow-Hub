@@ -1,0 +1,332 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "06 · RAG Data Flow",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1140,
+      620
+    ]
+  },
+  "stages": [
+    {
+      "label": "原始 / 冻结输入"
+    },
+    {
+      "label": "解析 / 查询输入"
+    },
+    {
+      "label": "分代 / 匹配"
+    },
+    {
+      "label": "向量 / 证据"
+    },
+    {
+      "label": "索引 / 模型消费"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "rag-file",
+      "type": "database",
+      "label": "上传原始文件",
+      "sublabel": "本地 TXT / MD + 元数据",
+      "stage": 0,
+      "row": 0,
+      "width": 144,
+      "height": 66
+    },
+    {
+      "id": "rag-parsed",
+      "type": "backend",
+      "label": "解析文本",
+      "sublabel": "内存 ParsedDocument",
+      "stage": 1,
+      "row": 0,
+      "width": 144,
+      "height": 66
+    },
+    {
+      "id": "rag-chunks",
+      "type": "database",
+      "label": "分代 chunks",
+      "sublabel": "正文 / hash / generation",
+      "stage": 2,
+      "row": 0,
+      "width": 144,
+      "height": 66
+    },
+    {
+      "id": "rag-embedding",
+      "type": "external",
+      "label": "正文 embedding",
+      "sublabel": "DashScope · remote",
+      "stage": 3,
+      "row": 0,
+      "width": 144,
+      "height": 66
+    },
+    {
+      "id": "rag-vector",
+      "type": "database",
+      "label": "Qdrant 向量索引",
+      "sublabel": "vectorId / 向量 / payload",
+      "stage": 4,
+      "row": 0,
+      "width": 144,
+      "height": 66
+    },
+    {
+      "id": "rag-ready",
+      "type": "security",
+      "label": "派生 READY",
+      "sublabel": "当前代统计 + 固定配置",
+      "stage": 2,
+      "row": 1,
+      "width": 144,
+      "height": 66
+    },
+    {
+      "id": "rag-task",
+      "type": "database",
+      "label": "Task snapshot",
+      "sublabel": "冻结范围 + userInput",
+      "stage": 0,
+      "row": 2,
+      "width": 144,
+      "height": 66
+    },
+    {
+      "id": "rag-query",
+      "type": "external",
+      "label": "查询 embedding",
+      "sublabel": "userInput → 1024维",
+      "stage": 1,
+      "row": 2,
+      "width": 144,
+      "height": 66
+    },
+    {
+      "id": "rag-search",
+      "type": "backend",
+      "label": "Qdrant 检索",
+      "sublabel": "候选 ID / score / hash",
+      "stage": 2,
+      "row": 2,
+      "width": 144,
+      "height": 66
+    },
+    {
+      "id": "rag-context",
+      "type": "backend",
+      "label": "正文核验与上下文",
+      "sublabel": "PostgreSQL → [S1] 证据",
+      "stage": 3,
+      "row": 2,
+      "width": 144,
+      "height": 66
+    },
+    {
+      "id": "rag-model",
+      "type": "external",
+      "label": "模型上下文",
+      "sublabel": "decision / 独立 final",
+      "stage": 4,
+      "row": 2,
+      "width": 144,
+      "height": 66
+    },
+    {
+      "id": "rag-trace",
+      "type": "database",
+      "label": "citation / Trace",
+      "sublabel": "检索快照 / 调用 / usage",
+      "stage": 3,
+      "row": 3,
+      "width": 144,
+      "height": 66
+    }
+  ],
+  "flows": [
+    {
+      "id": "rag-file-parsed",
+      "from": "rag-file",
+      "to": "rag-parsed",
+      "label": "读取原文件",
+      "variant": "emphasis"
+    },
+    {
+      "id": "rag-parsed-chunks",
+      "from": "rag-parsed",
+      "to": "rag-chunks",
+      "label": "分块落库",
+      "variant": "emphasis"
+    },
+    {
+      "id": "rag-chunks-embedding",
+      "from": "rag-chunks",
+      "to": "rag-embedding",
+      "label": "正文",
+      "variant": "emphasis",
+      "route": "straight"
+    },
+    {
+      "id": "rag-embedding-vector",
+      "from": "rag-embedding",
+      "to": "rag-vector",
+      "label": "向量 + payload",
+      "variant": "emphasis",
+      "route": "straight",
+      "labelDy": -36
+    },
+    {
+      "id": "rag-vector-ready",
+      "from": "rag-vector",
+      "to": "rag-ready",
+      "label": "确认后回写",
+      "variant": "default",
+      "fromSide": "bottom",
+      "via": [
+        [
+          960,
+          224
+        ],
+        [
+          680,
+          224
+        ],
+        [
+          680,
+          275
+        ]
+      ]
+    },
+    {
+      "id": "rag-chunks-ready",
+      "from": "rag-chunks",
+      "to": "rag-ready",
+      "label": "当前代统计",
+      "variant": "default"
+    },
+    {
+      "id": "rag-ready-task",
+      "from": "rag-ready",
+      "to": "rag-task",
+      "label": "创建时冻结",
+      "variant": "security",
+      "via": [
+        [
+          100,
+          275
+        ]
+      ],
+      "toSide": "top"
+    },
+    {
+      "id": "rag-task-query",
+      "from": "rag-task",
+      "to": "rag-query",
+      "label": "userInput",
+      "variant": "emphasis"
+    },
+    {
+      "id": "rag-query-search",
+      "from": "rag-query",
+      "to": "rag-search",
+      "label": "向量 + 范围",
+      "variant": "emphasis"
+    },
+    {
+      "id": "rag-vector-search",
+      "from": "rag-vector",
+      "to": "rag-search",
+      "label": "索引候选",
+      "variant": "default"
+    },
+    {
+      "id": "rag-search-context",
+      "from": "rag-search",
+      "to": "rag-context",
+      "label": "候选引用",
+      "variant": "emphasis"
+    },
+    {
+      "id": "rag-chunks-context",
+      "from": "rag-chunks",
+      "to": "rag-context",
+      "label": "正文回查",
+      "variant": "default",
+      "via": [
+        [
+          626,
+          161
+        ],
+        [
+          626,
+          100
+        ],
+        [
+          1080,
+          100
+        ],
+        [
+          1080,
+          340
+        ],
+        [
+          745,
+          340
+        ]
+      ]
+    },
+    {
+      "id": "rag-context-model",
+      "from": "rag-context",
+      "to": "rag-model",
+      "label": "证据 + 引用",
+      "variant": "emphasis"
+    },
+    {
+      "id": "rag-context-trace",
+      "from": "rag-context",
+      "to": "rag-trace",
+      "label": "检索快照",
+      "variant": "dashed"
+    },
+    {
+      "id": "rag-model-trace",
+      "from": "rag-model",
+      "to": "rag-trace",
+      "label": "调用记录",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Ingestion · 独立触发",
+      "items": [
+        "上传只保存文件；另行 process-pending，再 vectorize-pending。",
+        "原文留在 PostgreSQL；Qdrant 存向量与定位元数据，remote 模式对应真实 adapter。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "READY · 数据库派生",
+      "items": [
+        "KB ACTIVE、parse 完成、配置/策略兼容；当前代非空且全部向量化完成。",
+        "上传、parse COMPLETED 均不足；READY 不证明 Qdrant 在线或点完整。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Retrieval · 核验后消费",
+      "items": [
+        "冻结 generation；候选必须回查 PG 正文并核对 owner、vectorId 与 hash，不回落到新代。",
+        "证据与引用进 decision / final；Trace 留快照，最终引用仍须白名单校验。"
+      ]
+    }
+  ]
+}

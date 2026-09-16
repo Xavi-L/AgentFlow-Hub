@@ -1,0 +1,251 @@
+{
+  "schema_version": 2,
+  "meta": {
+    "title": "05 · Agent Execution Loop",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "loop-tools",
+      "label": "工具回环"
+    },
+    {
+      "id": "loop-main",
+      "label": "执行主线"
+    },
+    {
+      "id": "loop-limits",
+      "label": "次数上限",
+      "variant": "exception"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "loop-entry",
+      "lane": "loop-main",
+      "col": 0,
+      "type": "backend",
+      "label": "快照执行入口",
+      "sublabel": "TaskExecutionRequest",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "loop-rag",
+      "lane": "loop-main",
+      "col": 1,
+      "type": "database",
+      "label": "一次预检索",
+      "sublabel": "冻结语料 · 可空证据",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "loop-budget",
+      "lane": "loop-main",
+      "col": 2,
+      "type": "security",
+      "label": "轮次与预算",
+      "sublabel": "turn / tool / token",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "loop-decision",
+      "lane": "loop-main",
+      "col": 3,
+      "type": "backend",
+      "label": "决策与解析",
+      "sublabel": "DECISION · strict JSON",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "loop-final",
+      "lane": "loop-main",
+      "col": 4,
+      "type": "backend",
+      "label": "独立最终生成",
+      "sublabel": "模型调用 · 引用白名单",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "loop-outcome",
+      "lane": "loop-main",
+      "col": 5,
+      "type": "backend",
+      "label": "返回执行结果",
+      "sublabel": "TaskExecutionOutcome",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "loop-tool",
+      "lane": "loop-tools",
+      "col": 3,
+      "type": "backend",
+      "label": "快照工具调用",
+      "sublabel": "结果 → observations",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "loop-limited",
+      "lane": "loop-limits",
+      "col": 2,
+      "type": "security",
+      "label": "受限回答计划",
+      "sublabel": "BUDGET_LIMIT",
+      "width": 128,
+      "height": 68
+    }
+  ],
+  "edges": [
+    {
+      "id": "loop-entry-rag",
+      "from": "loop-entry",
+      "to": "loop-rag",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "loop-rag-budget",
+      "from": "loop-rag",
+      "to": "loop-budget",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "loop-budget-decision",
+      "from": "loop-budget",
+      "to": "loop-decision",
+      "role": "main",
+      "variant": "emphasis",
+      "label": "可继续"
+    },
+    {
+      "id": "loop-decision-final",
+      "from": "loop-decision",
+      "to": "loop-final",
+      "role": "main",
+      "variant": "emphasis",
+      "label": "FINISH"
+    },
+    {
+      "id": "loop-final-outcome",
+      "from": "loop-final",
+      "to": "loop-outcome",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "loop-decision-tool",
+      "from": "loop-decision",
+      "to": "loop-tool",
+      "role": "branch",
+      "variant": "default",
+      "label": "CALL_TOOL"
+    },
+    {
+      "id": "loop-tool-budget",
+      "from": "loop-tool",
+      "to": "loop-budget",
+      "role": "return",
+      "variant": "dashed",
+      "label": "observation 回环"
+    },
+    {
+      "id": "loop-budget-limited",
+      "from": "loop-budget",
+      "to": "loop-limited",
+      "role": "branch",
+      "variant": "default",
+      "label": "次数上限"
+    },
+    {
+      "id": "loop-limited-final",
+      "from": "loop-limited",
+      "to": "loop-final",
+      "role": "branch",
+      "variant": "default",
+      "label": "受限 plan"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "上下文与两类决策",
+      "items": [
+        "RAG 只在循环前执行；证据与 observations 进入每次 decision / final。",
+        "仅 CALL_TOOL / FINISH；FINISH 是计划，可要求补充输入。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "边界与失败",
+      "items": [
+        "次数上限转受限 plan；token 不足、无效 JSON、调用失败或未知引用均可中止。",
+        "同意图：首次执行、第二次校验后复用、第三次失败。取消不证明远端停止。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Trace 与交付边界",
+      "items": [
+        "各步短事务记录 RAG / LLM / tool 与阶段事件；慢 I/O 无长事务。",
+        "FINAL_GENERATION_STARTED 后仍可能失败；outcome 由 Runner 另行持久结算。"
+      ]
+    }
+  ],
+  "mainPath": [
+    "loop-entry",
+    "loop-rag",
+    "loop-budget",
+    "loop-decision",
+    "loop-final",
+    "loop-outcome"
+  ],
+  "semanticChecks": {
+    "allowedRoots": [
+      "loop-entry"
+    ],
+    "allowedTerminals": [
+      "loop-outcome"
+    ],
+    "requiredEdges": [
+      {
+        "from": "loop-entry",
+        "to": "loop-rag"
+      },
+      {
+        "from": "loop-tool",
+        "to": "loop-budget"
+      },
+      {
+        "from": "loop-decision",
+        "to": "loop-tool"
+      },
+      {
+        "from": "loop-decision",
+        "to": "loop-final"
+      },
+      {
+        "from": "loop-limited",
+        "to": "loop-final"
+      },
+      {
+        "from": "loop-final",
+        "to": "loop-outcome"
+      }
+    ],
+    "requiredPaths": [
+      {
+        "from": "loop-entry",
+        "to": "loop-outcome"
+      }
+    ]
+  },
+  "diagram_type": "workflow"
+}

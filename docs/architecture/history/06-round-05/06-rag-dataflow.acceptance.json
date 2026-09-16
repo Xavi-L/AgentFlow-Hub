@@ -1,0 +1,78 @@
+{
+  "diagram": "06",
+  "status": "incomplete",
+  "baseline_head": "460c6caf27f01383b0478a81b9acb3ce77b01187",
+  "dirty_working_tree": true,
+  "commands": [
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate dataflow docs/architecture/06-rag-dataflow.candidate.dataflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/06-round-01/06-rag-dataflow.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate dataflow docs/architecture/06-rag-dataflow.candidate.dataflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/06-round-02/06-rag-dataflow.candidate.validation.json",
+      "stderr": "",
+      "repair": {
+        "subject": "rag-vector-ready",
+        "change": {
+          "fromSide": "bottom"
+        }
+      }
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate dataflow docs/architecture/06-rag-dataflow.candidate.dataflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/06-round-03/06-rag-dataflow.candidate.validation.json",
+      "stderr": "",
+      "repair": {
+        "subject": "rag-vector-ready",
+        "change": {
+          "via": [
+            [
+              960,
+              224
+            ],
+            [
+              680,
+              224
+            ],
+            [
+              680,
+              275
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate dataflow docs/architecture/06-rag-dataflow.candidate.dataflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/06-round-04/06-rag-dataflow.candidate.validation.json",
+      "stderr": "",
+      "repair": {
+        "subject": "rag-chunks-embedding",
+        "change": {
+          "route": "straight"
+        }
+      }
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate dataflow docs/architecture/06-rag-dataflow.candidate.dataflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "06-rag-dataflow.candidate.validation.json",
+      "stderr": "",
+      "repair": {
+        "subject": "rag-embedding-vector",
+        "change": {
+          "route": "straight"
+        }
+      }
+    }
+  ],
+  "artifact_validation": "pending",
+  "browser_evidence": "pending",
+  "visual_review": "pending"
+}

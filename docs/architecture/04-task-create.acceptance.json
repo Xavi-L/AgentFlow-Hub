@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 1,
+  "status": "complete",
+  "commands": [
+    {
+      "command": [
+        "node",
+        ".agents/skills/archify/bin/archify.mjs",
+        "validate",
+        "sequence",
+        "docs/architecture/04-task-create.candidate.sequence.json",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "exitCode": 1,
+      "receipt": "04-task-create.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        ".agents/skills/archify/bin/archify.mjs",
+        "validate",
+        "sequence",
+        "docs/architecture/04-task-create.candidate.sequence.json",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "exitCode": 1,
+      "receipt": "04-task-create.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        ".agents/skills/archify/bin/archify.mjs",
+        "validate",
+        "sequence",
+        "docs/architecture/04-task-create.candidate.sequence.json",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "exitCode": 0,
+      "receipt": "04-task-create.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        ".agents/skills/archify/bin/archify.mjs",
+        "validate",
+        "sequence",
+        "docs/architecture/04-task-create.sequence.json",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "exitCode": 0,
+      "receipt": "04-task-create.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        ".agents/skills/archify/bin/archify.mjs",
+        "deliver",
+        "sequence",
+        "docs/architecture/04-task-create.sequence.json",
+        "docs/architecture/04-task-create.html",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "exitCode": 0,
+      "receipt": "04-task-create.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        ".agents/skills/archify/bin/archify.mjs",
+        "visual-check",
+        "docs/architecture/04-task-create.html",
+        "--json"
+      ],
+      "exitCode": 1,
+      "receipt": "04-task-create.visual-check.json"
+    },
+    {
+      "command": [
+        "node",
+        ".agents/skills/archify/bin/archify.mjs",
+        "validate",
+        "sequence",
+        "docs/architecture/04-task-create.candidate.sequence.json",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "exitCode": 0,
+      "receipt": "04-task-create.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        ".agents/skills/archify/bin/archify.mjs",
+        "validate",
+        "sequence",
+        "docs/architecture/04-task-create.sequence.json",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "exitCode": 0,
+      "receipt": "04-task-create.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        ".agents/skills/archify/bin/archify.mjs",
+        "deliver",
+        "sequence",
+        "docs/architecture/04-task-create.sequence.json",
+        "docs/architecture/04-task-create.html",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "exitCode": 0,
+      "receipt": "04-task-create.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        ".agents/skills/archify/bin/archify.mjs",
+        "visual-check",
+        "docs/architecture/04-task-create.html",
+        "--json"
+      ],
+      "exitCode": 0,
+      "receipt": "04-task-create.visual-check.json"
+    }
+  ],
+  "browserEvidence": "passed",
+  "visualReview": "passed",
+  "nextDiagramStarted": false,
+  "repairRounds": [
+    {
+      "subject": "layout/constraint: overlapping horizontal message spans need 28px vertical separation",
+      "change": "Spread message y values to at least 28px; aligned frames, activation intervals and canvas height.",
+      "previousDiagnosticCount": 7,
+      "history": "history/04-message-spacing"
+    },
+    {
+      "subject": "composition/desktop-readability",
+      "change": "Reduce spread layout width 1120 -> 1060; participant positions/widths adapt via the supported column_fit contract, preserving messages and source fonts.",
+      "previousDiagnosticCount": 1,
+      "history": "history/04-before-readable-width"
+    },
+    {
+      "subject": "viewer/viewport-overflow",
+      "change": "Remove redundant repository suffix from title to eliminate the measured second header line; no node/message/card/font/geometry changes.",
+      "history": "history/04-before-title-fit",
+      "previousOverflowPx": {
+        "1440x900": 26,
+        "1600x1000": 2
+      }
+    }
+  ],
+  "visualCorrectionRounds": 1,
+  "diagramType": "sequence",
+  "specification": {
+    "sha256": "45a640ccc53d4bcaff3bcb5342a408c87a0c9a4a12d9d73102964a0a1c19b92c",
+    "bytes": 5769
+  },
+  "artifact": {
+    "sha256": "8693f8146a44ca3ddd5da911a26a8574f80ade4d211c7df94ec20a795a1fa403",
+    "bytes": 816209
+  },
+  "artifactValidation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  },
+  "visualReviewReceipt": "04-task-create.visual-review.json",
+  "candidateMatchesFormalSource": true,
+  "historicalEvidence": [
+    "history/04-message-spacing",
+    "history/04-before-readable-width",
+    "history/04-before-title-fit"
+  ]
+}

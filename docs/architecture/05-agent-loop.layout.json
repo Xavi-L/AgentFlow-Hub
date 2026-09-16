@@ -1,0 +1,309 @@
+{
+  "contract": "readable-v2",
+  "viewBox": [
+    1018,
+    534
+  ],
+  "requiredViewBox": [
+    1018,
+    534
+  ],
+  "columns": [
+    112,
+    268,
+    424,
+    598.8,
+    773.5999999999999,
+    929.5999999999999
+  ],
+  "nodes": [
+    {
+      "id": "loop-tool",
+      "lane": "loop-tools",
+      "col": 3,
+      "x": 534.8,
+      "y": 86,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "loop-entry",
+      "lane": "loop-main",
+      "col": 0,
+      "x": 48,
+      "y": 212,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "loop-rag",
+      "lane": "loop-main",
+      "col": 1,
+      "x": 204,
+      "y": 212,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "loop-budget",
+      "lane": "loop-main",
+      "col": 2,
+      "x": 360,
+      "y": 212,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "loop-decision",
+      "lane": "loop-main",
+      "col": 3,
+      "x": 534.8,
+      "y": 212,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "loop-final",
+      "lane": "loop-main",
+      "col": 4,
+      "x": 709.5999999999999,
+      "y": 212,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "loop-outcome",
+      "lane": "loop-main",
+      "col": 5,
+      "x": 865.5999999999999,
+      "y": 212,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "loop-limited",
+      "lane": "loop-limits",
+      "col": 2,
+      "x": 360,
+      "y": 338,
+      "width": 128,
+      "height": 68
+    }
+  ],
+  "edges": [
+    {
+      "id": "loop-budget-decision",
+      "from": "loop-budget",
+      "to": "loop-decision",
+      "points": [
+        [
+          424,
+          280
+        ],
+        [
+          424,
+          296
+        ],
+        [
+          598.8,
+          296
+        ],
+        [
+          598.8,
+          280
+        ]
+      ]
+    },
+    {
+      "id": "loop-budget-limited",
+      "from": "loop-budget",
+      "to": "loop-limited",
+      "points": [
+        [
+          360,
+          246
+        ],
+        [
+          344,
+          246
+        ],
+        [
+          344,
+          426
+        ],
+        [
+          424,
+          426
+        ],
+        [
+          424,
+          406
+        ]
+      ]
+    },
+    {
+      "id": "loop-decision-final",
+      "from": "loop-decision",
+      "to": "loop-final",
+      "points": [
+        [
+          662.8,
+          246
+        ],
+        [
+          709.5999999999999,
+          246
+        ]
+      ]
+    },
+    {
+      "id": "loop-decision-tool",
+      "from": "loop-decision",
+      "to": "loop-tool",
+      "points": [
+        [
+          598.8,
+          212
+        ],
+        [
+          598.8,
+          154
+        ]
+      ]
+    },
+    {
+      "id": "loop-entry-rag",
+      "from": "loop-entry",
+      "to": "loop-rag",
+      "points": [
+        [
+          176,
+          246
+        ],
+        [
+          204,
+          246
+        ]
+      ]
+    },
+    {
+      "id": "loop-final-outcome",
+      "from": "loop-final",
+      "to": "loop-outcome",
+      "points": [
+        [
+          837.5999999999999,
+          246
+        ],
+        [
+          865.5999999999999,
+          246
+        ]
+      ]
+    },
+    {
+      "id": "loop-limited-final",
+      "from": "loop-limited",
+      "to": "loop-final",
+      "points": [
+        [
+          488,
+          372
+        ],
+        [
+          773.5999999999999,
+          372
+        ],
+        [
+          773.5999999999999,
+          280
+        ]
+      ]
+    },
+    {
+      "id": "loop-rag-budget",
+      "from": "loop-rag",
+      "to": "loop-budget",
+      "points": [
+        [
+          332,
+          246
+        ],
+        [
+          360,
+          246
+        ]
+      ]
+    },
+    {
+      "id": "loop-tool-budget",
+      "from": "loop-tool",
+      "to": "loop-budget",
+      "points": [
+        [
+          534.8,
+          120
+        ],
+        [
+          424,
+          120
+        ],
+        [
+          424,
+          212
+        ]
+      ]
+    }
+  ],
+  "labels": [
+    {
+      "edge": "loop-budget-decision",
+      "label": "可继续",
+      "x": 511.4,
+      "y": 286,
+      "width": 38.8,
+      "height": 14
+    },
+    {
+      "edge": "loop-budget-limited",
+      "label": "次数上限",
+      "x": 384,
+      "y": 416,
+      "width": 48.4,
+      "height": 14
+    },
+    {
+      "edge": "loop-decision-final",
+      "label": "FINISH",
+      "x": 686.1999999999999,
+      "y": 236,
+      "width": 38.8,
+      "height": 14
+    },
+    {
+      "edge": "loop-decision-tool",
+      "label": "CALL_TOOL",
+      "x": 598.8,
+      "y": 202,
+      "width": 53.199999999999996,
+      "height": 14
+    },
+    {
+      "edge": "loop-limited-final",
+      "label": "受限 plan",
+      "x": 630.8,
+      "y": 362,
+      "width": 53.199999999999996,
+      "height": 14
+    },
+    {
+      "edge": "loop-tool-budget",
+      "label": "observation 回环",
+      "x": 479.4,
+      "y": 110,
+      "width": 86.8,
+      "height": 14
+    }
+  ],
+  "diagnostics": []
+}

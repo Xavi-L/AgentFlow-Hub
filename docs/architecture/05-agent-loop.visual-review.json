@@ -1,0 +1,63 @@
+{
+  "diagram": "05",
+  "status": "passed",
+  "visual_review": "passed",
+  "reviewer": "Codex image-capable reviewer",
+  "method": "Opened all four actual visual-check PNG files with view_image",
+  "date": "2026-09-15",
+  "timezone": "Asia/Shanghai",
+  "artifact": {
+    "sha256": "037962f43c24d28968987d267a358e79fd1078097db09efb4c79fa9021ef1ff8",
+    "bytes": 807523
+  },
+  "artifact_path": "/Users/xavier/AgentFlow-Hub/docs/architecture/05-agent-loop.html",
+  "state": {
+    "detail": "read",
+    "motion": "still",
+    "visual_preset": "classic"
+  },
+  "correction_rounds": 0,
+  "screenshots": [
+    {
+      "file": "05-agent-loop.visual-check.1440x900.light.png",
+      "width": 1440,
+      "height": 900,
+      "theme": "light",
+      "review": "passed"
+    },
+    {
+      "file": "05-agent-loop.visual-check.1440x900.dark.png",
+      "width": 1440,
+      "height": 900,
+      "theme": "dark",
+      "review": "passed"
+    },
+    {
+      "file": "05-agent-loop.visual-check.2048x1320.light.png",
+      "width": 2048,
+      "height": 1320,
+      "theme": "light",
+      "review": "passed"
+    },
+    {
+      "file": "05-agent-loop.visual-check.2048x1320.dark.png",
+      "width": 2048,
+      "height": 1320,
+      "theme": "dark",
+      "review": "passed"
+    }
+  ],
+  "observations": [
+    "明暗主题中标题、节点标题/副标题、语义标签与三张卡片完整可读；没有截断或叠字。",
+    "主线居中从左到右；工具分支位于上方，observation 回到轮次门禁；次数上限位于下方并单独转入 final。",
+    "未见边穿过无关节点、标签遮挡其他路径或难以区分的共用通道；次数上限的外绕线与绿色主线可分别追踪。",
+    "2048×1320 主面板及三张必要卡片占据首屏；没有浅条状主图或卡片之后的大片空白。",
+    "两种主题的默认 READ + Still 状态中，search/focus/passport 浮层未打开；图例与导航 dock 均未遮住图。"
+  ],
+  "not_tested": [
+    "未独立操作 search/focus/passport 的打开关闭状态。",
+    "未执行导出操作，未对导出文件作清洁度验收。",
+    "未运行后端、数据库或真实模型/向量/tool 业务验收。"
+  ],
+  "raw_browser_receipt_visualReview": "pending (preserved unchanged; perceptual review is separate)"
+}

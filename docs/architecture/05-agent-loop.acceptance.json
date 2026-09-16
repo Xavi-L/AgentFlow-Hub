@@ -1,0 +1,77 @@
+{
+  "diagram": "05",
+  "status": "complete",
+  "baseline_head": "460c6caf27f01383b0478a81b9acb3ce77b01187",
+  "dirty_working_tree": true,
+  "commands": [
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/05-agent-loop.candidate.workflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/05-required-type/05-agent-loop.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/05-agent-loop.candidate.workflow.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "05-agent-loop.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/05-agent-loop.candidate.workflow.json --quality showcase --layout-json",
+      "exit_code": 0,
+      "receipt": "05-agent-loop.layout.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/05-agent-loop.workflow.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "05-agent-loop.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs deliver workflow docs/architecture/05-agent-loop.workflow.json docs/architecture/05-agent-loop.html --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "05-agent-loop.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/05-agent-loop.html --json",
+      "exit_code": 0,
+      "receipt": "05-agent-loop.visual-check.json",
+      "stdout_capture": "/tmp/atlas05-visual.stdout.json"
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/05-agent-loop.workflow.json --quality showcase --json",
+      "purpose": "final handoff validation of unchanged frozen specification",
+      "exit_code": 0,
+      "receipt": "05-agent-loop.validation.json",
+      "stderr": ""
+    }
+  ],
+  "artifact_validation": "passed",
+  "browser_evidence": "passed",
+  "visual_review": "passed",
+  "correction_rounds": 0,
+  "specification": {
+    "sha256": "547ee6dcc919b2b29d7c1224cfa094b737bf2e6a40f88bea8ecc617fac1f5eb1",
+    "bytes": 5576
+  },
+  "artifact": {
+    "sha256": "037962f43c24d28968987d267a358e79fd1078097db09efb4c79fa9021ef1ff8",
+    "bytes": 807523
+  },
+  "candidate_equals_formal": true,
+  "browser_receipt": "05-agent-loop.visual-check.json",
+  "visual_review_receipt": "05-agent-loop.visual-review.json",
+  "layout_receipt": "05-agent-loop.layout.json",
+  "layout_measurements": "05-agent-loop.layout-measurements.json",
+  "code_tests": "not run; source assertions inspected",
+  "external_runtime": "not run",
+  "next_diagram": "06 not started",
+  "scope_verification": {
+    "prior_01_04_artifacts_unchanged": true,
+    "atlas_04_section_preserved": true,
+    "unrelated_tracked_diff_unchanged": true,
+    "candidate_formal_identical": true
+  }
+}

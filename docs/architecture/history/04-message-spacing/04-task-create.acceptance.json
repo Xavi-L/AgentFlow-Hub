@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "status": "in_progress",
+  "commands": [
+    {
+      "command": [
+        "node",
+        ".agents/skills/archify/bin/archify.mjs",
+        "validate",
+        "sequence",
+        "docs/architecture/04-task-create.candidate.sequence.json",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "exitCode": 1,
+      "receipt": "04-task-create.candidate.validation.json",
+      "stderr": ""
+    }
+  ],
+  "browserEvidence": "not_run",
+  "visualReview": "not_run",
+  "nextDiagramStarted": false
+}

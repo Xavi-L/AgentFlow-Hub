@@ -1,0 +1,136 @@
+{
+  "viewBox": [
+    1018,
+    534
+  ],
+  "requiredViewBox": [
+    1018,
+    534
+  ],
+  "available_diagram_width_basis": 930,
+  "source": "delivered inline SVG, all node texts",
+  "nodes": [
+    {
+      "id": "loop-tool",
+      "text": [
+        {
+          "text": "快照工具调用",
+          "source_font_px": 11.0,
+          "projected_at_930": 10.049115913555992
+        },
+        {
+          "text": "结果 → observations",
+          "source_font_px": 8.0,
+          "projected_at_930": 7.30844793713163
+        }
+      ]
+    },
+    {
+      "id": "loop-entry",
+      "text": [
+        {
+          "text": "快照执行入口",
+          "source_font_px": 11.0,
+          "projected_at_930": 10.049115913555992
+        },
+        {
+          "text": "TaskExecutionRequest",
+          "source_font_px": 8.0,
+          "projected_at_930": 7.30844793713163
+        }
+      ]
+    },
+    {
+      "id": "loop-rag",
+      "text": [
+        {
+          "text": "一次预检索",
+          "source_font_px": 11.0,
+          "projected_at_930": 10.049115913555992
+        },
+        {
+          "text": "冻结语料 · 可空证据",
+          "source_font_px": 8.0,
+          "projected_at_930": 7.30844793713163
+        }
+      ]
+    },
+    {
+      "id": "loop-budget",
+      "text": [
+        {
+          "text": "轮次与预算",
+          "source_font_px": 11.0,
+          "projected_at_930": 10.049115913555992
+        },
+        {
+          "text": "turn / tool / token",
+          "source_font_px": 8.0,
+          "projected_at_930": 7.30844793713163
+        }
+      ]
+    },
+    {
+      "id": "loop-decision",
+      "text": [
+        {
+          "text": "决策与解析",
+          "source_font_px": 11.0,
+          "projected_at_930": 10.049115913555992
+        },
+        {
+          "text": "DECISION · strict JSON",
+          "source_font_px": 8.0,
+          "projected_at_930": 7.30844793713163
+        }
+      ]
+    },
+    {
+      "id": "loop-final",
+      "text": [
+        {
+          "text": "独立最终生成",
+          "source_font_px": 11.0,
+          "projected_at_930": 10.049115913555992
+        },
+        {
+          "text": "模型调用 · 引用白名单",
+          "source_font_px": 8.0,
+          "projected_at_930": 7.30844793713163
+        }
+      ]
+    },
+    {
+      "id": "loop-outcome",
+      "text": [
+        {
+          "text": "返回执行结果",
+          "source_font_px": 11.0,
+          "projected_at_930": 10.049115913555992
+        },
+        {
+          "text": "TaskExecutionOutcome",
+          "source_font_px": 8.0,
+          "projected_at_930": 7.30844793713163
+        }
+      ]
+    },
+    {
+      "id": "loop-limited",
+      "text": [
+        {
+          "text": "受限回答计划",
+          "source_font_px": 11.0,
+          "projected_at_930": 10.049115913555992
+        },
+        {
+          "text": "BUDGET_LIMIT",
+          "source_font_px": 8.0,
+          "projected_at_930": 7.30844793713163
+        }
+      ]
+    }
+  ],
+  "min_source_font_px": 8.0,
+  "min_projected_node_text_px": 7.30844793713163
+}

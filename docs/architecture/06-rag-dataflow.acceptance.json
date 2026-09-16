@@ -1,0 +1,223 @@
+{
+  "diagram": "06",
+  "status": "incomplete",
+  "baseline_head": "460c6caf27f01383b0478a81b9acb3ce77b01187",
+  "dirty_working_tree": true,
+  "commands": [
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate dataflow docs/architecture/06-rag-dataflow.candidate.dataflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/06-round-01/06-rag-dataflow.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate dataflow docs/architecture/06-rag-dataflow.candidate.dataflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/06-round-02/06-rag-dataflow.candidate.validation.json",
+      "stderr": "",
+      "repair": {
+        "subject": "rag-vector-ready",
+        "change": {
+          "fromSide": "bottom"
+        }
+      }
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate dataflow docs/architecture/06-rag-dataflow.candidate.dataflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/06-round-03/06-rag-dataflow.candidate.validation.json",
+      "stderr": "",
+      "repair": {
+        "subject": "rag-vector-ready",
+        "change": {
+          "via": [
+            [
+              960,
+              224
+            ],
+            [
+              680,
+              224
+            ],
+            [
+              680,
+              275
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate dataflow docs/architecture/06-rag-dataflow.candidate.dataflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/06-round-04/06-rag-dataflow.candidate.validation.json",
+      "stderr": "",
+      "repair": {
+        "subject": "rag-chunks-embedding",
+        "change": {
+          "route": "straight"
+        }
+      }
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate dataflow docs/architecture/06-rag-dataflow.candidate.dataflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/06-round-05/06-rag-dataflow.candidate.validation.json",
+      "stderr": "",
+      "repair": {
+        "subject": "rag-embedding-vector",
+        "change": {
+          "route": "straight"
+        }
+      }
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate dataflow docs/architecture/06-rag-dataflow.candidate.dataflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/06-round-06/06-rag-dataflow.candidate.validation.json",
+      "stderr": "",
+      "repair": {
+        "subject": "rag-embedding-vector",
+        "change": {
+          "labelDy": -36
+        }
+      }
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate dataflow docs/architecture/06-rag-dataflow.candidate.dataflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/06-round-07/06-rag-dataflow.candidate.validation.json",
+      "stderr": "",
+      "repair": {
+        "subject": "rag-ready-task",
+        "change": {
+          "via": [
+            [
+              200,
+              275
+            ],
+            [
+              200,
+              389
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate dataflow docs/architecture/06-rag-dataflow.candidate.dataflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/06-round-08/06-rag-dataflow.candidate.validation.json",
+      "stderr": "",
+      "repair": {
+        "subject": "rag-ready-task",
+        "change": {
+          "toSide": "top"
+        }
+      }
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate dataflow docs/architecture/06-rag-dataflow.candidate.dataflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/06-round-09/06-rag-dataflow.candidate.validation.json",
+      "stderr": "",
+      "repair": {
+        "subject": "rag-ready-task",
+        "change": {
+          "via": [
+            [
+              100,
+              275
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate dataflow docs/architecture/06-rag-dataflow.candidate.dataflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/06-round-10/06-rag-dataflow.candidate.validation.json",
+      "stderr": "",
+      "repair": {
+        "subject": "rag-chunks-context",
+        "change": {
+          "via": [
+            [
+              626,
+              161
+            ],
+            [
+              626,
+              100
+            ],
+            [
+              1080,
+              100
+            ],
+            [
+              1080,
+              340
+            ],
+            [
+              745,
+              340
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate dataflow docs/architecture/06-rag-dataflow.candidate.dataflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "06-rag-dataflow.candidate.validation.json",
+      "stderr": "",
+      "repair": {
+        "subject": "rag-chunks-context",
+        "change": {
+          "toSide": "top"
+        }
+      }
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate dataflow docs/architecture/06-rag-dataflow.candidate.dataflow.json --quality showcase --json",
+      "purpose": "final read-only validation of unchanged incomplete candidate; not another repair",
+      "exit_code": 1,
+      "receipt": "06-rag-dataflow.handoff.validation.json",
+      "stderr": ""
+    }
+  ],
+  "artifact_validation": "failed",
+  "browser_evidence": "not_run",
+  "visual_review": "not_run",
+  "delivery": "not_run",
+  "official_source_replaced": false,
+  "html_generated": false,
+  "stop_reason": "Two consecutive focused repairs did not improve best diagnostic count: best 9, latest rounds 10 -> 9.",
+  "stop_rule_source": ".agents/skills/archify/SKILL.md#fast-authoring-path",
+  "stop_rule_quote": "If two consecutive rounds do not improve that best count, stop and report the unresolved diagnostics truthfully.",
+  "diagnostic_progress": [
+    19,
+    18,
+    16,
+    15,
+    14,
+    12,
+    10,
+    12,
+    9,
+    10,
+    9
+  ],
+  "current_diagnostic_count": 9,
+  "external_runtime": "not run",
+  "code_tests": "assertions read; not executed",
+  "next_diagram": "07 not started",
+  "scope_verification": {
+    "prior_architecture_artifacts_unchanged": true,
+    "unrelated_tracked_diff_unchanged": true,
+    "all_12_nodes_15_flows_semantics_preserved": true,
+    "source_cards_stages_meta_unchanged": true,
+    "no_official_06_source_or_html": true,
+    "evidence_links_resolve": true
+  }
+}
