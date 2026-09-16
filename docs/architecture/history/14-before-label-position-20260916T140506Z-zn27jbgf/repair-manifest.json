@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "diagram": "14",
+  "target": "docs/architecture/14-evaluation.candidate.workflow.json",
+  "original": {
+    "gitBlobSha1": "3121f247e2110258dc28b387c8f13d9246e7d2c7",
+    "sha256": "6a2c3b7a529d205d8b7cfa62b3410bcb1bc2121bf4b09a41804902c8fcab99e1",
+    "bytes": 6306
+  },
+  "repaired": {
+    "filename": "14-evaluation.repaired.candidate.workflow.json",
+    "gitBlobSha1": "60f95f732bdd3352a48ef2943db1cd692d6706a5",
+    "sha256": "e96d585796605c0bfe83aeccbab1909da1c8c029f0f38df35f14fe085f608c8f",
+    "bytes": 6348
+  },
+  "expectedDiff": [
+    {
+      "edge": "ev-manifest-submit",
+      "field": "labelDy",
+      "before": "absent",
+      "after": 34
+    },
+    {
+      "edge": "ev-observe-evidence",
+      "field": "labelDy",
+      "before": "absent",
+      "after": 34
+    }
+  ],
+  "referencedSource": [
+    {
+      "path": ".agents/skills/archify/renderers/workflow/workflow-compiler.mjs",
+      "gitBlobSha1": "81ba79a14895072643ea680b6eb304c45b0b8e29"
+    },
+    {
+      "path": ".agents/skills/archify/renderers/shared/geometry.mjs",
+      "gitBlobSha1": "733129c2a5f6bb9a50e350c2c538d5fd3d93b2dd"
+    }
+  ],
+  "validation": {
+    "localLabelRegression": "SEE local-label-check.json",
+    "nativeArchifyValidate": "NOT_RUN",
+    "nativeArchifyDeliver": "NOT_RUN",
+    "browserEvidence": "NOT_RUN",
+    "visualReview": "NOT_RUN"
+  },
+  "scope": "Only two labelDy fields; no geometry routing changes, topology, copy, quality, Skill edits, formal delivery, or remote repository writes."
+}

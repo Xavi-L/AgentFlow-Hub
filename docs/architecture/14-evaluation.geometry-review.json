@@ -1,0 +1,79 @@
+{
+  "basis": "Original CLI layout plus current delivered browser receipt; derived label rectangles use installed label geometry, not package local-label-check.",
+  "geometry": {
+    "viewBox": [
+      1138,
+      534
+    ],
+    "requiredViewBox": [
+      1138,
+      534
+    ],
+    "columns": [
+      119,
+      317.4,
+      506.2,
+      714.2,
+      931.8000000000001,
+      1051.8000000000002
+    ],
+    "properCrossings": 0,
+    "ambiguousCorridors": 0,
+    "labelRouteClearanceIssues": 0,
+    "minimumProjectedNodeTextPx": 8,
+    "edges": [
+      {
+        "id": "ev-manifest-submit",
+        "points": [
+          [
+            317.4,
+            154
+          ],
+          [
+            317.4,
+            212
+          ]
+        ],
+        "label": "先记意图",
+        "labelBaseline": [
+          317.4,
+          178
+        ],
+        "labelRect": {
+          "x": 293.2,
+          "y": 168,
+          "width": 48.4,
+          "height": 14
+        },
+        "sourceNodeGapPx": 14,
+        "targetNodeGapPx": 30
+      },
+      {
+        "id": "ev-observe-evidence",
+        "points": [
+          [
+            506.2,
+            280
+          ],
+          [
+            506.2,
+            338
+          ]
+        ],
+        "label": "持久取证",
+        "labelBaseline": [
+          506.2,
+          304
+        ],
+        "labelRect": {
+          "x": 482.0,
+          "y": 294,
+          "width": 48.4,
+          "height": 14
+        },
+        "sourceNodeGapPx": 14,
+        "targetNodeGapPx": 30
+      }
+    ]
+  }
+}

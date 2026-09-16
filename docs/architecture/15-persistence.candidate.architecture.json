@@ -1,0 +1,334 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "15 · 持久化身份与存储边界",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1040,
+      670
+    ],
+    "legend": {
+      "mode": "auto",
+      "entries": {
+        "database": {
+          "label": "持久化对象"
+        }
+      }
+    }
+  },
+  "components": [
+    {
+      "id": "ps-owner",
+      "type": "database",
+      "label": "User / Owner",
+      "sublabel": "app_user · 所有权根",
+      "pos": [
+        80,
+        90
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "ps-agent",
+      "type": "database",
+      "label": "可变 Agent 草稿",
+      "sublabel": "agent_app",
+      "pos": [
+        420,
+        90
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "ps-version",
+      "type": "database",
+      "label": "不可变配置版本",
+      "sublabel": "config_hash / config_json",
+      "pos": [
+        760,
+        90
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "ps-kb",
+      "type": "database",
+      "label": "Knowledge Base",
+      "sublabel": "owner 范围 / metadata",
+      "pos": [
+        80,
+        230
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "ps-bindings",
+      "type": "database",
+      "label": "执行绑定 / 工具目录",
+      "sublabel": "knowledge + tool bindings",
+      "pos": [
+        420,
+        230
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "ps-task",
+      "type": "database",
+      "label": "Task / 执行快照",
+      "sublabel": "snapshot JSONB / effective hash",
+      "pos": [
+        760,
+        230
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "ps-document",
+      "type": "database",
+      "label": "文档 / 当前代次",
+      "sublabel": "documentId / generation",
+      "pos": [
+        80,
+        370
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "ps-chunk",
+      "type": "database",
+      "label": "Chunk 正文",
+      "sublabel": "content_hash / vector_id",
+      "pos": [
+        420,
+        370
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "ps-trace",
+      "type": "database",
+      "label": "Task Event / Trace",
+      "sublabel": "event / step / LLM / RAG / tool",
+      "pos": [
+        760,
+        370
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "ps-files",
+      "type": "database",
+      "label": "原始文档文件",
+      "sublabel": "LocalDocumentStorage",
+      "pos": [
+        80,
+        530
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "ps-vectors",
+      "type": "database",
+      "label": "Qdrant 派生向量",
+      "sublabel": "point UUID / scope payload",
+      "pos": [
+        420,
+        530
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "ps-evaluation",
+      "type": "database",
+      "label": "Evaluation 证据文件",
+      "sublabel": "manifest / journal / report",
+      "pos": [
+        760,
+        530
+      ],
+      "size": [
+        180,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "PostgreSQL · 业务身份与事实（逻辑对象）",
+      "wraps": [
+        "ps-owner",
+        "ps-agent",
+        "ps-version",
+        "ps-kb",
+        "ps-bindings",
+        "ps-task",
+        "ps-document",
+        "ps-chunk",
+        "ps-trace"
+      ],
+      "pad": 32
+    },
+    {
+      "kind": "region",
+      "label": "数据库外存储 · 由应用关联，无跨存储外键",
+      "wraps": [
+        "ps-files",
+        "ps-vectors",
+        "ps-evaluation"
+      ],
+      "pad": 24
+    }
+  ],
+  "connections": [
+    {
+      "id": "ps-agent-owner",
+      "from": "ps-agent",
+      "to": "ps-owner",
+      "label": "owner FK",
+      "variant": "default"
+    },
+    {
+      "id": "ps-kb-owner",
+      "from": "ps-kb",
+      "to": "ps-owner",
+      "label": "owner FK",
+      "variant": "default"
+    },
+    {
+      "id": "ps-version-agent",
+      "from": "ps-version",
+      "to": "ps-agent",
+      "label": "agent / owner FK",
+      "variant": "default"
+    },
+    {
+      "id": "ps-bindings-agent",
+      "from": "ps-bindings",
+      "to": "ps-agent",
+      "label": "agent / owner FK",
+      "variant": "default"
+    },
+    {
+      "id": "ps-bindings-kb",
+      "from": "ps-bindings",
+      "to": "ps-kb",
+      "label": "知识库归属 FK",
+      "variant": "default"
+    },
+    {
+      "id": "ps-task-version",
+      "from": "ps-task",
+      "to": "ps-version",
+      "label": "版本 / hash FK",
+      "variant": "default"
+    },
+    {
+      "id": "ps-document-kb",
+      "from": "ps-document",
+      "to": "ps-kb",
+      "label": "KB / owner FK",
+      "variant": "default"
+    },
+    {
+      "id": "ps-chunk-document",
+      "from": "ps-chunk",
+      "to": "ps-document",
+      "label": "doc / KB / owner FK",
+      "variant": "default"
+    },
+    {
+      "id": "ps-trace-task",
+      "from": "ps-trace",
+      "to": "ps-task",
+      "label": "taskId FK",
+      "variant": "default"
+    },
+    {
+      "id": "ps-document-files",
+      "from": "ps-document",
+      "to": "ps-files",
+      "label": "受控文件定位",
+      "variant": "dashed",
+      "labelDy": 24
+    },
+    {
+      "id": "ps-chunk-vectors",
+      "from": "ps-chunk",
+      "to": "ps-vectors",
+      "label": "派生点写入",
+      "variant": "dashed",
+      "labelDy": 24
+    },
+    {
+      "id": "ps-trace-evaluation",
+      "from": "ps-trace",
+      "to": "ps-evaluation",
+      "label": "只读 API 留存",
+      "variant": "dashed",
+      "labelDy": 24
+    }
+  ],
+  "cards": [
+    {
+      "dot": "violet",
+      "title": "引用关系与冻结边界",
+      "items": [
+        "实线指向被引用身份；虚线为应用层定位、派生或留存，无跨存储事务。",
+        "版本禁止 UPDATE；Task 状态可变，创建时内嵌快照。历史配置身份可空。"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "正文、向量与历史事实",
+      "items": [
+        "PG chunk 是正文事实；Qdrant 以 owner / 文档代次等筛选，命中再回查。",
+        "重处理推进代次；Trace 保存引用与正文快照，不对历史命中加当前源 FK。"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "持久化不等于执行证明",
+      "items": [
+        "绑定归属 Agent；知识库须同 owner，工具目录全局，条目有唯一约束。",
+        "Evaluation / Episode 是本地证据文件，无专用 DB 表；缺评仍未评。"
+      ]
+    }
+  ]
+}

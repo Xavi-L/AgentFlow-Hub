@@ -1,0 +1,36 @@
+{
+  "contract": "readable-v2",
+  "diagnostics": [
+    {
+      "code": "workflow/route-preset-conflict",
+      "severity": "error",
+      "message": "Workflow edge \"ev-manifest-submit\" cannot satisfy route preset \"straight\" under readable-v2 constraints (minimum 8px endpoint stubs, 16px interior turns, and 28px direct clearance).",
+      "subject": {
+        "diagramType": "workflow",
+        "edge": "ev-manifest-submit",
+        "from": "ev-manifest",
+        "to": "ev-submit",
+        "route": "straight"
+      },
+      "evidence": {
+        "attemptedCandidateFamily": "straight",
+        "points": [
+          [
+            317.4,
+            154
+          ],
+          [
+            317.4,
+            212
+          ]
+        ],
+        "fromSide": "bottom",
+        "toSide": "top",
+        "requiredEndpointStubPx": 8,
+        "requiredInteriorSegmentPx": 16,
+        "requiredDirectClearancePx": 28
+      },
+      "supportedFixes": []
+    }
+  ]
+}

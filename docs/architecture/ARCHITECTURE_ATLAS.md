@@ -2,7 +2,7 @@
 
 ## Scope and baseline
 
-已依次完成 **01 · System Context**、**02 · Backend Runtime Architecture**（均为 `architecture`）及 **03 · End-to-End Task Workflow**（`workflow` v2）。图 03 当前交付的 artifact、browser evidence 与截图 visual review 均通过，旧失败记录保留为历史。图 04 已完成 Task Creation and Dispatch Sequence，图 05 已完成 Agent Execution Loop（workflow v2）；图 06 RAG Data Flow 已完成修复包应用，artifact、browser evidence 与截图 visual review 均通过，旧失败证据保留；图 07 Tool Invocation Sequence 已完成 artifact、browser 和视觉验收；图 08 Task Lifecycle 已完成三层验收；图 09 派发与并发控制已完成三层验收；图 10 已完成：10A原产物保持不变，10B协调布线修复经原版artifact、browser与实际视觉复核通过，整体complete；图 11 已恢复具体诊断并完成协调布线，未修改的原版artifact、browser及截图visual review均通过，complete；图 12 已完成 SSE、Trace 与浏览器观察 sequence 的 artifact、browser 与实际截图视觉复核；图 13 已完成配置版本与任务执行快照 dataflow 的 artifact、browser 与实际截图视觉复核；图 14 Evaluation Workflow 已完成证据梳理与候选，因两轮视觉/路由修正后原版CLI仍失败而 incomplete；图 15 与最终独立 Architecture Audit 尚未施工。
+已依次完成 **01 · System Context**、**02 · Backend Runtime Architecture**（均为 `architecture`）及 **03 · End-to-End Task Workflow**（`workflow` v2）。图 03 当前交付的 artifact、browser evidence 与截图 visual review 均通过，旧失败记录保留为历史。图 04 已完成 Task Creation and Dispatch Sequence，图 05 已完成 Agent Execution Loop（workflow v2）；图 06 RAG Data Flow 已完成修复包应用，artifact、browser evidence 与截图 visual review 均通过，旧失败证据保留；图 07 Tool Invocation Sequence 已完成 artifact、browser 和视觉验收；图 08 Task Lifecycle 已完成三层验收；图 09 派发与并发控制已完成三层验收；图 10 已完成：10A原产物保持不变，10B协调布线修复经原版artifact、browser与实际视觉复核通过，整体complete；图 11 已恢复具体诊断并完成协调布线，未修改的原版artifact、browser及截图visual review均通过，complete；图 12 已完成 SSE、Trace 与浏览器观察 sequence 的 artifact、browser 与实际截图视觉复核；图 13 已完成配置版本与任务执行快照 dataflow 的 artifact、browser 与实际截图视觉复核；图 14 Evaluation Workflow 已完成两条垂直标签最小修复，原版artifact、四桌面browser与明暗截图visual review均通过，complete；图 15 Persistence Architecture 已完成原版artifact、四桌面browser与明暗截图visual review；最终独立 Architecture Audit 尚未执行。
 
 - 图 01 交付日期：2026-09-14；图 02 于 2026-09-14 开始检查、2026-09-15 完成交付（Asia/Shanghai）。
 - 图 01/02 施工基线分支：`main`；HEAD：`ba04adc5308222635e6eb1a86a0981da8ede408c`（`docs: add Archify architecture atlas construction guide`）。未 fetch、未改变 Git 基线；此处指施工时本地 main。
@@ -30,7 +30,8 @@
 | 11 | Restart Recovery and Controlled Cutover | workflow v2 | 受控重启如何识别遗留任务、收尾并开放准入？ | complete：原版9/9、0 errors / 0 warnings；四视口browser与明暗截图visual review passed |
 | 12 | SSE, Trace and Browser Observation | sequence | 断线、重连和刷新如何恢复观察，而不取消或重执行后台任务？ | complete：原版9/9、0 errors / 0 warnings；四视口browser与明暗截图visual review passed |
 | 13 | Config Version and Execution Snapshot Data Flow | dataflow | 可变草稿、不可变版本与任务实际快照如何形成并区分？ | complete：原版9/9、0 errors / 0 warnings；四视口browser与明暗截图visual review passed |
-| 14 | Evaluation Workflow | workflow v2 | 固定配置、实际Task、运行清单、材料和证据如何关联？ | incomplete：当前原版route-preset-conflict；当前deliver/browser/visual review not_run；旧版机器通过但视觉失败，仅保留历史 |
+| 14 | Evaluation Workflow | workflow v2 | 固定配置、实际Task、运行清单、材料和证据如何关联？ | complete：两条labelDy修复后原版9/9、0 errors / 0 warnings；四桌面browser与明暗截图visual review passed，旧失败记录保留 |
+| 15 | Persistence Architecture | architecture | 核心对象由哪些存储持久化，身份引用和冻结边界是什么？ | complete：原版9/9、0 errors / 0 warnings；四桌面browser与明暗截图visual review passed |
 
 ## Evidence convention
 
@@ -1737,16 +1738,16 @@ V23 不回填历史Task：四个配置关联列全部NULL或全部有值；[Task
 
 初稿仅“当前依赖”标签与cv-context重叠，按CLI明确建议使用 `labelAt:[530,216]` 后通过；没有轮换preset或修改Skill。视觉内容复核将“哈希不保证模型输出”明确为“同哈希不保证输出一致”，重新validate、deliver、browser并复核最终截图。原始失败保留在[标签碰撞历史](history/13-before-context-label/)；[文案澄清前版本](history/13-before-output-clarification/)是已通过artifact/browser的中间版本，不冒称失败或当前证据。未删除任何关系/节点，未缩字体、裁切或手改HTML。图01–12及其历史文件保持原样，未开始图14，未提交推送。
 
-## 14 · Evaluation Workflow（incomplete）
+## 14 · Evaluation Workflow（complete）
 
 **Question**：V0.3 evaluation 如何把固定配置、实际 Task、运行清单、材料和证据关联起来？**Type**：`workflow` v2。施工依据为 [guide §17](../../spec-docs/archify-architecture-atlas-guide.md)，2026-09-16 本地 `main@a0eafb22807bf085946e583e945c1ae761ee4c81` 的 dirty working tree；包括已有未提交的 V0.3-B / Episode 实现，不能把它们表述为 HEAD 已提交能力。
 
 **Primary path**：固定 suite / 配置版本 / 材料 → 只读预检 → 先持久化全量计划 → 原请求提交 → 关联并观察 Task → 保存实际证据 → 离线报告。显式 Episode 导出与指定两份报告的 compare 是另行调用的分支；不是 run 自动完成的质量证明。9 个节点、8 条关系、3 个阶段泳道；`mainPath`、全部 `semanticChecks` 保留。数据库形状表示本地持久文件，不表示新增 Evaluation 数据库表；第二泳道右侧“另一份指定报告”是 compare 的外部输入，不是 Task API 返回报告。
 
-- **JSON**：[当前候选](14-evaluation.candidate.workflow.json)。当前无正式 JSON / HTML；初版曾 deliver 成功，但视觉复核未通过，已移入历史目录。
-- **Validation**：[当前原版 CLI 回执](14-evaluation.candidate.validation.json)，真实 exit **1**；[当前 layout 诊断](14-evaluation.layout.json)，exit **1**。
-- **Visual check**：当前候选 `not_run`；不得复用旧 HTML 的通过回执。详细命令、退出码与阶段状态见 [acceptance](14-evaluation.acceptance.json)。
-- **Unknowns**：当前直线路由未通过的具体 feasibility predicate 尚未由 CLI 暴露；当前业务人工质量缺评；不推断外部 provider 现时可用性或生产级评估效果。
+- **JSON / HTML**：[当前候选](14-evaluation.candidate.workflow.json)与[正式JSON](14-evaluation.workflow.json)字节一致；[正式HTML](14-evaluation.html)由本次原版deliver生成。初版机器通过但视觉失败的文件仍仅保留于历史目录。
+- **Validation**：[候选原版CLI回执](14-evaluation.candidate.validation.json)、[最终正式源回执](14-evaluation.validation.json)均exit0，9/9 showcase，0 errors / 0 warnings；[原版layout](14-evaluation.layout.json) exit0；[deliver](14-evaluation.delivery.json) exit0。
+- **Visual check**：[本次browser回执](14-evaluation.visual-check.json) exit0 / passed；[独立视觉复核](14-evaluation.visual-review.json) passed。详细命令、退出码与阶段状态见 [acceptance](14-evaluation.acceptance.json)。
+- **Unknowns**：业务人工质量仍缺评，不推断外部provider现时可用性或生产级评估效果。图形路由已通过本次原版验收；制图完成不改变B15未完成状态。
 
 ### 施工前的实现与验收边界
 
@@ -1794,20 +1795,20 @@ V23 不回填历史Task：四个配置关联列全部NULL或全部有值；[Task
 
 **DOC_DECLARED**：切片规格和 `scripts/evaluation.md` 定义操作契约，需与上述当前实现及日期化回执一起解读。**UNKNOWN**：缺失的人类四维评分、当前真实服务是否仍可用、比较所需所有条件能否在新运行中满足；本次制图没有执行模型/工具调用来补这些证据。图14是否完成与V0.3-B/B15是否完成分别记录。
 
-### 图14分层验收、历史与停止点
+### 图14上一轮分层验收、历史与停止点
 
 | 版本 | 原版 artifact | deliver | browser evidence | visual review |
 | --- | --- | --- | --- | --- |
 | [初版历史](history/14-before-visual-clarification/) | exit0；9/9，composition 0 errors / 0 warnings | exit0；只保留历史HTML | exit0；四桌面视口、明暗端点截图通过 | **failed**：实际打开4张截图；主路径接点不清、人工覆盖文字易误解 |
 | [首次端口修正失败](history/14-explicit-evidence-corridor/) | exit1；`workflow/explicit-pin-conflict`，ev-observe-evidence | not_run | not_run | not_run |
 | [移除冲突端口后的中间版本](history/14-before-direct-vertical/) | exit0；9/9，0 errors / 0 warnings；layout exit0 | not_run | not_run | not_run；布局回执显示长距离绕行，不能当成视觉通过 |
-| **当前候选** | **exit1**；`workflow/route-preset-conflict`，ev-manifest-submit；layout亦exit1 | **not_run** | **not_run** | **not_run** |
+| [label修复前候选](history/14-before-label-position-20260916T140506Z-zn27jbgf/) | **exit1**；`workflow/route-preset-conflict`，ev-manifest-submit；layout亦exit1 | **not_run** | **not_run** | **not_run** |
 
 初版浏览器实测1440×900、1600×1000、1920×1080、2048×1320均无横纵溢出，最小预计节点文字均8px；1440×900/2048×1320明暗四图均实际打开。但两条相邻主边在x=404.4、y=246..300共享竖段并形成接点，对顺序主路径不够清楚；“质量0/11”需明确为“人工评分覆盖0/11”。[历史视觉复核](history/14-before-visual-clarification/14-evaluation.visual-review.json) 与自动回执分开，后者`visualReview=pending`未改写。
 
 第一轮视觉修正明确三个相邻关系的端口并澄清卡片。原版CLI诊断ev-observe-evidence与ev-other-compare在x=1122、y=296..322重叠26px；按其supportedFixes移除前者端口，artifact再次通过。但[原版layout](history/14-before-direct-vertical/14-evaluation.layout.json) 的ev-manifest-submit从(317.4,154)绕到x=1122再到(317.4,212)，maxStretch=28.745，未消除视觉问题。
 
-第二轮针对已测得的同列、58px间距，要求上下相邻关系采用`straight`、bottom→top。当前原版诊断：
+上一轮第二次修正针对已测得的同列、58px间距，要求上下相邻关系采用`straight`、bottom→top。当时原版诊断：
 
 ```text
 code: workflow/route-preset-conflict
@@ -1819,6 +1820,107 @@ requiredEndpointStubPx: 8; requiredInteriorSegmentPx: 16
 supportedFixes: []
 ```
 
-不能仅凭58≥28就宣称compiler有bug或候选应通过。两轮修正后只读检查当前`workflow-compiler.mjs::readableCandidateIsFeasible`（L3095）确认还检查节点、标签、已放置关系标签、图例、场景文字、frame及canvas origin；**CLI没有暴露本次具体false predicate，本轮未instrument，保持UNKNOWN**。未修改已安装Skill或验证门槛，不用局部几何复算冒充CLI通过。
+不能仅凭58≥28就宣称compiler有bug或候选应通过。两轮修正后只读检查当前`workflow-compiler.mjs::readableCandidateIsFeasible`（L3095）确认还检查节点、标签、已放置关系标签、图例、场景文字、frame及canvas origin；**当时CLI没有暴露具体false predicate，也未instrument，故当时记为UNKNOWN**。未修改已安装Skill或验证门槛，不用局部几何复算冒充CLI通过。
 
-按 [Archify SKILL.md](../../.agents/skills/archify/SKILL.md) “If two consecutive rounds do not improve that best count, stop and report the unresolved diagnostics truthfully.” 停止继续布局；visual review最多两轮修正也已用完。当前保留失败candidate，不再替换正式文件、deliver或复用旧browser证据；已生成的初版正式文件移入历史目录。所有节点、业务关系、mainPath与semanticChecks未删除；未缩字体、隐藏overflow、手改HTML或修改业务代码。图01–13及旧记录保持原样，图15未开始，未提交推送。
+按 [Archify SKILL.md](../../.agents/skills/archify/SKILL.md) “If two consecutive rounds do not improve that best count, stop and report the unresolved diagnostics truthfully.” 停止继续布局；visual review最多两轮修正也已用完。当轮保留失败candidate，未继续替换正式文件、deliver或复用旧browser证据；已生成的初版正式文件移入历史目录。所有节点、业务关系、mainPath与semanticChecks未删除；未缩字体、隐藏overflow、手改HTML或修改业务代码。图01–13及旧记录保持原样，图15未开始，未提交推送。
+
+
+### 图14标签最小修复与最终验收（2026-09-16）
+
+本轮修复基线为 `main@8d5c388285d239f84e612b7a6cf320eca6510c14`。按用户提供的 `archify14_repair/REPAIR_NOTES.md` 执行 `apply_repair.py .`（dry-run exit0）及 `apply_repair.py . --apply`（exit0）。候选与已安装workflow-compiler/shared geometry均匹配包内基线；脚本保存了[label修复前候选及回执](history/14-before-label-position-20260916T140506Z-zn27jbgf/)。应用后结构比对确认仅在`ev-manifest-submit`和`ev-observe-evidence`新增`labelDy:34`。straight、bottom/top、全部节点/关系/泳道/卡片/mainPath/semanticChecks与“人工评分覆盖0/11”均保持，未重复应用patch，未修改Skill。
+
+只读核对已安装`shared/geometry.mjs::labelPoint`：两点路径标签基线y取source y−10+labelDy，并非两端中点；workflow标签矩形再向上10px、高14px。缺省位置因此覆盖源节点。这个源码解释用于理解原因；真正通过证据来自本轮原版CLI，不是修复包local-label-check。
+
+| edge / 标签 | 原版最终points | 标签基线(x,y) | 最终标签矩形(x,y,w,h) |
+| --- | --- | --- | --- |
+| ev-manifest-submit / 先记意图 | (317.4,154) → (317.4,212) | (317.4,178) | (293.2,168,48.4,14) |
+| ev-observe-evidence / 持久取证 | (506.2,280) → (506.2,338) | (506.2,304) | (482,294,48.4,14) |
+
+两线长度均58px，标签距源节点14px、距目标节点30px。原版layout的viewBox与requiredViewBox均1138×534，columns与节点矩形未重排。先记意图不再绕x=1122，Task关联横线与两条下行线无旧版共享接点；原版检查properCrossings、ambiguousCorridors、labelRouteClearanceIssues均0，标签避开节点、其他关系及泳道标题。坐标记录见[geometry review](14-evaluation.geometry-review.json)。
+
+| 本次light视口 | scrollWidth × scrollHeight | 最小预计节点文字 | containment / readability |
+| --- | --- | --- | --- |
+| 1440×900 | 1440×900 | 8px | passed / passed |
+| 1600×1000 | 1600×1000 | 8px | passed / passed |
+| 1920×1080 | 1920×1080 | 8px | passed / passed |
+| 2048×1320 | 2048×1320 | 8px | passed / passed |
+
+**Artifact：passed**，原版showcase validate和deliver均9/9、0 errors / 0 warnings，候选原样复制为正式JSON。**Browser：passed**，仅在本次deliver退出0后对该HTML执行visual-check，四尺寸测量和1440×900/2048×1320的light/dark四图完整。**Visual review：passed**，四张本次截图均实际打开：顺序主线清楚；先记意图/持久取证清楚；Episode与compare另行分支可区分；人工评分覆盖0/11不回退；图例、卡片、工具栏无可见遮挡，最大视口布局适配。
+
+自动回执仍保留`visualReview:pending`，独立感知判断记录在visual-review.json。本轮修复一次后通过，无后续美化或手改HTML；未测试额外export/search/focus交互，未重跑业务/真实provider评估。此前失败回执、截图和停止记录保留为历史，不改写成通过。图01–13及旧历史文件保持原样，未开始图15，未提交推送。
+
+## 15 · Persistence Architecture（complete）
+
+**Question**：哪些核心领域对象由PostgreSQL、vector store和file storage持久化，它们之间的身份关系是什么？**Type**：`architecture`，逻辑持久化架构，不是完整ERD、调用时序或生产部署拓扑。
+
+2026-09-16 基于本地 `main@8d5c388285d239f84e612b7a6cf320eca6510c14` 的 dirty working tree，Archify metadata 2.17 / package 2.17.0-dev.1。只施工图15；图14尚未提交的已通过修复、图01–13原件、已有业务/spec改动全部保留。依据 [guide §18](../../spec-docs/archify-architecture-atlas-guide.md)，本轮检查当前V1–V23 migration、实体/record、Mapper及存储实现；未执行数据库migration、启动业务服务或访问真实PostgreSQL、Qdrant、模型/provider。
+
+- **Primary identity path**：Trace → Task（内嵌执行快照）→ Config Version → Agent → User。知识侧为Chunk → Document → Knowledge Base → User，Binding连接Agent与Knowledge Base；实线箭头指向被引用身份，**不是执行顺序**。
+- **Key nodes**：12个逻辑对象；“执行绑定 / 工具目录”合并两类binding与全局工具目录；“Task / 执行快照”包含Task行内JSONB；“Task Event / Trace”合并事件、step、LLM/RAG/tool调用及hit快照。图例的12不是表数或数据库实例数。
+- **JSON / HTML**：[候选](15-persistence.candidate.architecture.json)、[正式JSON](15-persistence.architecture.json)字节一致；[正式HTML](15-persistence.html)。
+- **Validation / Visual check**：[候选validate](15-persistence.candidate.validation.json)、[正式validate](15-persistence.validation.json)、[deliver](15-persistence.delivery.json)、[browser](15-persistence.visual-check.json)、[独立视觉复核](15-persistence.visual-review.json)、[完整acceptance](15-persistence.acceptance.json)。
+- **Unknowns**：实际部署复制/备份/保留周期、崩溃后的跨存储清理是否已完成、当前远程系统可用性，本次静态证据不能证明。Evaluation人工质量缺评仍存在，持久化文件存在不等于评估完成。
+
+### 图中逐边约束与机制（CODE_CONFIRMED）
+
+数据库内引用通过JDBC/MyBatis写入同一PostgreSQL并由外键约束，不隐含异步消息或每个节点独立进程。对于组合节点，FK只属于表中明确列出的成员；例如工具目录本身没有Agent owner列。未逐条画出的外键在下表及边界说明中列出，没有把关系缺席解释为没有约束。
+
+| Edge / 逻辑关系 | 当前约束、生产入口与持久化机制 |
+| --- | --- |
+| `ps-agent-owner` Agent → User | [V16](../../backend/src/main/resources/db/migration/V16__create_agent_app.sql) `agent_app.user_id → app_user.id`；[AgentAppMapper](../../backend/src/main/java/com/agentflow/agent/repository/AgentAppMapper.java) 按owner读写/锁定当前草稿。prompt、模型及配置可变；V21后加入执行设置，不代表历史Task跟随改变 |
+| `ps-kb-owner` Knowledge Base → User | [V2](../../backend/src/main/resources/db/migration/V2__create_knowledge_base.sql) user FK；[KnowledgeBaseMapper](../../backend/src/main/java/com/agentflow/knowledge/repository/KnowledgeBaseMapper.java) current-owner可见资源；V3追加`UNIQUE(id,user_id)`为下游复合FK提供身份 |
+| `ps-version-agent` Config Version → Agent | [V23](../../backend/src/main/resources/db/migration/V23__create_agent_config_version.sql) `(agent_id,user_id) → agent_app(id,user_id)`；内容去重`UNIQUE(user_id,agent_id,schema_version,config_hash)`；[AgentConfigVersionTransactions.capture](../../backend/src/main/java/com/agentflow/agent/configversion/AgentConfigVersionTransactions.java) 在REPEATABLE_READ读取草稿与bindings，[AgentConfigVersionMapper.insert](../../backend/src/main/java/com/agentflow/agent/configversion/AgentConfigVersionMapper.java) ON CONFLICT复用内容身份 |
+| `ps-bindings-agent` Bindings → Agent | [V17](../../backend/src/main/resources/db/migration/V17__create_agent_execution_bindings.sql) 两类binding均以`(agent_id,user_id)`复合FK归属Agent；各有`UNIQUE(agent_id,knowledge_base_id)` / `UNIQUE(agent_id,tool_id)`。Mapper按owner与Agent查询、替换bindings；priority是执行顺序资料 |
+| `ps-bindings-kb` Knowledge Binding → KB | 同一V17的`(knowledge_base_id,user_id) → knowledge_base(id,user_id)`强制同owner；[AgentKnowledgeBindingMapper](../../backend/src/main/java/com/agentflow/agent/binding/repository/AgentKnowledgeBindingMapper.java) 额外检查ACTIVE/可见及READY文档代次。组合节点内的tool binding另以`tool_id → tool_definition.id`引用全局目录，不能套用KB的owner语义；见[V13](../../backend/src/main/resources/db/migration/V13__create_tool_definition_and_tool_call_log.sql)、[AgentToolBindingMapper](../../backend/src/main/java/com/agentflow/agent/binding/repository/AgentToolBindingMapper.java) |
+| `ps-task-version` Task → Config Version | V23 `FOREIGN KEY(config_version_id,agent_id,user_id,config_hash) → agent_config_version(id,agent_id,user_id,config_hash)`；[AgentTaskCreationTransactionService.createNew](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskCreationTransactionService.java) 同事务选版本、解析快照、计算effective hash、插Task和首事件，COMMIT后派发。Task还保留[V18](../../backend/src/main/resources/db/migration/V18__create_agent_task_and_event.sql)直接`(agent_id,user_id) → agent_app(id,user_id)`，没有被版本FK替代；为避免重复父路径，图中只画版本主引用链 |
+| `ps-document-kb` Document → KB | [V3](../../backend/src/main/resources/db/migration/V3__create_knowledge_document.sql) `(knowledge_base_id,user_id)`复合FK；`UNIQUE(storage_bucket,storage_object_key)`。实体[KnowledgeDocument](../../backend/src/main/java/com/agentflow/knowledge/model/KnowledgeDocument.java)保存locator、状态及vector_generation，**不存原文字节或embedding**；[KnowledgeDocumentMapper](../../backend/src/main/java/com/agentflow/knowledge/repository/KnowledgeDocumentMapper.java)负责owner可见性和状态转换 |
+| `ps-chunk-document` Chunk → Document | [V4](../../backend/src/main/resources/db/migration/V4__create_knowledge_chunk.sql) `(document_id,knowledge_base_id,user_id)`复合FK，`UNIQUE(document_id,chunk_index)`；V5加content_hash / vector_id / vectorization_status，V11加generation，V17加chunk_strategy_version。[KnowledgeChunk](../../backend/src/main/java/com/agentflow/knowledge/model/KnowledgeChunk.java)及[KnowledgeChunkMapper](../../backend/src/main/java/com/agentflow/knowledge/repository/KnowledgeChunkMapper.java)以PG正文为事实源；generation相等是应用查询条件，不能误写成包含generation的数据库FK或唯一键 |
+| `ps-trace-task` Event / Trace → Task | V18 event `task_id`FK，`UNIQUE(task_id,sequence_no)`；[V19](../../backend/src/main/resources/db/migration/V19__create_agent_execution_trace.sql) step task FK与`UNIQUE(task_id,step_index)`；LLM/RAG/tool经`(step_id,task_id)`归属同Task，LLM额外校验生成的expected_step_type。[TaskEventAppender.append](../../backend/src/main/java/com/agentflow/agent/task/service/TaskEventAppender.java)要求已有事务，先更新Task cursor再插事件；[AgentTaskEventMapper](../../backend/src/main/java/com/agentflow/agent/task/repository/AgentTaskEventMapper.java)按sequence读取。Trace是这些持久事实的聚合，不是名为Trace的一张表 |
+| `ps-document-files` Document → 原始文件 | [KnowledgeDocumentService.upload](../../backend/src/main/java/com/agentflow/knowledge/service/KnowledgeDocumentService.java)同步先store再插metadata；[DocumentStorageConfig](../../backend/src/main/java/com/agentflow/knowledge/storage/DocumentStorageConfig.java)当前注册[LocalDocumentStorage](../../backend/src/main/java/com/agentflow/knowledge/storage/LocalDocumentStorage.java)。bucket为local，key包含server UUID及受控扩展名，先临时写再move；数据库仅存受控locator。没有外键或跨文件/PG事务，插入失败/事务回滚尝试补偿删除，并不保证所有崩溃窗口自动消失 |
+| `ps-chunk-vectors` Chunk → Qdrant派生点 | [ChunkVectorizationService.vectorizePending](../../backend/src/main/java/com/agentflow/knowledge/service/ChunkVectorizationService.java)短事务claim → 事务外embedding及[QdrantVectorStoreGateway.upsert](../../backend/src/main/java/com/agentflow/knowledge/vector/QdrantVectorStoreGateway.java)同步HTTP `wait=true` → 另一个短事务写回COMPLETED/vector_id。payload含owner、KB、document、chunk、代次、contentHash及embedding配置，不含正文；不能把这条虚线理解为数据库replication或分布式提交 |
+| `ps-trace-evaluation` 业务事实 → Evaluation证据文件 | [evaluation.py::observe/report/episode](../../scripts/evaluation.py)通过普通owner-scoped Task/Trace/Episode GET保存实际响应与hash到本地文件，再进行本地报告；[TaskTraceQueryService](../../backend/src/main/java/com/agentflow/agent/trace/TaskTraceQueryService.java)先验证Task owner，再REPEATABLE_READ聚合事实。虚线表示应用读取并留存，不是PG主动推送文件，也不是Evaluation表外键；manifest/journal在提交前由CLI自行生成，不来自Trace导出 |
+
+### hash / snapshot / version 与 mutable 边界
+
+**CODE_CONFIRMED**：V23以trigger拒绝`agent_config_version`的UPDATE；这不等于所有数据库事实都具有不可删除、不可篡改保证，schema没有为所有表安装同样trigger。Config版本持久化raw config JSON和configHash；Task持有版本身份，同时将实际解析的[AgentTaskExecutionSnapshot](../../backend/src/main/java/com/agentflow/agent/snapshot/AgentTaskExecutionSnapshot.java)序列化到`agent_task.execution_snapshot JSONB`，没有独立snapshot表。`effective_config_hash`源自该有效快照的规范化投影，是Task字段，不是版本表另一个FK。
+
+[AgentTaskMapper](../../backend/src/main/java/com/agentflow/agent/task/repository/AgentTaskMapper.java)的正常状态更新改变status、预算使用、结果和时间等，不重写已创建的execution_snapshot；这是当前应用写路径的冻结保证，**不是Task表全字段禁止UPDATE**。V23四个配置身份列必须全NULL或全有值，历史Task不回填今天配置；旧v1/v2快照不补造缺失的执行设置。V18另有`UNIQUE(user_id,client_request_id)`与request_fingerprint：配置内容去重和Task请求幂等是不同身份。相同版本不保证相同effective hash，相同hash也不保证模型输出一致。
+
+[V22](../../backend/src/main/resources/db/migration/V22__add_task_recovery_metadata.sql) recovery_metadata可NULL；恢复收尾的step/tool latency在特定TASK_RESTART_INTERRUPTED条件下允许未知，不能用落库收尾时刻冒充崩溃时刻或真实执行耗时。[V20](../../backend/src/main/resources/db/migration/V20__preserve_task_token_overruns.sql)允许失败/取消/超时Task保留实际超预算usage，不把数据约束理解为“所有Task tokens永远不超过预算”。
+
+### 文档代次、向量与历史保留
+
+[V11](../../backend/src/main/resources/db/migration/V11__create_knowledge_document_reprocess_task.sql)在Document/Chunk引入非负vector_generation，并以部分唯一索引保证每文档只有一个未完成reprocess任务。[KnowledgeDocumentReprocessTransactionService](../../backend/src/main/java/com/agentflow/knowledge/service/KnowledgeDocumentReprocessTransactionService.java)协调代次推进、旧向量清理和删除旧chunks后重排队。**当前chunk表不是全代次版本归档**：唯一键仍是document+index；历史正文由RAG hit的content_snapshot保留，而非依赖旧chunk永久存在。
+
+[ChunkVectorIdentityFactory.create](../../backend/src/main/java/com/agentflow/knowledge/vector/ChunkVectorIdentityFactory.java)用精确UTF-8正文SHA-256及namespace、user、KB、document、chunkIndex派生稳定UUID；**代次不在这个UUID材料中**，不能声称每次generation变化必然产生不同point ID。代次在payload与过滤条件中；同文本在不同文档也不会仅因contentHash相同就共用一个point身份。Qdrant使用owner/KB及逐对document-generation过滤，返回chunkId/contentHash；[KnowledgeChunkMapper.selectSnapshotRetrievableChunks](../../backend/src/main/java/com/agentflow/knowledge/repository/KnowledgeChunkMapper.java)再以owner、可见性、当前代次与快照allowlist回查PG正文。向量库不是独立正文事实源，向量已写不自动证明PG状态完成。
+
+V19 `rag_retrieval_hit`保存chunk/document/KB的snapshot ID、generation、content和metadata；FK只连retrieval log，不连当前源chunk/document，`UNIQUE(retrieval_id,rank_no)`与`UNIQUE(retrieval_id,citation_id)`约束同次检索结果。[RagRetrievalHitLogMapper](../../backend/src/main/java/com/agentflow/agent/trace/repository/RagRetrievalHitLogMapper.java)持久化这些快照，源文档删除后仍能读取历史事实。tool_call_log的task_id/step_id允许同时NULL以支持standalone调用，但不允许仅一列NULL，非NULL时复合FK不能跨Task；组合节点“Trace”不意味着每条工具调用必有Task。
+
+[V10](../../backend/src/main/resources/db/migration/V10__create_knowledge_document_deletion_task.sql)的耐久删除任务保存locator与vectors/source/chunks三步完成标记；和V11重处理任务一样属于PG元数据及恢复机制。它们未另画成节点，避免把此图扩展为删除/重试流程图。图中也不展开V7–V9知识问答/反馈、V12演示订单/支付表的全部列或关系，不宣称是完整数据模型。
+
+### Evaluation、实体映射与证据等级
+
+**CODE_CONFIRMED**：当前migration目录止于V23，没有Evaluation或Episode表。[evaluation.py](../../scripts/evaluation.py)以本地manifest.json、journal、artifacts、report保存运行计划和实际证据，[evaluation_metrics.py](../../scripts/evaluation_metrics.py)保存追加人工判定和报告归档；[TaskEpisodeQueryService](../../backend/src/main/java/com/agentflow/agent/trace/TaskEpisodeQueryService.java)只读业务事实，CLI另存Episode JSON。文件内evalRunId、manifestHash、caseExecutionId、taskId及content hash是应用层关联，不具有跨文件/PG的数据库FK。图14的缺评与NOT_COMPARABLE边界继续成立。
+
+实体/record与Mapper配对已检查：`KnowledgeDocument`、`KnowledgeChunk`映射PG当前资料；`AgentTask`同时承载可变状态与快照字符串；`AgentConfigVersionMapper`只插入/查询冻结版本；`RagRetrievalHitLogRecord`及其Mapper保留历史值。Trace公共读取按Task owner控制，而不是要求每张Trace子表重复一个user_id列；这些应用授权与schema FK是两层约束。
+
+**TEST_CONFIRMED（断言已检查，本轮未执行）**：[V03AConfigVersionPostgresIntegrationTest](../../backend/src/test/java/com/agentflow/agent/configversion/V03AConfigVersionPostgresIntegrationTest.java) A05/A12/A13及创建失败测试断言历史nullable、版本UPDATE拒绝、复合owner/version FK与Task/版本/事件一起回滚；[AgentExecutionTracePostgresIntegrationTest](../../backend/src/test/java/com/agentflow/agent/trace/AgentExecutionTracePostgresIntegrationTest.java) `shouldRejectCrossTaskAndWrongTypeLinksWhileKeepingStandaloneToolCallsLegal`与`shouldRollbackRetrievalAndHitsTogetherAndKeepSnapshotsAfterSourceDeletion`断言跨Task/类型拒绝、standalone nullable、重复rank原子回滚及删源后历史正文保留。[QdrantVectorStoreGatewayTest](../../backend/src/test/java/com/agentflow/knowledge/vector/QdrantVectorStoreGatewayTest.java)的mock HTTP断言逐对代次过滤与请求payload；[LocalDocumentStorageTest](../../backend/src/test/java/com/agentflow/knowledge/storage/LocalDocumentStorageTest.java)使用临时目录检查受控key、读取/删除与越界拒绝。这些不是本轮新测试通过或真实Qdrant验收。
+
+**DOC_DECLARED**：指南、既有slice/spec提供边界背景；代码或迁移注释中的早期“以后才有Task/向量”需结合后续migration解释，不能用V4/V13旧注释覆盖V11/V19当前结构。**UNKNOWN**：数据库实际运行版本、生产账号权限/容灾能力、对象存储替代方案是否部署、跨存储故障补偿当前状态；本图未作这些运行保证。
+
+### 图15分层验收
+
+当前 **complete**：未修改的原版Archify对最终候选/正式源validate与deliver均exit0，9/9 showcase，composition 0 errors / 0 warnings。properCrossings、ambiguousCorridors、labelRouteClearanceIssues、shortSegmentCount均0；12条关系全部直线（maxBends=0、maxStretch=1、minSegment=76px），viewBox 1040×670。artifact回执的minProjectedNodeTextPx=null不当作字号证明，使用本次Chrome回执如下：
+
+| light视口 | scrollWidth × scrollHeight | 最小预计节点文字 | containment / readability |
+| --- | --- | --- | --- |
+| 1440×900 | 1440×900 | 8.169px | passed / passed |
+| 1600×1000 | 1600×1000 | 8.489px | passed / passed |
+| 1920×1080 | 1920×1080 | 9px | passed / passed |
+| 2048×1320 | 2048×1320 | 9px | passed / passed |
+
+**Browser evidence：passed**，本次deliver成功后对同一HTML执行visual-check，四视口及两个端点视口明暗四图完整。**Visual review：passed**，实际打开最终四张截图，确认引用方向、跨存储虚线、标签、边界标题、图例及三卡片清楚，最大视口无明显空余下带。独立review绑定本次artifact；自动回执仍保留visualReview=pending。未额外测试export/search/focus交互，也未运行真实业务provider或完整数据库回归。
+
+初版三个下行标签与源节点重叠，按原版CLI明确建议对`ps-document-files`、`ps-chunk-vectors`、`ps-trace-evaluation`各设置`labelDy:24`，其他几何未变；[原始失败](history/15-before-external-label-clearance/)保留。实际视觉复核将默认图例“数据库”明确为“持久化对象”，随后重新validate、deliver、browser并检查新截图；[图例澄清前版本](history/15-before-legend-clarification/)是机器已通过的中间版本，不冒称失败或最终证据。没有删除节点/关系、缩字体、裁切或手改HTML；Skill未修改。
+
+本轮仅新增图15产物及本Atlas条目，图01–14及其历史记录保持原样；未提交推送。全部15张图的单图交付现已完成，但指南§20的**最终独立Architecture Audit仍未执行**，本轮按单图范围在此停止；不得将图集交付完成等同于独立反向审计完成。

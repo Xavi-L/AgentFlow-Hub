@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "workflow",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/14-evaluation.workflow.json",
+  "output": "/Users/xavier/AgentFlow-Hub/docs/architecture/14-evaluation.html",
+  "specification": {
+    "sha256": "e96d585796605c0bfe83aeccbab1909da1c8c029f0f38df35f14fe085f608c8f",
+    "bytes": 6348
+  },
+  "artifact": {
+    "sha256": "096385f8ed295692443c23f6b4d16e45362a33e34b48934aae8c9c6704905f90",
+    "bytes": 810176
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

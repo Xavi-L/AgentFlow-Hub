@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "validate",
+  "stage": "render",
+  "type": "architecture",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/15-persistence.candidate.architecture.json",
+  "error": "Architecture layout validation failed:\n- Label \"受控文件定位\" overlaps component \"ps-document\" — adjust labelDx/labelDy/labelSegment or set labelAt.\n  label rect: [136, 414, 68, 14]\n  component \"ps-document\" rect: [80, 370, 180, 64]\n  Suggested fix: labelAt [170, 448] or labelDy +24 (below); or labelAt [170, 366] or labelDy -58 (above)\n- Label \"派生点写入\" overlaps component \"ps-chunk\" — adjust labelDx/labelDy/labelSegment or set labelAt.\n  label rect: [481, 414, 58, 14]\n  component \"ps-chunk\" rect: [420, 370, 180, 64]\n  Suggested fix: labelAt [510, 448] or labelDy +24 (below); or labelAt [510, 366] or labelDy -58 (above)\n- Label \"只读 API 留存\" overlaps component \"ps-trace\" — adjust labelDx/labelDy/labelSegment or set labelAt.\n  label rect: [814, 414, 72, 14]\n  component \"ps-trace\" rect: [760, 370, 180, 64]\n  Suggested fix: labelAt [850, 448] or labelDy +24 (below); or labelAt [850, 366] or labelDy -58 (above)",
+  "diagnostics": [
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Label \"受控文件定位\" overlaps component \"ps-document\" — adjust labelDx/labelDy/labelSegment or set labelAt.\n  label rect: [136, 414, 68, 14]\n  component \"ps-document\" rect: [80, 370, 180, 64]\n  Suggested fix: labelAt [170, 448] or labelDy +24 (below); or labelAt [170, 366] or labelDy -58 (above)",
+      "subject": {
+        "diagramType": "architecture"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Label \"派生点写入\" overlaps component \"ps-chunk\" — adjust labelDx/labelDy/labelSegment or set labelAt.\n  label rect: [481, 414, 58, 14]\n  component \"ps-chunk\" rect: [420, 370, 180, 64]\n  Suggested fix: labelAt [510, 448] or labelDy +24 (below); or labelAt [510, 366] or labelDy -58 (above)",
+      "subject": {
+        "diagramType": "architecture"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Label \"只读 API 留存\" overlaps component \"ps-trace\" — adjust labelDx/labelDy/labelSegment or set labelAt.\n  label rect: [814, 414, 72, 14]\n  component \"ps-trace\" rect: [760, 370, 180, 64]\n  Suggested fix: labelAt [850, 448] or labelDy +24 (below); or labelAt [850, 366] or labelDy -58 (above)",
+      "subject": {
+        "diagramType": "architecture"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    }
+  ]
+}

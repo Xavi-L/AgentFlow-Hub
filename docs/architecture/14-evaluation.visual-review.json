@@ -1,0 +1,29 @@
+{
+  "diagram": "14",
+  "status": "passed",
+  "artifact": {
+    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/14-evaluation.html",
+    "sha256": "096385f8ed295692443c23f6b4d16e45362a33e34b48934aae8c9c6704905f90",
+    "bytes": 810176
+  },
+  "reviewer": "Codex image-capable reviewer",
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "correction_rounds": 1,
+  "screenshots_inspected": [
+    "14-evaluation.visual-check.1440x900.light.png",
+    "14-evaluation.visual-check.1440x900.dark.png",
+    "14-evaluation.visual-check.2048x1320.light.png",
+    "14-evaluation.visual-check.2048x1320.dark.png"
+  ],
+  "observations": [
+    "实际打开1440×900与2048×1320的light/dark四张本次交付截图。",
+    "绿色顺序主线从完整计划直落提交，再横向关联Task，再直落持久证据；无旧版绕行、共享接点或误导合流。",
+    "先记意图与持久取证两标签位于节点间隙，均清楚可读，不覆盖节点、其他关系或泳道标题。",
+    "Episode另行导出及两报告比较作为灰色分支可与顺序主线区分。",
+    "人工评分覆盖0/11的澄清完整保留；图例、三张卡片与工具栏完整且不遮挡内容，最大视口整体高度适配。"
+  ],
+  "scope": "READ/Still截图复核；未另行测试搜索、focus或导出交互。原版自动browser回执visualReview=pending保持不变。"
+}

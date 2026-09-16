@@ -1,0 +1,29 @@
+{
+  "diagram": "15",
+  "status": "passed",
+  "artifact": {
+    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/15-persistence.html",
+    "sha256": "700311a5528ce605f09014fd40ca15185b8d2fd08b251e85fb6e9993f9bceae8",
+    "bytes": 816866
+  },
+  "reviewer": "Codex image-capable reviewer",
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "correction_rounds": 1,
+  "screenshots_inspected": [
+    "15-persistence.visual-check.1440x900.light.png",
+    "15-persistence.visual-check.1440x900.dark.png",
+    "15-persistence.visual-check.2048x1320.light.png",
+    "15-persistence.visual-check.2048x1320.dark.png"
+  ],
+  "observations": [
+    "实际打开最终1440×900与2048×1320明暗四张截图。",
+    "PostgreSQL逻辑对象与数据库外存储的边界分开；实线身份引用与虚线应用关联容易区分。",
+    "Task内嵌快照与配置版本、owner引用方向清楚；文档/chunk与文件/Qdrant关系未穿过其他对象。",
+    "受控文件定位、派生点写入、只读API留存三个修复标签不覆盖源节点或其他边，边界标题未遮挡。",
+    "图例明确为持久化对象；三张卡片完整呈现nullable、冻结/可变和无跨存储事务边界；最大视口没有明显空余下带。"
+  ],
+  "scope": "READ/Still截图复核；未另行执行搜索/focus/导出交互验收；原版自动browser回执visualReview=pending保持不变。"
+}

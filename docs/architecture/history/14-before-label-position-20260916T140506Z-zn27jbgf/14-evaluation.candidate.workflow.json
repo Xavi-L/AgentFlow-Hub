@@ -130,8 +130,7 @@
       "variant": "emphasis",
       "fromSide": "bottom",
       "toSide": "top",
-      "route": "straight",
-      "labelDy": 34
+      "route": "straight"
     },
     {
       "id": "ev-submit-observe",
@@ -152,8 +151,7 @@
       "variant": "emphasis",
       "route": "straight",
       "fromSide": "bottom",
-      "toSide": "top",
-      "labelDy": 34
+      "toSide": "top"
     },
     {
       "id": "ev-evidence-report",

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/15-persistence.architecture.json",
+  "output": "/Users/xavier/AgentFlow-Hub/docs/architecture/15-persistence.html",
+  "specification": {
+    "sha256": "1dbf0798810e02e3de1b0de8305db3e8b5b9fd20119391eef55844c6de60a40a",
+    "bytes": 6811
+  },
+  "artifact": {
+    "sha256": "700311a5528ce605f09014fd40ca15185b8d2fd08b251e85fb6e9993f9bceae8",
+    "bytes": 816866
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

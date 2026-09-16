@@ -1,0 +1,138 @@
+{
+  "diagram": "14",
+  "date": "2026-09-16",
+  "baseline_head": "a0eafb22807bf085946e583e945c1ae761ee4c81",
+  "status": "incomplete",
+  "artifact_validation": "failed",
+  "delivery": "not_run",
+  "browser_evidence": "not_run",
+  "visual_review": "not_run",
+  "commands": [
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/14-evaluation.candidate.workflow.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "history/14-before-visual-clarification/14-evaluation.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/14-evaluation.candidate.workflow.json --quality showcase --layout-json",
+      "exit_code": 0,
+      "receipt": "history/14-before-visual-clarification/14-evaluation.layout.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs deliver workflow docs/architecture/14-evaluation.workflow.json docs/architecture/14-evaluation.html --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "history/14-before-visual-clarification/14-evaluation.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/14-evaluation.html --json",
+      "exit_code": 0,
+      "receipt": "history/14-before-visual-clarification/14-evaluation.visual-check.command.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/14-evaluation.candidate.workflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/14-explicit-evidence-corridor/14-evaluation.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/14-evaluation.candidate.workflow.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "history/14-before-direct-vertical/14-evaluation.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/14-evaluation.candidate.workflow.json --quality showcase --layout-json",
+      "exit_code": 0,
+      "receipt": "history/14-before-direct-vertical/14-evaluation.layout.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/14-evaluation.candidate.workflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "14-evaluation.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/14-evaluation.candidate.workflow.json --quality showcase --layout-json",
+      "exit_code": 1,
+      "receipt": "14-evaluation.layout.json",
+      "stderr": ""
+    }
+  ],
+  "diagram_type": "workflow",
+  "correction_rounds": 2,
+  "candidate": "14-evaluation.candidate.workflow.json",
+  "formal_specification": null,
+  "html": null,
+  "installed_skill_changed": false,
+  "business_runtime_validation": "not_run",
+  "tests": "Current production code and test assertions inspected; no business tests or evaluation reruns executed this turn",
+  "current_diagnostic": {
+    "code": "workflow/route-preset-conflict",
+    "subject": "ev-manifest-submit",
+    "points": [
+      [
+        317.4,
+        154
+      ],
+      [
+        317.4,
+        212
+      ]
+    ],
+    "fromSide": "bottom",
+    "toSide": "top",
+    "lengthPx": 58,
+    "requiredDirectClearancePx": 28,
+    "supportedFixes": [],
+    "predicate": "UNKNOWN: CLI does not expose the failed feasibility predicate; geometry length alone is insufficient proof of feasibility"
+  },
+  "history": {
+    "initial": {
+      "directory": "history/14-before-visual-clarification",
+      "artifact_validation": "passed",
+      "delivery": "passed",
+      "browser_evidence": "passed",
+      "visual_review": "failed",
+      "checks": "9/9 showcase, 0 errors, 0 warnings",
+      "minimumProjectedNodeTextPx": 8
+    },
+    "first_pin_failure": {
+      "directory": "history/14-explicit-evidence-corridor",
+      "exit_code": 1,
+      "subject": "ev-observe-evidence",
+      "code": "workflow/explicit-pin-conflict",
+      "overlapLengthPx": 26
+    },
+    "intermediate": {
+      "directory": "history/14-before-direct-vertical",
+      "artifact_validation": "passed",
+      "delivery": "not_run",
+      "browser_evidence": "not_run",
+      "visual_review": "not_run",
+      "geometry_assessment": "manifest-submit detours via x=1122; maxStretch=28.745, unsuitable for adjacent nodes"
+    }
+  },
+  "repairs": [
+    {
+      "round": 1,
+      "changes": "Clarify human-scoring coverage; pin manifest-submit and observe-evidence bottom/top, submit-observe right/left. Follow CLI supportedFix by removing observe-evidence ports after corridor diagnostic.",
+      "outcome": "0 diagnostic intermediate candidate, but manifest-submit long detour remained."
+    },
+    {
+      "round": 2,
+      "changes": "For two vertically aligned nodes 58px apart, constrain vertical relations to straight bottom/top; preserve all nodes, relationships, mainPath and semanticChecks.",
+      "outcome": "Original CLI route-preset-conflict at ev-manifest-submit; stopped without another speculative edit."
+    }
+  ],
+  "preservation": {
+    "previous_architecture_files_unchanged_before_atlas_update": true,
+    "existing_tracked_diff_unchanged_before_atlas_update": true,
+    "verification": "size/mtime baseline and git diff comparison",
+    "git_commit_or_push_performed": false
+  }
+}

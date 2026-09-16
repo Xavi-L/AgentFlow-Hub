@@ -1,0 +1,117 @@
+{
+  "diagram": "15",
+  "date": "2026-09-16",
+  "baseline_head": "8d5c388285d239f84e612b7a6cf320eca6510c14",
+  "status": "complete",
+  "artifact_validation": "passed",
+  "delivery": "passed",
+  "browser_evidence": "passed",
+  "visual_review": "passed",
+  "commands": [
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate architecture docs/architecture/15-persistence.candidate.architecture.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/15-before-external-label-clearance/15-persistence.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate architecture docs/architecture/15-persistence.candidate.architecture.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "history/15-before-legend-clarification/15-persistence.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs deliver architecture docs/architecture/15-persistence.architecture.json docs/architecture/15-persistence.html --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "history/15-before-legend-clarification/15-persistence.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/15-persistence.html --json",
+      "exit_code": 0,
+      "receipt": "history/15-before-legend-clarification/15-persistence.visual-check.command.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate architecture docs/architecture/15-persistence.candidate.architecture.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "15-persistence.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs deliver architecture docs/architecture/15-persistence.architecture.json docs/architecture/15-persistence.html --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "15-persistence.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/15-persistence.html --json",
+      "exit_code": 0,
+      "receipt": "15-persistence.visual-check.command.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate architecture docs/architecture/15-persistence.architecture.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "15-persistence.validation.json",
+      "stderr": ""
+    }
+  ],
+  "diagram_type": "architecture",
+  "correction_rounds": 1,
+  "formal_specification": "15-persistence.architecture.json",
+  "html": "15-persistence.html",
+  "specification": {
+    "sha256": "1dbf0798810e02e3de1b0de8305db3e8b5b9fd20119391eef55844c6de60a40a",
+    "bytes": 6811
+  },
+  "artifact": {
+    "sha256": "700311a5528ce605f09014fd40ca15185b8d2fd08b251e85fb6e9993f9bceae8",
+    "bytes": 816866
+  },
+  "browser_receipt": "15-persistence.visual-check.json",
+  "visual_review_receipt": "15-persistence.visual-review.json",
+  "installed_skill_changed": false,
+  "business_runtime_validation": "not_run",
+  "tests": "Current migrations, production code and focused test assertions inspected; no business tests or real provider runs executed this turn",
+  "geometry": {
+    "viewBox": [
+      1040,
+      670
+    ],
+    "logicalObjects": 12,
+    "connections": 12,
+    "properCrossings": 0,
+    "ambiguousCorridors": 0,
+    "labelRouteClearanceIssues": 0,
+    "maxBends": 0,
+    "minSegmentPx": 76,
+    "minimumProjectedNodeTextPx": 8.169230769230769
+  },
+  "repairs": [
+    {
+      "subject": [
+        "ps-document-files",
+        "ps-chunk-vectors",
+        "ps-trace-evaluation"
+      ],
+      "change": {
+        "labelDy": 24
+      },
+      "reason": "Original CLI source-node overlap, followed exact below-label suggestion.",
+      "history": "history/15-before-external-label-clearance"
+    },
+    {
+      "subject": "meta.legend.entries.database.label",
+      "change": "持久化对象",
+      "reason": "Clarify that twelve logical persistent objects are not twelve database instances/tables. Revalidated, redelivered, recollected and inspected final screenshots.",
+      "history": "history/15-before-legend-clarification"
+    }
+  ],
+  "preservation": {
+    "previous_architecture_files_unchanged_before_atlas_update": true,
+    "existing_tracked_diff_unchanged_before_atlas_update": true,
+    "verification": "size/mtime baseline and git diff comparison",
+    "git_commit_or_push_performed": false
+  }
+}

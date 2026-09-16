@@ -2,11 +2,11 @@
   "diagram": "14",
   "date": "2026-09-16",
   "baseline_head": "a0eafb22807bf085946e583e945c1ae761ee4c81",
-  "status": "incomplete",
-  "artifact_validation": "failed",
-  "delivery": "not_run",
-  "browser_evidence": "not_run",
-  "visual_review": "not_run",
+  "status": "complete",
+  "artifact_validation": "passed",
+  "delivery": "passed",
+  "browser_evidence": "passed",
+  "visual_review": "passed",
   "commands": [
     {
       "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/14-evaluation.candidate.workflow.json --quality showcase --json",
@@ -53,44 +53,55 @@
     {
       "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/14-evaluation.candidate.workflow.json --quality showcase --json",
       "exit_code": 1,
-      "receipt": "14-evaluation.candidate.validation.json",
+      "receipt": "history/14-before-label-position-20260916T140506Z-zn27jbgf/14-evaluation.candidate.validation.json",
       "stderr": ""
     },
     {
       "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/14-evaluation.candidate.workflow.json --quality showcase --layout-json",
       "exit_code": 1,
+      "receipt": "history/14-before-label-position-20260916T140506Z-zn27jbgf/14-evaluation.layout.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/14-evaluation.candidate.workflow.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "14-evaluation.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/14-evaluation.candidate.workflow.json --quality showcase --layout-json",
+      "exit_code": 0,
       "receipt": "14-evaluation.layout.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs deliver workflow docs/architecture/14-evaluation.workflow.json docs/architecture/14-evaluation.html --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "14-evaluation.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/14-evaluation.html --json",
+      "exit_code": 0,
+      "receipt": "14-evaluation.visual-check.command.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/14-evaluation.workflow.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "14-evaluation.validation.json",
       "stderr": ""
     }
   ],
   "diagram_type": "workflow",
-  "correction_rounds": 2,
+  "correction_rounds": 1,
   "candidate": "14-evaluation.candidate.workflow.json",
-  "formal_specification": null,
-  "html": null,
+  "formal_specification": "14-evaluation.workflow.json",
+  "html": "14-evaluation.html",
   "installed_skill_changed": false,
   "business_runtime_validation": "not_run",
   "tests": "Current production code and test assertions inspected; no business tests or evaluation reruns executed this turn",
-  "current_diagnostic": {
-    "code": "workflow/route-preset-conflict",
-    "subject": "ev-manifest-submit",
-    "points": [
-      [
-        317.4,
-        154
-      ],
-      [
-        317.4,
-        212
-      ]
-    ],
-    "fromSide": "bottom",
-    "toSide": "top",
-    "lengthPx": 58,
-    "requiredDirectClearancePx": 28,
-    "supportedFixes": [],
-    "predicate": "UNKNOWN: CLI does not expose the failed feasibility predicate; geometry length alone is insufficient proof of feasibility"
-  },
+  "current_diagnostic": null,
   "history": {
     "initial": {
       "directory": "history/14-before-visual-clarification",
@@ -115,6 +126,33 @@
       "browser_evidence": "not_run",
       "visual_review": "not_run",
       "geometry_assessment": "manifest-submit detours via x=1122; maxStretch=28.745, unsuitable for adjacent nodes"
+    },
+    "before_label_position": {
+      "directory": "history/14-before-label-position-20260916T140506Z-zn27jbgf",
+      "artifact_validation": "failed",
+      "delivery": "not_run",
+      "browser_evidence": "not_run",
+      "visual_review": "not_run",
+      "diagnostic": {
+        "code": "workflow/route-preset-conflict",
+        "subject": "ev-manifest-submit",
+        "points": [
+          [
+            317.4,
+            154
+          ],
+          [
+            317.4,
+            212
+          ]
+        ],
+        "fromSide": "bottom",
+        "toSide": "top",
+        "lengthPx": 58,
+        "requiredDirectClearancePx": 28,
+        "supportedFixes": [],
+        "predicate": "UNKNOWN: CLI does not expose the failed feasibility predicate; geometry length alone is insufficient proof of feasibility"
+      }
     }
   },
   "repairs": [
@@ -127,12 +165,131 @@
       "round": 2,
       "changes": "For two vertically aligned nodes 58px apart, constrain vertical relations to straight bottom/top; preserve all nodes, relationships, mainPath and semanticChecks.",
       "outcome": "Original CLI route-preset-conflict at ev-manifest-submit; stopped without another speculative edit."
+    },
+    {
+      "session": "label-position-repair",
+      "round": 1,
+      "changes": {
+        "ev-manifest-submit": {
+          "labelDy": 34
+        },
+        "ev-observe-evidence": {
+          "labelDy": 34
+        }
+      },
+      "only_two_fields_changed": true,
+      "outcome": "Original showcase validate, layout, deliver, browser and actual visual review passed; no additional candidate edits."
     }
   ],
   "preservation": {
     "previous_architecture_files_unchanged_before_atlas_update": true,
     "existing_tracked_diff_unchanged_before_atlas_update": true,
     "verification": "size/mtime baseline and git diff comparison",
-    "git_commit_or_push_performed": false
+    "git_commit_or_push_performed": false,
+    "label_repair_session": {
+      "previous_diagram_and_history_files_unchanged": true,
+      "atlas_diagrams_01_13_sections_unchanged": true,
+      "existing_business_diff_unchanged": true,
+      "git_commit_or_push_performed": false
+    }
+  },
+  "repair_baseline_head": "8d5c388285d239f84e612b7a6cf320eca6510c14",
+  "repair_package": {
+    "path": "archify14_repair",
+    "dry_run_exit_code": 0,
+    "dry_run_status": "DRY_RUN_PASS",
+    "apply_exit_code": 0,
+    "apply_status": "APPLIED_CANDIDATE_ONLY",
+    "backup": "docs/architecture/history/14-before-label-position-20260916T140506Z-zn27jbgf",
+    "source_checks": "workflow-compiler.mjs and shared/geometry.mjs HASH_MATCH",
+    "native_validation": "NOT_RUN_THIS_SCRIPT"
+  },
+  "previous_session_correction_rounds": 2,
+  "specification": {
+    "sha256": "e96d585796605c0bfe83aeccbab1909da1c8c029f0f38df35f14fe085f608c8f",
+    "bytes": 6348
+  },
+  "artifact": {
+    "sha256": "096385f8ed295692443c23f6b4d16e45362a33e34b48934aae8c9c6704905f90",
+    "bytes": 810176
+  },
+  "browser_receipt": "14-evaluation.visual-check.json",
+  "visual_review_receipt": "14-evaluation.visual-review.json",
+  "geometry_review_receipt": "14-evaluation.geometry-review.json",
+  "geometry": {
+    "viewBox": [
+      1138,
+      534
+    ],
+    "requiredViewBox": [
+      1138,
+      534
+    ],
+    "columns": [
+      119,
+      317.4,
+      506.2,
+      714.2,
+      931.8000000000001,
+      1051.8000000000002
+    ],
+    "properCrossings": 0,
+    "ambiguousCorridors": 0,
+    "labelRouteClearanceIssues": 0,
+    "minimumProjectedNodeTextPx": 8,
+    "edges": [
+      {
+        "id": "ev-manifest-submit",
+        "points": [
+          [
+            317.4,
+            154
+          ],
+          [
+            317.4,
+            212
+          ]
+        ],
+        "label": "先记意图",
+        "labelBaseline": [
+          317.4,
+          178
+        ],
+        "labelRect": {
+          "x": 293.2,
+          "y": 168,
+          "width": 48.4,
+          "height": 14
+        },
+        "sourceNodeGapPx": 14,
+        "targetNodeGapPx": 30
+      },
+      {
+        "id": "ev-observe-evidence",
+        "points": [
+          [
+            506.2,
+            280
+          ],
+          [
+            506.2,
+            338
+          ]
+        ],
+        "label": "持久取证",
+        "labelBaseline": [
+          506.2,
+          304
+        ],
+        "labelRect": {
+          "x": 482.0,
+          "y": 294,
+          "width": 48.4,
+          "height": 14
+        },
+        "sourceNodeGapPx": 14,
+        "targetNodeGapPx": 30
+      }
+    ]
   }
 }
