@@ -1,0 +1,29 @@
+{
+  "diagram": "13",
+  "status": "passed",
+  "artifact": {
+    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/13-config-version.html",
+    "sha256": "c83ad81ff2443df3d07820d1e91db1a3de7a2e479dc2391969217418793aafb1",
+    "bytes": 805957
+  },
+  "reviewer": "Codex image-capable reviewer",
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "correction_rounds": 1,
+  "screenshots_inspected": [
+    "13-config-version.visual-check.1440x900.light.png",
+    "13-config-version.visual-check.1440x900.dark.png",
+    "13-config-version.visual-check.2048x1320.light.png",
+    "13-config-version.visual-check.2048x1320.dark.png"
+  ],
+  "observations": [
+    "实际打开1440×900与2048×1320的light/dark四张最终截图。",
+    "可变草稿、不可变版本、Task执行快照三对象清楚分开；左到右主数据流清晰。",
+    "新请求向上选择版本与当前依赖向下输入各自独立；当前依赖标签处于节点间隙，无覆盖。",
+    "三个支持卡完整显示先回读、两种哈希、显式与null身份及历史未知边界。",
+    "各主题节点/关系文字可读；图例和底部工具栏不遮挡数据流，最大视口整体高度与卡片适配。"
+  ],
+  "scope": "READ/Still截图复核；未另行执行导出、搜索、focus或passport交互测试。原版browser回执的visualReview保持pending。"
+}

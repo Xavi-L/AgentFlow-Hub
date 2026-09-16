@@ -1,0 +1,23 @@
+{
+  "command": [
+    "/Users/xavier/.local/state/fnm_multishells/92919_1789555560729/bin/node",
+    "/Users/xavier/AgentFlow-Hub/.agents/skills/archify/bin/archify.mjs",
+    "validate",
+    "workflow",
+    "/Users/xavier/AgentFlow-Hub/docs/architecture/11-restart-recovery.candidate.workflow.json",
+    "--quality",
+    "showcase",
+    "--json"
+  ],
+  "cwd": "/Users/xavier/AgentFlow-Hub",
+  "exitCode": 1,
+  "timedOut": false,
+  "stdout": "original.stdout.txt",
+  "stderr": "original.stderr.txt",
+  "parsedReceipt": "original.receipt.json",
+  "diagnosticCodes": [
+    "internal/unclassified"
+  ],
+  "receiptOk": false,
+  "stage": "render"
+}

@@ -1,0 +1,343 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "12 · SSE、Trace 与浏览器观察",
+    "output": "docs/architecture/12-sse-observation.html",
+    "locale": "zh-CN",
+    "viewBox": [
+      1240,
+      980
+    ],
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "views": [
+      {
+        "id": "restore",
+        "label": "刷新恢复",
+        "focus": [
+          "browser",
+          "rest",
+          "trace",
+          "store"
+        ],
+        "note": "完整 Trace 校验成功后重建 UI 和已处理游标；不创建任务。"
+      },
+      {
+        "id": "reconnect",
+        "label": "断线重连",
+        "focus": [
+          "browser",
+          "sse",
+          "store",
+          "runtime"
+        ],
+        "note": "断线清理连接；Runtime 继续执行。重连补读同一任务的持久事件。"
+      },
+      {
+        "id": "settle",
+        "label": "终态核对",
+        "focus": [
+          "browser",
+          "rest",
+          "trace",
+          "store"
+        ],
+        "note": "终态事件只是信号；GET Task 与 Trace 一致后才确认最终答案。"
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "browser",
+      "type": "external",
+      "label": "Browser / Vue"
+    },
+    {
+      "id": "rest",
+      "type": "backend",
+      "label": "Task REST"
+    },
+    {
+      "id": "trace",
+      "type": "backend",
+      "label": "Trace Query"
+    },
+    {
+      "id": "sse",
+      "type": "backend",
+      "label": "SSE Endpoint"
+    },
+    {
+      "id": "store",
+      "type": "database",
+      "label": "Task / Events"
+    },
+    {
+      "id": "runtime",
+      "type": "backend",
+      "label": "Runtime"
+    }
+  ],
+  "segments": [
+    {
+      "from": 145,
+      "to": 332,
+      "label": "刷新恢复 · Trace → UI / cursor"
+    },
+    {
+      "from": 340,
+      "to": 612,
+      "label": "连接 / 断线 / 重连 · 持久事件补读"
+    },
+    {
+      "from": 620,
+      "to": 901,
+      "label": "终态观察 · GET Task + Trace 核对"
+    }
+  ],
+  "messages": [
+    {
+      "from": "runtime",
+      "to": "store",
+      "y": 160,
+      "label": "后台已运行：提交事件",
+      "variant": "emphasis",
+      "id": "obs-01"
+    },
+    {
+      "from": "browser",
+      "to": "rest",
+      "y": 188,
+      "label": "打开 / 刷新：GET trace",
+      "variant": "emphasis",
+      "id": "obs-02"
+    },
+    {
+      "from": "rest",
+      "to": "trace",
+      "y": 216,
+      "label": "owner 范围查询",
+      "variant": "default",
+      "id": "obs-03"
+    },
+    {
+      "from": "trace",
+      "to": "store",
+      "y": 244,
+      "label": "只读快照：Task / Trace / Events",
+      "variant": "default",
+      "id": "obs-04"
+    },
+    {
+      "from": "store",
+      "to": "trace",
+      "y": 272,
+      "label": "已提交的完整快照",
+      "variant": "return",
+      "id": "obs-05"
+    },
+    {
+      "from": "trace",
+      "to": "rest",
+      "y": 300,
+      "label": "安全投影 Trace",
+      "variant": "return",
+      "id": "obs-06"
+    },
+    {
+      "from": "rest",
+      "to": "browser",
+      "y": 328,
+      "label": "重建 UI 与已处理游标",
+      "variant": "return",
+      "id": "obs-07"
+    },
+    {
+      "from": "browser",
+      "to": "sse",
+      "y": 356,
+      "label": "GET events · Last-Event-ID",
+      "variant": "emphasis",
+      "id": "obs-08"
+    },
+    {
+      "from": "sse",
+      "to": "store",
+      "y": 384,
+      "label": "owner 校验 + watermark 内分页",
+      "variant": "default",
+      "id": "obs-09"
+    },
+    {
+      "from": "store",
+      "to": "sse",
+      "y": 412,
+      "label": "连续持久事件",
+      "variant": "return",
+      "id": "obs-10"
+    },
+    {
+      "from": "sse",
+      "to": "browser",
+      "y": 440,
+      "label": "id / event / data · 处理后推进游标",
+      "variant": "return",
+      "id": "obs-11"
+    },
+    {
+      "from": "browser",
+      "to": "sse",
+      "y": 468,
+      "label": "断线 / Abort：仅释放连接",
+      "variant": "dashed",
+      "id": "obs-12"
+    },
+    {
+      "from": "runtime",
+      "to": "store",
+      "y": 496,
+      "label": "浏览器离线，执行仍继续",
+      "variant": "emphasis",
+      "id": "obs-13"
+    },
+    {
+      "from": "browser",
+      "to": "sse",
+      "y": 524,
+      "label": "有界重连 · 同一 task + 已处理游标",
+      "variant": "emphasis",
+      "id": "obs-14"
+    },
+    {
+      "from": "sse",
+      "to": "store",
+      "y": 552,
+      "label": "补读 after cursor",
+      "variant": "default",
+      "id": "obs-15"
+    },
+    {
+      "from": "store",
+      "to": "sse",
+      "y": 580,
+      "label": "未观察的持久事件",
+      "variant": "return",
+      "id": "obs-16"
+    },
+    {
+      "from": "sse",
+      "to": "browser",
+      "y": 608,
+      "label": "重放：去重，缺口则停止",
+      "variant": "return",
+      "id": "obs-17"
+    },
+    {
+      "from": "runtime",
+      "to": "store",
+      "y": 636,
+      "label": "终态 / 答案 / 终态事件落库",
+      "variant": "emphasis",
+      "id": "obs-18"
+    },
+    {
+      "from": "sse",
+      "to": "store",
+      "y": 664,
+      "label": "轮询终态 watermark",
+      "variant": "default",
+      "id": "obs-19"
+    },
+    {
+      "from": "store",
+      "to": "sse",
+      "y": 692,
+      "label": "终态批次",
+      "variant": "return",
+      "id": "obs-20"
+    },
+    {
+      "from": "sse",
+      "to": "browser",
+      "y": 720,
+      "label": "终态事件：开始最终核对",
+      "variant": "return",
+      "id": "obs-21"
+    },
+    {
+      "from": "browser",
+      "to": "rest",
+      "y": 748,
+      "label": "GET task：查询持久终态",
+      "variant": "emphasis",
+      "id": "obs-22"
+    },
+    {
+      "from": "rest",
+      "to": "store",
+      "y": 776,
+      "label": "owner 范围任务查询",
+      "variant": "default",
+      "id": "obs-23"
+    },
+    {
+      "from": "store",
+      "to": "rest",
+      "y": 804,
+      "label": "终态、答案、引用与 watermark",
+      "variant": "return",
+      "id": "obs-24"
+    },
+    {
+      "from": "rest",
+      "to": "browser",
+      "y": 832,
+      "label": "Task 详情",
+      "variant": "return",
+      "id": "obs-25"
+    },
+    {
+      "from": "browser",
+      "to": "rest",
+      "y": 860,
+      "label": "再次 GET trace · 复用上方只读链路",
+      "variant": "default",
+      "id": "obs-26"
+    },
+    {
+      "from": "rest",
+      "to": "browser",
+      "y": 888,
+      "label": "GET / Trace 一致后显示最终结果",
+      "variant": "return",
+      "id": "obs-27"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "连接与执行解耦",
+      "items": [
+        "断线 ≠ 取消；重连 ≠ 重启；刷新 ≠ 重执行。",
+        "取消仅来自显式 POST cancel；观察链路不调用 Runner。"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "已处理游标是恢复基点",
+      "items": [
+        "事件写库后由 SSE 分页轮询；成功应用才推进游标。",
+        "重试有预算；重复忽略，缺口 / 协议错误停止，禁止跳号。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "最终答案有一致性门槛",
+      "items": [
+        "终态后 GET Task + Trace 核对状态、watermark、答案和引用。",
+        "Trace 页面仅查询；本图为代码 / 测试断言证据，非实机验收。"
+      ]
+    }
+  ]
+}

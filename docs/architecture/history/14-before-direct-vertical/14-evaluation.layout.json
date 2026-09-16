@@ -1,0 +1,327 @@
+{
+  "contract": "readable-v2",
+  "viewBox": [
+    1138,
+    534
+  ],
+  "requiredViewBox": [
+    1138,
+    534
+  ],
+  "columns": [
+    119,
+    317.4,
+    506.2,
+    714.2,
+    931.8000000000001,
+    1051.8000000000002
+  ],
+  "nodes": [
+    {
+      "id": "ev-plan",
+      "lane": "plan",
+      "col": 0,
+      "x": 48,
+      "y": 86,
+      "width": 142,
+      "height": 68
+    },
+    {
+      "id": "ev-manifest",
+      "lane": "plan",
+      "col": 1,
+      "x": 246.39999999999998,
+      "y": 86,
+      "width": 142,
+      "height": 68
+    },
+    {
+      "id": "ev-submit",
+      "lane": "execute",
+      "col": 1,
+      "x": 246.39999999999998,
+      "y": 212,
+      "width": 142,
+      "height": 68
+    },
+    {
+      "id": "ev-observe",
+      "lane": "execute",
+      "col": 2,
+      "x": 435.2,
+      "y": 212,
+      "width": 142,
+      "height": 68
+    },
+    {
+      "id": "ev-episode",
+      "lane": "execute",
+      "col": 3,
+      "x": 643.2,
+      "y": 212,
+      "width": 142,
+      "height": 68
+    },
+    {
+      "id": "ev-other",
+      "lane": "execute",
+      "col": 4,
+      "x": 860.8000000000001,
+      "y": 212,
+      "width": 142,
+      "height": 68
+    },
+    {
+      "id": "ev-evidence",
+      "lane": "analysis",
+      "col": 2,
+      "x": 435.2,
+      "y": 338,
+      "width": 142,
+      "height": 68
+    },
+    {
+      "id": "ev-report",
+      "lane": "analysis",
+      "col": 3,
+      "x": 643.2,
+      "y": 338,
+      "width": 142,
+      "height": 68
+    },
+    {
+      "id": "ev-compare",
+      "lane": "analysis",
+      "col": 4,
+      "x": 860.8000000000001,
+      "y": 338,
+      "width": 142,
+      "height": 68
+    }
+  ],
+  "edges": [
+    {
+      "id": "ev-evidence-report",
+      "from": "ev-evidence",
+      "to": "ev-report",
+      "points": [
+        [
+          577.2,
+          372
+        ],
+        [
+          643.2,
+          372
+        ]
+      ]
+    },
+    {
+      "id": "ev-manifest-submit",
+      "from": "ev-manifest",
+      "to": "ev-submit",
+      "points": [
+        [
+          317.4,
+          154
+        ],
+        [
+          317.4,
+          170
+        ],
+        [
+          1122,
+          170
+        ],
+        [
+          1122,
+          196
+        ],
+        [
+          317.4,
+          196
+        ],
+        [
+          317.4,
+          212
+        ]
+      ]
+    },
+    {
+      "id": "ev-observe-episode",
+      "from": "ev-observe",
+      "to": "ev-episode",
+      "points": [
+        [
+          577.2,
+          246
+        ],
+        [
+          643.2,
+          246
+        ]
+      ]
+    },
+    {
+      "id": "ev-observe-evidence",
+      "from": "ev-observe",
+      "to": "ev-evidence",
+      "points": [
+        [
+          435.2,
+          246
+        ],
+        [
+          419.2,
+          246
+        ],
+        [
+          419.2,
+          426
+        ],
+        [
+          506.2,
+          426
+        ],
+        [
+          506.2,
+          406
+        ]
+      ]
+    },
+    {
+      "id": "ev-other-compare",
+      "from": "ev-other",
+      "to": "ev-compare",
+      "points": [
+        [
+          1002.8000000000001,
+          246
+        ],
+        [
+          1122,
+          246
+        ],
+        [
+          1122,
+          372
+        ],
+        [
+          1002.8000000000001,
+          372
+        ]
+      ]
+    },
+    {
+      "id": "ev-plan-manifest",
+      "from": "ev-plan",
+      "to": "ev-manifest",
+      "points": [
+        [
+          190,
+          120
+        ],
+        [
+          246.39999999999998,
+          120
+        ]
+      ]
+    },
+    {
+      "id": "ev-report-compare",
+      "from": "ev-report",
+      "to": "ev-compare",
+      "points": [
+        [
+          785.2,
+          372
+        ],
+        [
+          860.8000000000001,
+          372
+        ]
+      ]
+    },
+    {
+      "id": "ev-submit-observe",
+      "from": "ev-submit",
+      "to": "ev-observe",
+      "points": [
+        [
+          388.4,
+          246
+        ],
+        [
+          435.2,
+          246
+        ]
+      ]
+    }
+  ],
+  "labels": [
+    {
+      "edge": "ev-evidence-report",
+      "label": "校验并汇总",
+      "x": 610.2,
+      "y": 362,
+      "width": 58,
+      "height": 14
+    },
+    {
+      "edge": "ev-manifest-submit",
+      "label": "先记意图",
+      "x": 719.7,
+      "y": 160,
+      "width": 48.4,
+      "height": 14
+    },
+    {
+      "edge": "ev-observe-episode",
+      "label": "另行导出",
+      "x": 610.2,
+      "y": 236,
+      "width": 48.4,
+      "height": 14
+    },
+    {
+      "edge": "ev-observe-evidence",
+      "label": "持久取证",
+      "x": 462.7,
+      "y": 416,
+      "width": 48.4,
+      "height": 14
+    },
+    {
+      "edge": "ev-other-compare",
+      "label": "另一报告",
+      "x": 1062.4,
+      "y": 236,
+      "width": 48.4,
+      "height": 14
+    },
+    {
+      "edge": "ev-plan-manifest",
+      "label": "只读预检",
+      "x": 218.2,
+      "y": 110,
+      "width": 48.4,
+      "height": 14
+    },
+    {
+      "edge": "ev-report-compare",
+      "label": "显式 compare",
+      "x": 823,
+      "y": 362,
+      "width": 67.6,
+      "height": 14
+    },
+    {
+      "edge": "ev-submit-observe",
+      "label": "taskId",
+      "x": 411.79999999999995,
+      "y": 236,
+      "width": 38.8,
+      "height": 14
+    }
+  ],
+  "diagnostics": []
+}

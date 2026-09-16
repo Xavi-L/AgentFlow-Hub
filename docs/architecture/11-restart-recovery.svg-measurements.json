@@ -1,0 +1,161 @@
+{
+  "evidenceKind": "supplementary-delivered-svg-extraction",
+  "viewBox": "0 0 986 534",
+  "nodes": [
+    {
+      "id": "rr-start",
+      "texts": [
+        {
+          "text": "JVM 启动",
+          "fontSize": "11"
+        },
+        {
+          "text": "准入初始关闭",
+          "fontSize": "8"
+        }
+      ]
+    },
+    {
+      "id": "rr-lock",
+      "texts": [
+        {
+          "text": "进程锁与迁移",
+          "fontSize": "11"
+        },
+        {
+          "text": "先取锁·再Flyway",
+          "fontSize": "8"
+        }
+      ]
+    },
+    {
+      "id": "rr-mode",
+      "texts": [
+        {
+          "text": "启动恢复分流",
+          "fontSize": "11"
+        },
+        {
+          "text": "仅运行一次",
+          "fontSize": "8"
+        }
+      ]
+    },
+    {
+      "id": "rr-ready",
+      "texts": [
+        {
+          "text": "开放任务准入",
+          "fontSize": "11"
+        },
+        {
+          "text": "READY · health UP",
+          "fontSize": "8"
+        }
+      ]
+    },
+    {
+      "id": "rr-halt",
+      "texts": [
+        {
+          "text": "启动拒绝",
+          "fontSize": "11"
+        },
+        {
+          "text": "锁或迁移失败",
+          "fontSize": "8"
+        }
+      ]
+    },
+    {
+      "id": "rr-disabled",
+      "texts": [
+        {
+          "text": "只读检查",
+          "fontSize": "11"
+        },
+        {
+          "text": "DISABLED",
+          "fontSize": "8"
+        }
+      ]
+    },
+    {
+      "id": "rr-controlled",
+      "texts": [
+        {
+          "text": "扫描并逐项收尾",
+          "fontSize": "11"
+        },
+        {
+          "text": "分页·单任务短事务",
+          "fontSize": "8"
+        }
+      ]
+    },
+    {
+      "id": "rr-final",
+      "texts": [
+        {
+          "text": "清零与持锁确认",
+          "fontSize": "11"
+        },
+        {
+          "text": "受控模式末次复查",
+          "fontSize": "8"
+        }
+      ]
+    },
+    {
+      "id": "rr-closed",
+      "texts": [
+        {
+          "text": "保持准入关闭",
+          "fontSize": "11"
+        },
+        {
+          "text": "诊断 · health DOWN",
+          "fontSize": "8"
+        }
+      ]
+    }
+  ],
+  "frames": [
+    {
+      "data-graph-role": "structural-frame",
+      "data-composition-frame-kind": "lane",
+      "data-composition-frame-id": "lane-0",
+      "x": "40",
+      "y": "52",
+      "width": "930",
+      "height": "106",
+      "rx": "10",
+      "class": "c-lane",
+      "stroke-width": "1"
+    },
+    {
+      "data-graph-role": "structural-frame",
+      "data-composition-frame-kind": "lane",
+      "data-composition-frame-id": "lane-1",
+      "x": "40",
+      "y": "178",
+      "width": "930",
+      "height": "106",
+      "rx": "10",
+      "class": "c-lane",
+      "stroke-width": "1"
+    },
+    {
+      "data-graph-role": "structural-frame",
+      "data-composition-frame-kind": "lane",
+      "data-composition-frame-id": "lane-2",
+      "x": "40",
+      "y": "304",
+      "width": "930",
+      "height": "106",
+      "rx": "10",
+      "class": "c-lane",
+      "stroke-width": "1"
+    }
+  ]
+}

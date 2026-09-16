@@ -1,0 +1,74 @@
+{
+  "evidenceKind": "native-cli-comparison-with-temporary-diagnostic-only-patch",
+  "createdAtUtc": "2026-09-16T11:19:12.669464+00:00",
+  "upstreamSourceRefReviewed": "64b1ba0c1ee40c3da4d1d11d03ed353cccffdf2e",
+  "candidate": {
+    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/11-restart-recovery.candidate.workflow.json",
+    "gitBlob": "9ccc38be36f5aa672761f851b92e772258ce4f81",
+    "sha256": "5df03ac61ad9a2c64e493a2c62e7197d0016d133118f524e560b4e31b3a10435"
+  },
+  "installedCompiler": {
+    "path": "/Users/xavier/AgentFlow-Hub/.agents/skills/archify/renderers/workflow/workflow-compiler.mjs",
+    "gitBlob": "81ba79a14895072643ea680b6eb304c45b0b8e29",
+    "sha256": "06dc97f67041037d71fd8731934d4833ece95ac1a4278e3ef875b0e51e516104"
+  },
+  "patch": {
+    "scope": "Materialize raw candidate points at diagnostic handoff only",
+    "temporaryCompilerSha256": "9dff6991f5ef9300d58aa30dd925b4268f36a82f51d4d96edaadb830564bae10"
+  },
+  "status": "structured_diagnostics_recovered_NOT_layout_passed",
+  "installedCompilerUnchanged": true,
+  "candidateUnchanged": true,
+  "temporaryCopyRemoved": true,
+  "formalDelivery": "NOT_RUN",
+  "browserEvidence": "NOT_RUN",
+  "visualReview": "NOT_RUN",
+  "updatesAtlas": false,
+  "pushesToGitHub": false,
+  "original": {
+    "command": [
+      "/Users/xavier/.local/state/fnm_multishells/92919_1789555560729/bin/node",
+      "/Users/xavier/AgentFlow-Hub/.agents/skills/archify/bin/archify.mjs",
+      "validate",
+      "workflow",
+      "/Users/xavier/AgentFlow-Hub/docs/architecture/11-restart-recovery.candidate.workflow.json",
+      "--quality",
+      "showcase",
+      "--json"
+    ],
+    "cwd": "/Users/xavier/AgentFlow-Hub",
+    "exitCode": 1,
+    "timedOut": false,
+    "stdout": "original.stdout.txt",
+    "stderr": "original.stderr.txt",
+    "parsedReceipt": "original.receipt.json",
+    "diagnosticCodes": [
+      "internal/unclassified"
+    ],
+    "receiptOk": false,
+    "stage": "render"
+  },
+  "patchedTemporaryCopy": {
+    "command": [
+      "/Users/xavier/.local/state/fnm_multishells/92919_1789555560729/bin/node",
+      "/var/folders/rk/2gmg78l55dl2m5ld98kpb3100000gn/T/archify11-skill-copy-07ujspya/archify/bin/archify.mjs",
+      "validate",
+      "workflow",
+      "/Users/xavier/AgentFlow-Hub/docs/architecture/11-restart-recovery.candidate.workflow.json",
+      "--quality",
+      "showcase",
+      "--json"
+    ],
+    "cwd": "/Users/xavier/AgentFlow-Hub",
+    "exitCode": 1,
+    "timedOut": false,
+    "stdout": "temporary-copy.stdout.txt",
+    "stderr": "temporary-copy.stderr.txt",
+    "parsedReceipt": "temporary-copy.receipt.json",
+    "diagnosticCodes": [
+      "workflow/explicit-pin-conflict"
+    ],
+    "receiptOk": false,
+    "stage": "render"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "validate",
+  "stage": "render",
+  "type": "sequence",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/12-sse-observation.candidate.sequence.json",
+  "error": "Sequence layout validation failed:\n- Message \"GET / Trace 一致后显示最终结果\" sits outside the readable timeline — keep y between 160 and 873.",
+  "diagnostics": [
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Message \"GET / Trace 一致后显示最终结果\" sits outside the readable timeline — keep y between 160 and 873.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    }
+  ]
+}

@@ -1,0 +1,277 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "14 · Evaluation 运行、证据与比较",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "plan",
+      "label": "固定配置与运行计划"
+    },
+    {
+      "id": "execute",
+      "label": "普通 Task API / 只读观察"
+    },
+    {
+      "id": "analysis",
+      "label": "本地证据 / 离线分析"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "ev-plan",
+      "lane": "plan",
+      "col": 0,
+      "type": "external",
+      "label": "固定计划与配置",
+      "sublabel": "suite / 版本 / 材料",
+      "width": 142,
+      "height": 68
+    },
+    {
+      "id": "ev-manifest",
+      "lane": "plan",
+      "col": 1,
+      "type": "database",
+      "label": "先保存完整计划",
+      "sublabel": "manifest + journal",
+      "width": 142,
+      "height": 68
+    },
+    {
+      "id": "ev-submit",
+      "lane": "execute",
+      "col": 1,
+      "type": "backend",
+      "label": "按原请求提交",
+      "sublabel": "key + 显式版本 ID",
+      "width": 142,
+      "height": 68
+    },
+    {
+      "id": "ev-observe",
+      "lane": "execute",
+      "col": 2,
+      "type": "backend",
+      "label": "关联并观察 Task",
+      "sublabel": "GET Task + Trace",
+      "width": 142,
+      "height": 68
+    },
+    {
+      "id": "ev-episode",
+      "lane": "execute",
+      "col": 3,
+      "type": "backend",
+      "label": "终态 Episode 导出",
+      "sublabel": "只读 GET / 内容哈希",
+      "width": 142,
+      "height": 68
+    },
+    {
+      "id": "ev-other",
+      "lane": "execute",
+      "col": 4,
+      "type": "external",
+      "label": "另一份指定报告",
+      "sublabel": "显式 left / right",
+      "width": 142,
+      "height": 68
+    },
+    {
+      "id": "ev-evidence",
+      "lane": "analysis",
+      "col": 2,
+      "type": "database",
+      "label": "保存实际证据",
+      "sublabel": "Task / Trace / 协调记录",
+      "width": 142,
+      "height": 68
+    },
+    {
+      "id": "ev-report",
+      "lane": "analysis",
+      "col": 3,
+      "type": "backend",
+      "label": "离线报告与评分",
+      "sublabel": "规则 + 人工判定记录",
+      "width": 142,
+      "height": 68
+    },
+    {
+      "id": "ev-compare",
+      "lane": "analysis",
+      "col": 4,
+      "type": "security",
+      "label": "严格比较门禁",
+      "sublabel": "核对覆盖与声明差异",
+      "width": 142,
+      "height": 68
+    }
+  ],
+  "edges": [
+    {
+      "id": "ev-plan-manifest",
+      "from": "ev-plan",
+      "to": "ev-manifest",
+      "label": "只读预检",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "ev-manifest-submit",
+      "from": "ev-manifest",
+      "to": "ev-submit",
+      "label": "先记意图",
+      "role": "main",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "ev-submit-observe",
+      "from": "ev-submit",
+      "to": "ev-observe",
+      "label": "taskId",
+      "role": "main",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "ev-observe-evidence",
+      "from": "ev-observe",
+      "to": "ev-evidence",
+      "label": "持久取证",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "ev-evidence-report",
+      "from": "ev-evidence",
+      "to": "ev-report",
+      "label": "校验并汇总",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "ev-observe-episode",
+      "from": "ev-observe",
+      "to": "ev-episode",
+      "label": "另行导出",
+      "role": "branch",
+      "variant": "default"
+    },
+    {
+      "id": "ev-report-compare",
+      "from": "ev-report",
+      "to": "ev-compare",
+      "label": "显式 compare",
+      "role": "branch",
+      "variant": "default"
+    },
+    {
+      "id": "ev-other-compare",
+      "from": "ev-other",
+      "to": "ev-compare",
+      "label": "另一报告",
+      "role": "branch",
+      "variant": "default"
+    }
+  ],
+  "mainPath": [
+    "ev-plan",
+    "ev-manifest",
+    "ev-submit",
+    "ev-observe",
+    "ev-evidence",
+    "ev-report"
+  ],
+  "semanticChecks": {
+    "allowedRoots": [
+      "ev-plan",
+      "ev-other"
+    ],
+    "allowedTerminals": [
+      "ev-episode",
+      "ev-compare"
+    ],
+    "requiredEdges": [
+      {
+        "from": "ev-plan",
+        "to": "ev-manifest"
+      },
+      {
+        "from": "ev-manifest",
+        "to": "ev-submit"
+      },
+      {
+        "from": "ev-submit",
+        "to": "ev-observe"
+      },
+      {
+        "from": "ev-observe",
+        "to": "ev-evidence"
+      },
+      {
+        "from": "ev-evidence",
+        "to": "ev-report"
+      },
+      {
+        "from": "ev-observe",
+        "to": "ev-episode"
+      },
+      {
+        "from": "ev-report",
+        "to": "ev-compare"
+      },
+      {
+        "from": "ev-other",
+        "to": "ev-compare"
+      }
+    ],
+    "requiredPaths": [
+      {
+        "from": "ev-plan",
+        "to": "ev-report"
+      },
+      {
+        "from": "ev-observe",
+        "to": "ev-episode"
+      },
+      {
+        "from": "ev-report",
+        "to": "ev-compare"
+      }
+    ]
+  },
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "配置、Task、运行是三种身份",
+      "items": [
+        "配置：版本 ID / configHash；Task：taskId / 实际快照 / 有效哈希。",
+        "运行：runId / manifestHash / case + trial / 原请求 key；计划先于 POST。"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "恢复有界，缺失不冒充通过",
+      "items": [
+        "未知提交复用原请求与 key，追加核对最多3次；已关联只观察，不重跑。",
+        "judge 追加人工判定；缺评仍未评，失败、拒绝与未执行项保留分母。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "只读分析不等于质量提升",
+      "items": [
+        "report / compare / Episode 不新增模型或工具调用；比较缺条件则 NOT_COMPARABLE。",
+        "既有真实12例已终态；人工评分覆盖0/11，B15未完成。无 Evaluation UI / DB 平台。"
+      ]
+    }
+  ]
+}

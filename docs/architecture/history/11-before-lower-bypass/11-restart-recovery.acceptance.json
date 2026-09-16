@@ -1,0 +1,92 @@
+{
+  "diagram": "11",
+  "date": "2026-09-16",
+  "baseline_head": "7e1e8bb7c2ae55b44726b410fb2546cb64d4a401",
+  "status": "incomplete",
+  "artifact_validation": "failed",
+  "browser_evidence": "not_run",
+  "visual_review": "not_run",
+  "commands": [
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/11-restart-recovery.candidate.workflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/11-before-ready-straight/11-restart-recovery.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/11-restart-recovery.candidate.workflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/11-before-disabled-channel/11-restart-recovery.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/11-restart-recovery.candidate.workflow.json --quality showcase --layout-json",
+      "exit_code": 1,
+      "receipt": "history/11-before-disabled-channel/11-restart-recovery.layout.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/11-restart-recovery.candidate.workflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/11-before-coordinated-failure-route/11-restart-recovery.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/11-restart-recovery.candidate.workflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/11-before-coordinated-failure-route/11-restart-recovery.handoff.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/11-restart-recovery.candidate.workflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "11-restart-recovery.candidate.validation.json",
+      "stderr": ""
+    }
+  ],
+  "repairs": [
+    {
+      "subject": "rr-ready-edge",
+      "change": {
+        "route": "straight"
+      },
+      "reason": "Separate ready path from diagnosed unrelated scan-fail corridor."
+    },
+    {
+      "subject": "rr-disabled-clear",
+      "change": {
+        "channelY": 322
+      },
+      "reason": "Measured shared horizontal corridor y312; separate bypass below existing corridor while remaining above failure nodes."
+    },
+    {
+      "subjects": [
+        "rr-disabled-clear",
+        "rr-scan-fail"
+      ],
+      "diagnostic": "history/11-diagnostic-handoff-run1/temporary-copy.receipt.json",
+      "changes": "Remove failed channelY322; straight bottom-to-top failure edge with label in inter-lane gap.",
+      "basis": "Both failure nodes have col3; restored diagnostic identifies their crossing with disabled bypass."
+    }
+  ],
+  "delivery": "not_run",
+  "diagram_type": "workflow",
+  "formal_specification": null,
+  "html": null,
+  "stop_reason": "Two focused repairs did not improve best diagnostic count of one; latest internal TypeError precedes full artifact/composition checks.",
+  "compiler_diagnostic": "11-restart-recovery.compiler-diagnostic.json",
+  "current_diagnostics": [
+    {
+      "code": "internal/unclassified",
+      "severity": "error",
+      "message": "Cannot read properties of undefined (reading 'length')",
+      "subject": {
+        "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/11-restart-recovery.candidate.workflow.json"
+      },
+      "evidence": {
+        "errorName": "TypeError"
+      },
+      "supportedFixes": []
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "workflow",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/11-restart-recovery.workflow.json",
+  "output": "/Users/xavier/AgentFlow-Hub/docs/architecture/11-restart-recovery.html",
+  "specification": {
+    "sha256": "b88ec2339ce18765eb9e25a4f40aba9715360cf3d818242bda41a14f2de96eba",
+    "bytes": 7015
+  },
+  "artifact": {
+    "sha256": "bb278b174d70dadb06febb3f80f0c5cbfee0bc2e6d665319902695aaf41c1cd6",
+    "bytes": 812358
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

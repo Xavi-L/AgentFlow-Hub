@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "validate",
+  "stage": "render",
+  "type": "workflow",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/11-restart-recovery.candidate.workflow.json",
+  "error": "Cannot read properties of undefined (reading 'length')",
+  "diagnostics": [
+    {
+      "code": "internal/unclassified",
+      "severity": "error",
+      "message": "Cannot read properties of undefined (reading 'length')",
+      "subject": {
+        "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/11-restart-recovery.candidate.workflow.json"
+      },
+      "evidence": {
+        "errorName": "TypeError"
+      },
+      "supportedFixes": []
+    }
+  ]
+}

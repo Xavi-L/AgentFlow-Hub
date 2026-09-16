@@ -2,10 +2,10 @@
   "diagram": "11",
   "date": "2026-09-16",
   "baseline_head": "7e1e8bb7c2ae55b44726b410fb2546cb64d4a401",
-  "status": "complete",
-  "artifact_validation": "passed",
-  "browser_evidence": "passed",
-  "visual_review": "passed",
+  "status": "incomplete",
+  "artifact_validation": "failed",
+  "browser_evidence": "not_run",
+  "visual_review": "not_run",
   "commands": [
     {
       "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/11-restart-recovery.candidate.workflow.json --quality showcase --json",
@@ -46,37 +46,7 @@
     {
       "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/11-restart-recovery.candidate.workflow.json --quality showcase --json",
       "exit_code": 1,
-      "receipt": "history/11-before-disabled-closed-elbow/11-restart-recovery.candidate.validation.json",
-      "stderr": ""
-    },
-    {
-      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/11-restart-recovery.candidate.workflow.json --quality showcase --json",
-      "exit_code": 0,
       "receipt": "11-restart-recovery.candidate.validation.json",
-      "stderr": ""
-    },
-    {
-      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/11-restart-recovery.candidate.workflow.json --quality showcase --layout-json",
-      "exit_code": 0,
-      "receipt": "11-restart-recovery.layout.json",
-      "stderr": ""
-    },
-    {
-      "command": "node .agents/skills/archify/bin/archify.mjs deliver workflow docs/architecture/11-restart-recovery.workflow.json docs/architecture/11-restart-recovery.html --quality showcase --json",
-      "exit_code": 0,
-      "receipt": "11-restart-recovery.delivery.json",
-      "stderr": ""
-    },
-    {
-      "command": "node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/11-restart-recovery.html --json",
-      "exit_code": 0,
-      "receipt": "11-restart-recovery.visual-check.json",
-      "stderr": ""
-    },
-    {
-      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/11-restart-recovery.workflow.json --quality showcase --json",
-      "exit_code": 0,
-      "receipt": "11-restart-recovery.validation.json",
       "stderr": ""
     }
   ],
@@ -113,51 +83,26 @@
         "channelY": 438
       },
       "basis": "Original straight failure route materializes x607.2 y280..338; move disabled bypass below closed node bottom406 with 32px clearance, rather than through vertical failure route."
-    },
-    {
-      "subject": "rr-disabled-closed",
-      "basis": "Read-only actual rr-scan-fail label rectangle [563.8,299,86.8,14] only3px from this edge horizontal y296; same segment crosses intended failure route.",
-      "changes": {
-        "fromSide": "bottom",
-        "toSide": "left",
-        "via": [
-          [
-            471.2,
-            372
-          ]
-        ],
-        "labelAt": [
-          422,
-          328
-        ]
-      }
     }
   ],
-  "delivery": "passed",
+  "delivery": "not_run",
   "diagram_type": "workflow",
-  "formal_specification": "11-restart-recovery.workflow.json",
-  "html": "11-restart-recovery.html",
+  "formal_specification": null,
+  "html": null,
+  "stop_reason": "Two focused repairs did not improve best diagnostic count of one; latest internal TypeError precedes full artifact/composition checks.",
   "compiler_diagnostic": "11-restart-recovery.compiler-diagnostic.json",
-  "current_diagnostics": [],
-  "correction_rounds": 0,
-  "specification": {
-    "sha256": "b88ec2339ce18765eb9e25a4f40aba9715360cf3d818242bda41a14f2de96eba",
-    "bytes": 7015
-  },
-  "artifact": {
-    "sha256": "bb278b174d70dadb06febb3f80f0c5cbfee0bc2e6d665319902695aaf41c1cd6",
-    "bytes": 812358
-  },
-  "browser_receipt": "11-restart-recovery.visual-check.json",
-  "visual_review_receipt": "11-restart-recovery.visual-review.json",
-  "diagnostic_comparison": "history/11-diagnostic-handoff-run1/diagnostic-run.json",
-  "installed_skill_changed": false,
-  "temporary_skill_copy_removed": true,
-  "diagnostic_package": {
-    "runner_exit_code": 0,
-    "original_cli_exit_code": 1,
-    "temporary_copy_cli_exit_code": 1,
-    "status": "structured_diagnostics_recovered_NOT_layout_passed",
-    "note": "Historical input comparison only; final acceptance uses installed unmodified CLI."
-  }
+  "current_diagnostics": [
+    {
+      "code": "internal/unclassified",
+      "severity": "error",
+      "message": "Cannot read properties of undefined (reading 'length')",
+      "subject": {
+        "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/11-restart-recovery.candidate.workflow.json"
+      },
+      "evidence": {
+        "errorName": "TypeError"
+      },
+      "supportedFixes": []
+    }
+  ]
 }

@@ -160,10 +160,7 @@
       "label": "无遗留",
       "role": "branch",
       "variant": "default",
-      "route": "bottom-channel",
-      "fromSide": "bottom",
-      "toSide": "bottom",
-      "channelY": 438
+      "channelY": 322
     },
     {
       "id": "rr-disabled-closed",
@@ -171,19 +168,7 @@
       "to": "rr-closed",
       "label": "有遗留或读失败",
       "role": "error",
-      "variant": "security",
-      "fromSide": "bottom",
-      "toSide": "left",
-      "via": [
-        [
-          471.2,
-          372
-        ]
-      ],
-      "labelAt": [
-        422,
-        328
-      ]
+      "variant": "security"
     },
     {
       "id": "rr-scan-done",
@@ -199,11 +184,7 @@
       "to": "rr-closed",
       "label": "读写或不变量失败",
       "role": "error",
-      "variant": "security",
-      "route": "straight",
-      "fromSide": "bottom",
-      "toSide": "top",
-      "labelDy": 39
+      "variant": "security"
     },
     {
       "id": "rr-ready-edge",

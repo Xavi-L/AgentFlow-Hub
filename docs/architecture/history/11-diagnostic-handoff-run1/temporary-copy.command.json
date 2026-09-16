@@ -1,0 +1,23 @@
+{
+  "command": [
+    "/Users/xavier/.local/state/fnm_multishells/92919_1789555560729/bin/node",
+    "/var/folders/rk/2gmg78l55dl2m5ld98kpb3100000gn/T/archify11-skill-copy-07ujspya/archify/bin/archify.mjs",
+    "validate",
+    "workflow",
+    "/Users/xavier/AgentFlow-Hub/docs/architecture/11-restart-recovery.candidate.workflow.json",
+    "--quality",
+    "showcase",
+    "--json"
+  ],
+  "cwd": "/Users/xavier/AgentFlow-Hub",
+  "exitCode": 1,
+  "timedOut": false,
+  "stdout": "temporary-copy.stdout.txt",
+  "stderr": "temporary-copy.stderr.txt",
+  "parsedReceipt": "temporary-copy.receipt.json",
+  "diagnosticCodes": [
+    "workflow/explicit-pin-conflict"
+  ],
+  "receiptOk": false,
+  "stage": "render"
+}

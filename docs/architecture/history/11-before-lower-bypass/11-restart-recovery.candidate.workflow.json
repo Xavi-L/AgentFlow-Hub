@@ -159,11 +159,7 @@
       "to": "rr-final",
       "label": "无遗留",
       "role": "branch",
-      "variant": "default",
-      "route": "bottom-channel",
-      "fromSide": "bottom",
-      "toSide": "bottom",
-      "channelY": 438
+      "variant": "default"
     },
     {
       "id": "rr-disabled-closed",
@@ -171,19 +167,7 @@
       "to": "rr-closed",
       "label": "有遗留或读失败",
       "role": "error",
-      "variant": "security",
-      "fromSide": "bottom",
-      "toSide": "left",
-      "via": [
-        [
-          471.2,
-          372
-        ]
-      ],
-      "labelAt": [
-        422,
-        328
-      ]
+      "variant": "security"
     },
     {
       "id": "rr-scan-done",

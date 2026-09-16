@@ -1,0 +1,15 @@
+{
+  "contract": "readable-v2",
+  "diagnostics": [
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "[composition/ambiguous-corridor] showcase workflow edges[1] id \"rr-disabled-clear\" \"rr-disabled\" -> \"rr-final\" shares a 80px corridor with edges[9] id \"rr-scan-fail\" \"rr-controlled\" -> \"rr-closed\" at [527.2, 312] -> [607.2, 312] (segments 1 and 1; minimum 8px) — adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+      "subject": {
+        "diagramType": "workflow"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    }
+  ]
+}

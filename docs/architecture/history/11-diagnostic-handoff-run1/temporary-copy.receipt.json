@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "validate",
+  "stage": "render",
+  "type": "workflow",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/11-restart-recovery.candidate.workflow.json",
+  "error": "Workflow edge \"rr-disabled-clear\" has explicit geometry that violates explicit route-route crossing.",
+  "diagnostics": [
+    {
+      "code": "workflow/explicit-pin-conflict",
+      "severity": "error",
+      "message": "Workflow edge \"rr-disabled-clear\" has explicit geometry that violates explicit route-route crossing.",
+      "subject": {
+        "diagramType": "workflow",
+        "edge": "rr-disabled-clear",
+        "from": "rr-disabled",
+        "to": "rr-final",
+        "path": "/edges/5/channelY"
+      },
+      "evidence": {
+        "invariant": "explicit route-route crossing",
+        "conflictingPins": [
+          {
+            "edge": "rr-disabled-clear",
+            "field": "channelY",
+            "path": "/edges/5/channelY",
+            "value": 322
+          }
+        ],
+        "point": [
+          527.2,
+          322
+        ],
+        "segmentIndex": 1,
+        "otherSegmentIndex": 2,
+        "routeSegments": [
+          {
+            "edge": "rr-disabled-clear",
+            "from": [
+              471.20000000000005,
+              322
+            ],
+            "to": [
+              791.6,
+              322
+            ]
+          },
+          {
+            "edge": "rr-scan-fail",
+            "from": [
+              527.2,
+              312
+            ],
+            "to": [
+              527.2,
+              396
+            ]
+          }
+        ],
+        "sourceRouteSegments": [
+          {
+            "edge": "rr-disabled-clear",
+            "from": [
+              471.20000000000005,
+              322
+            ],
+            "to": [
+              791.6,
+              322
+            ]
+          },
+          {
+            "edge": "rr-scan-fail",
+            "from": [
+              527.2,
+              312
+            ],
+            "to": [
+              527.2,
+              396
+            ]
+          }
+        ]
+      },
+      "supportedFixes": []
+    }
+  ]
+}

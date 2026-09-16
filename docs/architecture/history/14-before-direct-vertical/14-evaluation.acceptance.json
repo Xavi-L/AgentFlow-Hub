@@ -1,0 +1,54 @@
+{
+  "diagram": "14",
+  "date": "2026-09-16",
+  "baseline_head": "a0eafb22807bf085946e583e945c1ae761ee4c81",
+  "status": "incomplete",
+  "artifact_validation": "not_run",
+  "delivery": "not_run",
+  "browser_evidence": "not_run",
+  "visual_review": "not_run",
+  "commands": [
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/14-evaluation.candidate.workflow.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "history/14-before-visual-clarification/14-evaluation.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/14-evaluation.candidate.workflow.json --quality showcase --layout-json",
+      "exit_code": 0,
+      "receipt": "history/14-before-visual-clarification/14-evaluation.layout.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs deliver workflow docs/architecture/14-evaluation.workflow.json docs/architecture/14-evaluation.html --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "history/14-before-visual-clarification/14-evaluation.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/14-evaluation.html --json",
+      "exit_code": 0,
+      "receipt": "history/14-before-visual-clarification/14-evaluation.visual-check.command.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/14-evaluation.candidate.workflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/14-explicit-evidence-corridor/14-evaluation.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/14-evaluation.candidate.workflow.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "14-evaluation.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/14-evaluation.candidate.workflow.json --quality showcase --layout-json",
+      "exit_code": 0,
+      "receipt": "14-evaluation.layout.json",
+      "stderr": ""
+    }
+  ]
+}

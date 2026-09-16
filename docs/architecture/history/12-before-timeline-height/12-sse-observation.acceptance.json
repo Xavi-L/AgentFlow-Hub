@@ -1,0 +1,18 @@
+{
+  "diagram": "12",
+  "date": "2026-09-16",
+  "baseline_head": "a0eafb22807bf085946e583e945c1ae761ee4c81",
+  "status": "incomplete",
+  "artifact_validation": "not_run",
+  "delivery": "not_run",
+  "browser_evidence": "not_run",
+  "visual_review": "not_run",
+  "commands": [
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate sequence docs/architecture/12-sse-observation.candidate.sequence.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "12-sse-observation.candidate.validation.json",
+      "stderr": ""
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "diagram": "12",
+  "status": "passed",
+  "reviewer": "Codex image-capable reviewer",
+  "artifact": {
+    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/12-sse-observation.html",
+    "sha256": "3b156ecf83a492a055dc5057ac2e62ad71f62baa8533ece56982ea94849b12a1",
+    "bytes": 818441
+  },
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "correction_rounds": 2,
+  "screenshots_inspected": [
+    "12-sse-observation.visual-check.1440x900.light.png",
+    "12-sse-observation.visual-check.1440x900.dark.png",
+    "12-sse-observation.visual-check.2048x1320.light.png",
+    "12-sse-observation.visual-check.2048x1320.dark.png"
+  ],
+  "observations": [
+    "实际打开四张明暗主题截图。六参与者、27条消息、三个时间段及三张卡片完整可见。",
+    "断线紫色虚线与重连请求可区分；Runtime离线期间的写库消息仍可追踪。",
+    "终态事件后GET Task与再次GET Trace方向清楚，标签未遮挡消息线。",
+    "1440×900较紧凑但文字可辨；2048×1320图面与卡片覆盖可用高度，没有大片无意义下方空白。",
+    "图例及工具栏与消息区分离，卡片没有截断。"
+  ],
+  "scope": "READ/Still截图视觉复核；未另行执行导出、搜索、focus或passport交互测试。自动browser回执中的visualReview保持pending。"
+}

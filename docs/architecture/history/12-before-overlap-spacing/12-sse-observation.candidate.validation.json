@@ -1,0 +1,597 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "validate",
+  "stage": "render",
+  "type": "sequence",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/12-sse-observation.candidate.sequence.json",
+  "error": "Sequence layout validation failed:\n- Messages \"只读快照：Task / Trace / Events\" and \"已提交的完整快照\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"重建 UI 与已处理游标\" and \"GET events · Last-Event-ID\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"owner 校验 + watermark 内分页\" and \"连续持久事件\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"id / event / data · 处理后推进游标\" and \"断线 / Abort：仅释放连接\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"补读 after cursor\" and \"未观察的持久事件\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"轮询终态 watermark\" and \"终态批次\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"终态事件：开始最终核对\" and \"GET task：查询持久终态\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"owner 范围任务查询\" and \"终态、答案、引用与 watermark\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"Task 详情\" and \"再次 GET trace · 复用上方只读链路\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"再次 GET trace · 复用上方只读链路\" and \"GET / Trace 一致后显示最终结果\" are less than 28px apart and share horizontal space — spread their y values.\n- [composition/label-route-clearance] showcase sequence label \"已提交的完整快照\" on messages[4] id \"obs-05\" \"store\" -> \"trace\" label \"已提交的完整快照\" is 2px from messages[3] id \"obs-04\" \"trace\" -> \"store\" label \"只读快照：Task / Trace / Events\" segment 0 [566.7, 226] -> [983.9, 226] (label rect [728, 228, 95, 16]; minimum 4px) — spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible.\n- [composition/label-route-clearance] showcase sequence label \"连续持久事件\" on messages[9] id \"obs-10\" \"store\" -> \"sse\" label \"连续持久事件\" is 2px from messages[8] id \"obs-09\" \"sse\" -> \"store\" label \"owner 校验 + watermark 内分页\" segment 0 [775.3, 336] -> [983.9, 336] (label rect [842, 338, 74, 16]; minimum 4px) — spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible.\n- [composition/label-route-clearance] showcase sequence label \"断线 / Abort：仅释放连接\" on messages[11] id \"obs-12\" \"browser\" -> \"sse\" label \"断线 / Abort：仅释放连接\" is 2px from messages[10] id \"obs-11\" \"sse\" -> \"browser\" label \"id / event / data · 处理后推进游标\" segment 0 [775.3, 380] -> [149.5, 380] (label rect [394, 382, 137, 16]; minimum 4px) — spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible.\n- [composition/label-route-clearance] showcase sequence label \"未观察的持久事件\" on messages[15] id \"obs-16\" \"store\" -> \"sse\" label \"未观察的持久事件\" is 2px from messages[14] id \"obs-15\" \"sse\" -> \"store\" label \"补读 after cursor\" segment 0 [775.3, 468] -> [983.9, 468] (label rect [832, 470, 95, 16]; minimum 4px) — spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible.\n- [composition/label-route-clearance] showcase sequence label \"终态批次\" on messages[19] id \"obs-20\" \"store\" -> \"sse\" label \"终态批次\" is 2px from messages[18] id \"obs-19\" \"sse\" -> \"store\" label \"轮询终态 watermark\" segment 0 [775.3, 556] -> [983.9, 556] (label rect [853, 558, 54, 16]; minimum 4px) — spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible.\n- [composition/label-route-clearance] showcase sequence label \"GET task：查询持久终态\" on messages[21] id \"obs-22\" \"browser\" -> \"rest\" label \"GET task：查询持久终态\" is 2px from messages[20] id \"obs-21\" \"sse\" -> \"browser\" label \"终态事件：开始最终核对\" segment 0 [775.3, 600] -> [149.5, 600] (label rect [191, 602, 126, 16]; minimum 4px) — spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible.\n- [composition/label-route-clearance] showcase sequence label \"终态、答案、引用与 watermark\" on messages[23] id \"obs-24\" \"store\" -> \"rest\" label \"终态、答案、引用与 watermark\" is 2px from messages[22] id \"obs-23\" \"rest\" -> \"store\" label \"owner 范围任务查询\" segment 0 [358.1, 644] -> [983.9, 644] (label rect [592, 646, 158, 16]; minimum 4px) — spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible.\n- [composition/label-route-clearance] showcase sequence label \"再次 GET trace · 复用上方只读链路\" on messages[25] id \"obs-26\" \"browser\" -> \"rest\" label \"再次 GET trace · 复用上方只读链路\" is 2px from messages[24] id \"obs-25\" \"rest\" -> \"browser\" label \"Task 详情\" segment 0 [358.1, 688] -> [149.5, 688] (label rect [162, 690, 184, 16]; minimum 4px) — spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible.\n- [composition/label-route-clearance] showcase sequence label \"GET / Trace 一致后显示最终结果\" on messages[26] id \"obs-27\" \"rest\" -> \"browser\" label \"GET / Trace 一致后显示最终结果\" is 2px from messages[25] id \"obs-26\" \"browser\" -> \"rest\" label \"再次 GET trace · 复用上方只读链路\" segment 0 [149.5, 710] -> [358.1, 710] (label rect [170, 712, 168, 16]; minimum 4px) — spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible.",
+  "diagnostics": [
+    {
+      "code": "composition/label-route-clearance",
+      "severity": "error",
+      "message": "[composition/label-route-clearance] showcase sequence label \"已提交的完整快照\" on messages[4] id \"obs-05\" \"store\" -> \"trace\" label \"已提交的完整快照\" is 2px from messages[3] id \"obs-04\" \"trace\" -> \"store\" label \"只读快照：Task / Trace / Events\" segment 0 [566.7, 226] -> [983.9, 226] (label rect [728, 228, 95, 16]; minimum 4px) — spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible.",
+      "subject": {
+        "diagramType": "sequence",
+        "collection": "messages",
+        "index": 4,
+        "id": "obs-05",
+        "from": "store",
+        "to": "trace"
+      },
+      "evidence": {
+        "label": "已提交的完整快照",
+        "otherRelationship": {
+          "diagramType": "sequence",
+          "collection": "messages",
+          "index": 3,
+          "id": "obs-04",
+          "from": "trace",
+          "to": "store"
+        },
+        "segmentIndex": 0,
+        "clearancePx": 2,
+        "minimumPx": 4,
+        "labelRect": {
+          "relation": {
+            "from": "store",
+            "to": "trace",
+            "y": 248,
+            "label": "已提交的完整快照",
+            "variant": "return",
+            "id": "obs-05"
+          },
+          "relationIndex": 4,
+          "label": "已提交的完整快照",
+          "x": 727.6999999999999,
+          "y": 228,
+          "width": 95.2,
+          "height": 16
+        },
+        "from": [
+          566.7,
+          226
+        ],
+        "to": [
+          983.9,
+          226
+        ]
+      },
+      "supportedFixes": [
+        "spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible"
+      ]
+    },
+    {
+      "code": "composition/label-route-clearance",
+      "severity": "error",
+      "message": "[composition/label-route-clearance] showcase sequence label \"连续持久事件\" on messages[9] id \"obs-10\" \"store\" -> \"sse\" label \"连续持久事件\" is 2px from messages[8] id \"obs-09\" \"sse\" -> \"store\" label \"owner 校验 + watermark 内分页\" segment 0 [775.3, 336] -> [983.9, 336] (label rect [842, 338, 74, 16]; minimum 4px) — spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible.",
+      "subject": {
+        "diagramType": "sequence",
+        "collection": "messages",
+        "index": 9,
+        "id": "obs-10",
+        "from": "store",
+        "to": "sse"
+      },
+      "evidence": {
+        "label": "连续持久事件",
+        "otherRelationship": {
+          "diagramType": "sequence",
+          "collection": "messages",
+          "index": 8,
+          "id": "obs-09",
+          "from": "sse",
+          "to": "store"
+        },
+        "segmentIndex": 0,
+        "clearancePx": 2,
+        "minimumPx": 4,
+        "labelRect": {
+          "relation": {
+            "from": "store",
+            "to": "sse",
+            "y": 358,
+            "label": "连续持久事件",
+            "variant": "return",
+            "id": "obs-10"
+          },
+          "relationIndex": 9,
+          "label": "连续持久事件",
+          "x": 842.3999999999999,
+          "y": 338,
+          "width": 74.4,
+          "height": 16
+        },
+        "from": [
+          775.3,
+          336
+        ],
+        "to": [
+          983.9,
+          336
+        ]
+      },
+      "supportedFixes": [
+        "spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible"
+      ]
+    },
+    {
+      "code": "composition/label-route-clearance",
+      "severity": "error",
+      "message": "[composition/label-route-clearance] showcase sequence label \"断线 / Abort：仅释放连接\" on messages[11] id \"obs-12\" \"browser\" -> \"sse\" label \"断线 / Abort：仅释放连接\" is 2px from messages[10] id \"obs-11\" \"sse\" -> \"browser\" label \"id / event / data · 处理后推进游标\" segment 0 [775.3, 380] -> [149.5, 380] (label rect [394, 382, 137, 16]; minimum 4px) — spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible.",
+      "subject": {
+        "diagramType": "sequence",
+        "collection": "messages",
+        "index": 11,
+        "id": "obs-12",
+        "from": "browser",
+        "to": "sse"
+      },
+      "evidence": {
+        "label": "断线 / Abort：仅释放连接",
+        "otherRelationship": {
+          "diagramType": "sequence",
+          "collection": "messages",
+          "index": 10,
+          "id": "obs-11",
+          "from": "sse",
+          "to": "browser"
+        },
+        "segmentIndex": 0,
+        "clearancePx": 2,
+        "minimumPx": 4,
+        "labelRect": {
+          "relation": {
+            "from": "browser",
+            "to": "sse",
+            "y": 402,
+            "label": "断线 / Abort：仅释放连接",
+            "variant": "dashed",
+            "id": "obs-12"
+          },
+          "relationIndex": 11,
+          "label": "断线 / Abort：仅释放连接",
+          "x": 394,
+          "y": 382,
+          "width": 136.8,
+          "height": 16
+        },
+        "from": [
+          775.3,
+          380
+        ],
+        "to": [
+          149.5,
+          380
+        ]
+      },
+      "supportedFixes": [
+        "spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible"
+      ]
+    },
+    {
+      "code": "composition/label-route-clearance",
+      "severity": "error",
+      "message": "[composition/label-route-clearance] showcase sequence label \"未观察的持久事件\" on messages[15] id \"obs-16\" \"store\" -> \"sse\" label \"未观察的持久事件\" is 2px from messages[14] id \"obs-15\" \"sse\" -> \"store\" label \"补读 after cursor\" segment 0 [775.3, 468] -> [983.9, 468] (label rect [832, 470, 95, 16]; minimum 4px) — spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible.",
+      "subject": {
+        "diagramType": "sequence",
+        "collection": "messages",
+        "index": 15,
+        "id": "obs-16",
+        "from": "store",
+        "to": "sse"
+      },
+      "evidence": {
+        "label": "未观察的持久事件",
+        "otherRelationship": {
+          "diagramType": "sequence",
+          "collection": "messages",
+          "index": 14,
+          "id": "obs-15",
+          "from": "sse",
+          "to": "store"
+        },
+        "segmentIndex": 0,
+        "clearancePx": 2,
+        "minimumPx": 4,
+        "labelRect": {
+          "relation": {
+            "from": "store",
+            "to": "sse",
+            "y": 490,
+            "label": "未观察的持久事件",
+            "variant": "return",
+            "id": "obs-16"
+          },
+          "relationIndex": 15,
+          "label": "未观察的持久事件",
+          "x": 831.9999999999999,
+          "y": 470,
+          "width": 95.2,
+          "height": 16
+        },
+        "from": [
+          775.3,
+          468
+        ],
+        "to": [
+          983.9,
+          468
+        ]
+      },
+      "supportedFixes": [
+        "spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible"
+      ]
+    },
+    {
+      "code": "composition/label-route-clearance",
+      "severity": "error",
+      "message": "[composition/label-route-clearance] showcase sequence label \"终态批次\" on messages[19] id \"obs-20\" \"store\" -> \"sse\" label \"终态批次\" is 2px from messages[18] id \"obs-19\" \"sse\" -> \"store\" label \"轮询终态 watermark\" segment 0 [775.3, 556] -> [983.9, 556] (label rect [853, 558, 54, 16]; minimum 4px) — spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible.",
+      "subject": {
+        "diagramType": "sequence",
+        "collection": "messages",
+        "index": 19,
+        "id": "obs-20",
+        "from": "store",
+        "to": "sse"
+      },
+      "evidence": {
+        "label": "终态批次",
+        "otherRelationship": {
+          "diagramType": "sequence",
+          "collection": "messages",
+          "index": 18,
+          "id": "obs-19",
+          "from": "sse",
+          "to": "store"
+        },
+        "segmentIndex": 0,
+        "clearancePx": 2,
+        "minimumPx": 4,
+        "labelRect": {
+          "relation": {
+            "from": "store",
+            "to": "sse",
+            "y": 578,
+            "label": "终态批次",
+            "variant": "return",
+            "id": "obs-20"
+          },
+          "relationIndex": 19,
+          "label": "终态批次",
+          "x": 852.8,
+          "y": 558,
+          "width": 53.6,
+          "height": 16
+        },
+        "from": [
+          775.3,
+          556
+        ],
+        "to": [
+          983.9,
+          556
+        ]
+      },
+      "supportedFixes": [
+        "spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible"
+      ]
+    },
+    {
+      "code": "composition/label-route-clearance",
+      "severity": "error",
+      "message": "[composition/label-route-clearance] showcase sequence label \"GET task：查询持久终态\" on messages[21] id \"obs-22\" \"browser\" -> \"rest\" label \"GET task：查询持久终态\" is 2px from messages[20] id \"obs-21\" \"sse\" -> \"browser\" label \"终态事件：开始最终核对\" segment 0 [775.3, 600] -> [149.5, 600] (label rect [191, 602, 126, 16]; minimum 4px) — spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible.",
+      "subject": {
+        "diagramType": "sequence",
+        "collection": "messages",
+        "index": 21,
+        "id": "obs-22",
+        "from": "browser",
+        "to": "rest"
+      },
+      "evidence": {
+        "label": "GET task：查询持久终态",
+        "otherRelationship": {
+          "diagramType": "sequence",
+          "collection": "messages",
+          "index": 20,
+          "id": "obs-21",
+          "from": "sse",
+          "to": "browser"
+        },
+        "segmentIndex": 0,
+        "clearancePx": 2,
+        "minimumPx": 4,
+        "labelRect": {
+          "relation": {
+            "from": "browser",
+            "to": "rest",
+            "y": 622,
+            "label": "GET task：查询持久终态",
+            "variant": "emphasis",
+            "id": "obs-22"
+          },
+          "relationIndex": 21,
+          "label": "GET task：查询持久终态",
+          "x": 190.60000000000002,
+          "y": 602,
+          "width": 126.4,
+          "height": 16
+        },
+        "from": [
+          775.3,
+          600
+        ],
+        "to": [
+          149.5,
+          600
+        ]
+      },
+      "supportedFixes": [
+        "spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible"
+      ]
+    },
+    {
+      "code": "composition/label-route-clearance",
+      "severity": "error",
+      "message": "[composition/label-route-clearance] showcase sequence label \"终态、答案、引用与 watermark\" on messages[23] id \"obs-24\" \"store\" -> \"rest\" label \"终态、答案、引用与 watermark\" is 2px from messages[22] id \"obs-23\" \"rest\" -> \"store\" label \"owner 范围任务查询\" segment 0 [358.1, 644] -> [983.9, 644] (label rect [592, 646, 158, 16]; minimum 4px) — spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible.",
+      "subject": {
+        "diagramType": "sequence",
+        "collection": "messages",
+        "index": 23,
+        "id": "obs-24",
+        "from": "store",
+        "to": "rest"
+      },
+      "evidence": {
+        "label": "终态、答案、引用与 watermark",
+        "otherRelationship": {
+          "diagramType": "sequence",
+          "collection": "messages",
+          "index": 22,
+          "id": "obs-23",
+          "from": "rest",
+          "to": "store"
+        },
+        "segmentIndex": 0,
+        "clearancePx": 2,
+        "minimumPx": 4,
+        "labelRect": {
+          "relation": {
+            "from": "store",
+            "to": "rest",
+            "y": 666,
+            "label": "终态、答案、引用与 watermark",
+            "variant": "return",
+            "id": "obs-24"
+          },
+          "relationIndex": 23,
+          "label": "终态、答案、引用与 watermark",
+          "x": 592.2,
+          "y": 646,
+          "width": 157.6,
+          "height": 16
+        },
+        "from": [
+          358.1,
+          644
+        ],
+        "to": [
+          983.9,
+          644
+        ]
+      },
+      "supportedFixes": [
+        "spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible"
+      ]
+    },
+    {
+      "code": "composition/label-route-clearance",
+      "severity": "error",
+      "message": "[composition/label-route-clearance] showcase sequence label \"再次 GET trace · 复用上方只读链路\" on messages[25] id \"obs-26\" \"browser\" -> \"rest\" label \"再次 GET trace · 复用上方只读链路\" is 2px from messages[24] id \"obs-25\" \"rest\" -> \"browser\" label \"Task 详情\" segment 0 [358.1, 688] -> [149.5, 688] (label rect [162, 690, 184, 16]; minimum 4px) — spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible.",
+      "subject": {
+        "diagramType": "sequence",
+        "collection": "messages",
+        "index": 25,
+        "id": "obs-26",
+        "from": "browser",
+        "to": "rest"
+      },
+      "evidence": {
+        "label": "再次 GET trace · 复用上方只读链路",
+        "otherRelationship": {
+          "diagramType": "sequence",
+          "collection": "messages",
+          "index": 24,
+          "id": "obs-25",
+          "from": "rest",
+          "to": "browser"
+        },
+        "segmentIndex": 0,
+        "clearancePx": 2,
+        "minimumPx": 4,
+        "labelRect": {
+          "relation": {
+            "from": "browser",
+            "to": "rest",
+            "y": 710,
+            "label": "再次 GET trace · 复用上方只读链路",
+            "variant": "default",
+            "id": "obs-26"
+          },
+          "relationIndex": 25,
+          "label": "再次 GET trace · 复用上方只读链路",
+          "x": 162,
+          "y": 690,
+          "width": 183.6,
+          "height": 16
+        },
+        "from": [
+          358.1,
+          688
+        ],
+        "to": [
+          149.5,
+          688
+        ]
+      },
+      "supportedFixes": [
+        "spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible"
+      ]
+    },
+    {
+      "code": "composition/label-route-clearance",
+      "severity": "error",
+      "message": "[composition/label-route-clearance] showcase sequence label \"GET / Trace 一致后显示最终结果\" on messages[26] id \"obs-27\" \"rest\" -> \"browser\" label \"GET / Trace 一致后显示最终结果\" is 2px from messages[25] id \"obs-26\" \"browser\" -> \"rest\" label \"再次 GET trace · 复用上方只读链路\" segment 0 [149.5, 710] -> [358.1, 710] (label rect [170, 712, 168, 16]; minimum 4px) — spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible.",
+      "subject": {
+        "diagramType": "sequence",
+        "collection": "messages",
+        "index": 26,
+        "id": "obs-27",
+        "from": "rest",
+        "to": "browser"
+      },
+      "evidence": {
+        "label": "GET / Trace 一致后显示最终结果",
+        "otherRelationship": {
+          "diagramType": "sequence",
+          "collection": "messages",
+          "index": 25,
+          "id": "obs-26",
+          "from": "browser",
+          "to": "rest"
+        },
+        "segmentIndex": 0,
+        "clearancePx": 2,
+        "minimumPx": 4,
+        "labelRect": {
+          "relation": {
+            "from": "rest",
+            "to": "browser",
+            "y": 732,
+            "label": "GET / Trace 一致后显示最终结果",
+            "variant": "return",
+            "id": "obs-27"
+          },
+          "relationIndex": 26,
+          "label": "GET / Trace 一致后显示最终结果",
+          "x": 169.8,
+          "y": 712,
+          "width": 168,
+          "height": 16
+        },
+        "from": [
+          149.5,
+          710
+        ],
+        "to": [
+          358.1,
+          710
+        ]
+      },
+      "supportedFixes": [
+        "spread the message y values, shorten the label, or reorder participants so the adjacent route stays visible"
+      ]
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"只读快照：Task / Trace / Events\" and \"已提交的完整快照\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"重建 UI 与已处理游标\" and \"GET events · Last-Event-ID\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"owner 校验 + watermark 内分页\" and \"连续持久事件\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"id / event / data · 处理后推进游标\" and \"断线 / Abort：仅释放连接\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"补读 after cursor\" and \"未观察的持久事件\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"轮询终态 watermark\" and \"终态批次\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"终态事件：开始最终核对\" and \"GET task：查询持久终态\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"owner 范围任务查询\" and \"终态、答案、引用与 watermark\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"Task 详情\" and \"再次 GET trace · 复用上方只读链路\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"再次 GET trace · 复用上方只读链路\" and \"GET / Trace 一致后显示最终结果\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    }
+  ]
+}

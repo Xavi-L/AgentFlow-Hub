@@ -1,0 +1,176 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "13 · 配置版本与任务执行快照",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1080,
+      610
+    ]
+  },
+  "stages": [
+    {
+      "label": "可变编辑"
+    },
+    {
+      "label": "冻结原始选择"
+    },
+    {
+      "label": "创建时解析"
+    },
+    {
+      "label": "持久执行事实"
+    },
+    {
+      "label": "公开读取"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "cv-draft",
+      "type": "frontend",
+      "label": "可变 Agent 草稿",
+      "sublabel": "参数 / 原始覆盖值 / 绑定",
+      "stage": 0,
+      "row": 1,
+      "width": 148,
+      "height": 74
+    },
+    {
+      "id": "cv-version",
+      "type": "database",
+      "label": "不可变配置版本",
+      "sublabel": "configHash · 原始选择",
+      "stage": 1,
+      "row": 1,
+      "width": 148,
+      "height": 74
+    },
+    {
+      "id": "cv-resolve",
+      "type": "backend",
+      "label": "实际依赖解析",
+      "sublabel": "owner / ACTIVE / READY",
+      "stage": 2,
+      "row": 1,
+      "width": 148,
+      "height": 74
+    },
+    {
+      "id": "cv-snapshot",
+      "type": "database",
+      "label": "Task 执行快照",
+      "sublabel": "快照 + 有效配置哈希",
+      "stage": 3,
+      "row": 1,
+      "width": 148,
+      "height": 74
+    },
+    {
+      "id": "cv-projection",
+      "type": "backend",
+      "label": "Task / Trace 投影",
+      "sublabel": "持久身份 · 只读回查",
+      "stage": 4,
+      "row": 1,
+      "width": 148,
+      "height": 74
+    },
+    {
+      "id": "cv-context",
+      "type": "backend",
+      "label": "当前解析环境",
+      "sublabel": "默认值 / 文档代次 / 工具",
+      "stage": 2,
+      "row": 0,
+      "width": 148,
+      "height": 74
+    },
+    {
+      "id": "cv-request",
+      "type": "external",
+      "label": "新 Task 请求",
+      "sublabel": "显式 ID / 省略或 null",
+      "stage": 1,
+      "row": 2,
+      "width": 148,
+      "height": 74
+    }
+  ],
+  "flows": [
+    {
+      "id": "cv-capture",
+      "from": "cv-draft",
+      "to": "cv-version",
+      "label": "发布 / 捕获",
+      "variant": "emphasis"
+    },
+    {
+      "id": "cv-select",
+      "from": "cv-request",
+      "to": "cv-version",
+      "label": "选定 / 捕获",
+      "variant": "default"
+    },
+    {
+      "id": "cv-frozen",
+      "from": "cv-version",
+      "to": "cv-resolve",
+      "label": "冻结选择",
+      "variant": "emphasis"
+    },
+    {
+      "id": "cv-live",
+      "from": "cv-context",
+      "to": "cv-resolve",
+      "label": "当前依赖",
+      "variant": "default",
+      "labelAt": [
+        530,
+        216
+      ]
+    },
+    {
+      "id": "cv-effective",
+      "from": "cv-resolve",
+      "to": "cv-snapshot",
+      "label": "解析并落库",
+      "variant": "emphasis"
+    },
+    {
+      "id": "cv-read",
+      "from": "cv-snapshot",
+      "to": "cv-projection",
+      "label": "安全投影",
+      "variant": "default"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "先回读请求，再解析版本",
+      "items": [
+        "准入与参数校验后先查 owner + request key；命中只比 fingerprint。",
+        "新请求：显式 ID 选旧版；省略/null 捕获当前草稿，按内容去重。"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "两种哈希，两种身份",
+      "items": [
+        "configHash 冻结原始选择；effectiveConfigHash 标识实际快照投影。",
+        "同版本可因默认值、代次、工具或运行规则变化而不同；哈希不保证模型输出。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "幂等与历史边界",
+      "items": [
+        "显式 ID 与省略/null 属于不同请求身份；内容去重 ≠ task 幂等。",
+        "历史 configuration 缺失保持未知；不以今天草稿补齐，不修改旧快照。"
+      ]
+    }
+  ]
+}

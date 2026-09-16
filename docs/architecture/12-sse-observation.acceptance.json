@@ -1,0 +1,124 @@
+{
+  "diagram": "12",
+  "date": "2026-09-16",
+  "baseline_head": "a0eafb22807bf085946e583e945c1ae761ee4c81",
+  "status": "complete",
+  "artifact_validation": "passed",
+  "delivery": "passed",
+  "browser_evidence": "passed",
+  "visual_review": "passed",
+  "commands": [
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate sequence docs/architecture/12-sse-observation.candidate.sequence.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/12-before-timeline-height/12-sse-observation.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate sequence docs/architecture/12-sse-observation.candidate.sequence.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "history/12-before-redundant-navigation-removal/12-sse-observation.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs deliver sequence docs/architecture/12-sse-observation.sequence.json docs/architecture/12-sse-observation.html --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "history/12-before-redundant-navigation-removal/12-sse-observation.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/12-sse-observation.html --json",
+      "exit_code": 1,
+      "receipt": "history/12-before-redundant-navigation-removal/12-sse-observation.visual-check.command.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate sequence docs/architecture/12-sse-observation.candidate.sequence.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "history/12-before-compact-timeline/12-sse-observation.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs deliver sequence docs/architecture/12-sse-observation.sequence.json docs/architecture/12-sse-observation.html --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "history/12-before-compact-timeline/12-sse-observation.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate sequence docs/architecture/12-sse-observation.candidate.sequence.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/12-before-overlap-spacing/12-sse-observation.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate sequence docs/architecture/12-sse-observation.candidate.sequence.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "12-sse-observation.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs deliver sequence docs/architecture/12-sse-observation.sequence.json docs/architecture/12-sse-observation.html --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "12-sse-observation.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/12-sse-observation.html --json",
+      "exit_code": 0,
+      "receipt": "12-sse-observation.visual-check.command.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate sequence docs/architecture/12-sse-observation.sequence.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "12-sse-observation.validation.json",
+      "stderr": ""
+    }
+  ],
+  "diagram_type": "sequence",
+  "correction_rounds": 2,
+  "formal_specification": "12-sse-observation.sequence.json",
+  "html": "12-sse-observation.html",
+  "specification": {
+    "sha256": "71fb5b92a6cbb6defa2617f27f2987b004ad8973ebbfd9bad15cd21f00a55b9c",
+    "bytes": 6640
+  },
+  "artifact": {
+    "sha256": "3b156ecf83a492a055dc5057ac2e62ad71f62baa8533ece56982ea94849b12a1",
+    "bytes": 818441
+  },
+  "browser_receipt": "12-sse-observation.visual-check.json",
+  "visual_review_receipt": "12-sse-observation.visual-review.json",
+  "installed_skill_changed": false,
+  "business_runtime_validation": "not_run",
+  "tests": "assertions reviewed; not executed in this diagram task",
+  "geometry": {
+    "viewBox": [
+      1380,
+      880
+    ],
+    "participants": 6,
+    "messages": 27,
+    "minimumProjectedNodeTextPx": 7.596376811594204
+  },
+  "repairs": [
+    {
+      "change": "viewBox height 956→980",
+      "reason": "last message y888 exceeded readable timeline maximum873"
+    },
+    {
+      "change": "Remove redundant guided views; compact message/segment Y and spread participant columns",
+      "reason": "actual browser overflow1371px at1440×900; authored aspect ratio did not activate bundled adaptive reader"
+    },
+    {
+      "change": "Preserve 28px between diagnosed horizontally overlapping adjacent messages; 22px only where non-overlapping; final viewBox1380×880",
+      "reason": "compact trial produced minimum-spacing and label-clearance diagnostics; all27 message identities/text/directions retained"
+    }
+  ],
+  "preservation": {
+    "previous_architecture_files_unchanged": true,
+    "unrelated_tracked_diff_unchanged": true,
+    "verification": "size/mtime snapshot plus business diff comparison; before Atlas update",
+    "git_commit_or_push_performed": false
+  }
+}

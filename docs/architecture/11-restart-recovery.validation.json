@@ -3,7 +3,7 @@
   "ok": true,
   "command": "validate",
   "type": "workflow",
-  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/11-restart-recovery.candidate.workflow.json",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/11-restart-recovery.workflow.json",
   "checks": [
     {
       "name": "single_svg",

@@ -1,0 +1,54 @@
+{
+  "diagram": "12",
+  "date": "2026-09-16",
+  "baseline_head": "a0eafb22807bf085946e583e945c1ae761ee4c81",
+  "status": "incomplete",
+  "artifact_validation": "not_run",
+  "delivery": "not_run",
+  "browser_evidence": "not_run",
+  "visual_review": "not_run",
+  "commands": [
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate sequence docs/architecture/12-sse-observation.candidate.sequence.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "12-sse-observation.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate sequence docs/architecture/12-sse-observation.candidate.sequence.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "12-sse-observation.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs deliver sequence docs/architecture/12-sse-observation.sequence.json docs/architecture/12-sse-observation.html --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "12-sse-observation.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/12-sse-observation.html --json",
+      "exit_code": 1,
+      "receipt": "12-sse-observation.visual-check.command.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate sequence docs/architecture/12-sse-observation.candidate.sequence.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "12-sse-observation.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs deliver sequence docs/architecture/12-sse-observation.sequence.json docs/architecture/12-sse-observation.html --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "12-sse-observation.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate sequence docs/architecture/12-sse-observation.candidate.sequence.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "12-sse-observation.candidate.validation.json",
+      "stderr": ""
+    }
+  ]
+}

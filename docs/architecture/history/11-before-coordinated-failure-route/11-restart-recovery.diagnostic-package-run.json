@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "archify11_diagnostic_repair/diagnose.py",
+    "--repo",
+    "/Users/xavier/AgentFlow-Hub",
+    "--out",
+    "/Users/xavier/AgentFlow-Hub/docs/architecture/history/11-diagnostic-handoff-run1"
+  ],
+  "exit_code": 0,
+  "stdout": "{\n  \"status\": \"structured_diagnostics_recovered_NOT_layout_passed\",\n  \"evidenceDirectory\": \"/Users/xavier/AgentFlow-Hub/docs/architecture/history/11-diagnostic-handoff-run1\",\n  \"installedCompilerUnchanged\": true,\n  \"candidateUnchanged\": true,\n  \"formalDelivery\": \"NOT_RUN\",\n  \"browserEvidence\": \"NOT_RUN\",\n  \"visualReview\": \"NOT_RUN\"\n}\n",
+  "stderr": ""
+}

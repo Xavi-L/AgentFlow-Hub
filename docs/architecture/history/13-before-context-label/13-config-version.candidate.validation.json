@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "validate",
+  "stage": "render",
+  "type": "dataflow",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/13-config-version.candidate.dataflow.json",
+  "error": "Data-flow layout validation failed:\n- Label \"当前依赖\" overlaps node \"cv-context\" — adjust labelDx/labelDy/labelSegment or set labelAt.\n  label rect: [504, 181, 51, 16]\n  node \"cv-context\" rect: [456, 128, 148, 74]\n  Suggested fix: labelAt [530, 216] or labelDy +24 (below); or labelAt [530, 124] or labelDy -68 (above)",
+  "diagnostics": [
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Label \"当前依赖\" overlaps node \"cv-context\" — adjust labelDx/labelDy/labelSegment or set labelAt.\n  label rect: [504, 181, 51, 16]\n  node \"cv-context\" rect: [456, 128, 148, 74]\n  Suggested fix: labelAt [530, 216] or labelDy +24 (below); or labelAt [530, 124] or labelDy -68 (above)",
+      "subject": {
+        "diagramType": "dataflow"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    }
+  ]
+}

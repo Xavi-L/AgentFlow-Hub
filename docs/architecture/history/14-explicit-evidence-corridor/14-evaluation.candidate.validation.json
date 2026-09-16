@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "validate",
+  "stage": "render",
+  "type": "workflow",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/14-evaluation.candidate.workflow.json",
+  "error": "Workflow edge \"ev-observe-evidence\" has explicit geometry that violates explicit route-route corridor clearance.",
+  "diagnostics": [
+    {
+      "code": "workflow/explicit-pin-conflict",
+      "severity": "error",
+      "message": "Workflow edge \"ev-observe-evidence\" has explicit geometry that violates explicit route-route corridor clearance.",
+      "subject": {
+        "diagramType": "workflow",
+        "edge": "ev-observe-evidence",
+        "from": "ev-observe",
+        "to": "ev-evidence"
+      },
+      "evidence": {
+        "invariant": "explicit route-route corridor clearance",
+        "conflictingPins": [
+          {
+            "edge": "ev-observe-evidence",
+            "field": "fromSide",
+            "path": "/edges/3/fromSide",
+            "value": "bottom"
+          },
+          {
+            "edge": "ev-observe-evidence",
+            "field": "toSide",
+            "path": "/edges/3/toSide",
+            "value": "top"
+          }
+        ],
+        "segmentIndex": 2,
+        "otherSegmentIndex": 1,
+        "routeSegments": [
+          {
+            "edge": "ev-observe-evidence",
+            "from": [
+              1122,
+              296
+            ],
+            "to": [
+              1122,
+              322
+            ]
+          },
+          {
+            "edge": "ev-other-compare",
+            "from": [
+              1122,
+              246
+            ],
+            "to": [
+              1122,
+              372
+            ]
+          }
+        ],
+        "overlapStart": [
+          1122,
+          296
+        ],
+        "overlapEnd": [
+          1122,
+          322
+        ],
+        "overlapLengthPx": 26,
+        "minimumClearancePx": 8
+      },
+      "supportedFixes": [
+        "remove fromSide and toSide from edge \"ev-observe-evidence\" so readable-v2 can replan the remaining authored route assertions"
+      ]
+    }
+  ]
+}

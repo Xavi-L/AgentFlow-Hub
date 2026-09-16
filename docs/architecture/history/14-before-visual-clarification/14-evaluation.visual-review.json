@@ -1,0 +1,27 @@
+{
+  "diagram": "14",
+  "status": "failed",
+  "artifact": {
+    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/14-evaluation.html",
+    "sha256": "a054682eda82dde504b4d245d6dc2855062e39954443de61cdcb5ed6b89d2a44",
+    "bytes": 810364
+  },
+  "artifact_location": "docs/architecture/history/14-before-visual-clarification/14-evaluation.html",
+  "reviewer": "Codex image-capable reviewer",
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "screenshots_inspected": [
+    "14-evaluation.visual-check.1440x900.light.png",
+    "14-evaluation.visual-check.1440x900.dark.png",
+    "14-evaluation.visual-check.2048x1320.light.png",
+    "14-evaluation.visual-check.2048x1320.dark.png"
+  ],
+  "observations": [
+    "实际打开1440×900、2048×1320的light/dark四张截图；文字、卡片与首屏边界均完整。",
+    "ev-manifest-submit和ev-submit-observe在x=404.4、y=246..300共享竖段，并在y=300形成分叉接点；编译器允许相关边共享，但这条顺序执行主路径视觉上不易辨认。",
+    "卡片“质量0/11”未明确它是人工评分覆盖，容易被误读为质量分数。"
+  ],
+  "scope": "这是初版图的感知复核，不是当前候选或最终交付。原版自动回执visualReview=pending保持不变。"
+}

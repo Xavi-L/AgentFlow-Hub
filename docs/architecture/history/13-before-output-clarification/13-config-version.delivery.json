@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "dataflow",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/13-config-version.dataflow.json",
+  "output": "/Users/xavier/AgentFlow-Hub/docs/architecture/13-config-version.html",
+  "specification": {
+    "sha256": "3fdd5b67ba8cbd18c6ad5d965e47e9e91d7860fe4aeb7ba35c8f65560392a003",
+    "bytes": 3984
+  },
+  "artifact": {
+    "sha256": "11a06382ec7bbad89fa039ac5622d65a1b4af737fb8498cce51f4e93df2abaa3",
+    "bytes": 805954
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

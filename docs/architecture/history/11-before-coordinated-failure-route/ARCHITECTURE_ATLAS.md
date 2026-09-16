@@ -2,7 +2,7 @@
 
 ## Scope and baseline
 
-已依次完成 **01 · System Context**、**02 · Backend Runtime Architecture**（均为 `architecture`）及 **03 · End-to-End Task Workflow**（`workflow` v2）。图 03 当前交付的 artifact、browser evidence 与截图 visual review 均通过，旧失败记录保留为历史。图 04 已完成 Task Creation and Dispatch Sequence，图 05 已完成 Agent Execution Loop（workflow v2）；图 06 RAG Data Flow 已完成修复包应用，artifact、browser evidence 与截图 visual review 均通过，旧失败证据保留；图 07 Tool Invocation Sequence 已完成 artifact、browser 和视觉验收；图 08 Task Lifecycle 已完成三层验收；图 09 派发与并发控制已完成三层验收；图 10 已完成：10A原产物保持不变，10B协调布线修复经原版artifact、browser与实际视觉复核通过，整体complete；图 11 已恢复具体诊断并完成协调布线，未修改的原版artifact、browser及截图visual review均通过，complete；图 12 已完成 SSE、Trace 与浏览器观察 sequence 的 artifact、browser 与实际截图视觉复核；图 13 已完成配置版本与任务执行快照 dataflow 的 artifact、browser 与实际截图视觉复核；图 14 Evaluation Workflow 已完成证据梳理与候选，因两轮视觉/路由修正后原版CLI仍失败而 incomplete；图 15 与最终独立 Architecture Audit 尚未施工。
+已依次完成 **01 · System Context**、**02 · Backend Runtime Architecture**（均为 `architecture`）及 **03 · End-to-End Task Workflow**（`workflow` v2）。图 03 当前交付的 artifact、browser evidence 与截图 visual review 均通过，旧失败记录保留为历史。图 04 已完成 Task Creation and Dispatch Sequence，图 05 已完成 Agent Execution Loop（workflow v2）；图 06 RAG Data Flow 已完成修复包应用，artifact、browser evidence 与截图 visual review 均通过，旧失败证据保留；图 07 Tool Invocation Sequence 已完成 artifact、browser 和视觉验收；图 08 Task Lifecycle 已完成三层验收；图 09 派发与并发控制已完成三层验收；图 10 已完成：10A原产物保持不变，10B协调布线修复经原版artifact、browser与实际视觉复核通过，整体complete；图 11 已施工但原版compiler验证失败，保持incomplete；图 12–15 与最终独立 Architecture Audit 尚未施工。
 
 - 图 01 交付日期：2026-09-14；图 02 于 2026-09-14 开始检查、2026-09-15 完成交付（Asia/Shanghai）。
 - 图 01/02 施工基线分支：`main`；HEAD：`ba04adc5308222635e6eb1a86a0981da8ede408c`（`docs: add Archify architecture atlas construction guide`）。未 fetch、未改变 Git 基线；此处指施工时本地 main。
@@ -27,10 +27,7 @@
 | 08 | Task Lifecycle | lifecycle | Task 的持久状态是什么，哪些触发与 guard 允许转换？ | complete：9/9 showcase，0 errors / 0 warnings；四视口 browser 与双主题截图 visual review passed |
 | 09 | Dispatch, Thread Pool and Concurrency Control | workflow v2 | 已提交任务如何经线程池、队列、claim和实际工作许可形成背压？ | complete：9/9 showcase，0 errors / 0 warnings；四视口browser和双主题visual review passed |
 | 10 | Failure, Cancellation and Settlement Lifecycle | lifecycle + workflow v2 | 执行中断与终态保存失败分别如何收敛？ | complete：10A原件不变；10B协调布线修复后9/9、0 errors / 0 warnings，四视口browser与双主题visual review passed |
-| 11 | Restart Recovery and Controlled Cutover | workflow v2 | 受控重启如何识别遗留任务、收尾并开放准入？ | complete：原版9/9、0 errors / 0 warnings；四视口browser与明暗截图visual review passed |
-| 12 | SSE, Trace and Browser Observation | sequence | 断线、重连和刷新如何恢复观察，而不取消或重执行后台任务？ | complete：原版9/9、0 errors / 0 warnings；四视口browser与明暗截图visual review passed |
-| 13 | Config Version and Execution Snapshot Data Flow | dataflow | 可变草稿、不可变版本与任务实际快照如何形成并区分？ | complete：原版9/9、0 errors / 0 warnings；四视口browser与明暗截图visual review passed |
-| 14 | Evaluation Workflow | workflow v2 | 固定配置、实际Task、运行清单、材料和证据如何关联？ | incomplete：当前原版route-preset-conflict；当前deliver/browser/visual review not_run；旧版机器通过但视觉失败，仅保留历史 |
+| 11 | Restart Recovery and Controlled Cutover | workflow v2 | 受控重启如何识别遗留任务、收尾并开放准入？ | incomplete：两轮定向布局修复后原版compiler内部异常，未deliver/browser/visual review |
 
 ## Evidence convention
 
@@ -1480,9 +1477,9 @@ TaskExternalCallDeadline在嵌套同步调用中继承父boundary/许可，已ab
 - **Type:** `workflow` / schema v2 / showcase；9节点、11条具名关系、3卡片。只有本图，不增加lifecycle子图或图12。
 - **Primary path:** JVM启动 → 进程锁及迁移 → 模式分流 → 受控分页扫描并逐项原子收尾 → 候选清零与锁有效确认 → 开放准入。DISABLED单独只读分支；旧JVM退出是外部操作前提，不是新JVM扫描时间戳得出的结论。
 - **Key nodes:** rr-lock汇总先锁后迁移；rr-controlled汇总内部分页循环和每项独立事务；rr-final是两分支汇合，DISABLED已在前一步查无遗留，这里只再次requireHeld，CONTROLLED才额外hasCandidates清零复查。未把这些汇总节点画成新增服务或DB状态。
-- **JSON / HTML:** [候选](11-restart-recovery.candidate.workflow.json)、[正式源](11-restart-recovery.workflow.json)、[交付HTML](11-restart-recovery.html)。
-- **Validation:** [原版候选通过回执](11-restart-recovery.candidate.validation.json)、[原版layout](11-restart-recovery.layout.json)、[原版deliver](11-restart-recovery.delivery.json)、[原版正式交接validate](11-restart-recovery.validation.json)、[browser](11-restart-recovery.visual-check.json)、[截图集](11-restart-recovery.visual-check.html)、[独立视觉复核](11-restart-recovery.visual-review.json)、[分层acceptance](11-restart-recovery.acceptance.json)。旧[只读compiler调用栈](11-restart-recovery.compiler-diagnostic.json)仍为历史失败，不是当前验收。
-- **Status:** artifact、deliver、browser、visual review均passed，整体complete。9节点、11关系、mainPath和semanticChecks均保留。临时副本只用于恢复诊断，未用于最终验收。
+- **JSON:** [当前候选](11-restart-recovery.candidate.workflow.json)。**没有正式JSON或HTML。**
+- **Validation:** [原版当前失败回执](11-restart-recovery.candidate.validation.json)、[上一轮layout诊断](11-restart-recovery.layout.json)、[只读compiler调用栈](11-restart-recovery.compiler-diagnostic.json)、[分层acceptance](11-restart-recovery.acceptance.json)。调用栈不是artifact验收；失败layout未提供最终坐标。
+- **Status:** artifact failed；deliver/browser/visual review not_run；整体incomplete。节点、关系、mainPath和semanticChecks均保留。
 
 ### 模式、进程锁与冷切换证据（CODE_CONFIRMED）
 
@@ -1541,9 +1538,7 @@ READY只是task准入与该HealthIndicator状态，不等于所有健康组件UP
 
 **DOC_DECLARED：** [受控重启验收说明](../../scripts/v02a-restart-acceptance.md)说明独立HTTP夹具、真实本地JVM/PostgreSQL及固定前锁协议旧版revision；不证明生产冷切换、真实provider终止或计费。**UNKNOWN：** 当前部署锁路径/文件系统、全域旧JVM清点、远端工作状态及生产故障恢复结果。新代码只取得自己的锁，不能验证前锁协议旧JVM已经退出。
 
-### 图11上一轮布局诊断及停止点（历史）
-
-以下是修复前失败事实，保留不改写为成功；本轮诊断与原版验收见下一节。修复前Atlas原件另存于[历史目录](history/11-before-coordinated-failure-route/ARCHITECTURE_ATLAS.md)。
+### 图11布局诊断及实际停止点
 
 [初版](history/11-before-ready-straight/11-restart-recovery.candidate.validation.json)validate exit1：rr-ready-edge与rr-scan-fail在x982、y196..246共享50px通道。定向修复1仅给rr-ready-edge增加route=straight；[回执](history/11-before-disabled-channel/11-restart-recovery.candidate.validation.json)exit1，原冲突不再报告，但rr-disabled-clear与rr-scan-fail在y312、x527.2..607.2共享80px通道。诊断数1→1，没有新的最小值。
 
@@ -1552,273 +1547,3 @@ READY只是task准入与该HealthIndicator状态，不等于所有健康组件UP
 在两轮定向失败及unsupported内部诊断后，仅只读检查原版compiler并直接调用export的compileWorkflow保存原始异常栈，未修改/插桩Skill。可复现调用链：validateReadablePinnedGeometry → pathFor → readableAutomaticRoute → readableAutomaticVia → classifyFailedAutomaticCandidatePins → candidateLabelRect → workflowEdgeLabelPoint:3620。源码中readableAutomaticCandidateSet的rawCandidates仅有family/via；points只在映射到candidates时生成。失败分类函数却对rawCandidates解构points，导致后续读取undefined.length。这解释当前内部异常，但不能证明原候选的剩余路由/标签可行性，不能将其当作已通过布局。
 
 按[Archify SKILL.md](../../.agents/skills/archify/SKILL.md)“If two consecutive rounds do not improve that best count, stop and report the unresolved diagnostics truthfully.”停止继续布局。两轮均未得到低于1的有效诊断数；内部异常先于完整artifact/composition，不能称底层冲突消失。最新候选、所有历史及实际退出码已保留；artifact failed、deliver/browser/visual review not_run，整体incomplete。未生成正式JSON/HTML、未降低quality、未删semanticChecks、未修改Skill或业务代码，未开始图12，未提交推送。
-
-
-### 图11诊断恢复、协调布线与最终验收（2026-09-16）
-
-本轮基线main@a0eafb22807bf085946e583e945c1ae761ee4c81；只处理图11与其Atlas状态，图10不动。[修复包说明](history/11-before-coordinated-failure-route/REPAIR_NOTES.md)明确没有已修好的图JSON，临时补丁只将全部rawCandidates的via物化为points后交给失败诊断器，不改变候选筛选、硬门槛或严重级别。按包脚本核对candidate Git blob=9ccc38be36f5aa672761f851b92e772258ce4f81、compiler Git blob=81ba79a14895072643ea680b6eb304c45b0b8e29匹配后运行。
-
-[diagnostic-run.json](history/11-diagnostic-handoff-run1/diagnostic-run.json)及两组stdout/stderr/command/receipt均保留：
-
-| 操作 | 实际退出码 | 实际结果与边界 |
-| --- | --- | --- |
-| diagnose.py脚本 | 0 | 仅表示诊断操作完成；临时副本已清理，原compiler及输入未改变 |
-| 未修改原版CLI，同一失败输入 | 1 | render阶段internal/unclassified，points.length TypeError |
-| 仅修复参数交接的临时副本CLI，同一输入 | 1 | render阶段workflow/explicit-pin-conflict，恢复具体穿越诊断；不是布局通过 |
-
-[副本完整回执](history/11-diagnostic-handoff-run1/temporary-copy.receipt.json)subject=rr-disabled-clear，path=/edges/5/channelY，value322；横线[(471.2,322),(791.6,322)]与rr-scan-fail竖线[(527.2,312),(527.2,396)]在(527.2,322)穿越，supportedFixes=[]。从内部异常恢复到结构化诊断是进入更具体的检查阶段，不能以错误数量比较布局退步/通过。脚本没有取得可用layout，不补造其坐标回执。
-
-**协调修复及后续实际诊断：**
-
-1. 根据恢复的相交对象，撤销rr-disabled-clear的失败channelY322；rr-scan-fail改为同列bottom→top straight，labelDy39放入行间。原版报rr-scan-fail route-preset-conflict，给出points=[(607.2,280),(607.2,338)]、bottom/top；[完整历史](history/11-before-lower-bypass/)保留。
-2. 将rr-disabled-clear改为bottom-channel、bottom/bottom、channelY438，绕过第三泳道关闭节点（bottom406+32）；原版仍报同一preset可行性失败。未将它解释为长度不够，也没有随机换preset。
-3. 用Node inspector在**未修改的原版compiler**上只读观察失败候选，未插桩或编辑Skill。[原始观察](history/11-before-disabled-closed-elbow/11-restart-recovery.readonly-predicate-diagnostic.json)和[观察脚本](history/11-before-disabled-closed-elbow/readonly-inspector.mjs)保留。orthogonalRoute、endpoint sides、hard rhythm、endpoint/unrelated nodes、label/node、legend、scene、frame、canvas origin全部true；唯一false为routeClearsPlacedLabels。rr-scan-fail标签矩形[x563.8,y299,width86.8,height14]距rr-disabled-closed横线y296仅3px，低于4px；其余候选/既有关系坐标亦在观察中。这是比通用preset失败更具体的进展，非放宽验证。
-4. 据该真实邻接冲突，把rr-disabled-closed改为bottom→left，经(471.2,372)直接进入关闭节点左边；标签“有遗留或读失败”定位(422,328)，离开与无遗留分支共用的源端竖段。原版随即完整通过。rr-ready-edge保留上一轮已确定的straight；没有删关系/标签，未改节点、cards、mainPath、semanticChecks或业务证据。
-
-**最终原版artifact：passed。** candidate showcase validate、layout-json、正式deliver和交接前正式源validate均exit0；9/9 artifact checks，composition 0 errors / 0 warnings，properCrossings=0、ambiguousCorridors=0、labelRouteClearanceIssues=0、containerBorderRuns=0，最小标签/其他线净距10.6px。最短segment16px、interior80px，short/micro均0；maxBends=3（2条超过建议）、maxStretch=1.986（1条超过建议），原版没有因此给出error/warning，保留真实指标。静态minProjectedNodeTextPx=null，使用browser与全节点SVG测量确认可读性。
-
-原版viewBox=requiredViewBox=[986,534]；columns=[112,286.8,471.20000000000005,607.2,791.6,911.6]。rr-disabled-clear路径[(471.2,280),(471.2,438),(791.6,438),(791.6,280)]；rr-scan-fail=[(607.2,280),(607.2,338)]；rr-ready-edge=[(791.6,212),(791.6,154)]；rr-disabled-closed=[(471.2,280),(471.2,372),(543.2,372)]。小数尾差按原版JSON保存。[SVG测量](11-restart-recovery.svg-measurements.json)确认全部9个节点标题11px、副标题8px，未缩字体。
-
-候选完整通过后原字节复制正式源，再原版deliver；只对本次成功生成的HTML执行原版visual-check。specification SHA-256=b88ec2339ce18765eb9e25a4f40aba9715360cf3d818242bda41a14f2de96eba（7015 bytes）；artifact SHA-256=bb278b174d70dadb06febb3f80f0c5cbfee0bc2e6d665319902695aaf41c1cd6（812358 bytes）。使用原版deliver与browser的绑定值，临时副本从未作为交付或验收来源。
-
-| 原版browser light视口 | scrollWidth × scrollHeight | diagramWidth | 最小预计节点字号 | 结果 |
-| --- | --- | --- | --- | --- |
-| 1440×900 | 1440×900 | 1123px | 8px | pass |
-| 1600×1000 | 1600×1000 | 1167px | 8px | pass |
-| 1920×1080 | 1920×1080 | 1315px | 8px | pass |
-| 2048×1320 | 2048×1320 | 1680px | 8px | pass |
-
-**Browser evidence：passed；visual review：passed，correction_rounds=0。** 实际打开两个端点的light/dark四张本次PNG。无遗留路径绕过底部失败节点，扫描失败向下进入关闭准入，开放准入向上离开最终检查，分支方向与标签可辨。同端点关系仍有共线段，不能把无歧义通道指标描述为“完全无共线”；已按虚实线、箭头和标签实际复核。节点、关系标签、图例、导航、说明卡片无可见遮挡，最大视口纵向均衡。只检查默认READ/Still，未另测focus/search/passport或导出文件，未执行业务/真实provider/故障注入验收。原版visualReview=pending保持不变，独立判断另存。
-
-图11三层验收均通过，标complete。全部失败历史保留；安装的Skill未修改或升级，临时副本已删除。图10原产物及记录不变，未开始图12，未提交推送。
-
-
-## 图 12 施工事实记录（2026-09-16）
-
-本图只回答：后台 task execution 与浏览器观察如何解耦，断线、重连和刷新恢复的是什么？使用 `sequence` / schema v1 / showcase。施工基线为 `main@a0eafb22807bf085946e583e945c1ae761ee4c81` 的 dirty working tree；读取当前文件，不将既有 Trace Query 未提交改动当作 HEAD 已提交行为。图 01–11 文件与历史证据保持原样；不开始图 13，不提交推送。
-
-- **Confirmed nodes / CODE_CONFIRMED:** Browser 与 Vue Task View 合并成客户端生命线；Task REST、Trace Query、SSE Endpoint、Task/Event Persistence、Runtime 各自独立。Persistence 汇总 `agent_task`、`agent_task_event` 与 Trace 关联记录，不是新增数据库。
-- **Confirmed edges / CODE_CONFIRMED:** Task 页面先 GET Trace → 完整校验并重建 UI/已处理游标 → GET SSE；服务端从持久事件分页轮询。离线只关闭观察连接；Runtime 仍能写事件。重连携带同一 taskId 和已处理游标；终态后依次 GET Task、GET Trace 并核对。
-- **Confirmed states:** 持久 TaskStatus、浏览器 connection、已处理 cursor、服务端 watermark 和 `settled` 分别存在。收到终态事件不等于最终答案已确认。图展示一个成功终态示例，不穷举图 08/10 的所有状态或收尾分支。
-- **Confirmed boundaries:** Browser↔服务端是带 Bearer 的 HTTP；SSE 是 Servlet async 非阻塞输出，Runtime 是独立后台执行。每批事件与 Trace 聚合各自使用只读快照；写事件在调用方事务内。事务结束后才进行 socket 等待与发送。owner 来自认证主体，查询无权资源按不存在处理。
-- **Confirmed failure paths:** 缺口/协议错停止，游标不跳号；网络/可重试服务错误有预算；离线、销毁、登出清理连接并隔离晚到回调。GET/Trace 不一致不能将 `settled` 置 true。
-- **UNKNOWN / unproven:** 本轮未运行业务后端、数据库、代理或真实 provider；部署代理缓冲/超时、实际外部调用继续多久、多标签页并发的线上表现未验证。图的 Chrome 验收只验证生成的 HTML，不是业务 SSE 的真实环境验收。
-
-## 图 12 Evidence index
-
-- **Diagram / Question:** SSE, Trace and Browser Observation；断线、重连、刷新为何只恢复观察而不重执行任务？
-- **Type / Primary path:** `sequence`，6 个参与者、27 条具名消息、3 个时间段与3张说明卡。已经运行的 Runtime 提交事件 → 打开/刷新读取 Trace → SSE 读取与应用事件 → 断线后后台继续 → 同 task/cursor 重连 → 终态事件 → GET Task + Trace 一致性核对。
-- **Key nodes:** `browser` 合并浏览器生命周期及 Vue 状态机；`rest` 是控制器/RestService 的入口汇总；`trace` 是独立查询服务；`sse` 汇总端点、分页查询适配与传输；`store` 是持久事实；`runtime` 汇总图 03/05 的执行记录与终态保存。
-- **JSON / HTML:** [候选](12-sse-observation.candidate.sequence.json)、[正式源](12-sse-observation.sequence.json)、[交付 HTML](12-sse-observation.html)。
-- **Validation / Visual check:** [候选原版验证](12-sse-observation.candidate.validation.json)、[正式交接验证](12-sse-observation.validation.json)、[原版 deliver](12-sse-observation.delivery.json)、[原版 browser](12-sse-observation.visual-check.json)、[截图集](12-sse-observation.visual-check.html)、[实际视觉复核](12-sse-observation.visual-review.json)、[分层验收及真实退出码](12-sse-observation.acceptance.json)。
-
-### 逐消息证据（CODE_CONFIRMED）
-
-所有 HTTP path 在图中为简写，实际公共前缀为 `/api/v1`，task 资源包含 `{taskId}`。表中的返回消息表示调用完成或异步帧交付，不引入额外服务。`obs-12` 表示网络断开/客户端 Abort 的连接生命周期通知，不是一个新的业务 API。
-
-| 消息 | source → target / 机制 | 代码、方法与持久影响 |
-| --- | --- | --- |
-| obs-01、obs-13 | Runtime → Persistence；独立后台执行提交事件，浏览器离线不影响此链路 | [ExecutionRecorderTransactionService.appendEvent](../../backend/src/main/java/com/agentflow/agent/trace/ExecutionRecorderTransactionService.java) 调用 `TaskEventAppender.append`；[TaskEventAppender.append](../../backend/src/main/java/com/agentflow/agent/task/service/TaskEventAppender.java) L33 要求活跃事务，先分配 task 内序号再插入；[AgentTaskEventMapper.incrementAndGetSequence / insertEvent](../../backend/src/main/java/com/agentflow/agent/task/repository/AgentTaskEventMapper.java) L15–32 使用 UPDATE RETURNING 与 INSERT；[V18](../../backend/src/main/resources/db/migration/V18__create_agent_task_and_event.sql) L182 保证 `(task_id, sequence_no)` 唯一。没有浏览器连接前置条件 |
-| obs-02 | Browser/Vue → REST；打开或刷新执行 GET trace | [TaskPage](../../frontend/src/pages/TaskPage.vue) L13 mounted 调用 `runtime.open`；[runtime.open](../../frontend/src/stores/runtime.ts) L196 先读 Trace；[api.getTrace](../../frontend/src/lib/api.ts) L78 请求 GET `/tasks/{id}/trace`。只读，不重新 create/dispatch |
-| obs-03–06 | REST → Trace → Persistence → Trace → REST；同步 owner 查询及返回 | [AgentTaskRestService.trace](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskRestService.java) L86；[TaskTraceQueryService.findOwnedPublicTrace / projectPublicTrace / aggregateTrace](../../backend/src/main/java/com/agentflow/agent/trace/TaskTraceQueryService.java) L88–124：REQUIRES_NEW、readOnly、REPEATABLE_READ，读取 task、steps、RAG、LLM、tools、events 后做安全投影。当前文件有既存未提交重构，本图未修改 |
-| obs-07 | REST → Browser/Vue；返回后客户端重建 UI 与 cursor | [runtime.publishTrace](../../frontend/src/stores/runtime.ts) L84；[rebuildTrace](../../frontend/src/lib/events.ts) L98 从0逐条校验完整 Trace，无重复/倒序，最终 cursor 必须等于 snapshot.lastEventSequence。校验完整后才发布，不以 GET 的 watermark 直接跳过事件 |
-| obs-08、obs-14 | Browser/Vue → SSE；Bearer GET + Last-Event-ID，重连保持同 task/已处理游标 | [readTaskStream](../../frontend/src/lib/stream.ts) L14–25 设置 `last-event-id`，禁止库内部 cursor 自动覆盖；[runtime.pump](../../frontend/src/stores/runtime.ts) L146 管理单次连接和有界重试；[AgentTaskSseController.events](../../backend/src/main/java/com/agentflow/agent/task/controller/AgentTaskSseController.java) 解析认证主体与 cursor；[TaskSseCursor.resolve](../../backend/src/main/java/com/agentflow/agent/task/sse/TaskSseCursor.java) L11 支持 query `afterSequence` 和 header，双值必须相同 |
-| obs-09–10、obs-15–16、obs-19–20 | SSE → Persistence → SSE；分批只读查询 | [TaskSseService.open / Connection.poll](../../backend/src/main/java/com/agentflow/agent/task/sse/TaskSseService.java) L59/L166；[TaskEventQueryService.findOwnedBatch](../../backend/src/main/java/com/agentflow/agent/task/service/TaskEventQueryService.java) L48 每批在同一 REPEATABLE_READ 快照中查 owner task、watermark 和有界升序事件；只发送 `cursor < sequence <= watermark`，检出首项/中间/尾部缺口即报错，无写任务副作用 |
-| obs-11、obs-17 | SSE → Browser/Vue；async event-stream，客户端成功应用才推进游标 | [TaskSseEncoder](../../backend/src/main/java/com/agentflow/agent/task/sse/TaskSseEncoder.java) 编码 id/event/data；[TaskSseService.accept / drain](../../backend/src/main/java/com/agentflow/agent/task/sse/TaskSseService.java) 在读事务结束后写完整帧；[decodeFrame / EventLedger.apply](../../frontend/src/lib/events.ts) L56/L72 校验 id/event/data，旧序号忽略、缺口停止，handler 成功后才更新 cursor。服务端 lastSent 不等于客户端已处理 |
-| obs-12 | Browser/Vue → SSE；断网或 Abort 释放连接，不是取消业务 | [runtime.stop / dispose / offline handler](../../frontend/src/stores/runtime.ts) L52/L236 只 abort 和移除资源；[TaskSseService.Connection.close](../../backend/src/main/java/com/agentflow/agent/task/sse/TaskSseService.java) 取消 poll、清队列、释放连接槽、完成 async。该 Service 无 Runner 依赖，未请求 cancellation |
-| obs-18 | Runtime → Persistence；成功终态、最终答案/引用、答案分块与 TASK_COMPLETED 在同一事务提交 | [AgentTaskLifecycleTransactionService.complete / completeAt](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskLifecycleTransactionService.java) L117–147 条件更新 RUNNING 后追加 answer chunks 和终态事件；其他终态详见图 10。不是 provider token 直接透传给浏览器 |
-| obs-21 | SSE → Browser/Vue；终态事件提示开始最终核对 | [TaskSseService.accept](../../backend/src/main/java/com/agentflow/agent/task/sse/TaskSseService.java) L195 终态且已排到 watermark 后 drain 完再结束；[runtime.pump](../../frontend/src/stores/runtime.ts) 终态事件中断 stream 后进入 settle。若初始 Trace 已终态则可直接 settle；正常 EOF 时也会 GET task 判断，不依赖一定收到此示例帧 |
-| obs-22–25 | Browser/Vue → REST → Persistence → REST → Browser/Vue；查询持久 Task 详情 | [runtime.settle](../../frontend/src/stores/runtime.ts) L96 首先 `getTask`；[AgentTaskRestService.get](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskRestService.java) L68 是 owner scoped REQUIRES_NEW readOnly 查询，不推进 task |
-| obs-26–27 | Browser/Vue → REST → Browser/Vue；再次 GET Trace 并由客户端核对最终结果 | 复用 obs-03–06 的 Trace 只读链路，不另画重复内部返回；[runtime.settle](../../frontend/src/stores/runtime.ts) L100–120 核对 status、lastEventSequence、terminationReason、errorCode、recovery、finalAnswer、citations。一致后才发布 GET 答案/引用、`settled=true`；核对位于 Vue，不是 REST 在替浏览器比较两次响应 |
-
-### 恢复、失败与证据边界
-
-- **刷新与 Trace 页面：** [TracePage.load](../../frontend/src/pages/TracePage.vue) L19 是纯 GET Trace；离开 Task 页面 dispose 连接不会取消 task。刷新重建的是观察状态，未创建执行重试。`cancel` 是用户显式动作，走独立 POST；图 12 不复述其内部取消流程。
-- **重试与协议：** runtime 默认延迟 1/2/4/8/16 秒，连接错误恢复有预算；库自动重试被禁用。offline/online 不重置预算，不并发开第二条 stream。`ProtocolError`、session 变化、不可重试4xx停止；408/429及可重试错误按预算处理。STREAM_ERROR 没有持久事件 id，不能推进 cursor。失败后仍可显式刷新重新读完整 Trace。
-- **事务与输出：** 每批读快照完成才编码/写socket；连接容量、单批大小、字节预算、heartbeat、连接与发送超时由 [TaskSseProperties](../../backend/src/main/java/com/agentflow/agent/task/sse/TaskSseProperties.java) 约束。浏览器有无连接不会成为 Runtime 的执行许可。没有网络 exactly-once 保证。
-- **TEST_CONFIRMED（断言已读取，本轮未执行）：** [runtime.test.ts](../../frontend/src/stores/runtime.test.ts) 覆盖重建/去重/最终答案核对、缺口保持cursor、有界重连、离线恢复、终态不一致、dispose/登出隔离；[TaskSseTransportTest](../../backend/src/test/java/com/agentflow/agent/task/sse/TaskSseTransportTest.java) 覆盖写失败释放连接、背压、完整帧边界、空终态结束；[task-runtime.spec.ts](../../frontend/e2e/task-runtime.spec.ts) L39–145 断言同task离线重连/刷新、转入Trace释放连接而任务仍RUNNING、最终GET/Trace一致。[v43-browser-acceptance.sh](../../scripts/v43-browser-acceptance.sh) 是真实HTTP/数据库、受控模型与向量的测试入口，本轮未运行。
-- **DOC_DECLARED：** [V42 SSE](../../V0.1-slice-docs/43_AGENT_TASK_SSE_PACKAGE_INTERFACE.md) 与 [V43 Frontend Runtime](../../V0.1-slice-docs/44_FRONTEND_TASK_RUNTIME_PACKAGE_INTERFACE.md) 的历史通过数未当成本轮运行结果。文档 GET events 展示 query，实际前端使用同样受支持的 Last-Event-ID header，不是协议冲突。
-
-### 图 12 分层验收与修复历史
-
-当前 **complete**：未修改的已安装 Archify CLI `validate` / `deliver` 均退出0，9/9 artifact checks，composition 0 errors / 0 warnings，proper crossings / ambiguous corridors / label clearance issues 均0。sequence 的 artifact `minProjectedNodeTextPx=null` 不是字号证明；使用实际 browser 测量补齐。
-
-| light 视口 | 实际 scrollWidth × scrollHeight | 最小预计节点字号 | containment / readability |
-| --- | --- | --- | --- |
-| 1440×900 | 1440×900 | 7.596px | passed / passed |
-| 1600×1000 | 1600×1000 | 7.899px | passed / passed |
-| 1920×1080 | 1920×1080 | 8.904px | passed / passed |
-| 2048×1320 | 2048×1320 | 11px | passed / passed |
-
-原版 `visual-check` 退出0；1440×900及2048×1320的light/dark共4张截图均实际打开复核，独立 `visual_review=passed`。原版回执的 `visualReview=pending` 保持原样，不冒充自动视觉判定。未另行执行导出/搜索/focus交互测试，也未运行真实业务provider。
-
-修复只涉及布局与重复导览：初稿时间轴尾部超界，增加画布高度；第一次browser发现1440×900实际1371px高，图比例没有启用原版Viewer自适应阅读宽度。移除重复导览，压紧消息Y并spread参与者。22px统一间距触发具体重叠诊断后，仅将水平重叠的相邻消息恢复28px，其他保留22px，最终viewBox1380×880。27条消息id、文案、方向、类型及6参与者、3卡片全保留，无源字号下降、HTML手改、裁切、checker/renderer修改或质量降级。
-
-历史原始证据分别保留：[时间轴超界](history/12-before-timeline-height/)、[首次browser溢出及截图](history/12-before-redundant-navigation-removal/)、[移除重复导览后的中间产物](history/12-before-compact-timeline/)、[统一22px间距失败](history/12-before-overlap-spacing/)。当前acceptance按每次实际命令绑定对应历史回执；历史失败未改写为通过。
-
-
-## 图 13 施工事实记录（2026-09-16）
-
-本图只回答：Mutable Agent Draft、Immutable Config Version 与 Actual Task Execution Snapshot 如何形成，为什么不能混为一谈？类型为 `dataflow`，基线为 `main@a0eafb22807bf085946e583e945c1ae761ee4c81` 的 dirty working tree。依据当前生产文件、V23、请求/投影 DTO 和测试断言确认事实；既有业务/规格改动保留，未将工作树内容说成 HEAD 已提交实现。
-
-- **Confirmed nodes / CODE_CONFIRMED:** 当前可编辑 Agent 参数与绑定、不可变原始配置版本、创建时依赖解析、Task 内持久执行快照、Task/Trace 安全投影、新请求版本选择、当前默认值/文档代次/工具与运行规则。草稿节点表示编辑对象，实际持久化在 `agent_app` 和绑定表，并非浏览器本地状态。
-- **Confirmed edges / CODE_CONFIRMED:** 发布或新任务隐式捕获当前草稿，canonical hash 按内容去重；显式版本只选择已发布的原始配置。新任务把冻结选择与当前依赖解析成快照，计算 effective hash 并与 task/event 同事务落库；GET/Trace 从持久事实投影。
-- **Confirmed states:** null override 代表继承，发布时不替换成当前默认值；Task 快照保存创建时解析值。历史 configuration 关联允许整体缺失，不以今天配置补齐。发布成功不代表后续创建必定通过依赖准入或执行成功。
-- **Confirmed boundaries:** JWT owner + agent 范围；一致数据库视图和 Agent 锁；新 Task 的版本选择、snapshot/hash、task/event 同一事务，commit 后才 dispatch。config content 去重与 `(owner, request key)` task 幂等是两个独立边界。
-- **Confirmed failure paths:** 非法发布体/版本ID、跨 owner/agent、当前 Agent 不可见或禁用、KB 非法或无 READY 文档、工具定义/设置校验失败均不能绕过；新任务失败回滚隐式版本与 task/event，不能提前 dispatch。已有幂等请求先回读，再决定是否进入这些新任务检查。
-- **UNKNOWN / unproven:** 本轮未启动服务或数据库、未运行外部模型；部署 defaults、实际 provider 模型修订、applicationRevision 的真实构建身份与输出确定性均未证明。图 14 的评测与运行清单不在本图范围。
-
-## 图 13 Evidence index
-
-- **Diagram / Question:** Config Version and Execution Snapshot Data Flow；原始选择、实际执行事实与公开身份之间如何对应？
-- **Type:** `dataflow` / schema v1 / showcase；7节点、6条具名关系、5个阶段、3张支持卡。
-- **Primary path:** 可变草稿 → 原始配置捕获/内容去重 → 不可变版本 → 创建时解析当前依赖 → Task 快照与 effectiveConfigHash → owner scoped Task / Trace 投影。新请求的 explicit/omitted 选择和当前依赖是两条输入支路；已有请求回读规则放在支持卡，避免画成另一个工作流图。
-- **Key nodes:** `cv-version` 是 `agent_config_version` 中的原始配置，`cv-snapshot` 是 `agent_task.execution_snapshot` 与配置关联列，不是新建 snapshot 表；`cv-context` 汇总当前部署设置、READY document generation、工具定义及 runtime rule，不表示全量外部环境被版本冻结。
-- **JSON / HTML:** [候选](13-config-version.candidate.dataflow.json)、[正式 JSON](13-config-version.dataflow.json)、[HTML](13-config-version.html)。
-- **Validation / Visual check:** [候选原版验证](13-config-version.candidate.validation.json)、[正式交接验证](13-config-version.validation.json)、[原版 deliver](13-config-version.delivery.json)、[原版 browser](13-config-version.visual-check.json)、[截图集](13-config-version.visual-check.html)、[独立视觉复核](13-config-version.visual-review.json)、[分层验收与退出码](13-config-version.acceptance.json)。
-
-### 逐边调用、数据与副作用（CODE_CONFIRMED）
-
-| Flow | source → target / 机制 | 生产证据、事务与副作用 |
-| --- | --- | --- |
-| cv-capture | 可变草稿 → 不可变版本；显式发布或新 task 隐式捕获 | [AgentAppService.updateOwnedConfig](../../backend/src/main/java/com/agentflow/agent/service/AgentAppService.java) L144 修改当前 owner 草稿；[AgentBindingService.replaceKnowledgeBindings / replaceToolBindings](../../backend/src/main/java/com/agentflow/agent/binding/service/AgentBindingService.java) L63/L105 全量替换绑定。[AgentConfigVersionTransactions.capture](../../backend/src/main/java/com/agentflow/agent/configversion/AgentConfigVersionTransactions.java) 在 REPEATABLE_READ + Agent snapshot 锁中读取草稿和绑定，校验后 `AgentConfiguration.capture`、canonical hash、查内容，必要时 INSERT；草稿编辑本身不自动改写旧版本 |
-| cv-select | 新请求 → 版本选择；显式ID选历史版本，省略/null捕获草稿 | [CreateAgentTaskRequestDeserializer.deserialize](../../backend/src/main/java/com/agentflow/agent/task/dto/CreateAgentTaskRequestDeserializer.java) 只允许 userInput/configVersionId，显式ID必须正十进制字符串；omitted/null 均解成 null。[AgentConfigVersionTransactions.selectForTask](../../backend/src/main/java/com/agentflow/agent/configversion/AgentConfigVersionTransactions.java) null 调 `capture`，否则先查当前 owner 的可见 Agent，再按 owner+agent+id 读取版本。图中箭头表示选择参数，不表示显式选择会 UPDATE 版本 |
-| cv-frozen | 不可变版本 → 依赖解析；原始 prompt/model/budgets/overrides/bindings | [AgentConfiguration.toExecutionAgent / orderedKnowledgeIds / orderedEnabledToolIds](../../backend/src/main/java/com/agentflow/agent/configversion/AgentConfiguration.java) L40 起，保留冻结参数及绑定优先级，只有 Agent identity 和当前 ACTIVE 状态来自当前 Agent；[AgentTaskSnapshotResolver.resolveConfiguration](../../backend/src/main/java/com/agentflow/agent/snapshot/AgentTaskSnapshotResolver.java) L137 消费配置，不用当前草稿的执行参数替换旧版 |
-| cv-live | 当前解析环境 → 依赖解析；defaults、READY代次、tool schema/实现版本、runtime rule | [AgentTaskSnapshotResolver.resolveConfiguration / resolveRetrievalRows / resolveTool](../../backend/src/main/java/com/agentflow/agent/snapshot/AgentTaskSnapshotResolver.java) L137/L241/L277 按冻结的KB/tool选择读当前依赖，重新校验 owner、ACTIVE、READY、工具允许handler/schema/implementationVersion，冻结 documentId+vectorGeneration 和工具定义；[AgentExecutionSettingsPolicy.resolve](../../backend/src/main/java/com/agentflow/agent/settings/AgentExecutionSettingsPolicy.java) L43 对 null override 解析当前 deployment defaults、model capability fallback、policyVersion 与 sources。runtime包含 decisionProtocolVersion、promptRulesVersion、applicationRevision |
-| cv-effective | 依赖解析 → Task 执行快照；snapshot + effective hash + 版本关联原子落库 | [AgentTaskCreationTransactionService.createNew](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskCreationTransactionService.java) L66 起：同一 REPEATABLE_READ 事务选择版本、解析快照、计算 effectiveConfigHash，INSERT QUEUED task、TASK_CREATED，并注册 after-commit dispatch。版本ID、configHash、effectiveConfigHash、algorithmVersion 存在 Task 关联列；原快照格式仍为 v2，不塞入这四列改写旧格式 |
-| cv-read | Task 执行快照 → Task/Trace；安全、只读身份回查 | [AgentTaskResponseMapper.toResponse](../../backend/src/main/java/com/agentflow/agent/task/dto/AgentTaskResponseMapper.java) 与 [TaskConfigurationResponse.from](../../backend/src/main/java/com/agentflow/agent/task/dto/TaskConfigurationResponse.java) 从 task 列返回配置身份；[TaskTraceQueryService.findOwnedPublicTrace](../../backend/src/main/java/com/agentflow/agent/trace/TaskTraceQueryService.java) 在只读 REPEATABLE_READ 快照读取；[PublicTaskTraceProjector.executionSnapshot](../../backend/src/main/java/com/agentflow/agent/trace/PublicTaskTraceProjector.java) L52 公开允许字段；[PublicTaskTraceResponse.configuration](../../backend/src/main/java/com/agentflow/agent/trace/dto/PublicTaskTraceResponse.java) 返回同一个 task.configuration，不重新解析当前配置。图未宣称安全投影等于未经处理的内部JSON字节 |
-
-### API、不可变记录与所有权
-
-[AgentConfigVersionController](../../backend/src/main/java/com/agentflow/agent/configversion/AgentConfigVersionController.java) 提供：
-
-- `POST /api/v1/agents/{agentId}/config-versions`：唯一允许请求体 `{}`；新建201、复用200，不接受任意配置blob。[PublishAgentConfigVersionRequest](../../backend/src/main/java/com/agentflow/agent/configversion/PublishAgentConfigVersionRequest.java) 拒绝多余字段、拼接JSON和非空对象。
-- `GET /api/v1/agents/{agentId}/config-versions` 与 `GET .../{configVersionId}`：owner scoped 列表/详情，无修改或删除版本API。版本发布验证原始配置与绑定，不代表当前已有 READY 文档；任务创建仍独立校验当前 ACTIVE、READY 等条件。
-- [AgentConfigVersionMapper](../../backend/src/main/java/com/agentflow/agent/configversion/AgentConfigVersionMapper.java) `selectOwned/selectContent` 始终包含 userId+agentId，INSERT 使用 `ON CONFLICT DO NOTHING`；[V23](../../backend/src/main/resources/db/migration/V23__create_agent_config_version.sql) 唯一键为 `(user_id,agent_id,schema_version,config_hash)`，不是跨用户全局去重。
-- V23 的 trigger 拒绝配置版本 UPDATE，Task 复合FK绑定 versionId+agentId+userId+configHash。没有宣称该trigger禁止所有管理员DELETE；应用不提供删除API，引用版本还受到FK限制。
-- [AgentAppMapper.selectVisibleOwnedByIdForSnapshot](../../backend/src/main/java/com/agentflow/agent/repository/AgentAppMapper.java) 使用 `FOR NO KEY UPDATE` 协调捕获/创建；草稿和绑定写操作的锁防止混合未提交视图。多个HTTP编辑请求不是一个原子交互事务。
-
-### canonical JSON、两种 hash 与限制
-
-[AgentConfiguration](../../backend/src/main/java/com/agentflow/agent/configversion/AgentConfiguration.java) 保存 systemPrompt、model、budgets、五项原始 nullable overrides，以及 KB/tool binding ids、enabled、priority。绑定数组按数值ID排序形成稳定原始表示，priority值仍进入hash；执行时再按priority和ID确定顺序。Agent名称/描述不在原始执行配置中，工具名称/描述则会进入实际模型输入和快照，不能一概当“显示字段”排除。
-
-[ConfigCanonicalJson](../../backend/src/main/java/com/agentflow/agent/configversion/ConfigCanonicalJson.java) 的 `config-canonical-json-v1`：对象键按Unicode码点排序、数组顺序保留、数字规范化且负零变0、不trim字符串、UTF-8字节SHA-256；拒绝非有限数字和非法surrogate。`configHash` 对原始配置计算。`effectiveConfigHash` 对快照深拷贝的 `effectiveProjection` 计算，仅移除 `agent.agentId/status`、`executionSettings.sources`、工具的冗余旧 `inputSchemaHash`；保留实际工具schema、名字/描述、优先顺序、文档generation、解析值和runtime/policy版本，不修改存储快照或旧工具指纹。
-
-**同一个 configVersion/configHash 不保证同一个 effectiveConfigHash**：null overrides 仍可能继承不同部署默认值；当前 READY文档代次、工具定义、runtime规则也参与解析。**同一个 configHash，甚至相同的有效快照身份，也不保证模型输出确定一致**；该hash不是外部模型、实时数据和完整二进制环境的冻结证明。applicationRevision 可以是 `development`，不能仅凭该字符串证明构建内容。创建后已保存的快照不会因下一次草稿编辑或默认值变更被这条创建链路重写。
-
-### 请求回读与历史 nullable
-
-[AgentTaskApplicationService.createTaskWithResult](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskApplicationService.java) L45 的顺序为：`admission.requireReady` → 校验请求 → 计算fingerprint → 按 userId+clientRequestId 查已有Task → 命中则同fingerprint返回旧Task，不同则409 → 只有未命中才进入新创建事务。不能省略准入检查并声称所有旧请求始终可回读。新事务遇到并发唯一约束失败时，事务退出后以独立查询回读赢家；序列化失败最多重试三次，回读仍优先。
-
-[TaskRequestFingerprint.calculate](../../backend/src/main/java/com/agentflow/agent/task/service/TaskRequestFingerprint.java) 的 omitted/null 分支保持 `agent-task-request-v1` 的原JSON/hash；显式configVersionId使用 `agent-task-request-config-v1` 并包含ID。agentId、原始userInput（包括空白）也参与身份。即使显式选择恰好等于上次隐式捕获版本，同一request key也不能在这两种形状之间切换。**配置内容去重不等于Task幂等**：不同request key可以选择同一版本创建不同Task；已有request不能被当前草稿重新解释。
-
-V23 不回填历史Task：四个配置关联列全部NULL或全部有值；[TaskConfigurationResponse.from](../../backend/src/main/java/com/agentflow/agent/task/dto/TaskConfigurationResponse.java) 对 configVersionId=null 返回null，公共JSON省略该可选对象。历史v1/v2 snapshot与旧request fingerprint保留，不查询今天Agent补造身份。Trace的历史读取依赖Task owner，而非要求当前草稿/绑定仍存在或可执行。
-
-### 测试证据与未运行边界
-
-**TEST_CONFIRMED（断言已检查，本轮未执行）**：[V03AConfigVersionPostgresIntegrationTest](../../backend/src/test/java/com/agentflow/agent/configversion/V03AConfigVersionPostgresIntegrationTest.java) 的A01/A02覆盖旧版参数冻结与同版继承默认变化；A04覆盖owner/agent/ACTIVE/READY/tool拒绝；A05/A06覆盖历史nullable、旧fingerprint和explicit/omitted冲突；A07覆盖并发内容去重、同Task/单次dispatch；A12/A13覆盖名称与priority、不可UPDATE和复合owner FK；`failedTaskCreationRollsBackImplicitVersionAndEventBeforeDispatch` 断言版本/task/event全部回滚且不派发。
-
-[ConfigCanonicalJsonTest](../../backend/src/test/java/com/agentflow/agent/configversion/ConfigCanonicalJsonTest.java) 检查8个共享golden vectors、非法数字/Unicode、排除来源标记但保留执行值、工具schema规范化不更改旧指纹。[scripts/test_evaluation.py](../../scripts/test_evaluation.py) 与 [canonical vectors](../../scripts/fixtures/config-canonical-json-v1-vectors.json) 支持跨Java/Python字节契约；本图仅引用hash相关断言，不施工评测流程。受控PostgreSQL入口 [v03a-postgres-acceptance.sh](../../scripts/v03a-postgres-acceptance.sh) 已读取，但未执行。
-
-**DOC_DECLARED**：[配置版本切片](../../V0.3-slice-docs/01_CONFIG_VERSION_AND_EVALUATION_PACKAGE_INTERFACE.md) 作为范围/契约支持。它和既有memory中的历史通过数不能替代本轮运行证据。未发现需要把当前草稿与版本或Task快照合并的代码依据。
-
-### 图 13 分层验收
-
-当前 **complete**：原版 CLI showcase validate/deliver均退出0，9/9检查、composition 0 errors / 0 warnings，proper crossings / ambiguous corridors / label clearance issues均0。artifact回执 `minProjectedNodeTextPx=null` 不作为字体证明，以下使用本次HTML的真实Chrome测量：
-
-| light视口 | 实际scrollWidth × scrollHeight | 最小预计节点文字 | containment / readability |
-| --- | --- | --- | --- |
-| 1440×900 | 1440×900 | 6.974px | passed / passed |
-| 1600×1000 | 1600×1000 | 7px | passed / passed |
-| 1920×1080 | 1920×1080 | 7px | passed / passed |
-| 2048×1320 | 2048×1320 | 7px | passed / passed |
-
-`visual-check` 退出0，四视口与light/dark端点截图覆盖完成。最终4张截图均实际打开复核，主路径、两条输入、标签、图例与卡片清楚完整，独立 `visual_review=passed`。自动回执仍保留 `visualReview=pending`，不冒充感知判断；未额外测试export/search/focus交互，也未做本轮业务E2E或真实provider验收。
-
-初稿仅“当前依赖”标签与cv-context重叠，按CLI明确建议使用 `labelAt:[530,216]` 后通过；没有轮换preset或修改Skill。视觉内容复核将“哈希不保证模型输出”明确为“同哈希不保证输出一致”，重新validate、deliver、browser并复核最终截图。原始失败保留在[标签碰撞历史](history/13-before-context-label/)；[文案澄清前版本](history/13-before-output-clarification/)是已通过artifact/browser的中间版本，不冒称失败或当前证据。未删除任何关系/节点，未缩字体、裁切或手改HTML。图01–12及其历史文件保持原样，未开始图14，未提交推送。
-
-## 14 · Evaluation Workflow（incomplete）
-
-**Question**：V0.3 evaluation 如何把固定配置、实际 Task、运行清单、材料和证据关联起来？**Type**：`workflow` v2。施工依据为 [guide §17](../../spec-docs/archify-architecture-atlas-guide.md)，2026-09-16 本地 `main@a0eafb22807bf085946e583e945c1ae761ee4c81` 的 dirty working tree；包括已有未提交的 V0.3-B / Episode 实现，不能把它们表述为 HEAD 已提交能力。
-
-**Primary path**：固定 suite / 配置版本 / 材料 → 只读预检 → 先持久化全量计划 → 原请求提交 → 关联并观察 Task → 保存实际证据 → 离线报告。显式 Episode 导出与指定两份报告的 compare 是另行调用的分支；不是 run 自动完成的质量证明。9 个节点、8 条关系、3 个阶段泳道；`mainPath`、全部 `semanticChecks` 保留。数据库形状表示本地持久文件，不表示新增 Evaluation 数据库表；第二泳道右侧“另一份指定报告”是 compare 的外部输入，不是 Task API 返回报告。
-
-- **JSON**：[当前候选](14-evaluation.candidate.workflow.json)。当前无正式 JSON / HTML；初版曾 deliver 成功，但视觉复核未通过，已移入历史目录。
-- **Validation**：[当前原版 CLI 回执](14-evaluation.candidate.validation.json)，真实 exit **1**；[当前 layout 诊断](14-evaluation.layout.json)，exit **1**。
-- **Visual check**：当前候选 `not_run`；不得复用旧 HTML 的通过回执。详细命令、退出码与阶段状态见 [acceptance](14-evaluation.acceptance.json)。
-- **Unknowns**：当前直线路由未通过的具体 feasibility predicate 尚未由 CLI 暴露；当前业务人工质量缺评；不推断外部 provider 现时可用性或生产级评估效果。
-
-### 施工前的实现与验收边界
-
-| 范围 | 当前证据 | 可作出的结论 |
-| --- | --- | --- |
-| implemented | 当前 [evaluation.py](../../scripts/evaluation.py) `main` 的 run / resume / report / judge / compare / episode 六个命令，以及 [evaluation_metrics.py](../../scripts/evaluation_metrics.py)、Episode controller/query service | 已有文件式运行协调、持久证据、规则指标、追加人工判定、严格比较和只读 Episode；仅 A 阶段“三个命令”的历史说明已不代表当前代码 |
-| accepted locally | 既有 [2026-09-12 acceptance](../../V0.3-slice-docs/evidence/v03b-20260912/acceptance.json) B01–B14 PASSED，B15 INCOMPLETE_HUMAN_REVIEW；本轮另检查测试断言 | 这是有日期的既有工程验收，本轮未重跑业务测试、PostgreSQL 或前端，不升级为当前全环境运行结论 |
-| real-service validated | 既有 [real-run-result](../../V0.3-slice-docs/evidence/v03b-20260912/real-run-result.json) 与 [固定12例报告](../../V0.3-slice-docs/evidence/v03b-20260912/real-provider-run/report.json) | REAL_PROVIDER 12/12 终态，11 COMPLETED、1 FAILED；行为1 PASS / 10 FAIL / 1未评；11个适用案例人工评分覆盖0/11。执行完成不是回答正确，B15仍未完成 |
-| planned only / excluded | [V0.3切片契约](../../V0.3-slice-docs/01_CONFIG_VERSION_AND_EVALUATION_PACKAGE_INTERFACE.md)、[eval README](../../eval/README.md) | 不画 Evaluation Web UI、Evaluation DB 平台、自动调参或 LLM judge 为现状；质量提升没有默认成立的依据 |
-
-本轮只读检查既有运行文件，没有重跑 run/resume/report，没有重写旧报告或补造人工分数。历史 [compare](../../V0.3-slice-docs/evidence/v03b-20260912/real-provider-run/compare-after-build-manifest-fix.json) 仍为 `NOT_COMPARABLE`，缺行为覆盖、质量覆盖及四维人工判定条件。历史 [只读验收](../../V0.3-slice-docs/evidence/v03b-20260912/real-provider-run/read-only-acceptance.json) 记录零新增 Task/model/tool 调用及稳定 Episode 内容哈希；不代表本轮又执行过这些操作。
-
-### 三种身份与材料（CODE_CONFIRMED）
-
-| 身份 | 主要字段 / 持久事实 | 关联边界 |
-| --- | --- | --- |
-| Config identity | `agentId / configVersionId / configHash`；版本 schema 与 hash algorithm | `create_run` 只读回查 owner 和指定版本，校验原始配置 hash。版本内容与捕获机制见 [AgentConfigVersionTransactions](../../backend/src/main/java/com/agentflow/agent/configversion/AgentConfigVersionTransactions.java)、[AgentConfigVersionService](../../backend/src/main/java/com/agentflow/agent/configversion/AgentConfigVersionService.java) 和图13；不会在评估阶段用今天草稿替代所选版本 |
-| Task execution identity | `taskId`、实际 `configuration`、execution snapshot、`effectiveConfigHash`、Trace 水位与实际调用记录 | [AgentTaskCreationTransactionService](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskCreationTransactionService.java) 负责普通 Task 创建；相同 configHash 不保证相同有效快照或模型答案。预期环境与实际观测分开；没有实际构建证明时不能拿 CLI Git 身份冒充服务端构建身份 |
-| Evaluation run / evidence identity | `evalRunId / manifestHash / caseId / trialIndex / caseExecutionId / clientRequestId`，原 POST path/body，journal 链、artifactHash、reportHash、人工判定 revision/hash | `create_run` 在首个 Task POST 前保存**全部**计划；运行目录单写者锁。caseExecutionId 关联协调事件、Task 与证据，未提交/拒绝/失败/未观察完的行仍留在计划分母 |
-
-`create_run` 将 dataset、rules、rubric、metric schema、materials、预期 environment、预算与声明顺序纳入 manifest。[固定材料入口](../../eval/README.md) 区分 `CONTROLLED_CONTRACT` 与 `REAL_PROVIDER`，不能混合统计。真实材料包装器 [v03b-real-provider-run.py](../../scripts/v03b-real-provider-run.py) `main_run/guard` 在首提每例前及最后观察后回读业务行、工具目录、READY 文档映射、索引及构建证明；不一致追加停止记录并保留计划。物理 document/generation/chunk ID 通过 evidenceKey/contentHash 关联材料；不能仅因两个环境的 ID 不同就视为内容不同，也不能未经材料校验忽略真实漂移。
-
-### 逐边机制和副作用（CODE_CONFIRMED）
-
-下表的关系是 CLI 同步协调顺序；后台 Task 执行异步，不应将同步 GET 观察画成重新调用 Engine。所有命令以当前 owner 范围读取普通业务 API；本地分析没有第二套任务执行器。
-
-| Edge / 关系 | 源文件、方法与机制 | 副作用 / 失败边界 |
-| --- | --- | --- |
-| `ev-plan-manifest` 固定计划 → 完整清单 | [evaluation.py](../../scripts/evaluation.py) `create_run` L322；GET `/users/me` 和 `/agents/{id}/config-versions/{id}`，固定 suite、版本与 cases/trials | 校验后写 manifest、空 journal 与 RUN_PLANNED。此时尚无 Task POST；配置错误不能制造半份计划 |
-| `ev-manifest-submit` 清单 → 原请求提交 | 同文件 `execute` L597、`submit` L451，持有 RunLock；先追加持久 SUBMITTING，再 POST原始path/body/key，显式configVersionId | 未知提交只允许复用原请求进行有界核对，最多初始提交加3次追加检查，跨resume累计。未知后的401/404/409仍不能证明原请求未创建；不偷偷换key重跑 |
-| `ev-submit-observe` 提交 → 关联观察 | 同文件 `submit/states/observe` L451/420/539；验证成功响应Task身份，持久TASK_LINKED，以同一taskId轮询Task/Trace | 无taskId不伪造关联；明确首次准入拒绝保留ADMISSION_REJECTED；Task业务FAILED与CLI协调状态不是同一状态机 |
-| `ev-observe-evidence` 观察 → 持久证据 | 同文件 `observe/evidence_summary` L539/485；核对Task与Trace状态、水位、配置/快照一致，清洗后原子写artifact与hash，追加journal事件 | 观察到终态记TASK_TERMINAL；观察超时仅OBSERVATION_INCOMPLETE，不取消Task，不把它改为业务TIMEOUT；resume对已关联任务只继续GET |
-| `ev-evidence-report` 证据 → 报告 | 同文件 `_report/report` L635/719；[evaluation_metrics.py](../../scripts/evaluation_metrics.py) `enrich_report` L407、`append_judgment` L319 | 只读持久事实与已提供的人工记录，写本地report/归档；judge是显式追加人工判定，保留supersedes/revision，不能自动生成“人类通过”。report也能输出不完整运行，不是完成门禁 |
-| `ev-observe-episode` Task身份 → 另行导出 | `evaluation.py::episode` L731；[TaskEpisodeController](../../backend/src/main/java/com/agentflow/agent/trace/TaskEpisodeController.java) → [TaskEpisodeQueryService](../../backend/src/main/java/com/agentflow/agent/trace/TaskEpisodeQueryService.java) | 显式GET `/tasks/{taskId}/episode`；owner越界404、非终态409；REPEATABLE_READ只读Task/Trace事实，返回completeness与sourceTraceHash，CLI另存文件。不重放Task、不读取今天Agent补事实、不建Episode表；集合10000、源/输出4MiB界限 |
-| `ev-report-compare` 本报告 → 比较门禁 | `evaluation.py::main` compare分支 → `evaluation_metrics.py::compare_reports` L668 / `comparable_projection` | 显式指定left/right本地报告、具体changedPaths。重核manifest/report、材料、版本、构建、实际快照/模型、覆盖与人工记录，缺条件/未声明差异返回NOT_COMPARABLE（CLI exit2） |
-| `ev-other-compare` 另一报告 → 比较门禁 | 同一compare入口读取第二个指定报告；不存在隐式从最近一次run选对照 | 两边对称检查；changedPaths只能是实际具体叶路径，不能用根或通配符豁免整棵配置。即使COMPARABLE，结论也仅为成对描述性观察，不是因果质量提升 |
-
-`stop_reason` L578 遇到环境漂移、未知提交、观察不全或无法确认精确usage等情况会停止新计划提交；预算预留按每Task上限计算，旧计划与缺失仍保留。`executionComplete` 只表示全部case协调进入终局（含准入拒绝），不等于所有Task成功，更不等于质量通过。
-
-[指标代码](../../scripts/evaluation_metrics.py) 分开报告 execution、expected behavior、retrieval、answer quality、usage 与覆盖。质量是否适用与是否已评分分开，缺人工判定保持NOT_EVALUATED，不能记作0分或通过。Hit@K/MRR、完整JSON、Task COMPLETED 都不能替代人工回答质量判断。
-
-### 测试、声明与未验证范围
-
-**TEST_CONFIRMED（断言已检查，本轮未执行）**：[test_evaluation.py](../../scripts/test_evaluation.py) 覆盖首POST前完整计划、丢响应同key回读、初次+3次核对上限、未知后错误仍不冒充拒绝、观察超时不取消及resume不再POST已关联Task。[test_evaluation_b.py](../../scripts/test_evaluation_b.py) 覆盖工具/引用规则通过但质量人工FAIL、缺评分保留分母、具体changedPaths与宽泛豁免拒绝、追加判定及旧报告保留、report/compare离线且不创建HTTP client。受控断言不能代替真实provider回答质量。
-
-**DOC_DECLARED**：切片规格和 `scripts/evaluation.md` 定义操作契约，需与上述当前实现及日期化回执一起解读。**UNKNOWN**：缺失的人类四维评分、当前真实服务是否仍可用、比较所需所有条件能否在新运行中满足；本次制图没有执行模型/工具调用来补这些证据。图14是否完成与V0.3-B/B15是否完成分别记录。
-
-### 图14分层验收、历史与停止点
-
-| 版本 | 原版 artifact | deliver | browser evidence | visual review |
-| --- | --- | --- | --- | --- |
-| [初版历史](history/14-before-visual-clarification/) | exit0；9/9，composition 0 errors / 0 warnings | exit0；只保留历史HTML | exit0；四桌面视口、明暗端点截图通过 | **failed**：实际打开4张截图；主路径接点不清、人工覆盖文字易误解 |
-| [首次端口修正失败](history/14-explicit-evidence-corridor/) | exit1；`workflow/explicit-pin-conflict`，ev-observe-evidence | not_run | not_run | not_run |
-| [移除冲突端口后的中间版本](history/14-before-direct-vertical/) | exit0；9/9，0 errors / 0 warnings；layout exit0 | not_run | not_run | not_run；布局回执显示长距离绕行，不能当成视觉通过 |
-| **当前候选** | **exit1**；`workflow/route-preset-conflict`，ev-manifest-submit；layout亦exit1 | **not_run** | **not_run** | **not_run** |
-
-初版浏览器实测1440×900、1600×1000、1920×1080、2048×1320均无横纵溢出，最小预计节点文字均8px；1440×900/2048×1320明暗四图均实际打开。但两条相邻主边在x=404.4、y=246..300共享竖段并形成接点，对顺序主路径不够清楚；“质量0/11”需明确为“人工评分覆盖0/11”。[历史视觉复核](history/14-before-visual-clarification/14-evaluation.visual-review.json) 与自动回执分开，后者`visualReview=pending`未改写。
-
-第一轮视觉修正明确三个相邻关系的端口并澄清卡片。原版CLI诊断ev-observe-evidence与ev-other-compare在x=1122、y=296..322重叠26px；按其supportedFixes移除前者端口，artifact再次通过。但[原版layout](history/14-before-direct-vertical/14-evaluation.layout.json) 的ev-manifest-submit从(317.4,154)绕到x=1122再到(317.4,212)，maxStretch=28.745，未消除视觉问题。
-
-第二轮针对已测得的同列、58px间距，要求上下相邻关系采用`straight`、bottom→top。当前原版诊断：
-
-```text
-code: workflow/route-preset-conflict
-subject: ev-manifest-submit (ev-manifest -> ev-submit)
-points: (317.4,154) -> (317.4,212)
-fromSide: bottom; toSide: top
-length: 58px; requiredDirectClearancePx: 28
-requiredEndpointStubPx: 8; requiredInteriorSegmentPx: 16
-supportedFixes: []
-```
-
-不能仅凭58≥28就宣称compiler有bug或候选应通过。两轮修正后只读检查当前`workflow-compiler.mjs::readableCandidateIsFeasible`（L3095）确认还检查节点、标签、已放置关系标签、图例、场景文字、frame及canvas origin；**CLI没有暴露本次具体false predicate，本轮未instrument，保持UNKNOWN**。未修改已安装Skill或验证门槛，不用局部几何复算冒充CLI通过。
-
-按 [Archify SKILL.md](../../.agents/skills/archify/SKILL.md) “If two consecutive rounds do not improve that best count, stop and report the unresolved diagnostics truthfully.” 停止继续布局；visual review最多两轮修正也已用完。当前保留失败candidate，不再替换正式文件、deliver或复用旧browser证据；已生成的初版正式文件移入历史目录。所有节点、业务关系、mainPath与semanticChecks未删除；未缩字体、隐藏overflow、手改HTML或修改业务代码。图01–13及旧记录保持原样，图15未开始，未提交推送。

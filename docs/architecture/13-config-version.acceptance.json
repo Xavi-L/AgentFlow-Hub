@@ -1,0 +1,111 @@
+{
+  "diagram": "13",
+  "date": "2026-09-16",
+  "baseline_head": "a0eafb22807bf085946e583e945c1ae761ee4c81",
+  "status": "complete",
+  "artifact_validation": "passed",
+  "delivery": "passed",
+  "browser_evidence": "passed",
+  "visual_review": "passed",
+  "commands": [
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate dataflow docs/architecture/13-config-version.candidate.dataflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/13-before-context-label/13-config-version.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate dataflow docs/architecture/13-config-version.candidate.dataflow.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "history/13-before-output-clarification/13-config-version.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs deliver dataflow docs/architecture/13-config-version.dataflow.json docs/architecture/13-config-version.html --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "history/13-before-output-clarification/13-config-version.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/13-config-version.html --json",
+      "exit_code": 0,
+      "receipt": "history/13-before-output-clarification/13-config-version.visual-check.command.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate dataflow docs/architecture/13-config-version.candidate.dataflow.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "13-config-version.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs deliver dataflow docs/architecture/13-config-version.dataflow.json docs/architecture/13-config-version.html --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "13-config-version.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/13-config-version.html --json",
+      "exit_code": 0,
+      "receipt": "13-config-version.visual-check.command.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate dataflow docs/architecture/13-config-version.dataflow.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "13-config-version.validation.json",
+      "stderr": ""
+    }
+  ],
+  "diagram_type": "dataflow",
+  "correction_rounds": 1,
+  "formal_specification": "13-config-version.dataflow.json",
+  "html": "13-config-version.html",
+  "specification": {
+    "sha256": "0b5a626a73763b10f762defbcf90ccb26b7cb4fee6beb41ec1b99ee4038680b0",
+    "bytes": 3987
+  },
+  "artifact": {
+    "sha256": "c83ad81ff2443df3d07820d1e91db1a3de7a2e479dc2391969217418793aafb1",
+    "bytes": 805957
+  },
+  "browser_receipt": "13-config-version.visual-check.json",
+  "visual_review_receipt": "13-config-version.visual-review.json",
+  "installed_skill_changed": false,
+  "business_runtime_validation": "not_run",
+  "tests": "production code and test assertions reviewed; no business tests executed this turn",
+  "geometry": {
+    "viewBox": [
+      1080,
+      610
+    ],
+    "nodes": 7,
+    "flows": 6,
+    "properCrossings": 0,
+    "ambiguousCorridors": 0,
+    "minimumProjectedNodeTextPx": 6.974074074074075
+  },
+  "repairs": [
+    {
+      "subject": "cv-live",
+      "change": {
+        "labelAt": [
+          530,
+          216
+        ]
+      },
+      "reason": "Original CLI label-node overlap; used exact suggested labelAt between node rectangles."
+    },
+    {
+      "subject": "cards[1].items[1]",
+      "change": "同哈希不保证输出一致",
+      "reason": "Clarify nondeterminism boundary; revalidated, redelivered and recollected actual browser evidence."
+    }
+  ],
+  "preservation": {
+    "previous_architecture_files_unchanged": true,
+    "existing_tracked_diff_unchanged_before_atlas_update": true,
+    "verification": "size/mtime baseline and git diff comparison",
+    "git_commit_or_push_performed": false
+  }
+}

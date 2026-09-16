@@ -1,0 +1,523 @@
+{
+  "evidenceKind": "read-only-inspector-predicate-observation-not-cli-acceptance",
+  "installedSkillModified": false,
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/11-restart-recovery.candidate.workflow.json",
+  "captured": [
+    {
+      "edge": "rr-scan-fail",
+      "points": [
+        [
+          607.2,
+          280
+        ],
+        [
+          607.2,
+          338
+        ]
+      ],
+      "fromSide": "bottom",
+      "toSide": "top",
+      "label": {
+        "x": 563.8000000000001,
+        "y": 299,
+        "width": 86.8,
+        "height": 14
+      },
+      "nodes": [
+        {
+          "id": "rr-start",
+          "lane": "boot",
+          "col": 0,
+          "type": "backend",
+          "label": "JVM 启动",
+          "sublabel": "准入初始关闭",
+          "width": 128,
+          "height": 68,
+          "x": 48,
+          "y": 86,
+          "cx": 112,
+          "cy": 120
+        },
+        {
+          "id": "rr-lock",
+          "lane": "boot",
+          "col": 1,
+          "type": "security",
+          "label": "进程锁与迁移",
+          "sublabel": "先取锁·再Flyway",
+          "width": 128,
+          "height": 68,
+          "x": 222.8,
+          "y": 86,
+          "cx": 286.8,
+          "cy": 120
+        },
+        {
+          "id": "rr-mode",
+          "lane": "boot",
+          "col": 2,
+          "type": "backend",
+          "label": "启动恢复分流",
+          "sublabel": "仅运行一次",
+          "width": 128,
+          "height": 68,
+          "x": 407.20000000000005,
+          "y": 86,
+          "cx": 471.20000000000005,
+          "cy": 120
+        },
+        {
+          "id": "rr-ready",
+          "lane": "boot",
+          "col": 4,
+          "type": "backend",
+          "label": "开放任务准入",
+          "sublabel": "READY · health UP",
+          "width": 128,
+          "height": 68,
+          "x": 727.6,
+          "y": 86,
+          "cx": 791.6,
+          "cy": 120
+        },
+        {
+          "id": "rr-halt",
+          "lane": "inspect",
+          "col": 1,
+          "type": "security",
+          "label": "启动拒绝",
+          "sublabel": "锁或迁移失败",
+          "width": 128,
+          "height": 68,
+          "x": 222.8,
+          "y": 212,
+          "cx": 286.8,
+          "cy": 246
+        },
+        {
+          "id": "rr-disabled",
+          "lane": "inspect",
+          "col": 2,
+          "type": "database",
+          "label": "只读检查",
+          "sublabel": "DISABLED",
+          "width": 128,
+          "height": 68,
+          "x": 407.20000000000005,
+          "y": 212,
+          "cx": 471.20000000000005,
+          "cy": 246
+        },
+        {
+          "id": "rr-controlled",
+          "lane": "inspect",
+          "col": 3,
+          "type": "database",
+          "label": "扫描并逐项收尾",
+          "sublabel": "分页·单任务短事务",
+          "width": 128,
+          "height": 68,
+          "x": 543.2,
+          "y": 212,
+          "cx": 607.2,
+          "cy": 246
+        },
+        {
+          "id": "rr-final",
+          "lane": "inspect",
+          "col": 4,
+          "type": "database",
+          "label": "清零与持锁确认",
+          "sublabel": "受控模式末次复查",
+          "width": 128,
+          "height": 68,
+          "x": 727.6,
+          "y": 212,
+          "cx": 791.6,
+          "cy": 246
+        },
+        {
+          "id": "rr-closed",
+          "lane": "failure",
+          "col": 3,
+          "type": "security",
+          "label": "保持准入关闭",
+          "sublabel": "诊断 · health DOWN",
+          "width": 128,
+          "height": 68,
+          "x": 543.2,
+          "y": 338,
+          "cx": 607.2,
+          "cy": 372
+        }
+      ],
+      "predicates": {
+        "orthogonalRoute": true,
+        "routeHonorsEndpointSides": true,
+        "routeMeetsHardRhythm": true,
+        "routeClearsEndpointNodes": true,
+        "routeClearsUnrelatedNodes": true,
+        "routeLabelClearsNodes": true,
+        "routeClearsPlacedLabels": false,
+        "routeClearsLegend": true,
+        "routeClearsSceneLabelObstacles": true,
+        "routeClearsFrameBorders": true,
+        "routeFitsCanvasOrigin": true
+      },
+      "priorRoutes": [
+        {
+          "edge": "rr-controlled-mode",
+          "points": [
+            [
+              535.2,
+              120
+            ],
+            [
+              607.2,
+              120
+            ],
+            [
+              607.2,
+              212
+            ]
+          ],
+          "label": {
+            "relation": {
+              "id": "rr-controlled-mode",
+              "from": "rr-mode",
+              "to": "rr-controlled",
+              "label": "受控单机",
+              "role": "main",
+              "variant": "emphasis"
+            },
+            "relationIndex": 0,
+            "label": "受控单机",
+            "x": 547,
+            "y": 100,
+            "width": 48.4,
+            "height": 14,
+            "lx": 571.2,
+            "ly": 110
+          }
+        },
+        {
+          "edge": "rr-disabled-clear",
+          "points": [
+            [
+              471.20000000000005,
+              280
+            ],
+            [
+              471.20000000000005,
+              438
+            ],
+            [
+              791.6,
+              438
+            ],
+            [
+              791.6,
+              280
+            ]
+          ],
+          "label": {
+            "relation": {
+              "id": "rr-disabled-clear",
+              "from": "rr-disabled",
+              "to": "rr-final",
+              "label": "无遗留",
+              "role": "branch",
+              "variant": "default",
+              "route": "bottom-channel",
+              "fromSide": "bottom",
+              "toSide": "bottom",
+              "channelY": 438
+            },
+            "relationIndex": 1,
+            "label": "无遗留",
+            "x": 612.0000000000001,
+            "y": 418,
+            "width": 38.8,
+            "height": 14,
+            "lx": 631.4000000000001,
+            "ly": 428
+          }
+        },
+        {
+          "edge": "rr-disabled-closed",
+          "points": [
+            [
+              471.20000000000005,
+              280
+            ],
+            [
+              471.20000000000005,
+              296
+            ],
+            [
+              1313.2,
+              296
+            ],
+            [
+              1313.2,
+              372
+            ],
+            [
+              671.2,
+              372
+            ]
+          ],
+          "label": {
+            "relation": {
+              "id": "rr-disabled-closed",
+              "from": "rr-disabled",
+              "to": "rr-closed",
+              "label": "有遗留或读失败",
+              "role": "error",
+              "variant": "security"
+            },
+            "relationIndex": 2,
+            "label": "有遗留或读失败",
+            "x": 853.6,
+            "y": 276,
+            "width": 77.2,
+            "height": 14,
+            "lx": 892.2,
+            "ly": 286
+          }
+        },
+        {
+          "edge": "rr-disabled-mode",
+          "points": [
+            [
+              407.20000000000005,
+              127
+            ],
+            [
+              391.20000000000005,
+              127
+            ],
+            [
+              391.20000000000005,
+              300
+            ],
+            [
+              464.20000000000005,
+              300
+            ],
+            [
+              464.20000000000005,
+              280
+            ]
+          ],
+          "label": {
+            "relation": {
+              "id": "rr-disabled-mode",
+              "from": "rr-mode",
+              "to": "rr-disabled",
+              "label": "禁用恢复",
+              "role": "branch",
+              "variant": "default"
+            },
+            "relationIndex": 3,
+            "label": "禁用恢复",
+            "x": 403.50000000000006,
+            "y": 280,
+            "width": 48.4,
+            "height": 14,
+            "lx": 427.70000000000005,
+            "ly": 290
+          }
+        },
+        {
+          "edge": "rr-final-fail",
+          "points": [
+            [
+              791.6,
+              280
+            ],
+            [
+              791.6,
+              426
+            ],
+            [
+              687.2,
+              426
+            ],
+            [
+              687.2,
+              372
+            ],
+            [
+              671.2,
+              372
+            ]
+          ],
+          "label": {
+            "relation": {
+              "id": "rr-final-fail",
+              "from": "rr-final",
+              "to": "rr-closed",
+              "label": "遗留或锁失效",
+              "role": "error",
+              "variant": "security"
+            },
+            "relationIndex": 4,
+            "label": "遗留或锁失效",
+            "x": 705.6000000000001,
+            "y": 406,
+            "width": 67.6,
+            "height": 14,
+            "lx": 739.4000000000001,
+            "ly": 416
+          }
+        },
+        {
+          "edge": "rr-lock-halt",
+          "points": [
+            [
+              350.8,
+              120
+            ],
+            [
+              366.8,
+              120
+            ],
+            [
+              366.8,
+              300
+            ],
+            [
+              286.8,
+              300
+            ],
+            [
+              286.8,
+              280
+            ]
+          ],
+          "label": {
+            "relation": {
+              "id": "rr-lock-halt",
+              "from": "rr-lock",
+              "to": "rr-halt",
+              "label": "失败",
+              "role": "error",
+              "variant": "security"
+            },
+            "relationIndex": 5,
+            "label": "失败",
+            "x": 311.8,
+            "y": 280,
+            "width": 30,
+            "height": 14,
+            "lx": 326.8,
+            "ly": 290
+          }
+        },
+        {
+          "edge": "rr-lock-mode",
+          "points": [
+            [
+              286.8,
+              86
+            ],
+            [
+              286.8,
+              70
+            ],
+            [
+              471.20000000000005,
+              70
+            ],
+            [
+              471.20000000000005,
+              86
+            ]
+          ],
+          "label": {
+            "relation": {
+              "id": "rr-lock-mode",
+              "from": "rr-lock",
+              "to": "rr-mode",
+              "label": "迁移成功",
+              "role": "main",
+              "variant": "emphasis"
+            },
+            "relationIndex": 6,
+            "label": "迁移成功",
+            "x": 354.8,
+            "y": 50,
+            "width": 48.4,
+            "height": 14,
+            "lx": 379,
+            "ly": 60
+          }
+        },
+        {
+          "edge": "rr-ready-edge",
+          "points": [
+            [
+              791.6,
+              212
+            ],
+            [
+              791.6,
+              154
+            ]
+          ],
+          "label": {
+            "relation": {
+              "id": "rr-ready-edge",
+              "from": "rr-final",
+              "to": "rr-ready",
+              "label": "清零且持锁",
+              "role": "main",
+              "variant": "emphasis",
+              "route": "straight"
+            },
+            "relationIndex": 7,
+            "label": "清零且持锁",
+            "x": 762.6,
+            "y": 192,
+            "width": 58,
+            "height": 14,
+            "lx": 791.6,
+            "ly": 202
+          }
+        },
+        {
+          "edge": "rr-scan-done",
+          "points": [
+            [
+              671.2,
+              246
+            ],
+            [
+              727.6,
+              246
+            ]
+          ],
+          "label": {
+            "relation": {
+              "id": "rr-scan-done",
+              "from": "rr-controlled",
+              "to": "rr-final",
+              "label": "扫描结束",
+              "role": "main",
+              "variant": "emphasis"
+            },
+            "relationIndex": 8,
+            "label": "扫描结束",
+            "x": 675.2,
+            "y": 226,
+            "width": 48.4,
+            "height": 14,
+            "lx": 699.4000000000001,
+            "ly": 236
+          }
+        }
+      ]
+    }
+  ]
+}

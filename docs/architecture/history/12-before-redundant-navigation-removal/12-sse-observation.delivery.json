@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "sequence",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/12-sse-observation.sequence.json",
+  "output": "/Users/xavier/AgentFlow-Hub/docs/architecture/12-sse-observation.html",
+  "specification": {
+    "sha256": "3a9095b5db2c987b50679c53dd9fe126bae7fa00650231589bc6d8a6d9168021",
+    "bytes": 7505
+  },
+  "artifact": {
+    "sha256": "0e857cbf94e2451a2894efa4a3af1dd6f421702b4daed00ced14194482ac4869",
+    "bytes": 819139
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}
