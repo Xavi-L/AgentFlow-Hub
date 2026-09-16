@@ -1,0 +1,296 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "10B · 终态保存与失败收敛",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "save",
+      "label": "持久事实 · 先回读再保存"
+    },
+    {
+      "id": "failure",
+      "label": "未确认 · 错误分类与降级"
+    },
+    {
+      "id": "retry",
+      "label": "仅重试数据库 · 不重执行业务"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "sp-input",
+      "lane": "save",
+      "col": 0,
+      "type": "backend",
+      "label": "冻结的观察结果",
+      "sublabel": "outcome + observedAt",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "sp-read",
+      "lane": "save",
+      "col": 1,
+      "type": "database",
+      "label": "每次先回读",
+      "sublabel": "现有终态优先",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "sp-write",
+      "lane": "save",
+      "col": 2,
+      "type": "database",
+      "label": "短事务保存",
+      "sublabel": "行锁 · 取消优先",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "sp-done",
+      "lane": "save",
+      "col": 3,
+      "type": "database",
+      "label": "终态已确认",
+      "sublabel": "保存或回读成立",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "sp-degrade",
+      "lane": "failure",
+      "col": 0,
+      "type": "security",
+      "label": "关闭任务准入",
+      "sublabel": "DOWN · 不虚构终态",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "sp-classify",
+      "lane": "failure",
+      "col": 1,
+      "type": "security",
+      "label": "判定是否可重试",
+      "sublabel": "DB瞬态且次数未满",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "sp-readback",
+      "lane": "failure",
+      "col": 2,
+      "type": "database",
+      "label": "立即再回读",
+      "sublabel": "未知COMMIT / 0行",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "sp-backoff",
+      "lane": "retry",
+      "col": 1,
+      "type": "backend",
+      "label": "有界退避",
+      "sublabel": "100ms / 500ms",
+      "width": 128,
+      "height": 68
+    }
+  ],
+  "edges": [
+    {
+      "id": "sp-begin",
+      "from": "sp-input",
+      "to": "sp-read",
+      "label": "开始保存",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "sp-live",
+      "from": "sp-read",
+      "to": "sp-write",
+      "label": "非终态",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "sp-existing",
+      "from": "sp-read",
+      "to": "sp-done",
+      "label": "已终态",
+      "role": "branch",
+      "variant": "default"
+    },
+    {
+      "id": "sp-read-fail",
+      "from": "sp-read",
+      "to": "sp-classify",
+      "label": "首次回读异常",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "id": "sp-commit",
+      "from": "sp-write",
+      "to": "sp-done",
+      "label": "保存成功",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "sp-uncertain",
+      "from": "sp-write",
+      "to": "sp-readback",
+      "label": "异常或0行",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "id": "sp-confirm",
+      "from": "sp-readback",
+      "to": "sp-done",
+      "label": "已终态",
+      "role": "branch",
+      "variant": "default"
+    },
+    {
+      "id": "sp-unconfirmed",
+      "from": "sp-readback",
+      "to": "sp-classify",
+      "label": "尚未确认",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "id": "sp-retry",
+      "from": "sp-classify",
+      "to": "sp-backoff",
+      "label": "可重试",
+      "role": "branch",
+      "variant": "default",
+      "fromSide": "left",
+      "toSide": "left"
+    },
+    {
+      "id": "sp-fail",
+      "from": "sp-classify",
+      "to": "sp-degrade",
+      "label": "永久 / 耗尽",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "id": "sp-again",
+      "from": "sp-backoff",
+      "to": "sp-read",
+      "label": "同一观察结果",
+      "role": "return",
+      "variant": "dashed"
+    },
+    {
+      "id": "sp-interrupt",
+      "from": "sp-backoff",
+      "to": "sp-degrade",
+      "label": "退避被中断",
+      "role": "error",
+      "variant": "security"
+    }
+  ],
+  "mainPath": [
+    "sp-input",
+    "sp-read",
+    "sp-write",
+    "sp-done"
+  ],
+  "semanticChecks": {
+    "allowedRoots": [
+      "sp-input"
+    ],
+    "allowedTerminals": [
+      "sp-done",
+      "sp-degrade"
+    ],
+    "requiredEdges": [
+      {
+        "from": "sp-input",
+        "to": "sp-read"
+      },
+      {
+        "from": "sp-read",
+        "to": "sp-write"
+      },
+      {
+        "from": "sp-read",
+        "to": "sp-done"
+      },
+      {
+        "from": "sp-read",
+        "to": "sp-classify"
+      },
+      {
+        "from": "sp-write",
+        "to": "sp-done"
+      },
+      {
+        "from": "sp-write",
+        "to": "sp-readback"
+      },
+      {
+        "from": "sp-readback",
+        "to": "sp-done"
+      },
+      {
+        "from": "sp-readback",
+        "to": "sp-classify"
+      },
+      {
+        "from": "sp-classify",
+        "to": "sp-backoff"
+      },
+      {
+        "from": "sp-classify",
+        "to": "sp-degrade"
+      },
+      {
+        "from": "sp-backoff",
+        "to": "sp-read"
+      },
+      {
+        "from": "sp-backoff",
+        "to": "sp-degrade"
+      }
+    ]
+  },
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "一次物理事务",
+      "items": [
+        "锁内已落库取消优先；状态、答案及终态事件原子提交，失败回滚。",
+        "已有终态直接接受；outcome / usage / 计数 / observedAt 不因退避重算。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "未知 COMMIT 与分类",
+      "items": [
+        "写入异常即使末次或永久故障也回读。明确SQLSTATE优先；回读永久错误立即降级。",
+        "最多3次尝试：初次 + 100/500ms。23514等永久错误不重试；只读失败也计次数。"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "失败仍须保留未知",
+      "items": [
+        "TASK_SETTLEMENT_PERSIST_FAILED 关闭准入，health DOWN；不强写FAILED或伪造保存成功。",
+        "保存前暂清线程中断位，结束恢复；退避再被中断即退出。不重跑Engine或外部调用。"
+      ]
+    }
+  ]
+}

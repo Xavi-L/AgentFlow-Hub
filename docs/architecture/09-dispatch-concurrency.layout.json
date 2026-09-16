@@ -1,0 +1,422 @@
+{
+  "contract": "readable-v2",
+  "viewBox": [
+    1147,
+    534
+  ],
+  "requiredViewBox": [
+    1147,
+    534
+  ],
+  "columns": [
+    112,
+    310.8,
+    509.6,
+    703.6,
+    940.8,
+    1060.8
+  ],
+  "nodes": [
+    {
+      "id": "dc-commit",
+      "lane": "dispatch",
+      "col": 0,
+      "x": 48,
+      "y": 86,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "dc-pool",
+      "lane": "dispatch",
+      "col": 1,
+      "x": 246.8,
+      "y": 86,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "dc-claim",
+      "lane": "dispatch",
+      "col": 2,
+      "x": 445.6,
+      "y": 86,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "dc-engine",
+      "lane": "dispatch",
+      "col": 3,
+      "x": 639.6,
+      "y": 86,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "dc-reject",
+      "lane": "external",
+      "col": 1,
+      "x": 246.8,
+      "y": 212,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "dc-skip",
+      "lane": "external",
+      "col": 2,
+      "x": 445.6,
+      "y": 212,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "dc-permit",
+      "lane": "external",
+      "col": 3,
+      "x": 639.6,
+      "y": 212,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "dc-body",
+      "lane": "external",
+      "col": 4,
+      "x": 876.8,
+      "y": 212,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "dc-observe",
+      "lane": "finish",
+      "col": 3,
+      "x": 639.6,
+      "y": 338,
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "dc-release",
+      "lane": "finish",
+      "col": 4,
+      "x": 876.8,
+      "y": 338,
+      "width": 128,
+      "height": 68
+    }
+  ],
+  "edges": [
+    {
+      "id": "dc-abandon",
+      "from": "dc-permit",
+      "to": "dc-observe",
+      "points": [
+        [
+          639.6,
+          246
+        ],
+        [
+          623.6,
+          246
+        ],
+        [
+          623.6,
+          426
+        ],
+        [
+          703.6,
+          426
+        ],
+        [
+          703.6,
+          406
+        ]
+      ]
+    },
+    {
+      "id": "dc-call",
+      "from": "dc-engine",
+      "to": "dc-permit",
+      "points": [
+        [
+          703.6,
+          154
+        ],
+        [
+          703.6,
+          170
+        ],
+        [
+          1131,
+          170
+        ],
+        [
+          1131,
+          196
+        ],
+        [
+          703.6,
+          196
+        ],
+        [
+          703.6,
+          212
+        ]
+      ]
+    },
+    {
+      "id": "dc-enter",
+      "from": "dc-claim",
+      "to": "dc-engine",
+      "points": [
+        [
+          573.6,
+          120
+        ],
+        [
+          639.6,
+          120
+        ]
+      ]
+    },
+    {
+      "id": "dc-exit",
+      "from": "dc-body",
+      "to": "dc-release",
+      "points": [
+        [
+          1004.8,
+          246
+        ],
+        [
+          1131,
+          246
+        ],
+        [
+          1131,
+          372
+        ],
+        [
+          1004.8,
+          372
+        ]
+      ]
+    },
+    {
+      "id": "dc-launch",
+      "from": "dc-permit",
+      "to": "dc-body",
+      "points": [
+        [
+          703.6,
+          280
+        ],
+        [
+          703.6,
+          296
+        ],
+        [
+          940.8,
+          296
+        ],
+        [
+          940.8,
+          280
+        ]
+      ]
+    },
+    {
+      "id": "dc-reject-edge",
+      "from": "dc-pool",
+      "to": "dc-reject",
+      "points": [
+        [
+          374.8,
+          127
+        ],
+        [
+          390.8,
+          127
+        ],
+        [
+          390.8,
+          300
+        ],
+        [
+          310.8,
+          300
+        ],
+        [
+          310.8,
+          280
+        ]
+      ]
+    },
+    {
+      "id": "dc-result",
+      "from": "dc-release",
+      "to": "dc-observe",
+      "points": [
+        [
+          876.8,
+          372
+        ],
+        [
+          767.6,
+          372
+        ]
+      ]
+    },
+    {
+      "id": "dc-schedule",
+      "from": "dc-pool",
+      "to": "dc-claim",
+      "points": [
+        [
+          310.8,
+          86
+        ],
+        [
+          310.8,
+          70
+        ],
+        [
+          509.6,
+          70
+        ],
+        [
+          509.6,
+          86
+        ]
+      ]
+    },
+    {
+      "id": "dc-skip-edge",
+      "from": "dc-claim",
+      "to": "dc-skip",
+      "points": [
+        [
+          445.6,
+          120
+        ],
+        [
+          429.6,
+          120
+        ],
+        [
+          429.6,
+          300
+        ],
+        [
+          509.6,
+          300
+        ],
+        [
+          509.6,
+          280
+        ]
+      ]
+    },
+    {
+      "id": "dc-submit",
+      "from": "dc-commit",
+      "to": "dc-pool",
+      "points": [
+        [
+          176,
+          120
+        ],
+        [
+          246.8,
+          120
+        ]
+      ]
+    }
+  ],
+  "labels": [
+    {
+      "edge": "dc-abandon",
+      "label": "等待中止",
+      "x": 663.6,
+      "y": 416,
+      "width": 48.4,
+      "height": 14
+    },
+    {
+      "edge": "dc-call",
+      "label": "同步调用并等待",
+      "x": 917.3,
+      "y": 160,
+      "width": 77.2,
+      "height": 14
+    },
+    {
+      "edge": "dc-enter",
+      "label": "claim 成功",
+      "x": 606.6,
+      "y": 110,
+      "width": 58,
+      "height": 14
+    },
+    {
+      "edge": "dc-exit",
+      "label": "工作体退出",
+      "x": 1067.9,
+      "y": 236,
+      "width": 58,
+      "height": 14
+    },
+    {
+      "edge": "dc-launch",
+      "label": "获许可后启动",
+      "x": 822.2,
+      "y": 286,
+      "width": 67.6,
+      "height": 14
+    },
+    {
+      "edge": "dc-reject-edge",
+      "label": "饱和 / 准入拒绝",
+      "x": 350.8,
+      "y": 290,
+      "width": 82,
+      "height": 14
+    },
+    {
+      "edge": "dc-result",
+      "label": "未放弃：结果 / 异常",
+      "x": 822.2,
+      "y": 362,
+      "width": 101.2,
+      "height": 14
+    },
+    {
+      "edge": "dc-schedule",
+      "label": "worker 领取",
+      "x": 410.20000000000005,
+      "y": 60,
+      "width": 62.8,
+      "height": 14
+    },
+    {
+      "edge": "dc-skip-edge",
+      "label": "0 行",
+      "x": 469.6,
+      "y": 290,
+      "width": 30,
+      "height": 14
+    },
+    {
+      "edge": "dc-submit",
+      "label": "afterCommit",
+      "x": 211.4,
+      "y": 110,
+      "width": 62.8,
+      "height": 14
+    }
+  ],
+  "diagnostics": []
+}

@@ -1,0 +1,187 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "validate",
+  "stage": "render",
+  "type": "lifecycle",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/08-task-lifecycle.candidate.lifecycle.json",
+  "error": "Lifecycle layout validation failed:\n- [clean-flow/edge-through-node] lifecycle transitions[4] id \"tl-queued-cancel\" \"tl-queued\" -> \"tl-cancelled\" crosses state \"tl-failed\" (unrelated to this relationship) on segment 2 [325, 472] -> [497, 472] (2px clearance) — adjust fromSide/toSide, set route/via or channelX/channelY, or move the state with col/yOffset.\n- [clean-flow/edge-through-node] lifecycle transitions[6] id \"tl-timeout\" \"tl-running\" -> \"tl-timed-out\" crosses state \"tl-cancelled\" (unrelated to this relationship) on segment 1 [556, 171] -> [556, 479] (2px clearance) — adjust fromSide/toSide, set route/via or channelX/channelY, or move the state with col/yOffset.\n- [composition/short-interior-segment] showcase lifecycle transitions[1] id \"tl-complete\" \"tl-running\" -> \"tl-completed\" has a 14px interior segment 1 [556, 143] -> [556, 157] that is below the 16px interior-segment floor — move route/via or channel coordinates so each lifecycle turn has a readable run-up.\n- Label \"执行失败 / 重启中断\" overlaps state \"tl-running\" — adjust labelDx/labelDy/labelSegment or set labelAt.\n  label rect: [349, 167, 105, 16]\n  state \"tl-running\" rect: [343, 126, 118, 62]\n  Suggested fix: labelAt [402, 202] or labelDy +24 (below); or labelAt [402, 122] or labelDy -56 (above)\n- Labels \"派发拒绝 / 重启失投\" and \"owner 取消 / 恢复取消\" overlap — adjust labelDx/labelDy.\n  \"派发拒绝 / 重启失投\" [195, 301, 105, 16]; \"owner 取消 / 恢复取消\" [268, 290, 115, 16]\n  Suggested fix: adjust labelDx/labelDy/labelSegment, or route one relationship through a separate corridor\n- Labels \"已标记取消：结算 / 恢复\" and \"deadline · 无取消\" overlap — adjust labelDx/labelDy.\n  \"已标记取消：结算 / 恢复\" [417, 301, 125, 16]; \"deadline · 无取消\" [508, 304, 95, 16]\n  Suggested fix: adjust labelDx/labelDy/labelSegment, or route one relationship through a separate corridor\n- [composition/label-route-clearance] showcase lifecycle label \"claim：无取消标记\" on transitions[0] id \"tl-claim\" \"tl-queued\" -> \"tl-running\" label \"claim：无取消标记\" is 0px from transitions[4] id \"tl-queued-cancel\" \"tl-queued\" -> \"tl-cancelled\" label \"owner 取消 / 恢复取消\" segment 0 [153, 150] -> [325, 150] (label rect [200, 136, 95, 16]; minimum 4px) — adjust labelAt, labelDx, labelDy, or labelSegment; otherwise adjust the other relationship route/via/channel.",
+  "diagnostics": [
+    {
+      "code": "clean-flow/edge-through-node",
+      "severity": "error",
+      "message": "[clean-flow/edge-through-node] lifecycle transitions[4] id \"tl-queued-cancel\" \"tl-queued\" -> \"tl-cancelled\" crosses state \"tl-failed\" (unrelated to this relationship) on segment 2 [325, 472] -> [497, 472] (2px clearance) — adjust fromSide/toSide, set route/via or channelX/channelY, or move the state with col/yOffset.",
+      "subject": {
+        "diagramType": "lifecycle",
+        "collection": "transitions",
+        "index": 4,
+        "id": "tl-queued-cancel",
+        "from": "tl-queued",
+        "to": "tl-cancelled"
+      },
+      "evidence": {
+        "obstacleKind": "state",
+        "obstacleId": "tl-failed",
+        "segmentIndex": 2,
+        "from": [
+          325,
+          472
+        ],
+        "to": [
+          497,
+          472
+        ],
+        "clearancePx": 2
+      },
+      "supportedFixes": [
+        "adjust fromSide/toSide, set route/via or channelX/channelY, or move the state with col/yOffset"
+      ]
+    },
+    {
+      "code": "clean-flow/edge-through-node",
+      "severity": "error",
+      "message": "[clean-flow/edge-through-node] lifecycle transitions[6] id \"tl-timeout\" \"tl-running\" -> \"tl-timed-out\" crosses state \"tl-cancelled\" (unrelated to this relationship) on segment 1 [556, 171] -> [556, 479] (2px clearance) — adjust fromSide/toSide, set route/via or channelX/channelY, or move the state with col/yOffset.",
+      "subject": {
+        "diagramType": "lifecycle",
+        "collection": "transitions",
+        "index": 6,
+        "id": "tl-timeout",
+        "from": "tl-running",
+        "to": "tl-timed-out"
+      },
+      "evidence": {
+        "obstacleKind": "state",
+        "obstacleId": "tl-cancelled",
+        "segmentIndex": 1,
+        "from": [
+          556,
+          171
+        ],
+        "to": [
+          556,
+          479
+        ],
+        "clearancePx": 2
+      },
+      "supportedFixes": [
+        "adjust fromSide/toSide, set route/via or channelX/channelY, or move the state with col/yOffset"
+      ]
+    },
+    {
+      "code": "composition/short-interior-segment",
+      "severity": "error",
+      "message": "[composition/short-interior-segment] showcase lifecycle transitions[1] id \"tl-complete\" \"tl-running\" -> \"tl-completed\" has a 14px interior segment 1 [556, 143] -> [556, 157] that is below the 16px interior-segment floor — move route/via or channel coordinates so each lifecycle turn has a readable run-up.",
+      "subject": {
+        "diagramType": "lifecycle",
+        "collection": "transitions",
+        "index": 1,
+        "id": "tl-complete",
+        "from": "tl-running",
+        "to": "tl-completed"
+      },
+      "evidence": {
+        "segmentIndex": 1,
+        "position": "interior",
+        "lengthPx": 14,
+        "minimumPx": 16,
+        "from": [
+          556,
+          143
+        ],
+        "to": [
+          556,
+          157
+        ]
+      },
+      "supportedFixes": [
+        "move route/via or channel coordinates so each lifecycle turn has a readable run-up"
+      ]
+    },
+    {
+      "code": "composition/label-route-clearance",
+      "severity": "error",
+      "message": "[composition/label-route-clearance] showcase lifecycle label \"claim：无取消标记\" on transitions[0] id \"tl-claim\" \"tl-queued\" -> \"tl-running\" label \"claim：无取消标记\" is 0px from transitions[4] id \"tl-queued-cancel\" \"tl-queued\" -> \"tl-cancelled\" label \"owner 取消 / 恢复取消\" segment 0 [153, 150] -> [325, 150] (label rect [200, 136, 95, 16]; minimum 4px) — adjust labelAt, labelDx, labelDy, or labelSegment; otherwise adjust the other relationship route/via/channel.",
+      "subject": {
+        "diagramType": "lifecycle",
+        "collection": "transitions",
+        "index": 0,
+        "id": "tl-claim",
+        "from": "tl-queued",
+        "to": "tl-running"
+      },
+      "evidence": {
+        "label": "claim：无取消标记",
+        "otherRelationship": {
+          "diagramType": "lifecycle",
+          "collection": "transitions",
+          "index": 4,
+          "id": "tl-queued-cancel",
+          "from": "tl-queued",
+          "to": "tl-cancelled"
+        },
+        "segmentIndex": 0,
+        "clearancePx": 0,
+        "minimumPx": 4,
+        "labelRect": {
+          "relation": {
+            "id": "tl-claim",
+            "from": "tl-queued",
+            "to": "tl-running",
+            "label": "claim：无取消标记",
+            "variant": "emphasis",
+            "route": "straight"
+          },
+          "relationIndex": 0,
+          "label": "claim：无取消标记",
+          "x": 200.35,
+          "y": 136,
+          "width": 95.30000000000001,
+          "height": 16,
+          "lx": 248,
+          "ly": 147
+        },
+        "from": [
+          153,
+          150
+        ],
+        "to": [
+          325,
+          150
+        ]
+      },
+      "supportedFixes": [
+        "adjust labelAt, labelDx, labelDy, or labelSegment; otherwise adjust the other relationship route/via/channel"
+      ]
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Label \"执行失败 / 重启中断\" overlaps state \"tl-running\" — adjust labelDx/labelDy/labelSegment or set labelAt.\n  label rect: [349, 167, 105, 16]\n  state \"tl-running\" rect: [343, 126, 118, 62]\n  Suggested fix: labelAt [402, 202] or labelDy +24 (below); or labelAt [402, 122] or labelDy -56 (above)",
+      "subject": {
+        "diagramType": "lifecycle"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Labels \"派发拒绝 / 重启失投\" and \"owner 取消 / 恢复取消\" overlap — adjust labelDx/labelDy.\n  \"派发拒绝 / 重启失投\" [195, 301, 105, 16]; \"owner 取消 / 恢复取消\" [268, 290, 115, 16]\n  Suggested fix: adjust labelDx/labelDy/labelSegment, or route one relationship through a separate corridor",
+      "subject": {
+        "diagramType": "lifecycle"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Labels \"已标记取消：结算 / 恢复\" and \"deadline · 无取消\" overlap — adjust labelDx/labelDy.\n  \"已标记取消：结算 / 恢复\" [417, 301, 125, 16]; \"deadline · 无取消\" [508, 304, 95, 16]\n  Suggested fix: adjust labelDx/labelDy/labelSegment, or route one relationship through a separate corridor",
+      "subject": {
+        "diagramType": "lifecycle"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    }
+  ]
+}

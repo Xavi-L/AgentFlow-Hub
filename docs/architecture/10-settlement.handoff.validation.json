@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "validate",
+  "stage": "render",
+  "type": "workflow",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/10-settlement.candidate.workflow.json",
+  "error": "Workflow edge \"sp-retry\" has explicit geometry that violates readable route feasibility with authored endpoint sides.",
+  "diagnostics": [
+    {
+      "code": "workflow/explicit-pin-conflict",
+      "severity": "error",
+      "message": "Workflow edge \"sp-retry\" has explicit geometry that violates readable route feasibility with authored endpoint sides.",
+      "subject": {
+        "diagramType": "workflow",
+        "edge": "sp-retry",
+        "from": "sp-classify",
+        "to": "sp-backoff"
+      },
+      "evidence": {
+        "invariant": "readable route feasibility with authored endpoint sides",
+        "conflictingPins": [
+          {
+            "edge": "sp-retry",
+            "field": "fromSide",
+            "path": "/edges/8/fromSide",
+            "value": "left"
+          },
+          {
+            "edge": "sp-retry",
+            "field": "toSide",
+            "path": "/edges/8/toSide",
+            "value": "left"
+          }
+        ],
+        "actualCoordinates": {
+          "sourceAnchor": [
+            246.8,
+            265
+          ],
+          "targetAnchor": [
+            246.8,
+            403
+          ]
+        },
+        "fromSide": "left",
+        "toSide": "left",
+        "attemptedCandidateFamilies": [
+          "facing-straight",
+          "horizontal-then-vertical",
+          "vertical-then-horizontal",
+          "lane-gap-corridor",
+          "column-gap-corridor",
+          "outside-left",
+          "outside-right",
+          "top-corridor",
+          "bottom-corridor"
+        ],
+        "candidateCount": 9
+      },
+      "supportedFixes": []
+    }
+  ]
+}

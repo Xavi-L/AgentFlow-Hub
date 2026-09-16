@@ -1,0 +1,101 @@
+{
+  "diagram": "09",
+  "diagram_type": "workflow v2",
+  "baseline_head": "0320892af12fdafb1b5ae89e9135b987dbd1630a",
+  "date": "2026-09-16",
+  "status": "complete",
+  "artifact_validation": "passed",
+  "browser_evidence": "passed",
+  "visual_review": "passed",
+  "commands": [
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/09-dispatch-concurrency.candidate.workflow.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "history/09-before-call-route/09-dispatch-concurrency.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs deliver workflow docs/architecture/09-dispatch-concurrency.workflow.json docs/architecture/09-dispatch-concurrency.html --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "history/09-before-call-route/09-dispatch-concurrency.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/09-dispatch-concurrency.html --json",
+      "exit_code": 0,
+      "receipt": "history/09-before-call-route/09-dispatch-concurrency.visual-check.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow /Users/xavier/AgentFlow-Hub/docs/architecture/09-dispatch-concurrency.candidate.workflow.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/09-straight-conflict/09-dispatch-concurrency.candidate.validation.json",
+      "repair": {
+        "subject": "dc-call",
+        "route": "straight",
+        "evidence": "actual visual review and compiler points"
+      },
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/09-dispatch-concurrency.candidate.workflow.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "09-dispatch-concurrency.candidate.validation.json",
+      "repair": {
+        "subject": "dc-call",
+        "removed": "route",
+        "fromSide": "bottom",
+        "toSide": "top",
+        "reason": "use native auto route per supportedFixes; keep inbound/outbound ports away from competing dc-launch corridor"
+      },
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/09-dispatch-concurrency.candidate.workflow.json --quality showcase --layout-json",
+      "exit_code": 0,
+      "receipt": "09-dispatch-concurrency.layout.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs deliver workflow docs/architecture/09-dispatch-concurrency.workflow.json docs/architecture/09-dispatch-concurrency.html --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "09-dispatch-concurrency.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/09-dispatch-concurrency.html --json",
+      "exit_code": 0,
+      "receipt": "09-dispatch-concurrency.visual-check.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate workflow docs/architecture/09-dispatch-concurrency.workflow.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "09-dispatch-concurrency.validation.json",
+      "stderr": ""
+    }
+  ],
+  "correction_rounds": 2,
+  "artifact_delivery": "passed",
+  "specification": {
+    "sha256": "63bc02f991d1dcb190fba6bae862e15fe690de5fa23e85dd224ab2946c86f5a5",
+    "bytes": 6537
+  },
+  "artifact": {
+    "sha256": "508321c2e4d856d23374d6033ab9f5dd6d1551c598fa3d09e1c789fd6a0116f5",
+    "bytes": 812361
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  },
+  "browser_receipt": "09-dispatch-concurrency.visual-check.json",
+  "visual_review_receipt": "09-dispatch-concurrency.visual-review.json",
+  "layout_receipt": "09-dispatch-concurrency.layout.json",
+  "minimum_projected_node_text_px": 8,
+  "scope": "Only diagram 09 and Atlas; no diagram 10, business/Skill edits, commit or push."
+}

@@ -2,14 +2,16 @@
 
 ## Scope and baseline
 
-已依次完成 **01 · System Context**、**02 · Backend Runtime Architecture**（均为 `architecture`）及 **03 · End-to-End Task Workflow**（`workflow` v2）。图 03 当前交付的 artifact、browser evidence 与截图 visual review 均通过，旧失败记录保留为历史。图 04 已完成 Task Creation and Dispatch Sequence，图 05 已完成 Agent Execution Loop（workflow v2）；图 06 RAG Data Flow 已完成证据与候选，但布局验证失败，保持 incomplete；图 07–15 与最终独立 Architecture Audit 尚未施工。
+已依次完成 **01 · System Context**、**02 · Backend Runtime Architecture**（均为 `architecture`）及 **03 · End-to-End Task Workflow**（`workflow` v2）。图 03 当前交付的 artifact、browser evidence 与截图 visual review 均通过，旧失败记录保留为历史。图 04 已完成 Task Creation and Dispatch Sequence，图 05 已完成 Agent Execution Loop（workflow v2）；图 06 RAG Data Flow 已完成修复包应用，artifact、browser evidence 与截图 visual review 均通过，旧失败证据保留；图 07 Tool Invocation Sequence 已完成 artifact、browser 和视觉验收；图 08 Task Lifecycle 已完成三层验收；图 09 派发与并发控制已完成三层验收；图 10 已拆为10A执行中断lifecycle与10B终态保存workflow：10A三层验收通过，10B原版路由验证失败，整体incomplete；图 11–15 与最终独立 Architecture Audit 尚未施工。
 
 - 图 01 交付日期：2026-09-14；图 02 于 2026-09-14 开始检查、2026-09-15 完成交付（Asia/Shanghai）。
 - 图 01/02 施工基线分支：`main`；HEAD：`ba04adc5308222635e6eb1a86a0981da8ede408c`（`docs: add Archify architecture atlas construction guide`）。未 fetch、未改变 Git 基线；此处指施工时本地 main。
 - 工作树：**dirty**。施工前已有 V0.3 配置/评估/episode 相关改动、`application-dev.yml`、规格文档和未跟踪的 `.agents/` 等内容。本图按实际文件检查；没有把这些改动视为 HEAD 已提交行为。
 - Archify：仓库本地 `.agents/skills/archify/SKILL.md`，metadata version `2.17`；`showcase` 质量，中文 Viewer，静态默认视图。
 - 未运行外部业务 runtime：本轮未启动 Spring Boot、PostgreSQL、Redis、Qdrant、Chat、DashScope，也未执行付费请求或真实服务验收。图展示代码/配置支持的逻辑关系，不证明部署中的连通性、生产拓扑或 provider 行为。
-- 最新图 06 施工新增候选、失败诊断及证据记录并更新本 Atlas，尚未交付 HTML；图 01–05 原产物及既有业务代码改动保留。各图基线、历史失败与分层验收分别见对应章节。
+- 图 06 于 2026-09-16 基于 `main@0320892af12fdafb1b5ae89e9135b987dbd1630a` 的 dirty working tree 完成修复与交付；使用当前本地 Archify 2.17（package 2.17.0-dev.1）。仅修改图 06 布局与验收记录，图 01–05 原产物及既有业务代码改动保留；未运行真实外部 provider。各图基线、历史失败与分层验收分别见对应章节。
+
+- 图 07 于 2026-09-16 基于同一 `main@0320892` dirty working tree 完成；7 个参与者、22 条消息，artifact / browser / visual review 分别通过，旧失败证据保留。图 07 当轮仅修改该图与本 Atlas，当时尚未开始图 08。
 
 ## Diagram index
 
@@ -20,7 +22,11 @@
 | 03 | End-to-End Task Workflow | workflow v2 | 提交 task 后，创建到最终答案如何推进，关键 gate 在哪里？ | 完成：showcase validate / deliver 9/9，0 errors / 0 warnings；四尺寸 browser / 明暗截图 visual review 通过 |
 | 04 | Task Creation and Dispatch Sequence | sequence | 创建请求按何顺序处理，何时跨越 COMMIT 与 async dispatch？ | 完成：showcase validate / deliver 9/9，0 errors / 0 warnings；四尺寸 browser / 双主题截图 visual review 通过 |
 | 05 | Agent Execution Loop | workflow v2 | task 进入 runtime 后，如何完成预检索、decision/tool 回环与独立 final generation？ | 完成：showcase validate / deliver 9/9，0 errors / 0 warnings；四尺寸 browser / 双主题截图 visual review 通过 |
-| 06 | RAG Data Flow | dataflow | 文档从上传到被一次Agent task检索并进入模型上下文，数据经历什么路径？ | incomplete：当前布局9项诊断；未deliver / browser / visual review，已按两轮未进展规则停止 |
+| 06 | RAG Data Flow | dataflow | 文档从上传到被一次Agent task检索并进入模型上下文，数据经历什么路径？ | complete：9/9 showcase，composition 0 errors / 0 warnings；四视口 browser 与双主题截图 visual review passed |
+| 07 | Tool Invocation Sequence | sequence | 模型决定调用工具后，定义、校验、执行、结果与后续模型调用如何串起来？ | complete：9/9 showcase，0 errors / 0 warnings；四视口 browser 与双主题截图 visual review passed |
+| 08 | Task Lifecycle | lifecycle | Task 的持久状态是什么，哪些触发与 guard 允许转换？ | complete：9/9 showcase，0 errors / 0 warnings；四视口 browser 与双主题截图 visual review passed |
+| 09 | Dispatch, Thread Pool and Concurrency Control | workflow v2 | 已提交任务如何经线程池、队列、claim和实际工作许可形成背压？ | complete：9/9 showcase，0 errors / 0 warnings；四视口browser和双主题visual review passed |
+| 10 | Failure, Cancellation and Settlement Lifecycle | lifecycle + workflow v2 | 执行中断与终态保存失败分别如何收敛？ | incomplete：10A三层passed；10B sp-retry路由可行性失败，未deliver/browser/visual review |
 
 ## Evidence convention
 
@@ -915,18 +921,18 @@ Retrieval：task → query（userInput与冻结范围）；query → search（qu
 
 ## 图 06 Evidence index
 
-- **Diagram:** 06 · RAG Data Flow（**incomplete**）。
+- **Diagram:** 06 · RAG Data Flow（**complete**，2026-09-16）。
 - **Question:** 文档从上传到被一次 Agent task 检索并进入模型上下文，数据经历什么路径？
 - **Type:** `dataflow` / schema v1 / showcase；12 个数据/职责节点、15 条具名 flow。横向 stages 是数据职责列，上部 ingestion、下部 retrieval，中间 READY 冻结交接；不是时间轴、自动队列或事务边界。
 - **Primary path:** 原始文件 → ParsedDocument → current-generation chunks → embedding → vector index → PG回写/派生READY → task冻结语料 → userInput/query embedding → scope search → canonical正文核验/上下文 → decision/final；检索/调用事实进入Trace。
 - **Key nodes / evidence:** 上述施工前清单与逐边索引，生产代码与迁移重新读取；不能以历史切片声明替代当前实现。
-- **Unknowns:** 未运行本轮业务单测/集成测试、后端、PostgreSQL、真实DashScope/Qdrant；provider连通性、点完整性、检索质量、超时后的远端计算均未证明。当前布局尚未通过，不能确认实际浏览器容纳与可读性。
-- **JSON:** [当前唯一 candidate](06-rag-dataflow.candidate.dataflow.json)；未替换正式 `06-rag-dataflow.dataflow.json`。
-- **HTML:** 未生成；未执行deliver，不存在可交付的本图HTML。
-- **Artifact validation:** **failed**，原版CLI exit1，当前 render/layout 有9项diagnostics；未进入完整9项artifact checks，不得表述为9/9或完整showcase成功。[最新完整原始回执](06-rag-dataflow.candidate.validation.json)。
-- **Browser evidence:** **not_run**，因本次deliver未执行，没有可检查的新HTML；不是Chrome不可用的skipped，也不是已测试后失败。
-- **Visual review:** **not_run**，未检查本图截图或HTML，不虚构视觉通过。
-- **Acceptance:** [命令/退出码/停止条件](06-rag-dataflow.acceptance.json)；[全历史诊断与当前causal evidence](06-rag-dataflow.diagnostic-summary.json)。
+- **Unknowns:** 未运行本轮业务单测/集成测试、后端、PostgreSQL、真实DashScope/Qdrant；provider连通性、点完整性、检索质量、超时后的远端计算均未证明。本图 artifact、浏览器与截图复核的通过不升级上述业务运行证据。
+- **JSON:** [冻结 candidate](06-rag-dataflow.candidate.dataflow.json)；[正式 JSON](06-rag-dataflow.dataflow.json) 为候选原字节复制。
+- **HTML:** [正式交付图 06](06-rag-dataflow.html)，原版 deliver exit 0；[delivery receipt](06-rag-dataflow.delivery.json)。
+- **Artifact validation:** **passed**，原版 CLI exit 0，9/9 showcase，composition 0 errors / 0 warnings；[candidate 原始回执](06-rag-dataflow.candidate.validation.json)、[正式 JSON 原始回执](06-rag-dataflow.validation.json)。
+- **Browser evidence:** **passed**，原版 visual-check exit 0 / status pass，四桌面视口 containment/readability 通过，端点视口双主题截图齐全；[实际回执](06-rag-dataflow.visual-check.json)。
+- **Visual review:** **passed**，已用图像阅读器打开四张实际截图检查 READ / Still；[独立视觉记录](06-rag-dataflow.visual-review.json)、[截图 contact sheet](06-rag-dataflow.visual-check.html)。原版自动回执的 `visualReview: pending` 保持不变。
+- **Acceptance:** [本轮命令/实际退出码与分层状态](06-rag-dataflow.acceptance.json)；[原失败 causal diagnostic](06-rag-dataflow.diagnostic-summary.json) 与 [修复前完整状态](history/06-before-package-repair-20260916/06-rag-dataflow.acceptance.json) 为历史，未改写成成功。
 
 ### 图 06 逐 flow 证据
 
@@ -960,7 +966,9 @@ Retrieval：task → query（userInput与冻结范围）；query → search（qu
 - **受控测试边界：** 施工前所列4组测试只读断言未执行。readiness集成测试源码覆盖11组状态及旧代不污染；vector测试明确payload无content、unknown upsert不markFailed；snapshot RAG测试排除错误owner/generation/hash、失效语料不回落。没有把测试命名或历史通过数字升级为新的运行成功。
 - **跨图一致性：** 图04创建时冻结ready document generation；图05在loop前一次PRE_RETRIEVAL，evidence给每次decision/独立final；outcome后才Runner结算。检索空结果、取消、超时与远端继续计算的unknown均保留；图07未施工。
 
-### 图 06 当前未解决诊断与停止条件
+### 图 06 历史诊断与停止记录（2026-09-15）
+
+以下保留上一轮失败时的判断与停止原因；其中“当前/本轮”指 2026-09-15，不表示本次修复后的状态。原始失败回执见 [历史 candidate validation](history/06-before-package-repair-20260916/06-rag-dataflow.candidate.validation.json)；2026-09-16 的新验收另列于下一节。
 
 所有修改均来自CLI明确诊断，只改具名flow的路由/端口/标签位置；12个节点和15条数据关系及全部语义标签保留，未缩小字体、降低showcase、修改renderer/checker或业务代码。dataflow schema没有semanticChecks字段，没有删除此类检查。
 
@@ -980,3 +988,434 @@ Retrieval：task → query（userInput与冻结范围）；query → search（qu
 完整evidence/subject/supportedFixes见原始回执与diagnostic-summary，不以本表取代原件。CLI对上述几何支持调整端口/route/via/channel或移动相关stage/row，对标签支持labelAt/labelDx/labelDy/labelSegment；本轮不再尝试新的修复。
 
 停止依据为[本地Archify SKILL.md](../../.agents/skills/archify/SKILL.md) Fast authoring path第5项原文：**“If two consecutive rounds do not improve that best count, stop and report the unresolved diagnostics truthfully.”** 当前最佳9，最近两轮10→9触发该条件，因此图06保持incomplete。所有历史候选/失败回执/acceptance在`history/06-round-01`至`history/06-round-10`，没有改写成成功证据。正式JSON、deliver、visual-check、视觉复核均未执行；图01–05保留，不开始图07。本轮未提交推送。
+
+
+### 图 06 修复包核对与验收（2026-09-16）
+
+本轮仅处理图 06。已读取 [REPAIR_NOTES](../../archify06_repair/REPAIR_NOTES.md) 和安全脚本，核对当前安装版 dataflow 固定列中心 `100 / 315 / 530 / 745 / 960`、节点文字拟合及标签/端口公式。该类型使用固定 stage 网格，未套用 workflow-v2 自适应布局。修复包原本只是未经原版验收的候选，包内独立复算结果未作为 CLI 证据。
+
+在仓库根目录先运行 `python3 archify06_repair/apply_repair.py .`，exit 0，baseline 匹配；对应基线 Git blob 为 `433d983f30114c84dd1fb9e0e40f7f3cc699b4ff`。随后 `--apply` exit 0。应用前原字节保留 candidate、validation、acceptance、diagnostic-summary、handoff validation 于 `history/06-before-package-repair-20260916/`，脚本另保留 `.before-layout-repair.bak`；未再次应用 patch。
+
+本轮 source 变更严格限于包内六条 flow 的几何与 viewBox 宽度：
+
+| Subject | 已应用修改 |
+| --- | --- |
+| rag-vector-search | bottom → top，经 `(960,320) → (530,320)`，标签 `(850,310)` |
+| rag-chunks-context | top → top，经 `(530,96) → (1060,96) → (1060,340) → (745,340)`，标签 `(810,86)` |
+| rag-search-context | `route: straight` |
+| rag-context-model | `route: straight` |
+| rag-chunks-ready | `labelDy: 34` |
+| rag-context-trace | `labelDy: 34` |
+| meta.viewBox | `[1140,620] → [1080,620]` |
+
+12 个节点、15 条关系、全部节点/阶段文案、说明卡片及其余字段均保持。没有缩小源字号、裁切、手改 HTML、修改 Skill/业务代码或降低质量门槛。
+
+**Artifact validation — passed：** candidate 与正式 JSON 均用当前未修改原版 CLI 完整 showcase validate，exit 0；9/9 checks，composition 0 errors / 0 warnings。proper crossings、ambiguous corridors、label-route clearance issues、短段与微段计数均为 0；最小线段 16px，最小内部段 51px，最小标签/其他路径净距 5px。4 弯路径及 stretch 为回执中的信息指标，不是警告。candidate 通过后原样复制正式 JSON，再 deliver exit 0；未在冻结后增加美化修改。
+
+对本次已交付 SVG 的[补充布局提取](06-rag-dataflow.layout-measurements.json)覆盖全部 12 个节点、24 段节点文字和 15 条 flow；它不是原版 CLI 回执。所有标题 10px、副标题 7px，无拟合降字号。viewBox 为 `0 0 1080 620`，最右节点到 x=1032，stage frame 到 x=1044，绕行到 x=1060，仍有 20px 画布余量。按静态 930px 绘图区预算，全图最小预计节点字号 `7×930/1080=6.02778px`；原 CLI 的 `minProjectedNodeTextPx: null` 不作为数值证明，以此补充提取及实际浏览器数值分别记录。
+
+**Browser evidence — passed：** 本次 deliver 成功后才运行原版 visual-check，exit 0 / status pass。绑定 HTML `56fe06f6d1d594530b0b22493200af9714f4955d969e4c0e1ea5dc27417ae542`（818893 bytes），对应 specification `c9d1f6b6ea379523e0d36a6f722892d5a299ba7f9c1b8ddb13859bb6692de978`（7479 bytes）。
+
+| 桌面视口（light / READ / Still） | scrollWidth × scrollHeight | diagramWidth | 全图最小预计节点字号 | 结果 |
+| --- | --- | --- | --- | --- |
+| 1440×900 | 1440×900 | 1063px | 6.88981px | containment / readability / viewer chrome pass |
+| 1600×1000 | 1600×1000 | 1104px | 7px | containment / readability / viewer chrome pass |
+| 1920×1080 | 1920×1080 | 1244px | 7px | containment / readability / viewer chrome pass |
+| 2048×1320 | 2048×1320 | 1618px | 7px | containment / readability / viewer chrome pass |
+
+原版回执保守地将放大后的预计字号上限记为源字号；以上数值直接抄录实际回执。1440×900 与 2048×1320 均另有 light/dark 截图，四张捕获全部 pass；两端 dark 也无溢出。图例与 dock 相交面积 0，dock 与 stage 间距 10.21875px，满足 10px 要求。
+
+**Visual review — passed，correction_rounds: 0：** 已打开上述四张实际截图，顶部“正文回查”与“向量 + payload”分开，中间“索引候选”与正文回入路径分开；“当前代统计”“检索快照”均处于节点间隙，遮罩未盖住节点文案。上下两条主阶段可辨，节点/关系/卡片在两种主题下可读，大屏主图与必要说明卡片占用均衡，右外缘路径和底部卡片均完整。未见需要追加 source 修复的视觉缺陷。
+
+视觉记录仅覆盖默认 READ / Still 截图；未把搜索、focus/passport 交互或导出文件检查写成已测。自动回执保持 `visualReview: pending`，独立视觉判断记录在 visual-review.json。三层验收现均通过；历史 9 项失败与所有旧探针仍是历史失败，不替换其结论。本轮没有新增业务运行或真实 DashScope/Qdrant 证据，也未开始图 07 或最终 Architecture Audit。
+
+交接前再次执行正式 JSON 的原版 showcase validate，exit 0，仍为 9/9、0 errors / 0 warnings；[本轮交接回执](06-rag-dataflow.handoff-20260916.validation.json) 使用新文件名，保留旧 `06-rag-dataflow.handoff.validation.json` 失败原件。
+
+
+## 图 07 施工前工作记录（2026-09-16）
+
+本节在 Typed JSON 生成前形成。问题：模型决定调用一个工具后，工具定义、参数校验、执行、结果和后续模型调用如何串起来？类型 `sequence`，仅图 07，不展开图 08 生命周期。基线 `main@0320892af12fdafb1b5ae89e9135b987dbd1630a`，dirty working tree；图 06 的未提交交付与其他既有改动保留。使用当前 Archify 2.17 / package 2.17.0-dev.1，showcase。
+
+- **Confirmed nodes（CODE_CONFIRMED）：** TaskSnapshotAgentExecutor / TaskPromptBuilder；LlmGateway 的 Model Provider；AgentDecisionParser；ToolDefinitionService + AgentTaskSnapshotResolver 的定义/快照职责；DefaultToolRuntime；BuiltinToolExecutor + 两个只读 handler；PostgreSQL 与 ToolCallLogService / ExecutionRecorder 的持久化职责。相邻类按职责合并为参与者，不伪造新进程。
+- **Confirmed edges：** owner-scoped 创建流程从配置版本 enabled bindings 选 tool_definition，冻结 tools[]；runtime 将冻结 schema 加入 decision payload；provider 返回 JSON 后 parser 校验协议与 allowed toolCode；runtime 建 TOOL_CALL step 后经 taskScoped command 调 ToolRuntime；重查当前定义以紧急撤销/漂移检查，按冻结 schema 校验参数；RUNNING 独立事务后才允许 handler；worker 上显式 allowlist 分派到 order_query / payment_log_query，直接调用 Demo 服务与同步 SQL；summary + JSON data 经 SUCCESS 独立事务后返回 runtime；受限 UNTRUSTED_TOOL_RESULT 进入后续 decision 与独立 final generation。
+- **Confirmed states：** tool_call_log 为 RUNNING / SUCCESS / REJECTED / FAILED；日志终态不能等同 task 终态。CALL_TOOL / FINISH 是模型协议，FINISH 为 answerPlan；最终文字仍须独立 FINAL_GENERATION。最终 task 持久结算由 Runner 完成，本图不展开。
+- **Confirmed boundaries：** 模型网络调用与后端 JVM 分开；parser 和冻结 inputSchema 构成不可信输入校验。task 工具在 TaskExternalCallDeadline 的有界 virtual worker 执行，调用者等待；日志 REQUIRES_NEW 与 handler 只读事务分开。demo 订单/支付数据为共享演示数据，不是实际支付外部系统或按用户隔离的订单。
+- **Confirmed failure paths：** 定义禁用/删除、schema/hash/implementation 漂移、非 allowlist、参数不合法拒绝 handler；入场 REJECTED，执行异常 FAILED，错误封装 errorCode/errorMessage 后抛回 runtime 终止，不作为成功 observation 继续。特殊缺失 snapshot/membership 分支未必有日志。deadline 取 task/frozen/current 最小限制，无自动重试；取消 Future 不证明工作已退出。成功日志写入失败不会在 handler catch 内被改报 handler 失败。
+- **Duplicate boundary：** 相同 toolCode + canonical arguments 第一次执行，第二次重新 validateTaskSnapshot 后复用本次运行内缓存，不再执行或写 tool_call_log；第三次 AGENT_DUPLICATE_TOOL_LOOP。不是持久化恢复缓存，也不是自动重试。
+- **TEST_CONFIRMED（断言已读，本轮未执行）：** TaskScopedToolRuntimeTest 校验冻结元数据、worker、RUNNING→handler→SUCCESS 顺序与缓存复核无调用/日志；禁用/漂移在 handler 前拒绝。ToolCallLogServiceTest 断言参数/结果脱敏及 RUNNING 条件终态更新；TaskSnapshotAgentExecutorTest 断言 observation 累积、独立 final 与重复意图边界。
+- **DOC_DECLARED：** V27 切片说明的独立调用无 task/step、当时未启用超时是历史范围；当前 taskScoped 实现已拥有 snapshot 与 worker deadline，不能套用旧说明。历史测试数字不升级为本轮成功。
+- **UNKNOWN：** 未运行后端、PostgreSQL、真实 Model Provider 或实际工具请求；不证明当前 provider 连通性、线上可靠性、真实订单/支付集成，或取消后底层 JDBC/provider 已终止。
+
+
+## 图 07 Evidence index
+
+- **Diagram:** 07 · Tool Invocation Sequence（**complete**，2026-09-16）。
+- **Question:** 模型决定调用一个工具后，工具定义、参数校验、执行、结果和后续模型调用如何串起来？
+- **Type:** `sequence` / schema v1 / showcase，7 个参与者、22 条具名消息。横向职责，纵向调用顺序；分段框不代表事务或新线程。
+- **Primary path:** 创建前置冻结 → DECISION → 严格解析 CALL_TOOL → taskScoped ToolRuntime → 实时撤销/漂移复核与冻结参数校验 → RUNNING → 有界 worker / 只读 handler → 结构化结果 → SUCCESS → observation → 后续 decision 的 FINISH → 严格解析 → 独立 FINAL_GENERATION → 引用校验 / outcome。
+- **Key evidence:** 逐消息索引如下；当前生产代码与 migration 优先，已读取测试断言不计本轮运行成功。
+- **JSON:** [候选](07-tool-call.candidate.sequence.json)；[正式源](07-tool-call.sequence.json)，以最新通过验收的原字节候选交付。
+- **HTML:** [图 07](07-tool-call.html)。
+- **Validation / browser / visual:** 各层当前状态及实际命令退出码见 [acceptance](07-tool-call.acceptance.json)，不能由 artifact 通过推定浏览器通过。
+- **Unknowns:** 本轮未执行业务测试、实际 task、PostgreSQL 或真实模型请求。内置工具使用本地 demo 表，不证明外部订单/支付集成；超时/取消后底层工作退出仍需运行证据。
+
+### 参与者映射与范围
+
+| ID | 当前实现 | 范围与边界 |
+| --- | --- | --- |
+| tc-runtime | [TaskSnapshotAgentExecutor](../../backend/src/main/java/com/agentflow/agent/engine/TaskSnapshotAgentExecutor.java)、[TaskPromptBuilder](../../backend/src/main/java/com/agentflow/agent/engine/TaskPromptBuilder.java) | JVM 中 task 编排；已存在的 PRE_RETRIEVAL 结果作为前置输入，不再展开图 06。 |
+| tc-model | [LlmGateway](../../backend/src/main/java/com/agentflow/infra/llm/LlmGateway.java)、[SpringAiOpenAiCompatibleLlmGateway](../../backend/src/main/java/com/agentflow/infra/llm/SpringAiOpenAiCompatibleLlmGateway.java) | 通过 gateway 的模型网络依赖，决策与 final 共用该职责而非两个 provider；模型不访问业务 DB。 |
+| tc-parser | [AgentDecisionParser](../../backend/src/main/java/com/agentflow/agent/engine/AgentDecisionParser.java) | 同 JVM 严格 JSON 协议及 toolCode allowlist 解析，参数完整 schema 校验另由 ToolRuntime 执行。 |
+| tc-registry | [AgentTaskSnapshotResolver](../../backend/src/main/java/com/agentflow/agent/snapshot/AgentTaskSnapshotResolver.java)、[ToolDefinitionService](../../backend/src/main/java/com/agentflow/tool/ToolDefinitionService.java) | 合并定义/快照职责；冻结发生在创建前置，运行时只重查定义用于撤销/漂移，不重新解析 mutable Agent bindings。 |
+| tc-tools | [DefaultToolRuntime](../../backend/src/main/java/com/agentflow/tool/DefaultToolRuntime.java)、[ToolArgumentValidator](../../backend/src/main/java/com/agentflow/tool/ToolArgumentValidator.java) | taskScoped 校验、日志、边界和返回封装；不画 standalone admin test 路径。 |
+| tc-handler | [BuiltinToolExecutor](../../backend/src/main/java/com/agentflow/tool/BuiltinToolExecutor.java)、[OrderQueryToolHandler](../../backend/src/main/java/com/agentflow/tool/OrderQueryToolHandler.java)、[PaymentLogQueryToolHandler](../../backend/src/main/java/com/agentflow/tool/PaymentLogQueryToolHandler.java) | 显式代码 allowlist 选一个 handler，图中并非每次调用两个。task 当前只准这两个；通用 executor 中 report_generate 不属于本 task 主路径。 |
+| tc-store | [ToolCallLogService](../../backend/src/main/java/com/agentflow/tool/ToolCallLogService.java)、[ExecutionRecorderTransactionService](../../backend/src/main/java/com/agentflow/agent/trace/ExecutionRecorderTransactionService.java)、Demo service/Mapper | PostgreSQL 持久化职责聚合，包括 schema 定义、demo 表、tool log、step/event/LLM Trace；箭头代表对应服务/Mapper 同步 SQL，不是模型直连。 |
+
+### 逐消息证据（全部 CODE_CONFIRMED，静态调用追踪）
+
+下表使用上面的可点击实现路径；每行明确实际方法和持久化影响。返回消息没有额外事务，除非注明。仅示意一次成功工具调用后下一次有效 decision 选择 FINISH；也可能继续其他 CALL_TOOL、触发预算后受限 final，或在失败时直接返回失败 outcome。
+
+| Message ID | 关系 / 实现方法 | 机制与副作用 |
+| --- | --- | --- |
+| tc-freeze | AgentTaskCreationTransactionService.create → AgentTaskSnapshotResolver.resolveConfiguration / resolveTool → runtime 的 request.executionSnapshot | 创建前置摘要，非 runtime 临时取配置。owner-scoped config version 的 orderedEnabledToolIds → AgentToolBindingMapper.selectSelectedSnapshotTools；冻结 id/code/name/description/inputSchema/hash/builtin-v1/timeout，写 agent_task.execution_snapshot，后续 Runner 传入。 |
+| tc-decision | TaskSnapshotAgentExecutor.execute / callLlm → TaskPromptBuilder.decision → gateway.chat | 同步等待有界外部 worker 的网络结果；冻结工具 code/name/description/schema 加入 availableTools，模型不取得 handler/config/DB 访问能力。DECISION step 与调用日志独立记录。 |
+| tc-call-json | gateway.chat → callLlm | 返回模型 content；此时不可信，尚未调用 handler。 |
+| tc-parse | callLlm 的 validation callback → AgentDecisionParser.parse | 严格重复 key、尾随 token、精确字段集合、CALL_TOOL/FINISH 枚举；toolCode 必须唯一存在于 allowedTools，arguments 为 object、reason 有长度界限。 |
+| tc-parsed | parseToolCall → runtime | 从 allowedTools 取得 toolId，返回 ToolCallDecision；不信任模型指定任意 ID。decision 校验后写安全 LLM 响应/usage、step 和 DECISION_FINISHED。 |
+| tc-invoke | TaskSnapshotAgentExecutor.invokeTool → ToolRuntime.execute(ToolExecutionCommand.taskScoped) | 先 TOOL_CALL step、TOOL_STARTED 与 boundary，传 task/step/user/agent/snapshot/args/deadline；无包围整个外部工作的 DB 事务。 |
+| tc-current | DefaultToolRuntime.executeTask → ToolDefinitionService.findActiveById / validateTaskTool | 同步查当前 ACTIVE/未删除定义；检查冻结身份、handler、readonly、无需确认、正 timeout、builtin-v1、当前与冻结 schema hash。 |
+| tc-definition | 当前定义 → validateTaskTool / ToolArgumentValidator.validate | 当前定义用于拒绝撤销和漂移；执行 metadata/schema 仍冻结，timeout 可被当前配置收紧。参数只支持 validator 实际子集，不称完整 JSON Schema 标准实现。 |
+| tc-running | DefaultToolRuntime.executeTask → ToolCallLogService.recordRunning | REQUIRES_NEW INSERT RUNNING，taskId/stepId、参数快照与 retry_count=0；先落日志再执行 handler。 |
+| tc-worker | executeWithinTaskDeadline → TaskExternalCallDeadline.call → BuiltinToolExecutor.execute | 全进程 permit 有界 virtual worker，线程名 agent-tool-{taskId}；显式 code+handler 分派，调用方等待，不是持久消息队列。 |
+| tc-query | OrderQueryToolHandler.execute / PaymentLogQueryToolHandler.execute → DemoOrderService.getByOrderNo / DemoPaymentLogService.query | 同 JVM 同步调用只读事务及 Mapper；共享 mock_order / mock_payment_log，不绕行 HTTP、无外部支付请求。 |
+| tc-rows | Demo 服务 → handler | 订单 DTO，或匹配条件的支付日志列表；参数和 limit 有界，订单不存在抛 BusinessException，支付空列表可合法返回。 |
+| tc-handler-result | handler.execute → executeWithinTaskDeadline | HandlerResult(summary, JSON data)；订单 valueToTree(order)，支付 valueToTree(PaymentLogQueryToolData(logs))。waiter 再检查边界，不接受超时后结果。 |
+| tc-success | executeTask → ToolCallLogService.recordSuccess | REQUIRES_NEW 完成结果快照、status/latency；ToolCallLogMapper.updateRunningToTerminal 要求日志 RUNNING，taskScoped 还锁定并要求 task/step RUNNING，失败不是成功观察。 |
+| tc-result | DefaultToolRuntime.executeTask → invokeTool | ToolExecutionResult(success, toolCode, summary, data, errorCode, errorMessage, latencyMs)；runtime 复核 success、code、summary/data 非空，转 bounded UNTRUSTED_TOOL_RESULT。 |
+| tc-step-end | invokeTool → recorder.completeStep / appendEvent | step 完成与 TOOL_FINISHED 通过 recorder 的独立事务持久化；不等同 task 完成。tool_call_log 和 step/event 不是一次分布式原子操作。 |
+| tc-next-decision | execute loop → prompts.decision / callLlm | 将本次运行内累计 observation（summary 上限1024 UTF-8 bytes，data 超8192 bytes 改为4096-byte excerpt）及同一 RAG 证据送入新 DECISION；不重新执行已有工具结果。 |
+| tc-finish-json | gateway.chat → callLlm | 示例后续决策返回 FINISH JSON，表示结束计划；不是 final answer。 |
+| tc-parse-finish | callLlm → AgentDecisionParser.parseFinalAnswer | 同样严格字段，仅 type/answerPlan，plan 非空且最多2048字符；失败无 final 成功路径。 |
+| tc-plan | parseFinalAnswer → execute | FinalAnswerDecision.answerPlan；随后跳出 loop，经过预算和边界检查，不能把 plan 直接发布。 |
+| tc-final | execute → prompts.finalAnswer / callLlm(FINAL_GENERATION) | 独立模型请求，使用 observation/RAG/plan；不发送工具执行请求，不复用 DECISION content 作为答案。FINAL_GENERATION_STARTED、调用日志/step/usage 各自记录。 |
+| tc-answer | gateway.chat → validateCitations → TaskExecutionOutcome.completed | 引用须在 rag citation whitelist；完成调用 Trace 后返回 outcome，Runner 后续持久结算另有边界，不把 provider 响应等同已提交 task 终态。 |
+
+### 关键失败、契约与证据边界
+
+- **定义与绑定源：** [创建事务](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskCreationTransactionService.java) 先选择 owner-scoped config version，[绑定 Mapper](../../backend/src/main/java/com/agentflow/agent/binding/repository/AgentToolBindingMapper.java) 筛 enabled 工具的 ACTIVE / BUILTIN / 未删除定义，snapshot resolver 再校验 readonly/handler/version/schema。V13/V14 定义 input_schema；冻结字段不是模型自报，执行期不回退到 live bindings。
+- **拒绝与失败：** executeTask 的参数/边界/定义异常一般经 recordRejected 留 REJECTED，再抛异常；无完整 taskScope 会直接 IllegalArgumentException，snapshot membership 不匹配且 current 不存在时没有可写 REJECTED 的定义，不声称所有拒绝都留日志。已 RUNNING 的 handler/等待/后置 boundary 异常尝试 recordFailed，保存安全 errorCode/errorMessage 后抛回 runtime；失败日志本身写失败可能掩盖原异常，不能保证每次失败都成功持久化。
+- **成功审计失败：** recordSuccess 位于 handler catch 外，写失败不会追加矛盾的 FAILED 来声称 handler 失败；runtime 不得到成功 observation。ToolCallLogService 要求 INSERT/UPDATE 恰一行。入参/结果经 TracePayloadSanitizer 脱敏/体积控制，标准 envelope 不是随意文本或原始异常堆栈。
+- **时限与取消：** task handler 使用 min(task deadline, frozen timeout, current timeout)。Future.cancel(true) 只结束等待/尝试中断；进入 body 后 permit 由真实工作 finally 释放，晚结果不发布。无自动工具重试；任务取消、线程 interruption、provider 计算状态与日志状态分别记录。
+- **重复意图：** canonical arguments + toolCode 哈希只做本次执行内去重。第二次 validateTaskSnapshot 仍检查撤销/hash/参数/boundary，然后返回已有 observation，reused=true，有新 step/event、无第二次 handler 或 tool_call_log；第三次在新 TOOL_CALL step 前 AGENT_DUPLICATE_TOOL_LOOP。不是跨 JVM 恢复或刷新重执行。
+- **持久化契约：** [V13](../../backend/src/main/resources/db/migration/V13__create_tool_definition_and_tool_call_log.sql)、[V14](../../backend/src/main/resources/db/migration/V14__add_payment_log_query_tool.sql) 的工具定义与日志；[V19](../../backend/src/main/resources/db/migration/V19__create_agent_execution_trace.sql) 限定 task/step 同为 NULL 或同非NULL并 FK 关联，LLM call_type 为 DECISION / FINAL_GENERATION。当前 [ToolCallLogMapper](../../backend/src/main/java/com/agentflow/tool/repository/ToolCallLogMapper.java) 增加活跃 task/step 条件；不能只按旧 V27 单独调用文档理解。
+- **测试边界：** 已读 [TaskScopedToolRuntimeTest](../../backend/src/test/java/com/agentflow/tool/TaskScopedToolRuntimeTest.java)、[ToolCallLogServiceTest](../../backend/src/test/java/com/agentflow/tool/ToolCallLogServiceTest.java)、[TaskSnapshotAgentExecutorTest](../../backend/src/test/java/com/agentflow/agent/engine/TaskSnapshotAgentExecutorTest.java) 的具体断言，包括执行/日志顺序、冻结参数、撤销/漂移拒绝、缓存不实际执行、observation 累积与独立 final。本轮未运行，不提供新的 TEST PASSED 或真实服务结论。
+- **跨图一致性：** 图04创建时冻结配置/工具；图05先一次 RAG、工具回环、独立 final；图06证据与 citation 进入共同上下文。本图均保持，只补充工具调用细节；没有模型直接访问数据库、自动重试、取消即工作终止或 FINISH 即持久 task 完成的边。
+
+
+### 图 07 修复与最终验收
+
+1. 初始候选 7 个参与者、22 条消息、3 张说明卡；原版诊断 17 组消息横向重叠且 y 间隔不足28px。只按诊断增加消息间距、同步分段/画布高度，未删除消息；[历史原件](history/07-message-spacing/07-tool-call.candidate.validation.json)保留。
+2. 该候选 9/9 showcase 通过且 deliver 成功，但首次 browser 在四桌面视口均纵向溢出，1440×900 scrollHeight=1337。实际 HTML 中原版 Reader 仅对宽高比≥1.55启用桌面宽度适配；1080×850 不满足。[原浏览器回执和截图](history/07-before-desktop-fit/07-tool-call.visual-check.json)保留，未将 artifact pass 当作浏览器成功。
+3. **视觉修复1：** 保留全部参与者 ID、22 条消息和28px行距，使用 spread 将实际横向布局扩展至1320×850。重复副标题的信息合并到现有主体文案：task编排进入说明卡标题、网络边界进入 DECISION 消息、协议/allowlist 与 taskScoped/worker/只读已由消息表达，PostgreSQL并入持久化参与者标题。源标题保持11px，没有降低字号；没有删除事实或修改 Viewer。
+4. 再次 validate/deliver 通过；三个较大视口 browser 通过，1440×900 只超出11px。截图中第一张卡片较长，因此**视觉修复2**仅将首句精简为“版本启用绑定 → tool_definition；冻结 schema/hash/版本，执行前复核撤销与漂移。”；含义保留，消息/节点/几何全部不变。[11px失败回执](history/07-before-card-fit/07-tool-call.visual-check.json)及对应产物保留。
+5. 最后 candidate validate、deliver、visual-check、交接前正式 validate 全部 exit0。candidate 与正式 JSON 原字节相同；未手改已生成 HTML，未修改 Skill/业务代码、门槛或使用 overflow:hidden/crop。图01–06既有产物保持。
+
+**Artifact validation: passed。** [候选](07-tool-call.candidate.validation.json)、[正式交接 validate](07-tool-call.validation.json)和[deliver 原版回执](07-tool-call.delivery.json)证明9/9 showcase、composition 0 errors / 0 warnings。proper crossings、ambiguous corridors、label-route-clearance、short/micro segments 均0；最小标签/其他线净距8px、最短消息线164.5px、无弯折。全部7个参与者的实际SVG标题均11px，静态930px预算预计最小7.75px；[补充布局测量](07-tool-call.layout-measurements.json)不是原版回执替代物。
+
+**Browser evidence: passed。** 原版 [visual-check](07-tool-call.visual-check.json) status=pass / exit0；四个视口 light / READ / Still 的实际数值如下，1440×900和2048×1320另有light/dark四张完整截图。未把暗色截图扩称为四种尺寸各做双主题。
+
+| Viewport | scrollWidth × scrollHeight | diagramWidth | 最小预计节点字号 | 结果 |
+| --- | --- | --- | --- | --- |
+| 1440×900 | 1440×900 | 930px | 7.75px | containment/readability/viewer chrome pass |
+| 1600×1000 | 1600×1000 | 958px | 7.98333px | containment/readability/viewer chrome pass |
+| 1920×1080 | 1920×1080 | 1109px | 9.24167px | containment/readability/viewer chrome pass |
+| 2048×1320 | 2048×1320 | 1416px | 11px | containment/readability/viewer chrome pass |
+
+**Visual review: passed，correction_rounds: 2。** 已实际打开[四张原版截图](07-tool-call.visual-check.html)复核：两种主题下定义/决策、工具执行、后续模型调用顺序可辨；RUNNING→handler→SUCCESS→result、observation→decision→FINISH解析→独立final路径完整。消息标签、图例和卡片无可见遮挡，大屏有均衡纵向占用。仅记录默认 READ / Still 视觉范围；搜索/focus/passport交互与导出文件未另测。[独立视觉记录](07-tool-call.visual-review.json)绑定本次HTML，原版自动回执的visualReview仍为pending。
+
+所有命令、退出码、历史目录与 specification/artifact 字节绑定见[本轮 acceptance](07-tool-call.acceptance.json)。只完成图07，不开始图08，不执行最终 Architecture Audit；本轮未提交推送，也未新增真实 provider 或业务运行验收。
+
+
+## 图 08 施工前工作记录（2026-09-16）
+
+在 Typed JSON 前记录：本图只回答 Task 的持久状态与合法转换，类型 lifecycle。基线 main@0320892af12fdafb1b5ae89e9135b987dbd1630a，dirty working tree；已交付01–07及所有未提交改动保留。Archify 2.17 / package 2.17.0-dev.1，showcase。本轮不开始图09，不展开线程池/队列内部或工具/RAG流水线。
+
+- **Confirmed nodes / states（CODE_CONFIRMED）：** TaskStatus 与 V18 一致：QUEUED、RUNNING、COMPLETED、FAILED、CANCELLED、TIMED_OUT。后四种 terminal；无 RECOVERING、CANCELLING 或 Future 状态节点。
+- **Confirmed edges：** createNew 原子创建 QUEUED + TASK_CREATED；claimQueued 在未取消QUEUED上条件更新RUNNING并TASK_STARTED。RUNNING经settleObserved仲裁至四终态；QUEUED派发拒绝至FAILED、owner取消至CANCELLED。恢复只将遗留QUEUED/RUNNING按已落库取消标记分为CANCELLED或FAILED；同一状态对合并一条图边，并列触发条件，逐触发证据在Atlas分开。
+- **Confirmed guards / writers：** LifecycleTransactionService 短REQUIRES_NEW事务，状态更新+事件原子提交；settleObserved FOR UPDATE后取消优先，complete/fail/timeout SQL要求cancel_requested_at为空，finishCancellation要求非空。Runner只claim一次，Engine在DB事务外返回outcome；SettlementService最多3次数据库保存/回读，不再次执行Engine。
+- **Confirmed non-transitions：** RUNNING的owner取消仅首次写cancel_requested_at，phase变化也不改变status；无新状态。任一terminal是吸收态，重复取消/结算回读现有终态；SSE断开、Future取消、浏览器刷新不是DB转换。
+- **Confirmed recovery：** 仅启动CONTROLLED_SINGLE_HOST且本地执行域锁持有、关闭admission，逐任务行锁/校验/终结RUNNING steps和tool logs/更新task+recovery_metadata/追加终态事件为一物理事务。无取消的QUEUED→FAILED/TASK_RESTART_DISPATCH_LOST、RUNNING→FAILED/TASK_RESTART_INTERRUPTED；已有取消→CANCELLED，QUEUED取消异常单独标注。恢复不判为COMPLETED/TIMED_OUT，不重投或重发外部调用；旧JVM已退出是受控切换前置，不从deadline或Future推断。
+- **Confirmed failure boundaries：** 条件更新0行不发布事件；正常settlement不确定COMMIT先回读，瞬态失败100/500ms后有界再试，耗尽或永久错误关闭admission并记录TASK_SETTLEMENT_PERSIST_FAILED，不虚构FAILED终态。recovery不变量/DB/事件失败回滚本任务并保持admission关闭；DISABLED有遗留任务也不开放。
+- **TEST_CONFIRMED（断言阅读，未运行）：** TaskSettlementServiceTest验证保存同一outcome/time、未知COMMIT回读、取消竞争与最多3次尝试；TaskRecoveryPostgresIntegrationTest断言遗留任务FAILED/取消优先/回滚与重跑幂等、保留历史成功事实和UNKNOWN完整性；AgentTaskPostgresIntegrationTest覆盖claim、取消竞争和终态事件。只读断言不升级为本轮业务验收。
+- **DOC_DECLARED / UNKNOWN：** V0.2文档规定停止旧JVM/受控冷切换；本轮不执行该操作，未验证目标环境锁域、DB、真实provider或中断后的远端行为。早期V38“无recovery”仅历史切片范围，当前代码已含V0.2启动结算。
+
+## 图 08 Evidence index
+
+- **Diagram:** 08 · Task Lifecycle，2026-09-16，complete。
+- **Question:** Task 的持久化状态机是什么，哪些触发条件允许状态转换？
+- **Type:** `lifecycle` / schema v1 / showcase。
+- **Primary path:** 创建事务产生 QUEUED → claim 为 RUNNING → 结算为 COMPLETED；失败、取消、deadline 与受控重启结算形成旁支。
+- **Key nodes:** 六个节点与 [TaskStatus](../../backend/src/main/java/com/agentflow/agent/task/model/TaskStatus.java) 六项 enum 一一对应；四终态无回边。七条状态对关系合并重复端点，下面按不同触发分别列证据。
+- **Key evidence:** 当前 service、条件 UPDATE、迁移约束、Runner/settlement/recovery 及具体测试断言，见下表。
+- **JSON:** [候选](08-task-lifecycle.candidate.lifecycle.json)、[正式源](08-task-lifecycle.lifecycle.json)，原字节一致。
+- **HTML:** [图 08](08-task-lifecycle.html)。
+- **Validation:** [候选 validate](08-task-lifecycle.candidate.validation.json)、[交接 validate](08-task-lifecycle.validation.json)、[deliver](08-task-lifecycle.delivery.json)。
+- **Visual check:** [原版 browser receipt](08-task-lifecycle.visual-check.json)、[截图集](08-task-lifecycle.visual-check.html)、[独立视觉复核](08-task-lifecycle.visual-review.json)。
+- **Unknowns:** 本轮未启动业务应用/DB、未执行 controlled recovery 或真实 provider；外部计算停止、目标环境执行域锁与旧 JVM 退出均无新运行证据。图集完成不等于业务验收。
+
+### 转换证据与原子边界
+
+下表全部为 **CODE_CONFIRMED（静态追踪）**。简称 L 为 [AgentTaskLifecycleTransactionService](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskLifecycleTransactionService.java)，SQL 为 [AgentTaskMapper](../../backend/src/main/java/com/agentflow/agent/task/repository/AgentTaskMapper.java)，R 为 [TaskRecoveryTransactionService](../../backend/src/main/java/com/agentflow/agent/task/recovery/TaskRecoveryTransactionService.java)，R-SQL 为 [TaskRecoveryMapper](../../backend/src/main/java/com/agentflow/agent/task/recovery/TaskRecoveryMapper.java)。这些方法通过 MyBatis/JDBC 同步访问同一 PostgreSQL；箭头表达合法持久状态变更，不表示执行线程或网络通信。
+
+| 图中 ID / 转换 | Trigger / guard | Writer / persistence effect | Failure behavior |
+| --- | --- | --- | --- |
+| 初始 tl-queued：不存在 → QUEUED | 新建请求，经身份、owner-scoped Agent/config version、快照及准入检查 | [CreationTransactionService.createNew](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskCreationTransactionService.java)，REPEATABLE_READ 创建事务：INSERT QUEUED、phase=NULL、零 counters/tokens、UNKNOWN usage、execution_snapshot + TASK_CREATED；afterCommit 注册派发 | 配置/DB/事件失败回滚，没有虚构的 CREATED 状态；幂等回读已有 task 不另生转换 |
+| tl-claim：QUEUED → RUNNING | [TaskRunner.run](../../backend/src/main/java/com/agentflow/agent/task/execution/TaskRunner.java) claim；准入 ready；SQL status=QUEUED 且 cancel_requested_at IS NULL | L.claim → SQL.claimQueued，REQUIRES_NEW；写 RUNNING/PREPARING、started_at/updated_at、version+1，与 TASK_STARTED 同事务 | 条件不匹配返回 null，不调用 executor；事件/DB失败回滚 claim |
+| tl-complete：RUNNING → COMPLETED | Runner 提交 COMPLETED outcome；L.settleObserved 行锁要求 RUNNING，落库取消优先；SQL 要求 cancel=NULL | L.completeAt → SQL.completeRunning；短事务写 final_answer、citations、usage/counters、termination_reason、completed_at、phase=NULL，并追加 ANSWER_CHUNK + TASK_COMPLETED | 事件序列化/写入失败全部回滚；0行不发事件；锁定结算遇0行抛异常。保存层处理见下文 |
+| tl-queued-failed：QUEUED → FAILED，派发拒绝 | 创建 COMMIT 后 dispatch 异常或 Runner 准入异常的拒绝补偿；SQL 仍 QUEUED 且未取消 | [AfterCommitTaskDispatchCoordinator](../../backend/src/main/java/com/agentflow/agent/task/dispatch/AfterCommitTaskDispatchCoordinator.java) / Runner → Settlement.rejectDispatch → L.markDispatchRejected → SQL.failQueuedDispatch；FAILED/SYSTEM_ERROR/TASK_DISPATCH_REJECTED + TASK_FAILED 同事务 | 竞争失败0行不发布事件；回读已终态可接受，仍非终态不能当成功；保存失败关闭准入 |
+| tl-running-failed：RUNNING → FAILED，执行失败 | FAILED outcome；Runner 捕获执行异常可构造 TASK_INTERNAL_ERROR；锁内落库取消优先，SQL RUNNING 且 cancel=NULL | L.failAt → SQL.failRunning，写安全 error_code/message、usage/counters、completed_at、phase=NULL、answer=NULL/citations=[] + TASK_FAILED | 无原始堆栈作为公共结果；DB/事件失败回滚，不能把内存失败 outcome 当已落库 FAILED |
+| tl-queued-cancel：QUEUED → CANCELLED，owner 取消 | [RestService.cancel](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskRestService.java) 使用 authenticated user；准入 ready；SQL user_id 匹配且仍 QUEUED | L.requestCancellation → SQL.cancelQueuedOwned；直接写 CANCELLED/USER_CANCELLED、cancel_requested_at/completed_at、phase=NULL、version+1 + TASK_CANCELLED | 未匹配则尝试 RUNNING 标记，再 owner 回读；越 owner/not found 拒绝。重复 terminal 取消回读，无重复终态事件 |
+| tl-running-cancel：RUNNING → CANCELLED，结算 | RUNNING 已有 cancel_requested_at；锁内取消覆盖成功/失败/超时 observed outcome，并保留 observed usage/counters | L.settleObserved → finishCancellationAt → SQL.finishRunningCancellation；CANCELLED/USER_CANCELLED、completed_at、phase=NULL、无答案/错误码 + TASK_CANCELLED | SQL 必须 RUNNING 且 cancel 非空；仅内存 CANCELLED outcome、没有持久取消标记不能强行写；0行拒绝结算 |
+| tl-timeout：RUNNING → TIMED_OUT | Runner 以 started_at + 冻结 timeoutSeconds 判定 task deadline；开始前或 outcome 后到期，且无优先落库取消 | L.timeOutAt → SQL.timeOutRunning；TIMED_OUT/DEADLINE_EXCEEDED、completed_at、phase=NULL、usage/counters、无答案/错误码 + TASK_TIMED_OUT | 竞争/DB/事件失败不发布假终态；tool/provider 自身超时不一概等于 task deadline；不存在 QUEUED→TIMED_OUT SQL |
+| tl-queued-failed：QUEUED → FAILED，重启失投 | 受控启动、锁域持有；R 行锁确认遗留 QUEUED、无取消，且无执行证据或非零执行 counters/usage | R.recover → R-SQL.settleTask；FAILED/SYSTEM_ERROR/TASK_RESTART_DISPATCH_LOST；metadata.executionOutcome=NOT_STARTED、完整性 COMPLETE；TASK_FAILED | 非终态带终态发布证据、PENDING tool、不一致 usage、0行条件更新或事件失败：整笔恢复事务回滚、准入关闭 |
+| tl-running-failed：RUNNING → FAILED，重启中断 | 同一受控恢复 gate；遗留 RUNNING，无落库取消；**即使 deadline 已过期** | R.recover → R-SQL.settleTask；FAILED/SYSTEM_ERROR/TASK_RESTART_INTERRUPTED；metadata.executionOutcome=UNKNOWN、record/counter completeness=UNCONFIRMED；TASK_FAILED | 不依据本地记录推断 provider 完成，不复用成功 LLM 日志“抢救”COMPLETED，不改为 TIMED_OUT，不重投任务 |
+| tl-running-cancel：RUNNING → CANCELLED，恢复取消 | R 行锁读取到 durable cancel；同一受控恢复 gate | R.recover；CANCELLED/USER_CANCELLED，error=NULL，metadata.reasonCode 仍 TASK_RESTART_INTERRUPTED；TASK_CANCELLED；记录原运行事实未确认 | 与其他恢复相同物理事务；取消先落库才获优先，已 terminal 则 false/无新事件 |
+| tl-queued-cancel：QUEUED → CANCELLED，异常记录恢复 | R 处理遗留 QUEUED + cancel 标记的异常记录；**正常 V18 cancel shape 不允许该组合** | R.recover；CANCELLED/USER_CANCELLED；metadata.queuedCancellationAnomaly=true，reasonCode=TASK_RESTART_DISPATCH_LOST、NOT_STARTED | 仅防御性遗留/异常修复分支；不能解释为正常 API 会把带标记 QUEUED 留待执行。测试临时放宽约束构造它 |
+
+Runner 经 settleObserved 的正常结算以 observedAt 为完成观察时刻；状态更新写 version+1；状态/取消条件参与并发仲裁，不能误称所有正常 SQL 都使用 version CAS。恢复 SQL 额外比较 previousStatus、version 与 cancel 标记，确保恢复事实没有被竞争修改。
+
+### 非转换、数据库形状和恢复范围
+
+- **RUNNING 取消不是即时终态：** L.requestCancellation → SQL.requestRunningCancellationOwned 只首次更新 cancel_requested_at/updated_at/version，status 仍 RUNNING，此时无 TASK_CANCELLED。L.changePhase 只在 RUNNING、无取消、phase 改变时更新并 PHASE_CHANGED；phase 不增添 DB status。Future cancel、SSE 断开、浏览器刷新均不是图边。
+- **终态含义：** [V18](../../backend/src/main/resources/db/migration/V18__create_agent_task_and_event.sql) 限定 QUEUED 未 started/completed，RUNNING 有 phase/started，无 completed；终态 phase=NULL、reason/completed 非空。COMPLETED 的 reason 可为 ANSWERED、MAX_DECISION_TURNS、MAX_TOOL_CALLS，表示答案已持久发布，不保证用户目标完全达成。FAILED 可能为 SYSTEM_ERROR 或 TOKEN_BUDGET_EXHAUSTED。CANCELLED/TIMED_OUT 的 reason 分别 USER_CANCELLED/DEADLINE_EXCEEDED。
+- **保存重试是数据库工作：** [TaskSettlementService.settle/rejectDispatch](../../backend/src/main/java/com/agentflow/agent/task/execution/TaskSettlementService.java) 保存同一首次 outcome/usage/counters/observedAt。未知 COMMIT 先回读已 terminal；仅可识别瞬态 DB 故障最多3次（初次+100ms/500ms后2次）。耗尽、永久错误或中断时记录 TASK_SETTLEMENT_PERSIST_FAILED 并降级准入，不能据此画 FAILED 转换，也不再执行 Engine、模型、工具。
+- **恢复事务：** R 在同一物理 REQUIRES_NEW 事务内锁 task、校验记录、结束遗留 RUNNING steps/tools、条件更新 task/recovery_metadata、追加终态事件。历史成功 step/tool/LLM 事实保留；可聚合已记录数值，但 task 顶层 usage quality 保持 UNKNOWN。异常回滚的是本任务，先前已提交的其他恢复任务不受该回滚影响。[V22](../../backend/src/main/resources/db/migration/V22__add_task_recovery_metadata.sql) 为 metadata 及重启中断时未知延迟提供数据库形状。
+- **恢复 gate：** [TaskRecoveryStartupCoordinator.run](../../backend/src/main/java/com/agentflow/agent/task/recovery/TaskRecoveryStartupCoordinator.java)、[TaskRecoveryProperties](../../backend/src/main/java/com/agentflow/agent/task/recovery/TaskRecoveryProperties.java)、[TaskExecutionProcessLock.acquire](../../backend/src/main/java/com/agentflow/agent/task/recovery/TaskExecutionProcessLock.java) 使用稳定本地执行域锁，受控启动逐任务结算。默认 DISABLED 仍持锁，有遗留任务则准入保持关闭；无 recovery 执行边。旧 JVM 已确认退出是受控冷切换的前置要求，不能由新 JVM 中的 Future 或单纯超时来证明。
+- **图中分区只用于阅读：** 顶部正常推进，中部期限终态，下部其他终态；不是新增状态、线程、事务或恢复执行阶段。TIMED_OUT 的 terminal 类型不因布局位置改变。失败、取消边合并了相同状态对的多个触发，上表保留全部 guard/writer 差异。
+
+### 测试、文档与跨图边界
+
+以下均 **TEST_CONFIRMED：已读断言，本轮未执行**，不计入新的运行 PASSED：
+
+- [AgentTaskPostgresIntegrationTest](../../backend/src/test/java/com/agentflow/agent/task/AgentTaskPostgresIntegrationTest.java)：claim 单赢家及事务外执行；派发拒绝；queued 立即取消、running 只写标记；complete/timeout/cancel 竞争只产生一条终态事件。
+- [TaskSettlementServiceTest](../../backend/src/test/java/com/agentflow/agent/task/execution/TaskSettlementServiceTest.java)：保持同一 outcome/time；未知 COMMIT 回读；100/500ms 与最多3次；持久取消竞争、永久错误不重试、耗尽/中断降级。
+- [TaskRecoveryPostgresIntegrationTest](../../backend/src/test/java/com/agentflow/agent/task/recovery/TaskRecoveryPostgresIntegrationTest.java)：失投/中断、过期 RUNNING 仍 FAILED、取消提交优先、幂等恢复、事件失败原子回滚、保留历史成功记录、UNKNOWN/UNCONFIRMED 边界、queued cancellation anomaly。
+
+V0.2 冷切换说明是 **DOC_DECLARED 的操作前置**，相应锁/准入/结算代码已直接确认；本轮没有完成该操作的运行证据。早期切片的“无 recovery”边界仅描述其当时范围，当前源码已有启动结算实现，图08以当前代码为准。与图03–07一致：Engine outcome、工具 SUCCESS、模型 FINISH/答案内容均不直接等价于 task 已提交终态；afterCommit 派发、独立短事务结算与持久事件观察分开。未开始图09–15及最终 Architecture Audit。
+
+### 图 08 修复与分层验收
+
+初始候选的原版几何诊断数为7。按具体 subject 和 supportedFixes 依次处理主路径短折线/共享通道、失败标签净距、queued 取消路径、期限节点与取消标签冲突及成功标签位置；每次编辑后运行原版 showcase validate，诊断数为 **7 → 7 → 6 → 5 → 2 → 1 → 0**。六个状态、七条关系、三张卡片均保留。每轮旧候选、完整原版回执与退出码保留在 [history](history/) 的08前缀目录，未重写为成功证据。
+
+第一次 deliver 和 browser 通过后，实际打开四张截图发现中间分区沿用默认英文标题。**视觉修复1**仅增加受支持的中文分区 label，未改状态、关系、文字字号或几何；再次 validate → deliver → visual-check，全部 exit0。原第一次产物和视觉问题记录保留在 [历史目录](history/08-before-lane-localization/)。
+
+**Artifact validation: passed。** 最终原版 validate / deliver 均9/9 showcase、composition 0 errors / 0 warnings。properCrossings=0、ambiguousCorridors=0、labelRouteClearanceIssues=0、short/micro segment=0；最小标签/其他线净距5px，最短线段18px，最短内部段129px。原版 lifecycle 静态回执的 minProjectedNodeTextPx 为 null，不能把 null 当作字号达标证据；字号证据来自实际浏览器及独立 SVG 全节点测量。
+
+**Browser evidence: passed。** 四个 light / READ / Still 视口的实际测量如下；两个端点尺寸另有 light/dark 四张截图。所有结果来自本次 deliver 后的原版 visual-check，含 viewer chrome/图例净距检查。
+
+| Viewport | scrollWidth × scrollHeight | diagramWidth | 最小预计节点字号 | 结果 |
+| --- | --- | --- | --- | --- |
+| 1440×900 | 1440×900 | 970px | 6.59223px | containment / readability / viewer chrome pass |
+| 1600×1000 | 1600×1000 | 1037px | 7px | containment / readability / viewer chrome pass |
+| 1920×1080 | 1920×1080 | 1167px | 7px | containment / readability / viewer chrome pass |
+| 2048×1320 | 2048×1320 | 1491px | 7px | containment / readability / viewer chrome pass |
+
+**Visual review: passed，correction_rounds: 1。** 已实际打开本次四张截图：顶部 QUEUED→RUNNING→COMPLETED 主线清楚；失败、取消、deadline 分支可沿标签定位，四终态无回边。标签、节点、图例、卡片无可见遮挡，两主题一致；中间标题已中文化，大屏纵向占用均衡，没有明显空白底带。QUEUED 的 claim 与失败支路共享同源起始段后分叉，颜色与标签可辨；原版 ambiguousCorridors=0，不将同源分叉误述为完全无任何共线。复核范围为默认 READ / Still 截图；搜索、focus/passport 交互及导出文件未另测。原版回执 visualReview 仍为 pending，独立视觉记录不改写自动回执。
+
+[补充布局测量](08-task-lifecycle.layout-measurements.json)逐一保存6个节点的SVG矩形、全部标题10px/副标题7px、7条真实路径和标签坐标；源字号由原版 lifecycle 渲染生成，未缩小。viewBox=1030×630，未裁切、缩放作弊、隐藏 overflow 或手改HTML。[Acceptance](08-task-lifecycle.acceptance.json)记录命令、实际退出码、历史和 specification/artifact 字节绑定。仅图08及本 Atlas 在本轮更新，既有01–07产物与其他工作树改动保留；未提交推送。
+
+## 图 09 施工前工作记录（2026-09-16）
+
+本图只回答已提交任务如何经过本地执行池、队列、claim 与实际外部工作许可形成背压；使用 workflow v2/showcase。施工基线 main@0320892af12fdafb1b5ae89e9135b987dbd1630a，dirty working tree；图01–08与所有原有改动保留，不开始图10。
+
+- **CODE_CONFIRMED nodes / capacities：** afterCommit 提交；BoundedTaskDispatcher 的 ThreadPoolTaskExecutor；Runner claim/事务外 Engine；TaskExternalCallDeadline 的公平 Semaphore、virtual worker、真实退出释放及 waiter 放弃观察。任务线程 core2/max4；独立等待队列100；进程内 task 外部工作许可默认4（1–64、环境覆盖）。本轮 application-dev.yml 未覆盖这些项，实际部署覆盖值 UNKNOWN。
+- **CODE_CONFIRMED edges：** task+TASK_CREATED COMMIT 后 executor.execute；accepted job 由 agent-task- worker 调 runDispatched；claimQueued 要求 QUEUED且未取消，更新RUNNING/PREPARING+TASK_STARTED同一短事务；无匹配直接返回。Engine事务外执行，其 LLM/RAG/tool handler 通过共用TaskExternalCallDeadline。许可获取后启动虚拟线程；body真正finally退出才释放；waiter超时/取消放弃观察但不会释放已进入body的许可。
+- **CODE_CONFIRMED branches / boundaries：** AbortPolicy或准入拒绝后条件FAILED/TASK_DISPATCH_REJECTED补偿；已入队但准入关闭也经runDispatched拒绝路径。等待许可/结果均至多50ms一次边界检查；未进入body时取消通过CAS归还一次，已进入则finally归还一次；嵌套同步工作继承同一许可及父boundary。任务线程返回、DB终态、provider停止分开。
+- **TEST_CONFIRMED（读取断言，未执行）：** DispatcherConfigurationTest验证2/4/100/AbortPolicy和零队列饱和拒绝；AfterCommitCoordinatorTest验证回滚不提交和拒绝补偿；TaskExternalCallDeadlineTest验证取消后真实工作仍占许可、未进入取消/launch失败精确归还、嵌套容量1。V0.2-B脚本B01/B02/B03检查受控迟到/容量耗尽/细粒度伴随测试，未运行。
+- **DOC_DECLARED / UNKNOWN：** 受控独立HTTP夹具不能证明真实provider停止/计费/可用性。没有Redis或持久队列、跨JVM全局许可或自动重投证据。当前配置为静态配置，未检查目标运行进程的环境覆盖。
+
+## 图 09 Evidence index
+
+- **Diagram:** 09 · Dispatch, Thread Pool and Concurrency Control（2026-09-16）。
+- **Question:** 已提交任务如何通过本地线程池、队列、claim 与实际外部工作许可形成背压？
+- **Type:** `workflow` / schema v2 / showcase；10个节点、10条具名关系、3张说明卡。
+- **Primary path:** 创建已提交 → 有界任务调度 → Runner claim → 冻结快照执行 → 许可等待 → 实际工作 → finally归还；等待方可独立中止。
+- **Key nodes:** dc-pool 汇总同一个 executor 的线程/队列，卡片分别说明两项容量；dc-permit/dc-body/dc-release 表达另一项实际外部工作容量。泳道是阅读分区，不是新增组件或精确线程泳道。
+- **Key evidence:** 下列当前源码/配置/依赖实现与具体断言；运行时覆盖和真实provider状态仍UNKNOWN。
+- **JSON:** [候选](09-dispatch-concurrency.candidate.workflow.json)、[正式源](09-dispatch-concurrency.workflow.json)。
+- **HTML:** [本轮交付](09-dispatch-concurrency.html)，交付成功只证明artifact，不自动代表视觉验收完成。
+- **Validation:** [候选回执](09-dispatch-concurrency.candidate.validation.json)、[正式交接回执](09-dispatch-concurrency.validation.json)、[deliver](09-dispatch-concurrency.delivery.json)、[compiler layout](09-dispatch-concurrency.layout.json)。
+- **Visual check:** [原版浏览器回执](09-dispatch-concurrency.visual-check.json)、[截图集](09-dispatch-concurrency.visual-check.html)、[独立复核](09-dispatch-concurrency.visual-review.json)。各层实际状态见[acceptance](09-dispatch-concurrency.acceptance.json)。
+
+### 三层容量与配置证据（CODE_CONFIRMED）
+
+| 容量 | 当前仓库配置与机制 | 等待/释放边界 |
+| --- | --- | --- |
+| Task executor threads | [AgentTaskDispatcherConfiguration.agentTaskExecutor](../../backend/src/main/java/com/agentflow/agent/task/dispatch/AgentTaskDispatcherConfiguration.java) 设置 ThreadPoolTaskExecutor 的 core=2/max=4，线程前缀 agent-task-，AbortPolicy | worker 执行 runDispatched；整个Runner期间占用任务线程，包括等待外部许可/结果与终态保存。线程处理完Runnable后才可执行其他任务 |
+| Task executor queue | [DispatcherProperties](../../backend/src/main/java/com/agentflow/agent/task/dispatch/AgentTaskDispatcherProperties.java)、[application.yml](../../backend/src/main/resources/application.yml) queue-capacity=100 | 单JVM内存队列，存 Runnable；入队不等于DB claim，排队时task仍可QUEUED。容量可设0，使用直接交接而非容量无限的队列 |
+| Actual outstanding task external work | [TaskExecutionProperties](../../backend/src/main/java/com/agentflow/agent/engine/TaskExecutionProperties.java) maxConcurrentExternalCalls=4，1–64；YAML可由 AGENTFLOW_TASK_MAX_CONCURRENT_EXTERNAL_CALLS 覆盖；[TaskExternalCallDeadline](../../backend/src/main/java/com/agentflow/agent/engine/TaskExternalCallDeadline.java) 创建公平 Semaphore | 许可先于virtual worker启动取得；已进入body者由body finally释放。waiter取消后仍未退出的body继续占用容量；未进入body的取消由Lease CAS归还一次 |
+
+`application-dev.yml` 未覆盖上述三个字段；这里只是仓库静态配置，不宣称目标进程实际值。V0.2-B受控脚本将外部容量覆为1，仅用于验收场景。三个数字不能混同：队列容量不是线程数，任务线程数不是provider并发数；非task路径、独立JVM、provider服务端后台工作不由这个进程内Semaphore统一限流。
+
+已核对项目 Java21 与 Spring Boot3.5.15 的本地依赖：其BOM锁定Spring Framework6.2.19，`ThreadPoolTaskExecutor.createQueue` 的已安装class显示正容量为有界LinkedBlockingQueue，非正为SynchronousQueue；本项目validator拒绝负数。已读取本地JDK21 `ThreadPoolExecutor.execute`：worker数量不足core时优先增worker；否则尝试offer入队；无法入队才尝试增至max；增worker失败（饱和或shutdown）触发拒绝。不是“先开满4线程再排100项”。配置的shutdown等待完成/最多等待10秒不证明外部请求已停止，也不是持久队列恢复保证。
+
+### 逐边关系、调用及持久化影响（CODE_CONFIRMED）
+
+| Edge ID | source → target / 方法 | 机制、guard与持久化副作用 |
+| --- | --- | --- |
+| dc-submit | [CreationTransactionService.createNew](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskCreationTransactionService.java) → [AfterCommitTaskDispatchCoordinator.dispatchAfterCommit](../../backend/src/main/java/com/agentflow/agent/task/dispatch/AfterCommitTaskDispatchCoordinator.java) → [BoundedTaskDispatcher.dispatch](../../backend/src/main/java/com/agentflow/agent/task/dispatch/BoundedTaskDispatcher.java) | QUEUED与TASK_CREATED在创建事务提交后，afterCommit同步调用dispatcher；admission.requireReady后 executor.execute(() -> runner.runDispatched(taskId))，跨到本地executor worker。回滚不触发dispatch，提交阶段没有第二次INSERT task |
+| dc-schedule | dc-pool → [TaskRunner.runDispatched/run](../../backend/src/main/java/com/agentflow/agent/task/execution/TaskRunner.java) → [LifecycleTransactionService.claim](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskLifecycleTransactionService.java) | 此边包含直接新worker或排队后worker领取，不声称每个job都先排队。再次准入检查；[AgentTaskMapper.claimQueued](../../backend/src/main/java/com/agentflow/agent/task/repository/AgentTaskMapper.java) 条件QUEUED且cancel=NULL，写RUNNING/PREPARING、started_at、version+1；TASK_STARTED同一REQUIRES_NEW事务 |
+| dc-enter | claim → Runner → TaskExecutionDelegate.execute | 仅claim返回task才解析冻结快照、计算startedAt+timeoutSeconds、检查取消/deadline。Engine在DB事务外同步执行；无围住整次模型/工具等待的长DB事务。取消或已到期可直接形成outcome，不实际进入Engine |
+| dc-reject-edge | dispatcher / runDispatched → [TaskSettlementService.rejectDispatch](../../backend/src/main/java/com/agentflow/agent/task/execution/TaskSettlementService.java) | executor AbortPolicy/准入等异常由afterCommit补偿；已接受job在claim前遇准入关闭/异常由runDispatched补偿。markDispatchRejected → failQueuedDispatch要求仍QUEUED且无取消；FAILED/SYSTEM_ERROR/TASK_DISPATCH_REJECTED + TASK_FAILED短事务原子保存。竞争0行不冒充成功，永久/耗尽保存失败关闭准入，详细收敛不在本图展开 |
+| dc-skip-edge | claim → Runner.run返回 | SQL未匹配返回null，既不执行Engine也不追加TASK_STARTED；包括已被其他runner领取、已取消/终态。此分支不代表运行期取消会抹去既有执行事实 |
+| dc-call | Engine/ToolRuntime → TaskExternalCallDeadline.call | caller同步等待许可及Future结果。初始boundary先检查；顶层tryAcquire以min(50ms,remaining)分段等待，deadline/取消/interruption可终止等待。未取得许可不启动工作；等待发生在当前任务线程上 |
+| dc-launch | permit → virtual worker / action.call | 取得许可后再check；新FutureTask由虚拟线程启动。Lease.enter CAS 0→1，active++，安装ThreadLocal boundary；再check才调用action。LLM、一次串行RAG、工具handler每个顶层body持一个许可，不是每个RAG子请求各持一个 |
+| dc-abandon | call内waiter → 结束本次等待 | 概括等待许可或等待结果时的超时/取消/中断；finally置abandoned并cancel(true)，已进入body者不在此释放。未进入者cancelBeforeEntry CAS 0→2归还，重复启动/取消不重复释放。外部工作可仍运行，此边没有指向“provider停止” |
+| dc-exit | action返回/抛异常 → Lease.exit | worker finally移除ThreadLocal，Lease CAS 1→2、active--、Semaphore.release。这里指本地实际工作体退出；即使本地I/O已经退出，仍不能无provider侧证据推定远端后台计算或计费停止 |
+| dc-result | body结束/许可归还 → 仍在等待的caller | Future.get拿到结果或异常；正常结果observe回调可先记录可用usage，随后再check决定是否接受，不发布迟到答案。已放弃的waiter不重新唤醒推进业务。Engine可能继续下一步；本次等待结束不等于整个task结束，Runner最终才交给settlement |
+
+### 外部工作所有权与失败边界
+
+- [TaskSnapshotAgentExecutor.preRetrieve/callLlm](../../backend/src/main/java/com/agentflow/agent/engine/TaskSnapshotAgentExecutor.java) 分别包裹整次RAG与单次LLM；[SnapshotRagService.retrieve](../../backend/src/main/java/com/agentflow/agent/rag/SnapshotRagService.java) 在顺序embedding/vector和回查之间调用boundary。父waiter已abandoned后，不允许迟到embedding继续启动后续vector。RAG同一次同步body共享许可，没有嵌套等待第二个许可的死锁。
+- [DefaultToolRuntime.executeWithinTaskDeadline](../../backend/src/main/java/com/agentflow/tool/DefaultToolRuntime.java) 包裹builtin handler，使用min(task deadline,tool deadline)，工作线程临时名agent-tool-{taskId}。这些内置工具当前是本地只读handler，不把“外部工作”泛称为全部都是网络provider。
+- `ownedBoundary`存在时同步嵌套call继承许可、父取消与deadline，临时替换并finally恢复boundary；容量1也不会二次acquire。只有跨组件的同一同步工作体适用，不是任意线程自动继承。
+- `activeWorkCount`在enter后才增加，取得许可但尚未enter的窗口可出现availablePermits减少而active仍0；不能把available与active简单当作永远相加等于capacity。launch失败/获得许可后boundary拒绝由未进入路径归还；工作进入后即使Future显示cancelled也不归还。
+- 代码中的50ms是单次tryAcquire/get的等待上限，受线程调度、boundary自身DB读取等影响，不是严格50ms内完成取消的延迟SLA。wall clock deadline与monotonic剩余预算共同约束等待。若工作永久不退出，许可可持续耗尽；实现限制本地实际并发，不承诺自动回收、远端杀请求或重试业务。
+- [TaskExecutionAdmission](../../backend/src/main/java/com/agentflow/agent/task/recovery/TaskExecutionAdmission.java) 从STARTING关闭，启动成功才open；关闭/保存失败/shutdown阻止后续任务写与dispatch/claim。不是外部call semaphore，不能用admission READY证明provider可达。任务线程结束后可领取下一job，即使旧body仍占外部许可；这正是两层容量需分开的原因。
+
+### 测试与证据等级
+
+**TEST_CONFIRMED，仅阅读断言，本轮未运行：**
+
+- [AgentTaskDispatcherConfigurationTest](../../backend/src/test/java/com/agentflow/agent/task/dispatch/AgentTaskDispatcherConfigurationTest.java)：默认2/4/100/AbortPolicy；core=max=1、queue=0的受控堵塞后第二次提交TaskRejectedException。
+- [AfterCommitTaskDispatchCoordinatorTest](../../backend/src/test/java/com/agentflow/agent/task/dispatch/AfterCommitTaskDispatchCoordinatorTest.java)：回滚不dispatch、只afterCommit提交、拒绝调用补偿。
+- [TaskExternalCallDeadlineTest](../../backend/src/test/java/com/agentflow/agent/engine/TaskExternalCallDeadlineTest.java)：不响应中断body在waiter退出后active=1/permits=0；等待方取消不启动下一个action；真正退出后active=0/permits恢复。覆盖acquire前取消、acquire后未enter取消及重复run、launch失败、正常usage观察与嵌套单许可父boundary。
+- [V0.2-B acceptance脚本](../../scripts/v02b-interruption-acceptance.py) 的B01核对受控迟到结果与外部调用计数不变；B02将容量置1，旧工作未退出时等待取消/超时均无新调用，退出后新任务成功；B03明确需要Java竞态伴随测试，不能用进程脚本替代。
+
+[受控验收说明](../../scripts/v02b-interruption-acceptance.md)属DOC_DECLARED的运行操作与场景说明；已直接检查上述脚本断言，但本轮没有新的B01–B10 PASS。独立HTTP夹具不证明真实provider取消、计费、可用性。未检查目标进程配置覆盖、生产负载、跨JVM调度或provider后台行为，均为UNKNOWN。图04 afterCommit、图05/07事务外工具/模型等待、图08状态结算与本图一致；不展开图10失败收敛或图11恢复流程。
+
+### 图 09 修复与最终验收
+
+**Artifact validation: passed。** 首版及最终版均由原版CLI完成9/9 showcase检查；最终composition 0 errors / 0 warnings，properCrossings=0、ambiguousCorridors=0、labelRouteClearanceIssues=0、短折线/微线段=0。viewBox与requiredViewBox均1147×534；最短segment16px、最短interior26px、最小标签/其他线净距30px。部分自动路由仍超过建议弯折/伸长值（maxBends=4、maxStretch=15.738），原版未列error/warning；保留真实数值，不称所有路线都最短。静态minProjectedNodeTextPx=null，字号验收使用实际browser及全节点SVG测量：10个节点源标题11px、副标题8px，未缩小字体。
+
+**修复记录：** 首版机器检查和browser通过，但实际截图发现dc-call与dc-launch在x=783.6、y=162..246反向共线，视觉上可能误读为绕过许可；因此首版visual review failed，未宣称完成。[完整历史](history/09-before-call-route/)保留源、布局、HTML、回执及截图。视觉修复1只给dc-call设置straight，原版返回workflow/route-preset-conflict；未deliver失败候选。[失败原件](history/09-straight-conflict/09-dispatch-concurrency.candidate.validation.json)保留。视觉修复2按supportedFixes撤销route preset，并为该关系指定bottom→top端口，交由原版自动求解；其余节点/边/cards/mainPath/semanticChecks不变。最终路径虽有绕行，但进入许可与启动工作不再共用通道。
+
+**Browser evidence: passed。** 最终deliver exit0后重新运行原版visual-check exit0/status=pass；默认READ/Still四个light视口全部通过containment/readability/viewer chrome。两个端点尺寸额外覆盖light/dark四张截图；未将其扩称为每个尺寸都运行双主题。
+
+| Viewport | scrollWidth × scrollHeight | diagramWidth | 最小预计节点字号 | 结果 |
+| --- | --- | --- | --- | --- |
+| 1440×900 | 1440×900 | 1306px | 8px | pass |
+| 1600×1000 | 1600×1000 | 1357px | 8px | pass |
+| 1920×1080 | 1920×1080 | 1529px | 8px | pass |
+| 2048×1320 | 2048×1320 | 1870px | 8px | pass |
+
+**Visual review: passed，correction_rounds: 2。** 已实际打开本次四张明暗PNG；主线、拒绝/claim跳过、许可取得、实际工作退出与等待中止可辨，标签、节点、图例和卡片无可见遮挡；最大视口纵向占用均衡。dc-call保留较长绕行，箭头清楚进入许可节点，不把它解释为直接进入body。默认READ/Still之外的focus/search/passport交互及导出文件未另测。原版browser回执仍visualReview=pending，独立视觉记录另存，不改写自动结论。
+
+交接前正式源再次原版showcase validate exit0；candidate与正式JSON原字节一致。所有命令退出码及specification/artifact字节绑定见[acceptance](09-dispatch-concurrency.acceptance.json)。未修改Skill、业务代码或验证门槛，未手改deliver HTML、缩小字体、删除语义或用overflow隐藏内容。仅完成图09，未开始图10，未提交推送。
+
+## 图 10 施工前工作记录（2026-09-16）
+
+基线main@0320892af12fdafb1b5ae89e9135b987dbd1630a，dirty working tree；原图01–09及其他改动保留。图10只回答执行中断与持久化失败怎样收敛，按指南13.2拆为10A执行中断lifecycle及10B终态保存workflow v2，二者都验收通过才算图10完成；不施工图11。
+
+- **CODE_CONFIRMED：** RUNNING owner取消仅落cancel_requested_at，边界探针读到后形成TASK_CANCELLED；task deadline形成TASK_TIMED_OUT；单次LLM超时为AGENT_LLM_TIMEOUT，provider拒绝/工具超时通常FAILED outcome，不自动都变TIMED_OUT。Runner冻结首次outcome与observedAt，持久取消在settleObserved行锁内优先。
+- **Confirmed states / boundaries：** 10A是调用观察方与本地工作体的两条独立生命周期，不是TaskStatus enum。Future.cancel(true)只尝试中断；本地body可仍占许可，真实finally才释放；远端停止UNKNOWN。10B区分内存outcome、DB事务写入、回读已提交终态及无法确认时关闭准入，不增加伪DB状态。
+- **Confirmed failure paths：** 保存每次先回读，写异常或条件0行再回读；未知COMMIT即使末次/永久异常也先查终态。仅可识别瞬态DB故障最多3次，100/500ms退避；明确SQLSTATE优先于wrapper。永久故障、耗尽、回读永久错误、退避中断降级准入/health DOWN，保留未知事实，不重执行Engine/provider。
+- **TEST_CONFIRMED（仅检查断言）：** TaskSettlementServiceTest的同一outcome/time重试、unknown COMMIT、竞争终态、classifier、恢复中断标志与退避中断；TaskExternalCallDeadlineTest的waiter取消后body存活与精确释放；V0.2-B脚本B04/B05/B06/B08的受控超时、DB故障、回滚和DOWN断言。本轮未运行。
+- **DOC_DECLARED / UNKNOWN：** 受控fixture只能证明本地边界，不能证明真实provider停止/计费；部署DB连通性、运行时取消延迟、远端工作是否结束均未验证。重启恢复只保留后续主题引用，不展开图11。
+
+## 图 10 Evidence index
+
+- **Diagram / Question:** Failure, Cancellation and Settlement Lifecycle；timeout、cancel、provider failure 或终态保存失败分别怎样收敛？2026-09-16。
+- **Type / Scope:** 按指南13.2拆分10A `lifecycle`（6状态/5关系）与10B `workflow` v2（8节点/12关系），均showcase。10A是两条独立的本地生命周期，不是新增TaskStatus；10B为数据库保存过程。图10整体 **incomplete**，不开始图11。
+- **Primary path:** 观察调用结束 → Engine结束后冻结outcome → 每次先回读 → 短事务保存 → 终态确认；中断不响应body独立存活。异常保存先回读，允许的瞬态数据库故障才有界退避；无法确认时关闭准入。
+- **10A:** [候选](10-failure-cancel.candidate.lifecycle.json)、[正式源](10-failure-cancel.lifecycle.json)、[HTML](10-failure-cancel.html)、[候选validate](10-failure-cancel.candidate.validation.json)、[正式交接validate](10-failure-cancel.validation.json)、[deliver](10-failure-cancel.delivery.json)、[原版browser](10-failure-cancel.visual-check.json)、[截图集](10-failure-cancel.visual-check.html)、[独立视觉复核](10-failure-cancel.visual-review.json)、[acceptance](10-failure-cancel.acceptance.json)。
+- **10B:** [候选](10-settlement.candidate.workflow.json)、[最新失败回执](10-settlement.candidate.validation.json)、[交接复验失败回执](10-settlement.handoff.validation.json)、[acceptance](10-settlement.acceptance.json)。没有正式JSON或HTML，未deliver/browser/visual review。
+- **Overall acceptance:** [图10分层状态](10-acceptance.json)。不能用10A通过替代10B验收。
+
+### 四个必须分开的事实（CODE_CONFIRMED）
+
+| 事实 | 当前实现与边界 |
+| --- | --- |
+| Logical task cancellation | [LifecycleTransactionService.requestCancellation](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskLifecycleTransactionService.java) 在REQUIRES_NEW内按owner操作。QUEUED可直接CANCELLED并追加TASK_CANCELLED；RUNNING仅首次写cancel_requested_at，尚无终态事件。Engine boundary读取消标记后形成TASK_CANCELLED；已终态请求幂等读回 |
+| Local Java cancellation | [TaskExternalCallDeadline.call](../../backend/src/main/java/com/agentflow/agent/engine/TaskExternalCallDeadline.java) 的waiter finally设置abandoned并Future.cancel(true)，只是尝试中断；InterruptedException恢复中断标志并转为执行异常，不等于持久逻辑取消 |
+| Actual work termination | 已进入body的Lease只能由body finally CAS 1→2释放一次；未进入的取消CAS 0→2释放。Future显示cancelled不证明body退出；本地退出也不证明远端计算/计费停止。wrapper没有可证明provider远端终止的协议 |
+| Terminal persistence success | 内存outcome不是DB终态。[TaskSettlementService](../../backend/src/main/java/com/agentflow/agent/task/execution/TaskSettlementService.java) 接受成功短事务或回读的既有终态；无法确认只降级准入与health，不伪造FAILED，不重执行Engine/provider |
+
+[TaskSnapshotAgentExecutor](../../backend/src/main/java/com/agentflow/agent/engine/TaskSnapshotAgentExecutor.java) 的State.boundary先取消、再检查task deadline。TASK_CANCELLED映射CANCELLED；TASK_TIMED_OUT映射TIMED_OUT；单次模型TIMEOUT映射AGENT_LLM_TIMEOUT，provider拒绝映射AGENT_LLM_REJECTED，其余模型失败等通常FAILED。工具TOOL_TIMEOUT也不自动等同task超时。[DefaultToolRuntime](../../backend/src/main/java/com/agentflow/tool/DefaultToolRuntime.java) 使用任务/工具deadline的较早者；[SpringAiOpenAiCompatibleLlmGateway.chat](../../backend/src/main/java/com/agentflow/infra/llm/SpringAiOpenAiCompatibleLlmGateway.java) 同步调用并分类TIMEOUT/provider异常，没有已证明的远端取消保证。
+
+[TaskRunner.run](../../backend/src/main/java/com/agentflow/agent/task/execution/TaskRunner.java) 在Engine外执行最终观察：若首次observedAt已到task deadline且outcome不是CANCELLED，则改为TIMED_OUT并保留usage/计数；随后冻结这个outcome与observedAt。数据库重试不能重新计算观察时间或重新跑模型。进入settleObserved后持久cancel_requested_at优先，可覆盖此前内存结果。正常单次调用返回仍可继续Engine；10A fi-freeze只在Engine结束后发生，不是每个外部调用都结束task。
+
+### 10A逐边证据（CODE_CONFIRMED）
+
+| Edge | source → target | 调用、guard与影响 |
+| --- | --- | --- |
+| fi-stop | fi-wait → fi-ended | TaskExternalCallDeadline.call：等待许可/结果期间检查boundary与deadline；返回、异常、超时、取消均可结束本次观察。每次tryAcquire/get等待上限50ms，不是取消完成SLA，也不直接写终态 |
+| fi-freeze | fi-ended → fi-outcome | TaskRunner.run：Engine执行已结束才冻结outcome、usage、计数与首次observedAt，交给settlement；独立于实际body是否已响应中断 |
+| fi-ignore | fi-work → fi-held | Future.cancel(true)后body可能不响应中断；Lease仍entered且占用许可。表示允许发生的路径，不声称每次取消都不响应 |
+| fi-body-exit | fi-held → fi-exited | body后来返回/抛错，worker finally执行Lease.exit，仅一次active--和release；迟到结果不重新推进已放弃的业务 |
+| fi-normal-exit | fi-work → fi-exited | body直接返回/抛错同样走finally；正常等待方可获得结果，observe可先记录可用usage，再检查boundary，不能发布被拒绝的迟到答案 |
+
+TaskExternalCallDeadline在嵌套同步调用中继承父boundary/许可，已abandoned父调用不能启动后续工作。10A不画观察方到“强制退出”的箭头；本地线程、DB状态和provider服务端三者不合并。对应TEST_CONFIRMED为[TaskExternalCallDeadlineTest](../../backend/src/test/java/com/agentflow/agent/engine/TaskExternalCallDeadlineTest.java)：不响应中断body在waiter退出后active=1/permits=0，真正退出后归还；取得许可尚未进入时取消、重复run、launch失败均精确归还。本轮只读取断言，未运行测试。
+
+### 10B逐边证据（CODE_CONFIRMED；布局尚未通过）
+
+以下所有控制边均来自[TaskSettlementService.settle / persistence retry](../../backend/src/main/java/com/agentflow/agent/task/execution/TaskSettlementService.java)，事务写入委托[AgentTaskLifecycleTransactionService.settleObserved](../../backend/src/main/java/com/agentflow/agent/task/service/AgentTaskLifecycleTransactionService.java)，条件更新由[AgentTaskMapper](../../backend/src/main/java/com/agentflow/agent/task/repository/AgentTaskMapper.java)执行。
+
+| Edge | source → target | 条件与事实 |
+| --- | --- | --- |
+| sp-begin | sp-input → sp-read | 同一冻结outcome/observedAt进入保存；每次attempt开始均回读持久任务 |
+| sp-live | sp-read → sp-write | 读到非终态才尝试保存；不存在不是成功。settleObserved为REQUIRES_NEW、timeout=5，FOR UPDATE后再次检查终态/状态 |
+| sp-existing | sp-read → sp-done | 已终态直接接受，不覆盖竞争方提交的CANCELLED或其他终态，不重复追加事件 |
+| sp-read-fail | sp-read → sp-classify | 每次attempt的首次回读异常进入分类，图中“首次”不局限于整个流程第1次；这些失败也消耗最多3次attempt，即使没有任何写入 |
+| sp-commit | sp-write → sp-done | 条件更新和关联事实同一物理事务成功。持久取消优先；正常complete/fail/timeout要求RUNNING且cancel=NULL，cancel要求RUNNING且cancel非NULL |
+| sp-uncertain | sp-write → sp-readback | 写异常或条件0行不能直接认定保存失败/成功，立即再查终态；COMMIT响应丢失也走此路径 |
+| sp-confirm | sp-readback → sp-done | 回读已终态则成功，即使写异常本身永久或已是末次attempt；不重复写答案或TASK_COMPLETED |
+| sp-unconfirmed | sp-readback → sp-classify | 未确认终态/回读异常进入错误判断；回读明确永久异常会立即降级，不能一律当瞬态重试 |
+| sp-retry | sp-classify → sp-backoff | 原始失败被识别为瞬态数据库错误且仍有attempt预算，进入100ms/500ms有界退避 |
+| sp-fail | sp-classify → sp-degrade | 原始永久错误、attempt耗尽或回读永久错误关闭准入，报告TASK_SETTLEMENT_PERSIST_FAILED，DB事实保持未确认 |
+| sp-again | sp-backoff → sp-read | 等待正常结束后重做先回读/保存；同一outcome与observedAt，不调用Engine/LLM/tool，不自动重执行业务 |
+| sp-interrupt | sp-backoff → sp-degrade | sleep被中断立即降级，stage=BACKOFF_INTERRUPTED；恢复线程中断标志，不继续退避/重试 |
+
+成功complete在同一事务写task终态、答案/引用/chunks及TASK_COMPLETED；任一步失败整体回滚，不能“终态成功但事件失败”。完成时间使用observedAt，updated_at有GREATEST保护。其余终态与对应事件亦由事务服务收敛。内存图节点sp-done指已确认终态，不意味着一定COMPLETED或一定采用原内存答案。
+
+**可重试分类：** cause chain中明确SQLException SQLSTATE优先，08类、40类、55P03、57P01/57P02/57P03、53300、57014可重试；如23514明确不可重试，即使包在TransientDataAccessException中。缺少明确SQLSTATE时才使用Spring TransientDataAccessException / RecoverableDataAccessException / DataAccessResourceFailureException或SQLTransientException / SQLRecoverableException等回退判断。任意业务RuntimeException不自动可重试。最多3次attempt，首次加最多2次；100/500ms仅出现在可继续的分支。
+
+**Unknown COMMIT细节：** 失败阶段不是READ_BACK时，先进行额外终态回读，再判断原始异常；额外回读永久失败立即降级，瞬态回读失败仍受原始失败类型与次数约束。回读不允许吞掉永久写错误并无限重试。方法进入暂时清除已有线程interrupted标志，使结算能执行，finally恢复；新发生的退避中断单独立即降级。
+
+[TaskExecutionAdmission.failSettlement](../../backend/src/main/java/com/agentflow/agent/task/recovery/TaskExecutionAdmission.java) 将失败锁存，后续open不能重新开放；requireReady拒绝新任务准入。这里只引用[TaskRecoveryStartupCoordinator.health](../../backend/src/main/java/com/agentflow/agent/task/recovery/TaskRecoveryStartupCoordinator.java) 将非ready映射DOWN并带diagnostic的行为，不展开启动恢复。关闭准入不证明旧外部工作停止，也不替DB补造终态。
+
+### 测试、声明与未知边界
+
+- **TEST_CONFIRMED，仅阅读未执行：** [TaskSettlementServiceTest](../../backend/src/test/java/com/agentflow/agent/task/execution/TaskSettlementServiceTest.java) 验证同一outcome/time三次保存与100/500ms；COMMIT丢响应后一次写回读成功；竞争CANCELLED被接受；23514永久失败不重试；初始回读失败3次可有0次写；末次写异常仍回读；SQLSTATE覆盖wrapper；保留进入前中断标志与退避中断立即降级。rejectDispatch复用有界数据库保存，不重执行Engine。
+- **TEST_CONFIRMED，仅阅读未执行：** [V0.2-B受控脚本](../../scripts/v02b-interruption-acceptance.py) B04分别断言单次模型超时FAILED/AGENT_LLM_TIMEOUT与task期限TIMED_OUT；B05相同观察结果重试；B06 unknown COMMIT及事件插入失败整事务回滚；B08 40001最多3次与23514一次、admission=false/health=DOWN、DB仍RUNNING。未把断言存在称作本轮通过。
+- **DOC_DECLARED：** [V0.2-B验收操作说明](../../scripts/v02b-interruption-acceptance.md)描述受控执行方法；本轮没有启动该验收或新生成真实provider证据。
+- **UNKNOWN：** 真实provider中断/计费停止、部署取消延迟、目标数据库可用性、生产故障下持久化结果均未运行验证。代码只证明本地机制与边界。没有扩展图11恢复，也没有添加业务代码。
+
+### 图 10实际验收与停止点
+
+| 部分 | Artifact validation | Browser evidence | Visual review | 总状态 |
+| --- | --- | --- | --- | --- |
+| 10A lifecycle | passed，候选/正式交接validate与deliver均exit0，9/9、0 errors / 0 warnings | passed，原版visual-check exit0 | passed，已实际打开4张截图，correction_rounds=0 | complete（仅10A） |
+| 10B workflow | failed，当前及交接复验exit1，render阶段失败，未运行完整9项/composition | not_run | not_run | incomplete |
+| 图10整体 | incomplete | incomplete | incomplete | incomplete |
+
+10A properCrossings=0、ambiguousCorridors=0、labelRouteClearanceIssues=0，最小标签/其他线净距5px，最短segment93px、interior172px，short/micro均0。viewBox=1030×630；原版静态minProjectedNodeTextPx=null，不当作字号通过证据。[补充测量](10-failure-cancel.layout-measurements.json)从实际SVG读取全部6个节点：标题10px、副标题7px，未缩小源字号。lifecycle回执未暴露requiredViewBox，记录为未提供，未伪造数值。
+
+| 10A Viewport（light） | scrollWidth × scrollHeight | diagramWidth | 最小预计节点字号 | 结果 |
+| --- | --- | --- | --- | --- |
+| 1440×900 | 1440×900 | 966px | 6.56504854368932px | pass |
+| 1600×1000 | 1600×1000 | 1005px | 6.830097087378641px | pass |
+| 1920×1080 | 1920×1080 | 1164px | 7px | pass |
+| 2048×1320 | 2048×1320 | 1488px | 7px | pass |
+
+10A两端点额外light/dark共4张PNG均实际打开；两条独立生命周期、正常/延后退出分支、节点、标签、导航、图例、卡片无可见遮挡，最大尺寸纵向均衡。只复核默认READ/Still，未另测focus/search/passport及导出文件；不把截图通过称为这些交互功能测试。原版回执visualReview=pending保持不变，独立复核另存。
+
+10A初版2个布局诊断，依次只修fi-ignore的straight和fi-body-exit的labelDy=24，错误2→1→0；[初版历史](history/10a-before-body-straight/)及[第二版历史](history/10a-before-exit-label/)原件保留。这两次是交付前布局修复，截图视觉修复轮数为0。
+
+10B[初版回执](history/10b-before-retry-straight/10-settlement.candidate.validation.json)有4项：sp-confirm与sp-retry proper crossing；sp-again与sp-unconfirmed共享54px竖向通道；sp-existing与sp-uncertain共享184.4px横向通道；sp-retry与sp-uncertain共享50px竖向通道。定向修复1只设sp-retry为straight，[回执](history/10b-straight-conflict/10-settlement.candidate.validation.json)为workflow/route-preset-conflict，bottom→top，points=[[310.8,280],[310.8,338]]，supportedFixes=[]。修复2撤销straight，仅对同一subject指定left/left以避开已诊断右侧通道；仍无法生成可行路线。
+
+**最新原版诊断：** workflow/explicit-pin-conflict，subject=sp-retry（sp-classify→sp-backoff），invariant=`readable route feasibility with authored endpoint sides`；冲突字段`/edges/8/fromSide=left`、`/edges/8/toSide=left`；sourceAnchor=[246.8,265]、targetAnchor=[246.8,403]。尝试9类候选：facing-straight、horizontal-then-vertical、vertical-then-horizontal、lane-gap-corridor、column-gap-corridor、outside-left、outside-right、top-corridor、bottom-corridor。supportedFixes为空，未生成被接受的最终route points；CLI未暴露具体失败predicate，不能仅凭端点断定是某一标签/节点碰撞。
+
+空supportedFixes诊断后按Skill允许条件只读workflow compiler，确认可行性还检查标签、其他节点/标签、scene及frame等，并未获得可复现的单predicate结论，未修改或instrument Skill。两轮定向修复均在composition之前失败；原4项没有被重新完整评估，不能将回执4→1→1当成几何改善。按[Archify SKILL.md](../../.agents/skills/archify/SKILL.md)的“If two consecutive rounds do not improve that best count, stop and report the unresolved diagnostics truthfully.”停止本轮B布局，保留最新candidate及全部历史，不继续轮换preset、不deliver失败候选。
+
+本轮只新增图10产物并更新Atlas，原图01–09与其他工作树改动保留。未修改业务代码、Skill、验证标准或手改生成HTML；未用裁切、overflow:hidden或缩小字体过关。未开始图11，未提交推送。

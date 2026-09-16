@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "validate",
+  "stage": "render",
+  "type": "lifecycle",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/10-failure-cancel.candidate.lifecycle.json",
+  "error": "Lifecycle layout validation failed:\n- [composition/micro-segment] showcase lifecycle transitions[2] id \"fi-ignore\" \"fi-work\" -> \"fi-held\" has a 7px interior segment 1 [556, 300] -> [556, 307] that is below the 8px micro-segment floor — move route/via or channel coordinates so each lifecycle turn has a readable run-up.\n- Label \"后来返回或抛错\" overlaps state \"fi-held\" — adjust labelDx/labelDy/labelSegment or set labelAt.\n  label rect: [670, 315, 81, 16]\n  state \"fi-held\" rect: [647, 278, 126, 58]\n  Suggested fix: labelAt [710, 350] or labelDy +24 (below); or labelAt [710, 274] or labelDy -52 (above)",
+  "diagnostics": [
+    {
+      "code": "composition/micro-segment",
+      "severity": "error",
+      "message": "[composition/micro-segment] showcase lifecycle transitions[2] id \"fi-ignore\" \"fi-work\" -> \"fi-held\" has a 7px interior segment 1 [556, 300] -> [556, 307] that is below the 8px micro-segment floor — move route/via or channel coordinates so each lifecycle turn has a readable run-up.",
+      "subject": {
+        "diagramType": "lifecycle",
+        "collection": "transitions",
+        "index": 2,
+        "id": "fi-ignore",
+        "from": "fi-work",
+        "to": "fi-held"
+      },
+      "evidence": {
+        "segmentIndex": 1,
+        "position": "interior",
+        "lengthPx": 7,
+        "minimumPx": 8,
+        "from": [
+          556,
+          300
+        ],
+        "to": [
+          556,
+          307
+        ]
+      },
+      "supportedFixes": [
+        "move route/via or channel coordinates so each lifecycle turn has a readable run-up"
+      ]
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Label \"后来返回或抛错\" overlaps state \"fi-held\" — adjust labelDx/labelDy/labelSegment or set labelAt.\n  label rect: [670, 315, 81, 16]\n  state \"fi-held\" rect: [647, 278, 126, 58]\n  Suggested fix: labelAt [710, 350] or labelDy +24 (below); or labelAt [710, 274] or labelDy -52 (above)",
+      "subject": {
+        "diagramType": "lifecycle"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    }
+  ]
+}

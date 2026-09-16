@@ -1,0 +1,36 @@
+{
+  "date": "2026-09-16",
+  "evidenceKind": "image-capable-reviewer",
+  "artifact": {
+    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/09-dispatch-concurrency.html",
+    "sha256": "508321c2e4d856d23374d6033ab9f5dd6d1551c598fa3d09e1c789fd6a0116f5",
+    "bytes": 812361
+  },
+  "visual_review": "passed",
+  "correction_rounds": 2,
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "images_inspected": [
+    "09-dispatch-concurrency.visual-check.1440x900.light.png",
+    "09-dispatch-concurrency.visual-check.1440x900.dark.png",
+    "09-dispatch-concurrency.visual-check.2048x1320.light.png",
+    "09-dispatch-concurrency.visual-check.2048x1320.dark.png"
+  ],
+  "observations": [
+    "实际打开1440×900及2048×1320两端点的light/dark四张当前PNG。",
+    "原dc-call与dc-launch共用竖线已消除，进入许可和获许可后启动的路径可分别追踪。",
+    "dc-call仍有较长绕行，箭头明确进入许可节点，不经过body；标签不遮挡其他关系。",
+    "线程/队列容量与实际工作许可分别标注；等待结束不连接到强制释放或provider停止。",
+    "节点、标签、图例、卡片和导航无可见碰撞；大屏主图和卡片纵向均衡，两主题清晰。"
+  ],
+  "limitations": [
+    "默认READ/Still截图范围；未另测focus/search/passport交互与导出文件。",
+    "不代表业务运行、真实provider或生产容量验收。"
+  ],
+  "history": [
+    "history/09-before-call-route/09-dispatch-concurrency.acceptance.json",
+    "history/09-straight-conflict/09-dispatch-concurrency.candidate.validation.json"
+  ]
+}

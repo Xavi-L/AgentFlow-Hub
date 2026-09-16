@@ -1,0 +1,475 @@
+{
+  "diagram": "06",
+  "status": "incomplete",
+  "candidate": "06-rag-dataflow.candidate.dataflow.json",
+  "current_receipt": "06-rag-dataflow.candidate.validation.json",
+  "history": [
+    {
+      "repair": null,
+      "exit_code": 1,
+      "diagnostic_count": 19,
+      "receipt": "history/06-round-01/06-rag-dataflow.candidate.validation.json"
+    },
+    {
+      "repair": {
+        "subject": "rag-vector-ready",
+        "change": {
+          "fromSide": "bottom"
+        }
+      },
+      "exit_code": 1,
+      "diagnostic_count": 18,
+      "receipt": "history/06-round-02/06-rag-dataflow.candidate.validation.json"
+    },
+    {
+      "repair": {
+        "subject": "rag-vector-ready",
+        "change": {
+          "via": [
+            [
+              960,
+              224
+            ],
+            [
+              680,
+              224
+            ],
+            [
+              680,
+              275
+            ]
+          ]
+        }
+      },
+      "exit_code": 1,
+      "diagnostic_count": 16,
+      "receipt": "history/06-round-03/06-rag-dataflow.candidate.validation.json"
+    },
+    {
+      "repair": {
+        "subject": "rag-chunks-embedding",
+        "change": {
+          "route": "straight"
+        }
+      },
+      "exit_code": 1,
+      "diagnostic_count": 15,
+      "receipt": "history/06-round-04/06-rag-dataflow.candidate.validation.json"
+    },
+    {
+      "repair": {
+        "subject": "rag-embedding-vector",
+        "change": {
+          "route": "straight"
+        }
+      },
+      "exit_code": 1,
+      "diagnostic_count": 14,
+      "receipt": "history/06-round-05/06-rag-dataflow.candidate.validation.json"
+    },
+    {
+      "repair": {
+        "subject": "rag-embedding-vector",
+        "change": {
+          "labelDy": -36
+        }
+      },
+      "exit_code": 1,
+      "diagnostic_count": 12,
+      "receipt": "history/06-round-06/06-rag-dataflow.candidate.validation.json"
+    },
+    {
+      "repair": {
+        "subject": "rag-ready-task",
+        "change": {
+          "via": [
+            [
+              200,
+              275
+            ],
+            [
+              200,
+              389
+            ]
+          ]
+        }
+      },
+      "exit_code": 1,
+      "diagnostic_count": 10,
+      "receipt": "history/06-round-07/06-rag-dataflow.candidate.validation.json"
+    },
+    {
+      "repair": {
+        "subject": "rag-ready-task",
+        "change": {
+          "toSide": "top"
+        }
+      },
+      "exit_code": 1,
+      "diagnostic_count": 12,
+      "receipt": "history/06-round-08/06-rag-dataflow.candidate.validation.json"
+    },
+    {
+      "repair": {
+        "subject": "rag-ready-task",
+        "change": {
+          "via": [
+            [
+              100,
+              275
+            ]
+          ]
+        }
+      },
+      "exit_code": 1,
+      "diagnostic_count": 9,
+      "receipt": "history/06-round-09/06-rag-dataflow.candidate.validation.json"
+    },
+    {
+      "repair": {
+        "subject": "rag-chunks-context",
+        "change": {
+          "via": [
+            [
+              626,
+              161
+            ],
+            [
+              626,
+              100
+            ],
+            [
+              1080,
+              100
+            ],
+            [
+              1080,
+              340
+            ],
+            [
+              745,
+              340
+            ]
+          ]
+        }
+      },
+      "exit_code": 1,
+      "diagnostic_count": 10,
+      "receipt": "history/06-round-10/06-rag-dataflow.candidate.validation.json"
+    },
+    {
+      "repair": {
+        "subject": "rag-chunks-context",
+        "change": {
+          "toSide": "top"
+        }
+      },
+      "exit_code": 1,
+      "diagnostic_count": 9,
+      "receipt": "06-rag-dataflow.candidate.validation.json"
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "clean-flow/edge-through-node",
+      "severity": "error",
+      "message": "[clean-flow/edge-through-node] dataflow flows[9] id \"rag-vector-search\" \"rag-vector\" -> \"rag-search\" crosses node \"rag-embedding\" (unrelated to this relationship) on segment 0 [888, 161] -> [745, 161] (2px clearance) — adjust fromSide/toSide, set route/via or channelX/channelY, or move the node to another stage/row.",
+      "subject": {
+        "diagramType": "dataflow",
+        "collection": "flows",
+        "index": 9,
+        "id": "rag-vector-search",
+        "from": "rag-vector",
+        "to": "rag-search"
+      },
+      "evidence": {
+        "obstacleKind": "node",
+        "obstacleId": "rag-embedding",
+        "segmentIndex": 0,
+        "from": [
+          888,
+          161
+        ],
+        "to": [
+          745,
+          161
+        ],
+        "clearancePx": 2
+      },
+      "supportedFixes": [
+        "adjust fromSide/toSide, set route/via or channelX/channelY, or move the node to another stage/row"
+      ]
+    },
+    {
+      "code": "clean-flow/edge-through-node",
+      "severity": "error",
+      "message": "[clean-flow/edge-through-node] dataflow flows[9] id \"rag-vector-search\" \"rag-vector\" -> \"rag-search\" crosses node \"rag-context\" (unrelated to this relationship) on segment 1 [745, 161] -> [745, 382] (2px clearance) — adjust fromSide/toSide, set route/via or channelX/channelY, or move the node to another stage/row.",
+      "subject": {
+        "diagramType": "dataflow",
+        "collection": "flows",
+        "index": 9,
+        "id": "rag-vector-search",
+        "from": "rag-vector",
+        "to": "rag-search"
+      },
+      "evidence": {
+        "obstacleKind": "node",
+        "obstacleId": "rag-context",
+        "segmentIndex": 1,
+        "from": [
+          745,
+          161
+        ],
+        "to": [
+          745,
+          382
+        ],
+        "clearancePx": 2
+      },
+      "supportedFixes": [
+        "adjust fromSide/toSide, set route/via or channelX/channelY, or move the node to another stage/row"
+      ]
+    },
+    {
+      "code": "composition/ambiguous-corridor",
+      "severity": "error",
+      "message": "[composition/ambiguous-corridor] showcase dataflow flows[9] id \"rag-vector-search\" \"rag-vector\" -> \"rag-search\" shares a 16px corridor with flows[11] id \"rag-chunks-context\" \"rag-chunks\" -> \"rag-context\" at [745, 340] -> [745, 356] (segments 1 and 5; minimum 8px) — adjust route/via or channelX/channelY so unrelated flows do not visually merge.",
+      "subject": {
+        "diagramType": "dataflow",
+        "collection": "flows",
+        "index": 9,
+        "id": "rag-vector-search",
+        "from": "rag-vector",
+        "to": "rag-search"
+      },
+      "evidence": {
+        "otherRelationship": {
+          "diagramType": "dataflow",
+          "collection": "flows",
+          "index": 11,
+          "id": "rag-chunks-context",
+          "from": "rag-chunks",
+          "to": "rag-context"
+        },
+        "overlapLengthPx": 16,
+        "minimumPx": 8,
+        "from": [
+          745,
+          340
+        ],
+        "to": [
+          745,
+          356
+        ],
+        "segmentIndex": 1,
+        "otherSegmentIndex": 5
+      },
+      "supportedFixes": [
+        "adjust route/via or channelX/channelY so unrelated flows do not visually merge"
+      ]
+    },
+    {
+      "code": "composition/micro-segment",
+      "severity": "error",
+      "message": "[composition/micro-segment] showcase dataflow flows[10] id \"rag-search-context\" \"rag-search\" -> \"rag-context\" has a 7px interior segment 1 [637.5, 396] -> [637.5, 389] that is below the 8px micro-segment floor — adjust route/via or channelX/channelY so each turn uses a clear inter-stage corridor.",
+      "subject": {
+        "diagramType": "dataflow",
+        "collection": "flows",
+        "index": 10,
+        "id": "rag-search-context",
+        "from": "rag-search",
+        "to": "rag-context"
+      },
+      "evidence": {
+        "segmentIndex": 1,
+        "position": "interior",
+        "lengthPx": 7,
+        "minimumPx": 8,
+        "from": [
+          637.5,
+          396
+        ],
+        "to": [
+          637.5,
+          389
+        ]
+      },
+      "supportedFixes": [
+        "adjust route/via or channelX/channelY so each turn uses a clear inter-stage corridor"
+      ]
+    },
+    {
+      "code": "composition/micro-segment",
+      "severity": "error",
+      "message": "[composition/micro-segment] showcase dataflow flows[12] id \"rag-context-model\" \"rag-context\" -> \"rag-model\" has a 7px interior segment 1 [852.5, 389] -> [852.5, 382] that is below the 8px micro-segment floor — adjust route/via or channelX/channelY so each turn uses a clear inter-stage corridor.",
+      "subject": {
+        "diagramType": "dataflow",
+        "collection": "flows",
+        "index": 12,
+        "id": "rag-context-model",
+        "from": "rag-context",
+        "to": "rag-model"
+      },
+      "evidence": {
+        "segmentIndex": 1,
+        "position": "interior",
+        "lengthPx": 7,
+        "minimumPx": 8,
+        "from": [
+          852.5,
+          389
+        ],
+        "to": [
+          852.5,
+          382
+        ]
+      },
+      "supportedFixes": [
+        "adjust route/via or channelX/channelY so each turn uses a clear inter-stage corridor"
+      ]
+    },
+    {
+      "code": "composition/label-route-clearance",
+      "severity": "error",
+      "message": "[composition/label-route-clearance] showcase dataflow label \"正文\" on flows[2] id \"rag-chunks-embedding\" \"rag-chunks\" -> \"rag-embedding\" label \"正文\" is 0px from flows[11] id \"rag-chunks-context\" \"rag-chunks\" -> \"rag-context\" label \"正文回查\" segment 1 [626, 161] -> [626, 100] (label rect [621, 140, 34, 16]; minimum 4px) — adjust labelAt, labelDx, labelDy, or labelSegment; otherwise adjust the other flow route/via/channelX/channelY.",
+      "subject": {
+        "diagramType": "dataflow",
+        "collection": "flows",
+        "index": 2,
+        "id": "rag-chunks-embedding",
+        "from": "rag-chunks",
+        "to": "rag-embedding"
+      },
+      "evidence": {
+        "label": "正文",
+        "otherRelationship": {
+          "diagramType": "dataflow",
+          "collection": "flows",
+          "index": 11,
+          "id": "rag-chunks-context",
+          "from": "rag-chunks",
+          "to": "rag-context"
+        },
+        "segmentIndex": 1,
+        "clearancePx": 0,
+        "minimumPx": 4,
+        "labelRect": {
+          "relation": {
+            "id": "rag-chunks-embedding",
+            "from": "rag-chunks",
+            "to": "rag-embedding",
+            "label": "正文",
+            "variant": "emphasis",
+            "route": "straight"
+          },
+          "relationIndex": 2,
+          "label": "正文",
+          "x": 620.5,
+          "y": 140,
+          "width": 34,
+          "height": 16,
+          "lx": 637.5,
+          "ly": 151
+        },
+        "from": [
+          626,
+          161
+        ],
+        "to": [
+          626,
+          100
+        ]
+      },
+      "supportedFixes": [
+        "adjust labelAt, labelDx, labelDy, or labelSegment; otherwise adjust the other flow route/via/channelX/channelY"
+      ]
+    },
+    {
+      "code": "composition/label-route-clearance",
+      "severity": "error",
+      "message": "[composition/label-route-clearance] showcase dataflow label \"候选引用\" on flows[10] id \"rag-search-context\" \"rag-search\" -> \"rag-context\" label \"候选引用\" is 0px from flows[9] id \"rag-vector-search\" \"rag-vector\" -> \"rag-search\" label \"索引候选\" segment 2 [745, 382] -> [602, 382] (label rect [612, 372, 51, 16]; minimum 4px) — adjust labelAt, labelDx, labelDy, or labelSegment; otherwise adjust the other flow route/via/channelX/channelY.",
+      "subject": {
+        "diagramType": "dataflow",
+        "collection": "flows",
+        "index": 10,
+        "id": "rag-search-context",
+        "from": "rag-search",
+        "to": "rag-context"
+      },
+      "evidence": {
+        "label": "候选引用",
+        "otherRelationship": {
+          "diagramType": "dataflow",
+          "collection": "flows",
+          "index": 9,
+          "id": "rag-vector-search",
+          "from": "rag-vector",
+          "to": "rag-search"
+        },
+        "segmentIndex": 2,
+        "clearancePx": 0,
+        "minimumPx": 4,
+        "labelRect": {
+          "relation": {
+            "id": "rag-search-context",
+            "from": "rag-search",
+            "to": "rag-context",
+            "label": "候选引用",
+            "variant": "emphasis"
+          },
+          "relationIndex": 10,
+          "label": "候选引用",
+          "x": 611.9,
+          "y": 371.5,
+          "width": 51.2,
+          "height": 16,
+          "lx": 637.5,
+          "ly": 382.5
+        },
+        "from": [
+          745,
+          382
+        ],
+        "to": [
+          602,
+          382
+        ]
+      },
+      "supportedFixes": [
+        "adjust labelAt, labelDx, labelDy, or labelSegment; otherwise adjust the other flow route/via/channelX/channelY"
+      ]
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Label \"当前代统计\" overlaps node \"rag-chunks\" — adjust labelDx/labelDy/labelSegment or set labelAt.\n  label rect: [500, 173, 61, 16]\n  node \"rag-chunks\" rect: [458, 128, 144, 66]\n  Suggested fix: labelAt [530, 208] or labelDy +24 (below); or labelAt [530, 124] or labelDy -60 (above)",
+      "subject": {
+        "diagramType": "dataflow"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Label \"检索快照\" overlaps node \"rag-context\" — adjust labelDx/labelDy/labelSegment or set labelAt.\n  label rect: [719, 401, 51, 16]\n  node \"rag-context\" rect: [673, 356, 144, 66]\n  Suggested fix: labelAt [745, 436] or labelDy +24 (below); or labelAt [745, 352] or labelDy -60 (above)",
+      "subject": {
+        "diagramType": "dataflow"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    }
+  ],
+  "not_performed": [
+    "official source replacement",
+    "deliver",
+    "visual-check",
+    "visual review",
+    "diagram 07"
+  ],
+  "notes": [
+    "Current CLI failure is render/layout; zero of nine showcase artifact checks has been established for this candidate.",
+    "All 12 nodes and 15 labeled flows remain. No font, quality, business-code or Skill-source changes.",
+    "The dataflow schema has no semanticChecks field; no semanticChecks were removed."
+  ]
+}

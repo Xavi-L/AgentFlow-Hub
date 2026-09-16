@@ -6,7 +6,7 @@
     "locale": "zh-CN",
     "quality_profile": "showcase",
     "viewBox": [
-      1080,
+      1140,
       620
     ]
   },
@@ -208,8 +208,7 @@
       "from": "rag-chunks",
       "to": "rag-ready",
       "label": "当前代统计",
-      "variant": "default",
-      "labelDy": 34
+      "variant": "default"
     },
     {
       "id": "rag-ready-task",
@@ -244,31 +243,14 @@
       "from": "rag-vector",
       "to": "rag-search",
       "label": "索引候选",
-      "variant": "default",
-      "fromSide": "bottom",
-      "toSide": "top",
-      "via": [
-        [
-          960,
-          320
-        ],
-        [
-          530,
-          320
-        ]
-      ],
-      "labelAt": [
-        850,
-        310
-      ]
+      "variant": "default"
     },
     {
       "id": "rag-search-context",
       "from": "rag-search",
       "to": "rag-context",
       "label": "候选引用",
-      "variant": "emphasis",
-      "route": "straight"
+      "variant": "emphasis"
     },
     {
       "id": "rag-chunks-context",
@@ -278,15 +260,19 @@
       "variant": "default",
       "via": [
         [
-          530,
-          96
+          626,
+          161
         ],
         [
-          1060,
-          96
+          626,
+          100
         ],
         [
-          1060,
+          1080,
+          100
+        ],
+        [
+          1080,
           340
         ],
         [
@@ -294,28 +280,21 @@
           340
         ]
       ],
-      "toSide": "top",
-      "fromSide": "top",
-      "labelAt": [
-        810,
-        86
-      ]
+      "toSide": "top"
     },
     {
       "id": "rag-context-model",
       "from": "rag-context",
       "to": "rag-model",
       "label": "证据 + 引用",
-      "variant": "emphasis",
-      "route": "straight"
+      "variant": "emphasis"
     },
     {
       "id": "rag-context-trace",
       "from": "rag-context",
       "to": "rag-trace",
       "label": "检索快照",
-      "variant": "dashed",
-      "labelDy": 34
+      "variant": "dashed"
     },
     {
       "id": "rag-model-trace",

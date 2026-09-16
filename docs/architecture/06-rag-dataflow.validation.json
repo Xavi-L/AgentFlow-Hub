@@ -3,7 +3,7 @@
   "ok": true,
   "command": "validate",
   "type": "dataflow",
-  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/06-rag-dataflow.candidate.dataflow.json",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/06-rag-dataflow.dataflow.json",
   "checks": [
     {
       "name": "single_svg",

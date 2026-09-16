@@ -1,0 +1,35 @@
+{
+  "date": "2026-09-16",
+  "diagram_type": "sequence",
+  "reviewer": "Codex image-capable reviewer",
+  "evidence_kind": "perceptual-review-of-actual-browser-screenshots",
+  "artifact": {
+    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/07-tool-call.html",
+    "sha256": "52d237c15739a80bd2e4849952b651feec169d24e54e2b5af6e86b3cb10a7bcb",
+    "bytes": 816150
+  },
+  "visual_review": "passed",
+  "correction_rounds": 2,
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "screenshots_inspected": [
+    "07-tool-call.visual-check.1440x900.light.png",
+    "07-tool-call.visual-check.1440x900.dark.png",
+    "07-tool-call.visual-check.2048x1320.light.png",
+    "07-tool-call.visual-check.2048x1320.dark.png"
+  ],
+  "observations": [
+    "已实际打开 1440×900 / 2048×1320 light/dark 四张截图。",
+    "定义与决策、工具执行、后续模型调用三段时序可辨；主图表示一次成功调用后 FINISH，不暗示工具自动直连模型或数据库由模型驱动。",
+    "22 条消息全部保留，RUNNING 在 handler 前、SUCCESS 在结果返回前、observation 在后续 DECISION 前；FINISH 解析与独立 FINAL_GENERATION 可区分。",
+    "消息标签与节点标题无碰撞或裁切；当前定义复核、worker/allowlist、结构化返回和 final 文字可读。",
+    "三个说明卡片完整；最大桌面视口主图与说明卡均衡占用高度，没有显著空白下带。默认关闭的辅助面板未遮挡主图。"
+  ],
+  "scope_limits": [
+    "仅 READ / Still 静态截图复核；未另外测试 focus/search/passport 开合或导出文件。",
+    "原版 visual-check 回执仍保持 visualReview: pending；独立人工式视觉记录不覆写自动回执。",
+    "未执行业务或真实 provider 验收。"
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "diagram": "08",
+  "diagram_type": "lifecycle",
+  "date": "2026-09-16",
+  "baseline_head": "0320892af12fdafb1b5ae89e9135b987dbd1630a",
+  "status": "incomplete",
+  "artifact_validation": "failed",
+  "browser_evidence": "not_run",
+  "visual_review": "not_run",
+  "commands": [
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate lifecycle docs/architecture/08-task-lifecycle.candidate.lifecycle.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/08-01-claim-straight/08-task-lifecycle.candidate.validation.json"
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate lifecycle docs/architecture/08-task-lifecycle.candidate.lifecycle.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/08-02-complete-straight/08-task-lifecycle.candidate.validation.json",
+      "stderr": "",
+      "repair": {
+        "subject": "tl-claim",
+        "fields": {
+          "route": "straight"
+        }
+      }
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate lifecycle docs/architecture/08-task-lifecycle.candidate.lifecycle.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/08-03-failure-label/08-task-lifecycle.candidate.validation.json",
+      "stderr": "",
+      "repair": {
+        "subject": "tl-complete",
+        "fields": {
+          "route": "straight"
+        }
+      }
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate lifecycle docs/architecture/08-task-lifecycle.candidate.lifecycle.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/08-04-cancel-channel/08-task-lifecycle.candidate.validation.json",
+      "stderr": "",
+      "repair": {
+        "subject": "tl-running-failed",
+        "fields": {
+          "labelDy": 24
+        }
+      }
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate lifecycle docs/architecture/08-task-lifecycle.candidate.lifecycle.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/08-05-timeout-clearance/08-task-lifecycle.candidate.validation.json",
+      "stderr": "",
+      "repair": {
+        "subject": "tl-queued-cancel",
+        "fields": {
+          "route": "bottom-channel"
+        }
+      }
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate lifecycle docs/architecture/08-task-lifecycle.candidate.lifecycle.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "08-task-lifecycle.candidate.validation.json",
+      "stderr": "",
+      "repair": {
+        "subject": "tl-timed-out",
+        "fields": {
+          "yOffset": -200
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "date": "2026-09-16",
+  "evidenceKind": "image-capable-reviewer",
+  "artifact": {
+    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/10-failure-cancel.html",
+    "sha256": "d735f0250f33896c31cabeefcfadd0146f49a123f1174dc0069e3d81d0d1571f",
+    "bytes": 803830
+  },
+  "visual_review": "passed",
+  "correction_rounds": 0,
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "images_inspected": [
+    "10-failure-cancel.visual-check.1440x900.light.png",
+    "10-failure-cancel.visual-check.1440x900.dark.png",
+    "10-failure-cancel.visual-check.2048x1320.light.png",
+    "10-failure-cancel.visual-check.2048x1320.dark.png"
+  ],
+  "observations": [
+    "实际打开1440×900、2048×1320的light/dark四张本次PNG。",
+    "观察方与实际工作体分为两条独立生命周期，没有把观察结束画成强制工作退出。",
+    "正常/延后退出分支可追踪；节点、关系标签、图例、导航与说明卡片无可见遮挡。",
+    "两主题文字可辨；最大桌面尺寸主图与卡片纵向占用均衡。"
+  ],
+  "limitations": [
+    "复核默认READ/Still截图，未另测focus/search/passport交互或导出文件。",
+    "不代表业务运行、真实provider停止或图10B通过。"
+  ]
+}

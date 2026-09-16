@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "validate",
+  "stage": "render",
+  "type": "workflow",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/10-settlement.candidate.workflow.json",
+  "error": "Workflow edge \"sp-retry\" cannot satisfy route preset \"straight\" under readable-v2 constraints (minimum 8px endpoint stubs, 16px interior turns, and 28px direct clearance).",
+  "diagnostics": [
+    {
+      "code": "workflow/route-preset-conflict",
+      "severity": "error",
+      "message": "Workflow edge \"sp-retry\" cannot satisfy route preset \"straight\" under readable-v2 constraints (minimum 8px endpoint stubs, 16px interior turns, and 28px direct clearance).",
+      "subject": {
+        "diagramType": "workflow",
+        "edge": "sp-retry",
+        "from": "sp-classify",
+        "to": "sp-backoff",
+        "route": "straight"
+      },
+      "evidence": {
+        "attemptedCandidateFamily": "straight",
+        "points": [
+          [
+            310.8,
+            280
+          ],
+          [
+            310.8,
+            338
+          ]
+        ],
+        "fromSide": "bottom",
+        "toSide": "top",
+        "requiredEndpointStubPx": 8,
+        "requiredInteriorSegmentPx": 16,
+        "requiredDirectClearancePx": 28
+      },
+      "supportedFixes": []
+    }
+  ]
+}

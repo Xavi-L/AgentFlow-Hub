@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "workflow",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/09-dispatch-concurrency.workflow.json",
+  "output": "/Users/xavier/AgentFlow-Hub/docs/architecture/09-dispatch-concurrency.html",
+  "specification": {
+    "sha256": "aea09beceba8a48c725e64716a3f073b3a78c895901da203ab6a50982f2ce5aa",
+    "bytes": 6486
+  },
+  "artifact": {
+    "sha256": "9a64f15294aba4377e77c41b87c8e9cfac4656edde838100b72c6925d91d791b",
+    "bytes": 812351
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

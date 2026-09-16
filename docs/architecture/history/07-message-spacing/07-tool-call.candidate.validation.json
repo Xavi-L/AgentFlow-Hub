@@ -1,0 +1,181 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "validate",
+  "stage": "render",
+  "type": "sequence",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/07-tool-call.candidate.sequence.json",
+  "error": "Sequence layout validation failed:\n- Messages \"创建前置：冻结 tools[]\" and \"DECISION：schema + observations\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"DECISION：schema + observations\" and \"CALL_TOOL JSON\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"CALL_TOOL JSON\" and \"严格协议 / toolCode 校验\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"严格协议 / toolCode 校验\" and \"toolId + arguments\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"toolId + arguments\" and \"TOOL_CALL step 后 taskScoped 调用\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"TOOL_CALL step 后 taskScoped 调用\" and \"重查 ACTIVE / 漂移\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"重查 ACTIVE / 漂移\" and \"当前定义；再校验冻结参数\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"RUNNING · 独立事务\" and \"有界 worker / allowlist\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"只读 demo 查询\" and \"订单 / 支付记录\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"summary + JSON data\" and \"SUCCESS · 独立事务\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"ToolExecutionResult\" and \"step 完成 / TOOL_FINISHED\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"step 完成 / TOOL_FINISHED\" and \"后续 DECISION：含受限 observation\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"后续 DECISION：含受限 observation\" and \"FINISH JSON（示例后续决策）\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"FINISH JSON（示例后续决策）\" and \"严格解析 FINISH\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"严格解析 FINISH\" and \"answerPlan\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"answerPlan\" and \"独立 FINAL_GENERATION\" are less than 28px apart and share horizontal space — spread their y values.\n- Messages \"独立 FINAL_GENERATION\" and \"最终文字 → 引用校验 → outcome\" are less than 28px apart and share horizontal space — spread their y values.",
+  "diagnostics": [
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"创建前置：冻结 tools[]\" and \"DECISION：schema + observations\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"DECISION：schema + observations\" and \"CALL_TOOL JSON\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"CALL_TOOL JSON\" and \"严格协议 / toolCode 校验\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"严格协议 / toolCode 校验\" and \"toolId + arguments\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"toolId + arguments\" and \"TOOL_CALL step 后 taskScoped 调用\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"TOOL_CALL step 后 taskScoped 调用\" and \"重查 ACTIVE / 漂移\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"重查 ACTIVE / 漂移\" and \"当前定义；再校验冻结参数\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"RUNNING · 独立事务\" and \"有界 worker / allowlist\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"只读 demo 查询\" and \"订单 / 支付记录\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"summary + JSON data\" and \"SUCCESS · 独立事务\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"ToolExecutionResult\" and \"step 完成 / TOOL_FINISHED\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"step 完成 / TOOL_FINISHED\" and \"后续 DECISION：含受限 observation\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"后续 DECISION：含受限 observation\" and \"FINISH JSON（示例后续决策）\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"FINISH JSON（示例后续决策）\" and \"严格解析 FINISH\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"严格解析 FINISH\" and \"answerPlan\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"answerPlan\" and \"独立 FINAL_GENERATION\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Messages \"独立 FINAL_GENERATION\" and \"最终文字 → 引用校验 → outcome\" are less than 28px apart and share horizontal space — spread their y values.",
+      "subject": {
+        "diagramType": "sequence"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    }
+  ]
+}

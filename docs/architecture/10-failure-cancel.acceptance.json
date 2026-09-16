@@ -1,0 +1,77 @@
+{
+  "diagram": "10",
+  "part": "10-failure-cancel",
+  "diagram_type": "lifecycle",
+  "date": "2026-09-16",
+  "baseline_head": "0320892af12fdafb1b5ae89e9135b987dbd1630a",
+  "status": "complete",
+  "artifact_validation": "passed",
+  "browser_evidence": "passed",
+  "visual_review": "passed",
+  "commands": [
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate lifecycle docs/architecture/10-failure-cancel.candidate.lifecycle.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/10a-before-body-straight/10-failure-cancel.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate lifecycle docs/architecture/10-failure-cancel.candidate.lifecycle.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/10a-before-exit-label/10-failure-cancel.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate lifecycle docs/architecture/10-failure-cancel.candidate.lifecycle.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "10-failure-cancel.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs deliver lifecycle docs/architecture/10-failure-cancel.lifecycle.json docs/architecture/10-failure-cancel.html --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "10-failure-cancel.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/10-failure-cancel.html --json",
+      "exit_code": 0,
+      "receipt": "10-failure-cancel.visual-check.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate lifecycle docs/architecture/10-failure-cancel.lifecycle.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "10-failure-cancel.validation.json",
+      "stderr": ""
+    }
+  ],
+  "repairs": [
+    {
+      "subject": "fi-ignore",
+      "fields": {
+        "route": "straight"
+      },
+      "baseline": "history/10a-before-body-straight"
+    },
+    {
+      "subject": "fi-body-exit",
+      "fields": {
+        "labelDy": 24
+      },
+      "baseline": "history/10a-before-exit-label"
+    }
+  ],
+  "correction_rounds": 0,
+  "specification": {
+    "sha256": "087fad94a7eabfa2ab1b666ddc3a9a903ddd788bec27496db7f93e01205dbf73",
+    "bytes": 3556
+  },
+  "artifact": {
+    "sha256": "d735f0250f33896c31cabeefcfadd0146f49a123f1174dc0069e3d81d0d1571f",
+    "bytes": 803830
+  },
+  "scope": "10A only; diagram 10 overall remains incomplete until 10B passes.",
+  "browser_receipt": "10-failure-cancel.visual-check.json",
+  "visual_review_receipt": "10-failure-cancel.visual-review.json"
+}

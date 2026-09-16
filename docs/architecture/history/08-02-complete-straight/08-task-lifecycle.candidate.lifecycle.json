@@ -1,0 +1,157 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "08 · Task Lifecycle",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1030,
+      630
+    ]
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "持久状态 · 正常推进"
+    },
+    {
+      "id": "terminal",
+      "label": "其他终态 · 无返回路径"
+    }
+  ],
+  "states": [
+    {
+      "id": "tl-queued",
+      "type": "start",
+      "label": "QUEUED",
+      "sublabel": "创建事务 + TASK_CREATED",
+      "lane": "main",
+      "col": 0,
+      "tag": "未执行"
+    },
+    {
+      "id": "tl-running",
+      "type": "active",
+      "label": "RUNNING",
+      "sublabel": "已 claim；取消只写标记",
+      "lane": "main",
+      "col": 2,
+      "tag": "非终态"
+    },
+    {
+      "id": "tl-completed",
+      "type": "success",
+      "label": "COMPLETED",
+      "sublabel": "答案 / 引用原子发布",
+      "lane": "main",
+      "col": 4,
+      "tag": "终态"
+    },
+    {
+      "id": "tl-failed",
+      "type": "failure",
+      "label": "FAILED",
+      "sublabel": "错误码；恢复结果未确认",
+      "lane": "terminal",
+      "col": 0,
+      "tag": "终态"
+    },
+    {
+      "id": "tl-cancelled",
+      "type": "neutral",
+      "label": "CANCELLED",
+      "sublabel": "USER_CANCELLED",
+      "lane": "terminal",
+      "col": 1,
+      "tag": "终态"
+    },
+    {
+      "id": "tl-timed-out",
+      "type": "failure",
+      "label": "TIMED_OUT",
+      "sublabel": "DEADLINE_EXCEEDED",
+      "lane": "terminal",
+      "col": 2,
+      "tag": "终态"
+    }
+  ],
+  "transitions": [
+    {
+      "id": "tl-claim",
+      "from": "tl-queued",
+      "to": "tl-running",
+      "label": "claim：无取消标记",
+      "variant": "emphasis",
+      "route": "straight"
+    },
+    {
+      "id": "tl-complete",
+      "from": "tl-running",
+      "to": "tl-completed",
+      "label": "成功 outcome · 无取消",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tl-queued-failed",
+      "from": "tl-queued",
+      "to": "tl-failed",
+      "label": "派发拒绝 / 重启失投",
+      "variant": "security"
+    },
+    {
+      "id": "tl-running-failed",
+      "from": "tl-running",
+      "to": "tl-failed",
+      "label": "执行失败 / 重启中断",
+      "variant": "security"
+    },
+    {
+      "id": "tl-queued-cancel",
+      "from": "tl-queued",
+      "to": "tl-cancelled",
+      "label": "owner 取消 / 恢复取消",
+      "variant": "default"
+    },
+    {
+      "id": "tl-running-cancel",
+      "from": "tl-running",
+      "to": "tl-cancelled",
+      "label": "已标记取消：结算 / 恢复",
+      "variant": "default"
+    },
+    {
+      "id": "tl-timeout",
+      "from": "tl-running",
+      "to": "tl-timed-out",
+      "label": "deadline · 无取消",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "状态与原子事件",
+      "items": [
+        "claim / 结算使用短事务；更新状态与 TASK_* 事件一起提交，0 行不发布事件。",
+        "RUNNING 请求取消只写 cancel_requested_at；phase / Future / SSE 均不是新状态。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "受控重启 · 只结算",
+      "items": [
+        "旧 JVM 已退出、执行域锁持有后：遗留 QUEUED / RUNNING 无取消→FAILED，有取消→CANCELLED。",
+        "记录 recovery_metadata 与未确认结果；不续跑、不重发。恢复异常整笔回滚并关闭准入。"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "终态与保存失败",
+      "items": [
+        "四终态无回边；COMPLETED 可为预算受限答案。RUNNING 结算时已落库取消优先。",
+        "瞬态 DB 保存最多 3 次，未知 COMMIT 先回读；失败关闭准入，不虚构终态或重跑业务。"
+      ]
+    }
+  ]
+}

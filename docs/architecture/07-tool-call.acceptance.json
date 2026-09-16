@@ -1,0 +1,104 @@
+{
+  "diagram": "07",
+  "diagram_type": "sequence",
+  "date": "2026-09-16",
+  "baseline_head": "0320892af12fdafb1b5ae89e9135b987dbd1630a",
+  "status": "complete",
+  "artifact_validation": "passed",
+  "browser_evidence": "passed",
+  "visual_review": "passed",
+  "commands": [
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate sequence docs/architecture/07-tool-call.candidate.sequence.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/07-message-spacing/07-tool-call.candidate.validation.json",
+      "diagnostics": 17,
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate sequence docs/architecture/07-tool-call.candidate.sequence.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "history/07-before-desktop-fit/07-tool-call.candidate.validation.json",
+      "stderr": "",
+      "repair": "28px message spacing + matching segment/viewBox extents"
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs deliver sequence docs/architecture/07-tool-call.sequence.json docs/architecture/07-tool-call.html --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "history/07-before-desktop-fit/07-tool-call.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/07-tool-call.html --json",
+      "exit_code": 1,
+      "receipt": "history/07-before-desktop-fit/07-tool-call.visual-check.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate sequence docs/architecture/07-tool-call.candidate.sequence.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "history/07-before-card-fit/07-tool-call.candidate.validation.json",
+      "stderr": "",
+      "repair": "authored spread width 1320; redundant participant contexts consolidated without smaller source fonts; retain all 22 messages"
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs deliver sequence docs/architecture/07-tool-call.sequence.json docs/architecture/07-tool-call.html --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "history/07-before-card-fit/07-tool-call.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/07-tool-call.html --json",
+      "exit_code": 1,
+      "receipt": "history/07-before-card-fit/07-tool-call.visual-check.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate sequence docs/architecture/07-tool-call.candidate.sequence.json --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "07-tool-call.candidate.validation.json",
+      "stderr": "",
+      "repair": "compact redundant card wording to remove measured 11px overflow; no geometry or message changes"
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs deliver sequence docs/architecture/07-tool-call.sequence.json docs/architecture/07-tool-call.html --quality showcase --json",
+      "exit_code": 0,
+      "receipt": "07-tool-call.delivery.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs visual-check docs/architecture/07-tool-call.html --json",
+      "exit_code": 0,
+      "receipt": "07-tool-call.visual-check.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate sequence docs/architecture/07-tool-call.sequence.json --quality showcase --json",
+      "purpose": "final handoff validation",
+      "exit_code": 0,
+      "receipt": "07-tool-call.validation.json",
+      "stderr": ""
+    }
+  ],
+  "correction_rounds": 2,
+  "output": "/Users/xavier/AgentFlow-Hub/docs/architecture/07-tool-call.html",
+  "specification": {
+    "sha256": "32d80ce8343560a205cbd48443dfbe308c55fa7c05d2298bcaf9ede5b127972e",
+    "bytes": 6161
+  },
+  "artifact": {
+    "sha256": "52d237c15739a80bd2e4849952b651feec169d24e54e2b5af6e86b3cb10a7bcb",
+    "bytes": 816150
+  },
+  "validation": "9/9 showcase, 0 errors, 0 warnings",
+  "evidence": {
+    "browser": "07-tool-call.visual-check.json",
+    "visual_review": "07-tool-call.visual-review.json",
+    "supplementary_measurements": "07-tool-call.layout-measurements.json",
+    "historical_failure_folders": [
+      "history/07-message-spacing",
+      "history/07-before-desktop-fit",
+      "history/07-before-card-fit"
+    ]
+  }
+}

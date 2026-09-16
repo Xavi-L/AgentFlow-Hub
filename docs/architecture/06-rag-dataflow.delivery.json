@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "dataflow",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/06-rag-dataflow.dataflow.json",
+  "output": "/Users/xavier/AgentFlow-Hub/docs/architecture/06-rag-dataflow.html",
+  "specification": {
+    "sha256": "c9d1f6b6ea379523e0d36a6f722892d5a299ba7f9c1b8ddb13859bb6692de978",
+    "bytes": 7479
+  },
+  "artifact": {
+    "sha256": "56fe06f6d1d594530b0b22493200af9714f4955d969e4c0e1ea5dc27417ae542",
+    "bytes": 818893
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

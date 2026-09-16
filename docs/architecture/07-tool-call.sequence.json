@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "07 · Tool Invocation Sequence",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [
+      1320,
+      850
+    ]
+  },
+  "participants": [
+    {
+      "id": "tc-runtime",
+      "type": "backend",
+      "label": "Agent Runtime"
+    },
+    {
+      "id": "tc-model",
+      "type": "external",
+      "label": "Model Provider"
+    },
+    {
+      "id": "tc-parser",
+      "type": "security",
+      "label": "Decision Parser"
+    },
+    {
+      "id": "tc-registry",
+      "type": "backend",
+      "label": "定义 / 快照"
+    },
+    {
+      "id": "tc-tools",
+      "type": "backend",
+      "label": "ToolRuntime"
+    },
+    {
+      "id": "tc-handler",
+      "type": "backend",
+      "label": "内置工具"
+    },
+    {
+      "id": "tc-store",
+      "type": "database",
+      "label": "PostgreSQL / Trace"
+    }
+  ],
+  "segments": [
+    {
+      "from": 150,
+      "to": 310,
+      "label": "定义与决策"
+    },
+    {
+      "from": 318,
+      "to": 585,
+      "label": "工具执行"
+    },
+    {
+      "from": 594,
+      "to": 764,
+      "label": "后续模型调用"
+    }
+  ],
+  "messages": [
+    {
+      "id": "tc-freeze",
+      "from": "tc-registry",
+      "to": "tc-runtime",
+      "y": 160,
+      "label": "创建前置：冻结 tools[]",
+      "variant": "return"
+    },
+    {
+      "id": "tc-decision",
+      "from": "tc-runtime",
+      "to": "tc-model",
+      "y": 188,
+      "label": "网络 DECISION：schema + observations",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tc-call-json",
+      "from": "tc-model",
+      "to": "tc-runtime",
+      "y": 216,
+      "label": "CALL_TOOL JSON",
+      "variant": "return"
+    },
+    {
+      "id": "tc-parse",
+      "from": "tc-runtime",
+      "to": "tc-parser",
+      "y": 244,
+      "label": "严格协议 / toolCode 校验",
+      "variant": "security"
+    },
+    {
+      "id": "tc-parsed",
+      "from": "tc-parser",
+      "to": "tc-runtime",
+      "y": 272,
+      "label": "toolId + arguments",
+      "variant": "return"
+    },
+    {
+      "id": "tc-invoke",
+      "from": "tc-runtime",
+      "to": "tc-tools",
+      "y": 300,
+      "label": "TOOL_CALL step 后 taskScoped 调用",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tc-current",
+      "from": "tc-tools",
+      "to": "tc-registry",
+      "y": 328,
+      "label": "重查 ACTIVE / 漂移",
+      "variant": "security"
+    },
+    {
+      "id": "tc-definition",
+      "from": "tc-registry",
+      "to": "tc-tools",
+      "y": 356,
+      "label": "当前定义；再校验冻结参数",
+      "variant": "return"
+    },
+    {
+      "id": "tc-running",
+      "from": "tc-tools",
+      "to": "tc-store",
+      "y": 384,
+      "label": "RUNNING · 独立事务",
+      "variant": "default"
+    },
+    {
+      "id": "tc-worker",
+      "from": "tc-tools",
+      "to": "tc-handler",
+      "y": 412,
+      "label": "有界 worker / allowlist",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tc-query",
+      "from": "tc-handler",
+      "to": "tc-store",
+      "y": 440,
+      "label": "只读 demo 查询",
+      "variant": "default"
+    },
+    {
+      "id": "tc-rows",
+      "from": "tc-store",
+      "to": "tc-handler",
+      "y": 468,
+      "label": "订单 / 支付记录",
+      "variant": "return"
+    },
+    {
+      "id": "tc-handler-result",
+      "from": "tc-handler",
+      "to": "tc-tools",
+      "y": 496,
+      "label": "summary + JSON data",
+      "variant": "return"
+    },
+    {
+      "id": "tc-success",
+      "from": "tc-tools",
+      "to": "tc-store",
+      "y": 524,
+      "label": "SUCCESS · 独立事务",
+      "variant": "default"
+    },
+    {
+      "id": "tc-result",
+      "from": "tc-tools",
+      "to": "tc-runtime",
+      "y": 552,
+      "label": "ToolExecutionResult",
+      "variant": "return"
+    },
+    {
+      "id": "tc-step-end",
+      "from": "tc-runtime",
+      "to": "tc-store",
+      "y": 580,
+      "label": "step 完成 / TOOL_FINISHED",
+      "variant": "default"
+    },
+    {
+      "id": "tc-next-decision",
+      "from": "tc-runtime",
+      "to": "tc-model",
+      "y": 608,
+      "label": "后续 DECISION：含受限 observation",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tc-finish-json",
+      "from": "tc-model",
+      "to": "tc-runtime",
+      "y": 636,
+      "label": "FINISH JSON（示例后续决策）",
+      "variant": "return"
+    },
+    {
+      "id": "tc-parse-finish",
+      "from": "tc-runtime",
+      "to": "tc-parser",
+      "y": 664,
+      "label": "严格解析 FINISH",
+      "variant": "security"
+    },
+    {
+      "id": "tc-plan",
+      "from": "tc-parser",
+      "to": "tc-runtime",
+      "y": 692,
+      "label": "answerPlan",
+      "variant": "return"
+    },
+    {
+      "id": "tc-final",
+      "from": "tc-runtime",
+      "to": "tc-model",
+      "y": 720,
+      "label": "独立 FINAL_GENERATION",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tc-answer",
+      "from": "tc-model",
+      "to": "tc-runtime",
+      "y": 748,
+      "label": "最终文字 → 引用校验 → outcome",
+      "variant": "return"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "定义 / 快照 · 运行时编排",
+      "items": [
+        "版本启用绑定 → tool_definition；冻结 schema/hash/版本，执行前复核撤销与漂移。",
+        "order_query / payment_log_query 只读共享 demo；summary + JSON 是不可信 observation。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "失败与时间边界",
+      "items": [
+        "入场 REJECTED / 执行 FAILED 后抛回 runtime；不以成功 observation 继续。",
+        "无重试；取 task / 冻结 / 当前最短期限。取消等待不证明 worker 退出。"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "日志与后续决策",
+      "items": [
+        "日志独立事务先于返回；step/event、LLM 调用留 Trace。同意图第二次复核后复用，第三次终止。",
+        "成功后可再 CALL_TOOL；FINISH 仍经严格解析。独立 final 后由 Runner 结算。"
+      ]
+    }
+  ]
+}

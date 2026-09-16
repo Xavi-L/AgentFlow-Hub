@@ -1,0 +1,294 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "09 · 派发与并发控制",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "dispatch",
+      "label": "提交 · 本地任务线程与队列"
+    },
+    {
+      "id": "external",
+      "label": "claim 分支 · 实际外部工作"
+    },
+    {
+      "id": "finish",
+      "label": "等待结束与工作退出 · 独立边界"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "dc-commit",
+      "lane": "dispatch",
+      "col": 0,
+      "type": "database",
+      "label": "创建已提交",
+      "sublabel": "QUEUED + 创建事件",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "dc-pool",
+      "lane": "dispatch",
+      "col": 1,
+      "type": "backend",
+      "label": "有界任务调度",
+      "sublabel": "线程 2/4 · 队列 100",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "dc-claim",
+      "lane": "dispatch",
+      "col": 2,
+      "type": "database",
+      "label": "Runner claim",
+      "sublabel": "QUEUED 且无取消",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "dc-engine",
+      "lane": "dispatch",
+      "col": 3,
+      "type": "backend",
+      "label": "执行冻结快照",
+      "sublabel": "Engine 在事务外",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "dc-reject",
+      "lane": "external",
+      "col": 1,
+      "type": "security",
+      "label": "拒绝补偿",
+      "sublabel": "条件 FAILED + 事件",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "dc-skip",
+      "lane": "external",
+      "col": 2,
+      "type": "backend",
+      "label": "不执行即返回",
+      "sublabel": "claim 无匹配",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "dc-permit",
+      "lane": "external",
+      "col": 3,
+      "type": "security",
+      "label": "等待工作许可",
+      "sublabel": "公平 Semaphore · 4",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "dc-body",
+      "lane": "external",
+      "col": 4,
+      "type": "backend",
+      "label": "实际外部工作",
+      "sublabel": "LLM / RAG / 工具",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "dc-observe",
+      "lane": "finish",
+      "col": 3,
+      "type": "backend",
+      "label": "结束本次等待",
+      "sublabel": "结果或超时 / 取消",
+      "width": 128,
+      "height": 68
+    },
+    {
+      "id": "dc-release",
+      "lane": "finish",
+      "col": 4,
+      "type": "security",
+      "label": "归还一次许可",
+      "sublabel": "真实工作 finally",
+      "width": 128,
+      "height": 68
+    }
+  ],
+  "edges": [
+    {
+      "id": "dc-submit",
+      "from": "dc-commit",
+      "to": "dc-pool",
+      "label": "afterCommit",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "dc-schedule",
+      "from": "dc-pool",
+      "to": "dc-claim",
+      "label": "worker 领取",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "dc-enter",
+      "from": "dc-claim",
+      "to": "dc-engine",
+      "label": "claim 成功",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "dc-reject-edge",
+      "from": "dc-pool",
+      "to": "dc-reject",
+      "label": "饱和 / 准入拒绝",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "id": "dc-skip-edge",
+      "from": "dc-claim",
+      "to": "dc-skip",
+      "label": "0 行",
+      "role": "branch",
+      "variant": "default"
+    },
+    {
+      "id": "dc-call",
+      "from": "dc-engine",
+      "to": "dc-permit",
+      "label": "同步调用并等待",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "dc-launch",
+      "from": "dc-permit",
+      "to": "dc-body",
+      "label": "获许可后启动",
+      "role": "async",
+      "variant": "emphasis"
+    },
+    {
+      "id": "dc-abandon",
+      "from": "dc-permit",
+      "to": "dc-observe",
+      "label": "等待中止",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "id": "dc-exit",
+      "from": "dc-body",
+      "to": "dc-release",
+      "label": "工作体退出",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "dc-result",
+      "from": "dc-release",
+      "to": "dc-observe",
+      "label": "未放弃：结果 / 异常",
+      "role": "return",
+      "variant": "dashed"
+    }
+  ],
+  "mainPath": [
+    "dc-commit",
+    "dc-pool",
+    "dc-claim",
+    "dc-engine",
+    "dc-permit",
+    "dc-body",
+    "dc-release"
+  ],
+  "semanticChecks": {
+    "allowedRoots": [
+      "dc-commit"
+    ],
+    "allowedTerminals": [
+      "dc-reject",
+      "dc-skip",
+      "dc-observe"
+    ],
+    "requiredEdges": [
+      {
+        "from": "dc-commit",
+        "to": "dc-pool"
+      },
+      {
+        "from": "dc-pool",
+        "to": "dc-claim"
+      },
+      {
+        "from": "dc-claim",
+        "to": "dc-engine"
+      },
+      {
+        "from": "dc-pool",
+        "to": "dc-reject"
+      },
+      {
+        "from": "dc-claim",
+        "to": "dc-skip"
+      },
+      {
+        "from": "dc-engine",
+        "to": "dc-permit"
+      },
+      {
+        "from": "dc-permit",
+        "to": "dc-body"
+      },
+      {
+        "from": "dc-permit",
+        "to": "dc-observe"
+      },
+      {
+        "from": "dc-body",
+        "to": "dc-release"
+      },
+      {
+        "from": "dc-release",
+        "to": "dc-observe"
+      }
+    ]
+  },
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "任务线程与排队容量",
+      "items": [
+        "core=2 → 优先入队100 → 队满扩至max=4 → AbortPolicy；零容量配置为直接交接。",
+        "准入关闭也拒绝；claim/补偿使用短事务，0行不执行或发事件。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "实际工作许可 · 默认4",
+      "items": [
+        "LLM、串行RAG、工具共用；可配置1–64。等待许可占任务线程，同步嵌套不重复申请。",
+        "超时/取消只放弃等待；已进入的工作仍占许可，直到真正退出。"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "两种结束不能混同",
+      "items": [
+        "waiter 每≤50ms查边界；未进入body的取消由CAS归还，进入后仅body finally归还。",
+        "迟到结果不推进业务；Runner后续结算。任务线程返回或Future取消均不证明provider已停。"
+      ]
+    }
+  ]
+}

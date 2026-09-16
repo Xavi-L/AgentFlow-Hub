@@ -1,0 +1,490 @@
+{
+  "evidenceKind": "supplementary-svg-and-browser-extraction",
+  "artifact": {
+    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/10-failure-cancel.html",
+    "sha256": "d735f0250f33896c31cabeefcfadd0146f49a123f1174dc0069e3d81d0d1571f",
+    "bytes": 803830
+  },
+  "viewBox": "0 0 1030 630",
+  "requiredViewBox": null,
+  "requiredViewBox_note": "Not exposed by this lifecycle artifact receipt; no fabricated measurement.",
+  "nodes": [
+    {
+      "id": "fi-wait",
+      "rects": [
+        {
+          "x": "35",
+          "y": "126",
+          "width": "118",
+          "height": "62",
+          "rx": "7",
+          "class": "c-mask"
+        },
+        {
+          "x": "35",
+          "y": "126",
+          "width": "118",
+          "height": "62",
+          "rx": "7",
+          "class": "c-backend",
+          "stroke-width": "1.5"
+        }
+      ],
+      "texts": [
+        {
+          "text": "调用观察中",
+          "attributes": {
+            "data-node-label": "",
+            "data-detail-anchor": "",
+            "x": "94",
+            "y": "147",
+            "class": "t-primary",
+            "font-size": "10",
+            "font-weight": "600",
+            "text-anchor": "middle"
+          }
+        },
+        {
+          "text": "等待许可或调用结果",
+          "attributes": {
+            "data-detail": "context",
+            "x": "94",
+            "y": "163",
+            "class": "t-muted",
+            "font-size": "7",
+            "text-anchor": "middle"
+          }
+        }
+      ]
+    },
+    {
+      "id": "fi-ended",
+      "rects": [
+        {
+          "x": "343",
+          "y": "126",
+          "width": "118",
+          "height": "62",
+          "rx": "7",
+          "class": "c-mask"
+        },
+        {
+          "x": "343",
+          "y": "126",
+          "width": "118",
+          "height": "62",
+          "rx": "7",
+          "class": "c-external",
+          "stroke-width": "1.5"
+        }
+      ],
+      "texts": [
+        {
+          "text": "本次观察结束",
+          "attributes": {
+            "data-node-label": "",
+            "data-detail-anchor": "",
+            "x": "402",
+            "y": "147",
+            "class": "t-primary",
+            "font-size": "10",
+            "font-weight": "600",
+            "text-anchor": "middle"
+          }
+        },
+        {
+          "text": "正常返回或异常离开",
+          "attributes": {
+            "data-detail": "context",
+            "x": "402",
+            "y": "163",
+            "class": "t-muted",
+            "font-size": "7",
+            "text-anchor": "middle"
+          }
+        }
+      ]
+    },
+    {
+      "id": "fi-outcome",
+      "rects": [
+        {
+          "x": "651",
+          "y": "126",
+          "width": "118",
+          "height": "62",
+          "rx": "7",
+          "class": "c-mask"
+        },
+        {
+          "x": "651",
+          "y": "126",
+          "width": "118",
+          "height": "62",
+          "rx": "7",
+          "class": "c-external",
+          "stroke-width": "1.5"
+        }
+      ],
+      "texts": [
+        {
+          "text": "outcome 已冻结",
+          "attributes": {
+            "data-node-label": "",
+            "data-detail-anchor": "",
+            "x": "710",
+            "y": "147",
+            "class": "t-primary",
+            "font-size": "10",
+            "font-weight": "600",
+            "text-anchor": "middle"
+          }
+        },
+        {
+          "text": "交给图10B保存",
+          "attributes": {
+            "data-detail": "context",
+            "x": "710",
+            "y": "163",
+            "class": "t-muted",
+            "font-size": "7",
+            "text-anchor": "middle"
+          }
+        }
+      ]
+    },
+    {
+      "id": "fi-work",
+      "rects": [
+        {
+          "x": "339",
+          "y": "278",
+          "width": "126",
+          "height": "58",
+          "rx": "7",
+          "class": "c-mask"
+        },
+        {
+          "x": "339",
+          "y": "278",
+          "width": "126",
+          "height": "58",
+          "rx": "7",
+          "class": "c-backend",
+          "stroke-width": "1.5"
+        }
+      ],
+      "texts": [
+        {
+          "text": "工作体已进入",
+          "attributes": {
+            "data-node-label": "",
+            "data-detail-anchor": "",
+            "x": "402",
+            "y": "299",
+            "class": "t-primary",
+            "font-size": "10",
+            "font-weight": "600",
+            "text-anchor": "middle"
+          }
+        },
+        {
+          "text": "持有外部工作许可",
+          "attributes": {
+            "data-detail": "context",
+            "x": "402",
+            "y": "315",
+            "class": "t-muted",
+            "font-size": "7",
+            "text-anchor": "middle"
+          }
+        }
+      ]
+    },
+    {
+      "id": "fi-held",
+      "rects": [
+        {
+          "x": "647",
+          "y": "278",
+          "width": "126",
+          "height": "58",
+          "rx": "7",
+          "class": "c-mask"
+        },
+        {
+          "x": "647",
+          "y": "278",
+          "width": "126",
+          "height": "58",
+          "rx": "7",
+          "class": "c-cloud",
+          "stroke-width": "1.5"
+        }
+      ],
+      "texts": [
+        {
+          "text": "中断后仍未退出",
+          "attributes": {
+            "data-node-label": "",
+            "data-detail-anchor": "",
+            "x": "710",
+            "y": "299",
+            "class": "t-primary",
+            "font-size": "10",
+            "font-weight": "600",
+            "text-anchor": "middle"
+          }
+        },
+        {
+          "text": "许可继续占用",
+          "attributes": {
+            "data-detail": "context",
+            "x": "710",
+            "y": "315",
+            "class": "t-muted",
+            "font-size": "7",
+            "text-anchor": "middle"
+          }
+        }
+      ]
+    },
+    {
+      "id": "fi-exited",
+      "rects": [
+        {
+          "x": "651",
+          "y": "450",
+          "width": "118",
+          "height": "58",
+          "rx": "7",
+          "class": "c-mask"
+        },
+        {
+          "x": "651",
+          "y": "450",
+          "width": "118",
+          "height": "58",
+          "rx": "7",
+          "class": "c-external",
+          "stroke-width": "1.5"
+        }
+      ],
+      "texts": [
+        {
+          "text": "本地工作已退出",
+          "attributes": {
+            "data-node-label": "",
+            "data-detail-anchor": "",
+            "x": "710",
+            "y": "471",
+            "class": "t-primary",
+            "font-size": "10",
+            "font-weight": "600",
+            "text-anchor": "middle"
+          }
+        },
+        {
+          "text": "finally 归还一次",
+          "attributes": {
+            "data-detail": "context",
+            "x": "710",
+            "y": "487",
+            "class": "t-muted",
+            "font-size": "7",
+            "text-anchor": "middle"
+          }
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "data-edge-from": "fi-wait",
+      "data-edge-to": "fi-ended",
+      "data-edge-label": "返回 / 失败 / 超时 / 取消",
+      "data-edge-key": "0",
+      "data-edge-id": "fi-stop",
+      "data-composition-points": "153,157;343,157",
+      "d": "M 153 157 L 343 157",
+      "class": "a-emphasis",
+      "stroke-width": "2",
+      "marker-end": "url(#arrowhead-emphasis)"
+    },
+    {
+      "data-edge-from": "fi-ended",
+      "data-edge-to": "fi-outcome",
+      "data-edge-label": "Engine结束后Runner冻结",
+      "data-edge-key": "1",
+      "data-edge-id": "fi-freeze",
+      "data-composition-points": "461,157;651,157",
+      "d": "M 461 157 L 651 157",
+      "class": "a-emphasis",
+      "stroke-width": "2",
+      "marker-end": "url(#arrowhead-emphasis)"
+    },
+    {
+      "data-edge-from": "fi-work",
+      "data-edge-to": "fi-held",
+      "data-edge-label": "cancel(true) 未使其退出",
+      "data-edge-key": "2",
+      "data-edge-id": "fi-ignore",
+      "data-composition-points": "465,307;647,307",
+      "d": "M 465 307 L 647 307",
+      "class": "a-security",
+      "stroke-width": "1.1",
+      "marker-end": "url(#arrowhead-security)"
+    },
+    {
+      "data-edge-from": "fi-held",
+      "data-edge-to": "fi-exited",
+      "data-edge-label": "后来返回或抛错",
+      "data-edge-key": "3",
+      "data-edge-id": "fi-body-exit",
+      "data-composition-points": "710,336;710,450",
+      "d": "M 710 336 L 710 450",
+      "class": "a-default",
+      "stroke-width": "1.1",
+      "marker-end": "url(#arrowhead)"
+    },
+    {
+      "data-edge-from": "fi-work",
+      "data-edge-to": "fi-exited",
+      "data-edge-label": "直接返回或抛错",
+      "data-edge-key": "4",
+      "data-edge-id": "fi-normal-exit",
+      "data-composition-points": "465,307;558,307;558,479;651,479",
+      "d": "M 465 307 L 548 307 Q 558 307 558 317 L 558 469 Q 558 479 568 479 L 651 479",
+      "class": "a-default",
+      "stroke-width": "1.1",
+      "marker-end": "url(#arrowhead)"
+    }
+  ],
+  "browser_viewports": [
+    {
+      "width": 1440,
+      "height": 900,
+      "theme": "light",
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "scrollWidth": 1440,
+      "scrollHeight": 900,
+      "overflowX": false,
+      "overflowY": false,
+      "ok": true,
+      "readerWidth": 996,
+      "diagramWidth": 966,
+      "viewBoxWidth": 1030,
+      "minimumProjectedNodeTextPx": 6.56504854368932,
+      "minimumProjectedNodeText": "等待许可或调用结果",
+      "minimumProjectedNodeTextDetail": "context",
+      "minimumRequiredNodeTextPx": 6,
+      "readabilityOk": true,
+      "hasLegend": true,
+      "hasNavigationDock": true,
+      "legendDockIntersectionArea": 0,
+      "dockStageIntersectionArea": 0,
+      "dockStageGap": 10.21875,
+      "requiredDockStageGap": 10,
+      "viewerChromeStageOk": true,
+      "viewerChromeReserve": 51,
+      "viewerChromeActive": true,
+      "viewerChromeOk": true,
+      "resolvedTheme": "light"
+    },
+    {
+      "width": 1600,
+      "height": 1000,
+      "theme": "light",
+      "innerWidth": 1600,
+      "innerHeight": 1000,
+      "scrollWidth": 1600,
+      "scrollHeight": 1000,
+      "overflowX": false,
+      "overflowY": false,
+      "ok": true,
+      "readerWidth": 1035,
+      "diagramWidth": 1005,
+      "viewBoxWidth": 1030,
+      "minimumProjectedNodeTextPx": 6.830097087378641,
+      "minimumProjectedNodeText": "等待许可或调用结果",
+      "minimumProjectedNodeTextDetail": "context",
+      "minimumRequiredNodeTextPx": 6,
+      "readabilityOk": true,
+      "hasLegend": true,
+      "hasNavigationDock": true,
+      "legendDockIntersectionArea": 0,
+      "dockStageIntersectionArea": 0,
+      "dockStageGap": 10.21875,
+      "requiredDockStageGap": 10,
+      "viewerChromeStageOk": true,
+      "viewerChromeReserve": 51,
+      "viewerChromeActive": true,
+      "viewerChromeOk": true,
+      "resolvedTheme": "light"
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "theme": "light",
+      "innerWidth": 1920,
+      "innerHeight": 1080,
+      "scrollWidth": 1920,
+      "scrollHeight": 1080,
+      "overflowX": false,
+      "overflowY": false,
+      "ok": true,
+      "readerWidth": 1194,
+      "diagramWidth": 1164,
+      "viewBoxWidth": 1030,
+      "minimumProjectedNodeTextPx": 7,
+      "minimumProjectedNodeText": "等待许可或调用结果",
+      "minimumProjectedNodeTextDetail": "context",
+      "minimumRequiredNodeTextPx": 6,
+      "readabilityOk": true,
+      "hasLegend": true,
+      "hasNavigationDock": true,
+      "legendDockIntersectionArea": 0,
+      "dockStageIntersectionArea": 0,
+      "dockStageGap": 10.21875,
+      "requiredDockStageGap": 10,
+      "viewerChromeStageOk": true,
+      "viewerChromeReserve": 51,
+      "viewerChromeActive": true,
+      "viewerChromeOk": true,
+      "resolvedTheme": "light"
+    },
+    {
+      "width": 2048,
+      "height": 1320,
+      "theme": "light",
+      "innerWidth": 2048,
+      "innerHeight": 1320,
+      "scrollWidth": 2048,
+      "scrollHeight": 1320,
+      "overflowX": false,
+      "overflowY": false,
+      "ok": true,
+      "readerWidth": 1538,
+      "diagramWidth": 1488,
+      "viewBoxWidth": 1030,
+      "minimumProjectedNodeTextPx": 7,
+      "minimumProjectedNodeText": "等待许可或调用结果",
+      "minimumProjectedNodeTextDetail": "context",
+      "minimumRequiredNodeTextPx": 6,
+      "readabilityOk": true,
+      "hasLegend": true,
+      "hasNavigationDock": true,
+      "legendDockIntersectionArea": 0,
+      "dockStageIntersectionArea": 0,
+      "dockStageGap": 10.21875,
+      "requiredDockStageGap": 10,
+      "viewerChromeStageOk": true,
+      "viewerChromeReserve": 41,
+      "viewerChromeActive": true,
+      "viewerChromeOk": true,
+      "resolvedTheme": "light"
+    }
+  ],
+  "minimumProjectedNodeTextPx": 6.56504854368932
+}

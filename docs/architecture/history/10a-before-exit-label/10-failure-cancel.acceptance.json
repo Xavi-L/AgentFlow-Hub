@@ -1,0 +1,34 @@
+{
+  "diagram": "10",
+  "part": "10-failure-cancel",
+  "diagram_type": "lifecycle",
+  "date": "2026-09-16",
+  "baseline_head": "0320892af12fdafb1b5ae89e9135b987dbd1630a",
+  "status": "incomplete",
+  "artifact_validation": "failed",
+  "browser_evidence": "not_run",
+  "visual_review": "not_run",
+  "commands": [
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate lifecycle docs/architecture/10-failure-cancel.candidate.lifecycle.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "history/10a-before-body-straight/10-failure-cancel.candidate.validation.json",
+      "stderr": ""
+    },
+    {
+      "command": "node .agents/skills/archify/bin/archify.mjs validate lifecycle docs/architecture/10-failure-cancel.candidate.lifecycle.json --quality showcase --json",
+      "exit_code": 1,
+      "receipt": "10-failure-cancel.candidate.validation.json",
+      "stderr": ""
+    }
+  ],
+  "repairs": [
+    {
+      "subject": "fi-ignore",
+      "fields": {
+        "route": "straight"
+      },
+      "baseline": "history/10a-before-body-straight"
+    }
+  ]
+}

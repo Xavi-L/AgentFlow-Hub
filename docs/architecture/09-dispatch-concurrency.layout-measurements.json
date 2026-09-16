@@ -1,0 +1,165 @@
+{
+  "evidenceKind": "supplementary-delivered-svg-measurements",
+  "artifact": {
+    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/09-dispatch-concurrency.html",
+    "sha256": "508321c2e4d856d23374d6033ab9f5dd6d1551c598fa3d09e1c789fd6a0116f5",
+    "bytes": 812361
+  },
+  "viewBox": "0 0 1147 534",
+  "nodes": [
+    {
+      "id": "dc-commit",
+      "texts": [
+        {
+          "text": "创建已提交",
+          "fontSizePx": 11.0,
+          "detail": "title"
+        },
+        {
+          "text": "QUEUED + 创建事件",
+          "fontSizePx": 8.0,
+          "detail": "context"
+        }
+      ]
+    },
+    {
+      "id": "dc-pool",
+      "texts": [
+        {
+          "text": "有界任务调度",
+          "fontSizePx": 11.0,
+          "detail": "title"
+        },
+        {
+          "text": "线程 2/4 · 队列 100",
+          "fontSizePx": 8.0,
+          "detail": "context"
+        }
+      ]
+    },
+    {
+      "id": "dc-claim",
+      "texts": [
+        {
+          "text": "Runner claim",
+          "fontSizePx": 11.0,
+          "detail": "title"
+        },
+        {
+          "text": "QUEUED 且无取消",
+          "fontSizePx": 8.0,
+          "detail": "context"
+        }
+      ]
+    },
+    {
+      "id": "dc-engine",
+      "texts": [
+        {
+          "text": "执行冻结快照",
+          "fontSizePx": 11.0,
+          "detail": "title"
+        },
+        {
+          "text": "Engine 在事务外",
+          "fontSizePx": 8.0,
+          "detail": "context"
+        }
+      ]
+    },
+    {
+      "id": "dc-reject",
+      "texts": [
+        {
+          "text": "拒绝补偿",
+          "fontSizePx": 11.0,
+          "detail": "title"
+        },
+        {
+          "text": "条件 FAILED + 事件",
+          "fontSizePx": 8.0,
+          "detail": "context"
+        }
+      ]
+    },
+    {
+      "id": "dc-skip",
+      "texts": [
+        {
+          "text": "不执行即返回",
+          "fontSizePx": 11.0,
+          "detail": "title"
+        },
+        {
+          "text": "claim 无匹配",
+          "fontSizePx": 8.0,
+          "detail": "context"
+        }
+      ]
+    },
+    {
+      "id": "dc-permit",
+      "texts": [
+        {
+          "text": "等待工作许可",
+          "fontSizePx": 11.0,
+          "detail": "title"
+        },
+        {
+          "text": "公平 Semaphore · 4",
+          "fontSizePx": 8.0,
+          "detail": "context"
+        }
+      ]
+    },
+    {
+      "id": "dc-body",
+      "texts": [
+        {
+          "text": "实际外部工作",
+          "fontSizePx": 11.0,
+          "detail": "title"
+        },
+        {
+          "text": "LLM / RAG / 工具",
+          "fontSizePx": 8.0,
+          "detail": "context"
+        }
+      ]
+    },
+    {
+      "id": "dc-observe",
+      "texts": [
+        {
+          "text": "结束本次等待",
+          "fontSizePx": 11.0,
+          "detail": "title"
+        },
+        {
+          "text": "结果或超时 / 取消",
+          "fontSizePx": 8.0,
+          "detail": "context"
+        }
+      ]
+    },
+    {
+      "id": "dc-release",
+      "texts": [
+        {
+          "text": "归还一次许可",
+          "fontSizePx": 11.0,
+          "detail": "title"
+        },
+        {
+          "text": "真实工作 finally",
+          "fontSizePx": 8.0,
+          "detail": "context"
+        }
+      ]
+    }
+  ],
+  "minimumSourceNodeTextPx": 8.0,
+  "minimumBrowserProjectedNodeTextPx": 8,
+  "compiler_receipt": "09-dispatch-concurrency.layout.json",
+  "note": "Supplementary measurements; original validate and browser receipts retained unchanged."
+}

@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "validate",
+  "stage": "render",
+  "type": "lifecycle",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/08-task-lifecycle.candidate.lifecycle.json",
+  "error": "Lifecycle layout validation failed:\n- [composition/label-route-clearance] showcase lifecycle label \"成功 outcome · 无取消\" on transitions[1] id \"tl-complete\" \"tl-running\" -> \"tl-completed\" label \"成功 outcome · 无取消\" is 0px from transitions[6] id \"tl-timeout\" \"tl-running\" -> \"tl-timed-out\" label \"deadline · 无取消\" segment 0 [461, 150] -> [556, 150] (label rect [499, 136, 115, 16]; minimum 4px) — adjust labelAt, labelDx, labelDy, or labelSegment; otherwise adjust the other relationship route/via/channel.",
+  "diagnostics": [
+    {
+      "code": "composition/label-route-clearance",
+      "severity": "error",
+      "message": "[composition/label-route-clearance] showcase lifecycle label \"成功 outcome · 无取消\" on transitions[1] id \"tl-complete\" \"tl-running\" -> \"tl-completed\" label \"成功 outcome · 无取消\" is 0px from transitions[6] id \"tl-timeout\" \"tl-running\" -> \"tl-timed-out\" label \"deadline · 无取消\" segment 0 [461, 150] -> [556, 150] (label rect [499, 136, 115, 16]; minimum 4px) — adjust labelAt, labelDx, labelDy, or labelSegment; otherwise adjust the other relationship route/via/channel.",
+      "subject": {
+        "diagramType": "lifecycle",
+        "collection": "transitions",
+        "index": 1,
+        "id": "tl-complete",
+        "from": "tl-running",
+        "to": "tl-completed"
+      },
+      "evidence": {
+        "label": "成功 outcome · 无取消",
+        "otherRelationship": {
+          "diagramType": "lifecycle",
+          "collection": "transitions",
+          "index": 6,
+          "id": "tl-timeout",
+          "from": "tl-running",
+          "to": "tl-timed-out"
+        },
+        "segmentIndex": 0,
+        "clearancePx": 0,
+        "minimumPx": 4,
+        "labelRect": {
+          "relation": {
+            "id": "tl-complete",
+            "from": "tl-running",
+            "to": "tl-completed",
+            "label": "成功 outcome · 无取消",
+            "variant": "emphasis",
+            "route": "straight"
+          },
+          "relationIndex": 1,
+          "label": "成功 outcome · 无取消",
+          "x": 498.55,
+          "y": 136,
+          "width": 114.9,
+          "height": 16,
+          "lx": 556,
+          "ly": 147
+        },
+        "from": [
+          461,
+          150
+        ],
+        "to": [
+          556,
+          150
+        ]
+      },
+      "supportedFixes": [
+        "adjust labelAt, labelDx, labelDy, or labelSegment; otherwise adjust the other relationship route/via/channel"
+      ]
+    }
+  ]
+}

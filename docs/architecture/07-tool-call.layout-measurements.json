@@ -1,0 +1,345 @@
+{
+  "evidence_kind": "supplementary-delivered-svg-extraction",
+  "not_an_original_cli_receipt": true,
+  "artifact": {
+    "sha256": "52d237c15739a80bd2e4849952b651feec169d24e54e2b5af6e86b3cb10a7bcb",
+    "bytes": 816150
+  },
+  "viewBox": [
+    0,
+    0,
+    1320,
+    850
+  ],
+  "nodes": [
+    {
+      "id": "tc-runtime",
+      "rect": {
+        "x": 62.0,
+        "y": 72.0,
+        "width": 147.0,
+        "height": 54.0
+      },
+      "texts": [
+        {
+          "text": "Agent Runtime",
+          "font_size_px": 11.0
+        }
+      ]
+    },
+    {
+      "id": "tc-model",
+      "rect": {
+        "x": 240.5,
+        "y": 72.0,
+        "width": 147.0,
+        "height": 54.0
+      },
+      "texts": [
+        {
+          "text": "Model Provider",
+          "font_size_px": 11.0
+        }
+      ]
+    },
+    {
+      "id": "tc-parser",
+      "rect": {
+        "x": 419.0,
+        "y": 72.0,
+        "width": 147.0,
+        "height": 54.0
+      },
+      "texts": [
+        {
+          "text": "Decision Parser",
+          "font_size_px": 11.0
+        }
+      ]
+    },
+    {
+      "id": "tc-registry",
+      "rect": {
+        "x": 597.5,
+        "y": 72.0,
+        "width": 147.0,
+        "height": 54.0
+      },
+      "texts": [
+        {
+          "text": "定义 / 快照",
+          "font_size_px": 11.0
+        }
+      ]
+    },
+    {
+      "id": "tc-tools",
+      "rect": {
+        "x": 776.0,
+        "y": 72.0,
+        "width": 147.0,
+        "height": 54.0
+      },
+      "texts": [
+        {
+          "text": "ToolRuntime",
+          "font_size_px": 11.0
+        }
+      ]
+    },
+    {
+      "id": "tc-handler",
+      "rect": {
+        "x": 954.5,
+        "y": 72.0,
+        "width": 147.0,
+        "height": 54.0
+      },
+      "texts": [
+        {
+          "text": "内置工具",
+          "font_size_px": 11.0
+        }
+      ]
+    },
+    {
+      "id": "tc-store",
+      "rect": {
+        "x": 1133.0,
+        "y": 72.0,
+        "width": 147.0,
+        "height": 54.0
+      },
+      "texts": [
+        {
+          "text": "PostgreSQL / Trace",
+          "font_size_px": 11.0
+        }
+      ]
+    }
+  ],
+  "message_count": 22,
+  "message_y_range": [
+    160,
+    748
+  ],
+  "message_spacing_px": 28,
+  "source_node_font_px": 11,
+  "minimum_node_projected_at_930_px": 7.75,
+  "message_routes": [
+    {
+      "id": null,
+      "points": "664,160;142.5,160"
+    },
+    {
+      "id": null,
+      "points": "142.5,188;307,188"
+    },
+    {
+      "id": null,
+      "points": "307,216;142.5,216"
+    },
+    {
+      "id": null,
+      "points": "142.5,244;485.5,244"
+    },
+    {
+      "id": null,
+      "points": "485.5,272;142.5,272"
+    },
+    {
+      "id": null,
+      "points": "142.5,300;842.5,300"
+    },
+    {
+      "id": null,
+      "points": "842.5,328;678,328"
+    },
+    {
+      "id": null,
+      "points": "678,356;842.5,356"
+    },
+    {
+      "id": null,
+      "points": "856.5,384;1199.5,384"
+    },
+    {
+      "id": null,
+      "points": "856.5,412;1021,412"
+    },
+    {
+      "id": null,
+      "points": "1035,440;1199.5,440"
+    },
+    {
+      "id": null,
+      "points": "1199.5,468;1035,468"
+    },
+    {
+      "id": null,
+      "points": "1021,496;856.5,496"
+    },
+    {
+      "id": null,
+      "points": "856.5,524;1199.5,524"
+    },
+    {
+      "id": null,
+      "points": "842.5,552;142.5,552"
+    },
+    {
+      "id": null,
+      "points": "142.5,580;1199.5,580"
+    },
+    {
+      "id": null,
+      "points": "142.5,608;307,608"
+    },
+    {
+      "id": null,
+      "points": "307,636;142.5,636"
+    },
+    {
+      "id": null,
+      "points": "142.5,664;485.5,664"
+    },
+    {
+      "id": null,
+      "points": "485.5,692;142.5,692"
+    },
+    {
+      "id": null,
+      "points": "142.5,720;307,720"
+    },
+    {
+      "id": null,
+      "points": "307,748;142.5,748"
+    }
+  ],
+  "browser_viewports": [
+    {
+      "width": 1440,
+      "height": 900,
+      "theme": "light",
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "scrollWidth": 1440,
+      "scrollHeight": 900,
+      "overflowX": false,
+      "overflowY": false,
+      "ok": true,
+      "readerWidth": 960,
+      "diagramWidth": 930,
+      "viewBoxWidth": 1320,
+      "minimumProjectedNodeTextPx": 7.75,
+      "minimumProjectedNodeText": "Agent Runtime",
+      "minimumProjectedNodeTextDetail": "primary",
+      "minimumRequiredNodeTextPx": 6,
+      "readabilityOk": true,
+      "hasLegend": true,
+      "hasNavigationDock": true,
+      "legendDockIntersectionArea": 0,
+      "dockStageIntersectionArea": 0,
+      "dockStageGap": 10.21875,
+      "requiredDockStageGap": 10,
+      "viewerChromeStageOk": true,
+      "viewerChromeReserve": 51,
+      "viewerChromeActive": true,
+      "viewerChromeOk": true,
+      "resolvedTheme": "light"
+    },
+    {
+      "width": 1600,
+      "height": 1000,
+      "theme": "light",
+      "innerWidth": 1600,
+      "innerHeight": 1000,
+      "scrollWidth": 1600,
+      "scrollHeight": 1000,
+      "overflowX": false,
+      "overflowY": false,
+      "ok": true,
+      "readerWidth": 988,
+      "diagramWidth": 958,
+      "viewBoxWidth": 1320,
+      "minimumProjectedNodeTextPx": 7.9833333333333325,
+      "minimumProjectedNodeText": "Agent Runtime",
+      "minimumProjectedNodeTextDetail": "primary",
+      "minimumRequiredNodeTextPx": 6,
+      "readabilityOk": true,
+      "hasLegend": true,
+      "hasNavigationDock": true,
+      "legendDockIntersectionArea": 0,
+      "dockStageIntersectionArea": 0,
+      "dockStageGap": 10.21875,
+      "requiredDockStageGap": 10,
+      "viewerChromeStageOk": true,
+      "viewerChromeReserve": 51,
+      "viewerChromeActive": true,
+      "viewerChromeOk": true,
+      "resolvedTheme": "light"
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "theme": "light",
+      "innerWidth": 1920,
+      "innerHeight": 1080,
+      "scrollWidth": 1920,
+      "scrollHeight": 1080,
+      "overflowX": false,
+      "overflowY": false,
+      "ok": true,
+      "readerWidth": 1139,
+      "diagramWidth": 1109,
+      "viewBoxWidth": 1320,
+      "minimumProjectedNodeTextPx": 9.241666666666667,
+      "minimumProjectedNodeText": "Agent Runtime",
+      "minimumProjectedNodeTextDetail": "primary",
+      "minimumRequiredNodeTextPx": 6,
+      "readabilityOk": true,
+      "hasLegend": true,
+      "hasNavigationDock": true,
+      "legendDockIntersectionArea": 0,
+      "dockStageIntersectionArea": 0,
+      "dockStageGap": 10.21875,
+      "requiredDockStageGap": 10,
+      "viewerChromeStageOk": true,
+      "viewerChromeReserve": 51,
+      "viewerChromeActive": true,
+      "viewerChromeOk": true,
+      "resolvedTheme": "light"
+    },
+    {
+      "width": 2048,
+      "height": 1320,
+      "theme": "light",
+      "innerWidth": 2048,
+      "innerHeight": 1320,
+      "scrollWidth": 2048,
+      "scrollHeight": 1320,
+      "overflowX": false,
+      "overflowY": false,
+      "ok": true,
+      "readerWidth": 1466,
+      "diagramWidth": 1416,
+      "viewBoxWidth": 1320,
+      "minimumProjectedNodeTextPx": 11,
+      "minimumProjectedNodeText": "Agent Runtime",
+      "minimumProjectedNodeTextDetail": "primary",
+      "minimumRequiredNodeTextPx": 6,
+      "readabilityOk": true,
+      "hasLegend": true,
+      "hasNavigationDock": true,
+      "legendDockIntersectionArea": 0,
+      "dockStageIntersectionArea": 0,
+      "dockStageGap": 10.21875,
+      "requiredDockStageGap": 10,
+      "viewerChromeStageOk": true,
+      "viewerChromeReserve": 41,
+      "viewerChromeActive": true,
+      "viewerChromeOk": true,
+      "resolvedTheme": "light"
+    }
+  ]
+}

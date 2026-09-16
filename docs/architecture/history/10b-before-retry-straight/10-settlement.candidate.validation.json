@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "validate",
+  "stage": "render",
+  "type": "workflow",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/10-settlement.candidate.workflow.json",
+  "error": "Workflow layout validation failed:\n- [composition/proper-crossing] showcase workflow edges[3] id \"sp-confirm\" \"sp-readback\" -> \"sp-done\" crosses edges[9] id \"sp-retry\" \"sp-classify\" -> \"sp-backoff\" at [679.6, 196] (segments 1 and 1) — adjust route/via, bias, or channel coordinates so the edges use separate lane corridors.\n- [composition/ambiguous-corridor] showcase workflow edges[0] id \"sp-again\" \"sp-backoff\" -> \"sp-read\" shares a 54px corridor with edges[11] id \"sp-unconfirmed\" \"sp-readback\" -> \"sp-classify\" at [390.8, 246] -> [390.8, 300] (segments 2 and 2; minimum 8px) — adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.\n- [composition/ambiguous-corridor] showcase workflow edges[4] id \"sp-existing\" \"sp-read\" -> \"sp-done\" shares a 184.4px corridor with edges[10] id \"sp-uncertain\" \"sp-write\" -> \"sp-readback\" at [495.2, 70] -> [679.6, 70] (segments 1 and 1; minimum 8px) — adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.\n- [composition/ambiguous-corridor] showcase workflow edges[9] id \"sp-retry\" \"sp-classify\" -> \"sp-backoff\" shares a 50px corridor with edges[10] id \"sp-uncertain\" \"sp-write\" -> \"sp-readback\" at [990, 196] -> [990, 246] (segments 2 and 2; minimum 8px) — adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+  "diagnostics": [
+    {
+      "code": "composition/proper-crossing",
+      "severity": "error",
+      "message": "[composition/proper-crossing] showcase workflow edges[3] id \"sp-confirm\" \"sp-readback\" -> \"sp-done\" crosses edges[9] id \"sp-retry\" \"sp-classify\" -> \"sp-backoff\" at [679.6, 196] (segments 1 and 1) — adjust route/via, bias, or channel coordinates so the edges use separate lane corridors.",
+      "subject": {
+        "diagramType": "workflow",
+        "collection": "edges",
+        "index": 3,
+        "id": "sp-confirm",
+        "from": "sp-readback",
+        "to": "sp-done"
+      },
+      "evidence": {
+        "otherRelationship": {
+          "diagramType": "workflow",
+          "collection": "edges",
+          "index": 9,
+          "id": "sp-retry",
+          "from": "sp-classify",
+          "to": "sp-backoff"
+        },
+        "point": [
+          679.5999999999999,
+          196
+        ],
+        "segmentIndex": 1,
+        "otherSegmentIndex": 1
+      },
+      "supportedFixes": [
+        "adjust route/via, bias, or channel coordinates so the edges use separate lane corridors"
+      ]
+    },
+    {
+      "code": "composition/ambiguous-corridor",
+      "severity": "error",
+      "message": "[composition/ambiguous-corridor] showcase workflow edges[0] id \"sp-again\" \"sp-backoff\" -> \"sp-read\" shares a 54px corridor with edges[11] id \"sp-unconfirmed\" \"sp-readback\" -> \"sp-classify\" at [390.8, 246] -> [390.8, 300] (segments 2 and 2; minimum 8px) — adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+      "subject": {
+        "diagramType": "workflow",
+        "collection": "edges",
+        "index": 0,
+        "id": "sp-again",
+        "from": "sp-backoff",
+        "to": "sp-read"
+      },
+      "evidence": {
+        "otherRelationship": {
+          "diagramType": "workflow",
+          "collection": "edges",
+          "index": 11,
+          "id": "sp-unconfirmed",
+          "from": "sp-readback",
+          "to": "sp-classify"
+        },
+        "overlapLengthPx": 54,
+        "minimumPx": 8,
+        "from": [
+          390.8,
+          246
+        ],
+        "to": [
+          390.8,
+          300
+        ],
+        "segmentIndex": 2,
+        "otherSegmentIndex": 2
+      },
+      "supportedFixes": [
+        "adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge"
+      ]
+    },
+    {
+      "code": "composition/ambiguous-corridor",
+      "severity": "error",
+      "message": "[composition/ambiguous-corridor] showcase workflow edges[4] id \"sp-existing\" \"sp-read\" -> \"sp-done\" shares a 184.4px corridor with edges[10] id \"sp-uncertain\" \"sp-write\" -> \"sp-readback\" at [495.2, 70] -> [679.6, 70] (segments 1 and 1; minimum 8px) — adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+      "subject": {
+        "diagramType": "workflow",
+        "collection": "edges",
+        "index": 4,
+        "id": "sp-existing",
+        "from": "sp-read",
+        "to": "sp-done"
+      },
+      "evidence": {
+        "otherRelationship": {
+          "diagramType": "workflow",
+          "collection": "edges",
+          "index": 10,
+          "id": "sp-uncertain",
+          "from": "sp-write",
+          "to": "sp-readback"
+        },
+        "overlapLengthPx": 184.4,
+        "minimumPx": 8,
+        "from": [
+          495.20000000000005,
+          70
+        ],
+        "to": [
+          679.6,
+          70
+        ],
+        "segmentIndex": 1,
+        "otherSegmentIndex": 1
+      },
+      "supportedFixes": [
+        "adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge"
+      ]
+    },
+    {
+      "code": "composition/ambiguous-corridor",
+      "severity": "error",
+      "message": "[composition/ambiguous-corridor] showcase workflow edges[9] id \"sp-retry\" \"sp-classify\" -> \"sp-backoff\" shares a 50px corridor with edges[10] id \"sp-uncertain\" \"sp-write\" -> \"sp-readback\" at [990, 196] -> [990, 246] (segments 2 and 2; minimum 8px) — adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+      "subject": {
+        "diagramType": "workflow",
+        "collection": "edges",
+        "index": 9,
+        "id": "sp-retry",
+        "from": "sp-classify",
+        "to": "sp-backoff"
+      },
+      "evidence": {
+        "otherRelationship": {
+          "diagramType": "workflow",
+          "collection": "edges",
+          "index": 10,
+          "id": "sp-uncertain",
+          "from": "sp-write",
+          "to": "sp-readback"
+        },
+        "overlapLengthPx": 50,
+        "minimumPx": 8,
+        "from": [
+          990,
+          196
+        ],
+        "to": [
+          990,
+          246
+        ],
+        "segmentIndex": 2,
+        "otherSegmentIndex": 2
+      },
+      "supportedFixes": [
+        "adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge"
+      ]
+    }
+  ]
+}

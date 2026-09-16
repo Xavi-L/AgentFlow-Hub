@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "diagram": "08",
+  "date": "2026-09-16",
+  "evidenceKind": "image-capable-reviewer",
+  "artifact": {
+    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/08-task-lifecycle.html",
+    "sha256": "54801f0f519390d8d0191a14371980d0809749b2ad1b1be0a804412ea99e60a0",
+    "bytes": 806860
+  },
+  "visual_review": "passed",
+  "correction_rounds": 1,
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "images_inspected": [
+    "08-task-lifecycle.visual-check.1440x900.light.png",
+    "08-task-lifecycle.visual-check.1440x900.dark.png",
+    "08-task-lifecycle.visual-check.2048x1320.light.png",
+    "08-task-lifecycle.visual-check.2048x1320.dark.png"
+  ],
+  "observations": [
+    "已实际打开本次1440×900与2048×1320的light/dark四张PNG。",
+    "六个持久状态、七条关系可辨；主线突出，失败/取消/deadline与恢复结算分支完整，无终态回边。",
+    "实际标签、节点、图例、导航和卡片无可见遮挡；中文分区修复完成。",
+    "QUEUED正常与失败边共享同源起始段后分叉，语义可辨；原版无ambiguous corridor诊断。",
+    "明暗主题默认READ/Still一致，大屏纵向占用均衡，无底部空白带。"
+  ],
+  "limitations": [
+    "未另测搜索、focus/passport交互和导出文件。",
+    "这是图的视觉复核，不是业务运行或真实provider验收。"
+  ],
+  "prior_failure": "history/08-before-lane-localization/08-task-lifecycle.acceptance.json"
+}

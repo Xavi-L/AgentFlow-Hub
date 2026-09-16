@@ -1,0 +1,36 @@
+{
+  "diagram_type": "dataflow",
+  "date": "2026-09-16",
+  "reviewer": "Codex image-capable reviewer",
+  "evidence_kind": "perceptual-review-of-native-browser-screenshots",
+  "visual_review": "passed",
+  "correction_rounds": 0,
+  "artifact": {
+    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/06-rag-dataflow.html",
+    "sha256": "56fe06f6d1d594530b0b22493200af9714f4955d969e4c0e1ea5dc27417ae542",
+    "bytes": 818893
+  },
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "screenshots_inspected": [
+    "06-rag-dataflow.visual-check.1440x900.light.png",
+    "06-rag-dataflow.visual-check.1440x900.dark.png",
+    "06-rag-dataflow.visual-check.2048x1320.light.png",
+    "06-rag-dataflow.visual-check.2048x1320.dark.png"
+  ],
+  "observations": [
+    "已用图像阅读器打开 1440×900 与 2048×1320 的 light/dark 四张实际截图；主路径上部 ingestion、下部 retrieval 可辨。",
+    "顶部正文回查标签位于绕行横线之上，与向量 + payload 标签分开；右侧绕行完整位于画布内。",
+    "中间索引候选标签与下方正文回查回入横线分离，进入 Qdrant 检索和正文核验的箭头可区分。",
+    "当前代统计处于 chunks 与 READY 之间，检索快照处于 context 与 Trace 之间；遮罩清晰，未覆盖节点文字。",
+    "双主题下节点/关系文案可读，无新节点或标签碰撞；三个说明卡片完整。",
+    "2048×1320 主图、图例及说明卡片占用均衡，无显著空白下带；默认关闭的面板和导航控件未遮挡主图。"
+  ],
+  "scope_limits": [
+    "复核范围为默认 READ / Still 截图；未另外交互测试搜索、focus/passport 开合或导出文件。",
+    "浏览器数值以原版 visual-check 为准；截图视觉判断不替代该回执。",
+    "未运行后端或真实 DashScope/Qdrant 业务验收。"
+  ]
+}

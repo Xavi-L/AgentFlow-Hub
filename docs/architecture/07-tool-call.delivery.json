@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "sequence",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/07-tool-call.sequence.json",
+  "output": "/Users/xavier/AgentFlow-Hub/docs/architecture/07-tool-call.html",
+  "specification": {
+    "sha256": "32d80ce8343560a205cbd48443dfbe308c55fa7c05d2298bcaf9ede5b127972e",
+    "bytes": 6161
+  },
+  "artifact": {
+    "sha256": "52d237c15739a80bd2e4849952b651feec169d24e54e2b5af6e86b3cb10a7bcb",
+    "bytes": 816150
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

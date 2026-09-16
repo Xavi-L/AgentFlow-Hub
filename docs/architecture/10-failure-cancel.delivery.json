@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "lifecycle",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/10-failure-cancel.lifecycle.json",
+  "output": "/Users/xavier/AgentFlow-Hub/docs/architecture/10-failure-cancel.html",
+  "specification": {
+    "sha256": "087fad94a7eabfa2ab1b666ddc3a9a903ddd788bec27496db7f93e01205dbf73",
+    "bytes": 3556
+  },
+  "artifact": {
+    "sha256": "d735f0250f33896c31cabeefcfadd0146f49a123f1174dc0069e3d81d0d1571f",
+    "bytes": 803830
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

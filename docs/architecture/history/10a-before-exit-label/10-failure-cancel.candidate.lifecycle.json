@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "10A · 执行中断生命周期",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1030,
+      630
+    ]
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "调用观察方 · 非 Task DB 状态"
+    },
+    {
+      "id": "waiting",
+      "label": "本地工作体 · 与观察方独立"
+    },
+    {
+      "id": "terminal",
+      "label": "本地退出 · 远端停止仍需证据"
+    }
+  ],
+  "states": [
+    {
+      "id": "fi-wait",
+      "type": "active",
+      "label": "调用观察中",
+      "sublabel": "等待许可或调用结果",
+      "lane": "main",
+      "col": 0
+    },
+    {
+      "id": "fi-ended",
+      "type": "neutral",
+      "label": "本次观察结束",
+      "sublabel": "正常返回或异常离开",
+      "lane": "main",
+      "col": 2
+    },
+    {
+      "id": "fi-outcome",
+      "type": "neutral",
+      "label": "outcome 已冻结",
+      "sublabel": "交给图10B保存",
+      "lane": "main",
+      "col": 4
+    },
+    {
+      "id": "fi-work",
+      "type": "active",
+      "label": "工作体已进入",
+      "sublabel": "持有外部工作许可",
+      "lane": "waiting",
+      "col": 0
+    },
+    {
+      "id": "fi-held",
+      "type": "waiting",
+      "label": "中断后仍未退出",
+      "sublabel": "许可继续占用",
+      "lane": "waiting",
+      "col": 2
+    },
+    {
+      "id": "fi-exited",
+      "type": "neutral",
+      "label": "本地工作已退出",
+      "sublabel": "finally 归还一次",
+      "lane": "terminal",
+      "col": 2
+    }
+  ],
+  "transitions": [
+    {
+      "id": "fi-stop",
+      "from": "fi-wait",
+      "to": "fi-ended",
+      "label": "返回 / 失败 / 超时 / 取消",
+      "variant": "emphasis"
+    },
+    {
+      "id": "fi-freeze",
+      "from": "fi-ended",
+      "to": "fi-outcome",
+      "label": "Engine结束后Runner冻结",
+      "variant": "emphasis"
+    },
+    {
+      "id": "fi-ignore",
+      "from": "fi-work",
+      "to": "fi-held",
+      "label": "cancel(true) 未使其退出",
+      "variant": "security",
+      "route": "straight"
+    },
+    {
+      "id": "fi-body-exit",
+      "from": "fi-held",
+      "to": "fi-exited",
+      "label": "后来返回或抛错",
+      "variant": "default"
+    },
+    {
+      "id": "fi-normal-exit",
+      "from": "fi-work",
+      "to": "fi-exited",
+      "label": "直接返回或抛错",
+      "variant": "default"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "逻辑取消与 outcome",
+      "items": [
+        "RUNNING 取消只落标记；QUEUED 可直接取消。持久终态需图10B提交或回读确认。",
+        "task deadline→TIMED_OUT；单次LLM/工具超时及provider失败通常→FAILED，已落库取消优先。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Java 中断与真实工作",
+      "items": [
+        "两条生命周期独立；观察结束不触发工作体强制退出。迟到结果不继续业务或发布答案。",
+        "已进入body仅finally释放；未进入的取消由CAS归还。Future取消不证明provider停止。"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "交给终态保存流程",
+      "items": [
+        "正常调用结果可继续Engine；Engine结束后，Runner冻结outcome、usage、计数和首次observedAt。",
+        "这里只描述本地生命周期；数据库状态机见图08，图10B只重试保存，不重发模型或工具。"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "validate",
+  "stage": "render",
+  "type": "lifecycle",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/08-task-lifecycle.candidate.lifecycle.json",
+  "error": "Lifecycle layout validation failed:\n- [clean-flow/edge-through-node] lifecycle transitions[6] id \"tl-timeout\" \"tl-running\" -> \"tl-timed-out\" crosses state \"tl-cancelled\" (unrelated to this relationship) on segment 1 [556, 164] -> [556, 479] (2px clearance) — adjust fromSide/toSide, set route/via or channelX/channelY, or move the state with col/yOffset.\n- Labels \"已标记取消：结算 / 恢复\" and \"deadline · 无取消\" overlap — adjust labelDx/labelDy.\n  \"已标记取消：结算 / 恢复\" [417, 294, 125, 16]; \"deadline · 无取消\" [508, 301, 95, 16]\n  Suggested fix: adjust labelDx/labelDy/labelSegment, or route one relationship through a separate corridor",
+  "diagnostics": [
+    {
+      "code": "clean-flow/edge-through-node",
+      "severity": "error",
+      "message": "[clean-flow/edge-through-node] lifecycle transitions[6] id \"tl-timeout\" \"tl-running\" -> \"tl-timed-out\" crosses state \"tl-cancelled\" (unrelated to this relationship) on segment 1 [556, 164] -> [556, 479] (2px clearance) — adjust fromSide/toSide, set route/via or channelX/channelY, or move the state with col/yOffset.",
+      "subject": {
+        "diagramType": "lifecycle",
+        "collection": "transitions",
+        "index": 6,
+        "id": "tl-timeout",
+        "from": "tl-running",
+        "to": "tl-timed-out"
+      },
+      "evidence": {
+        "obstacleKind": "state",
+        "obstacleId": "tl-cancelled",
+        "segmentIndex": 1,
+        "from": [
+          556,
+          164
+        ],
+        "to": [
+          556,
+          479
+        ],
+        "clearancePx": 2
+      },
+      "supportedFixes": [
+        "adjust fromSide/toSide, set route/via or channelX/channelY, or move the state with col/yOffset"
+      ]
+    },
+    {
+      "code": "layout/constraint",
+      "severity": "error",
+      "message": "Labels \"已标记取消：结算 / 恢复\" and \"deadline · 无取消\" overlap — adjust labelDx/labelDy.\n  \"已标记取消：结算 / 恢复\" [417, 294, 125, 16]; \"deadline · 无取消\" [508, 301, 95, 16]\n  Suggested fix: adjust labelDx/labelDy/labelSegment, or route one relationship through a separate corridor",
+      "subject": {
+        "diagramType": "lifecycle"
+      },
+      "evidence": {},
+      "supportedFixes": []
+    }
+  ]
+}

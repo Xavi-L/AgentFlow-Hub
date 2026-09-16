@@ -1,0 +1,814 @@
+{
+  "evidence_kind": "supplementary-extraction-from-delivered-svg",
+  "not_an_archify_cli_receipt": true,
+  "artifact": {
+    "sha256": "56fe06f6d1d594530b0b22493200af9714f4955d969e4c0e1ea5dc27417ae542",
+    "bytes": 818893
+  },
+  "viewBox": [
+    0,
+    0,
+    1080,
+    620
+  ],
+  "column_centers": [
+    100,
+    315,
+    530,
+    745,
+    960
+  ],
+  "nodes": [
+    {
+      "id": "rag-file",
+      "rect": {
+        "x": 28.0,
+        "y": 128.0,
+        "width": 144.0,
+        "height": 66.0
+      },
+      "texts": [
+        {
+          "text": "上传原始文件",
+          "source_font_px": 10.0,
+          "projected_at_930_px": 8.61111111111111
+        },
+        {
+          "text": "本地 TXT / MD + 元数据",
+          "source_font_px": 7.0,
+          "projected_at_930_px": 6.027777777777778
+        }
+      ]
+    },
+    {
+      "id": "rag-parsed",
+      "rect": {
+        "x": 243.0,
+        "y": 128.0,
+        "width": 144.0,
+        "height": 66.0
+      },
+      "texts": [
+        {
+          "text": "解析文本",
+          "source_font_px": 10.0,
+          "projected_at_930_px": 8.61111111111111
+        },
+        {
+          "text": "内存 ParsedDocument",
+          "source_font_px": 7.0,
+          "projected_at_930_px": 6.027777777777778
+        }
+      ]
+    },
+    {
+      "id": "rag-chunks",
+      "rect": {
+        "x": 458.0,
+        "y": 128.0,
+        "width": 144.0,
+        "height": 66.0
+      },
+      "texts": [
+        {
+          "text": "分代 chunks",
+          "source_font_px": 10.0,
+          "projected_at_930_px": 8.61111111111111
+        },
+        {
+          "text": "正文 / hash / generation",
+          "source_font_px": 7.0,
+          "projected_at_930_px": 6.027777777777778
+        }
+      ]
+    },
+    {
+      "id": "rag-embedding",
+      "rect": {
+        "x": 673.0,
+        "y": 128.0,
+        "width": 144.0,
+        "height": 66.0
+      },
+      "texts": [
+        {
+          "text": "正文 embedding",
+          "source_font_px": 10.0,
+          "projected_at_930_px": 8.61111111111111
+        },
+        {
+          "text": "DashScope · remote",
+          "source_font_px": 7.0,
+          "projected_at_930_px": 6.027777777777778
+        }
+      ]
+    },
+    {
+      "id": "rag-vector",
+      "rect": {
+        "x": 888.0,
+        "y": 128.0,
+        "width": 144.0,
+        "height": 66.0
+      },
+      "texts": [
+        {
+          "text": "Qdrant 向量索引",
+          "source_font_px": 10.0,
+          "projected_at_930_px": 8.61111111111111
+        },
+        {
+          "text": "vectorId / 向量 / payload",
+          "source_font_px": 7.0,
+          "projected_at_930_px": 6.027777777777778
+        }
+      ]
+    },
+    {
+      "id": "rag-ready",
+      "rect": {
+        "x": 458.0,
+        "y": 242.0,
+        "width": 144.0,
+        "height": 66.0
+      },
+      "texts": [
+        {
+          "text": "派生 READY",
+          "source_font_px": 10.0,
+          "projected_at_930_px": 8.61111111111111
+        },
+        {
+          "text": "当前代统计 + 固定配置",
+          "source_font_px": 7.0,
+          "projected_at_930_px": 6.027777777777778
+        }
+      ]
+    },
+    {
+      "id": "rag-task",
+      "rect": {
+        "x": 28.0,
+        "y": 356.0,
+        "width": 144.0,
+        "height": 66.0
+      },
+      "texts": [
+        {
+          "text": "Task snapshot",
+          "source_font_px": 10.0,
+          "projected_at_930_px": 8.61111111111111
+        },
+        {
+          "text": "冻结范围 + userInput",
+          "source_font_px": 7.0,
+          "projected_at_930_px": 6.027777777777778
+        }
+      ]
+    },
+    {
+      "id": "rag-query",
+      "rect": {
+        "x": 243.0,
+        "y": 356.0,
+        "width": 144.0,
+        "height": 66.0
+      },
+      "texts": [
+        {
+          "text": "查询 embedding",
+          "source_font_px": 10.0,
+          "projected_at_930_px": 8.61111111111111
+        },
+        {
+          "text": "userInput → 1024维",
+          "source_font_px": 7.0,
+          "projected_at_930_px": 6.027777777777778
+        }
+      ]
+    },
+    {
+      "id": "rag-search",
+      "rect": {
+        "x": 458.0,
+        "y": 356.0,
+        "width": 144.0,
+        "height": 66.0
+      },
+      "texts": [
+        {
+          "text": "Qdrant 检索",
+          "source_font_px": 10.0,
+          "projected_at_930_px": 8.61111111111111
+        },
+        {
+          "text": "候选 ID / score / hash",
+          "source_font_px": 7.0,
+          "projected_at_930_px": 6.027777777777778
+        }
+      ]
+    },
+    {
+      "id": "rag-context",
+      "rect": {
+        "x": 673.0,
+        "y": 356.0,
+        "width": 144.0,
+        "height": 66.0
+      },
+      "texts": [
+        {
+          "text": "正文核验与上下文",
+          "source_font_px": 10.0,
+          "projected_at_930_px": 8.61111111111111
+        },
+        {
+          "text": "PostgreSQL → [S1] 证据",
+          "source_font_px": 7.0,
+          "projected_at_930_px": 6.027777777777778
+        }
+      ]
+    },
+    {
+      "id": "rag-model",
+      "rect": {
+        "x": 888.0,
+        "y": 356.0,
+        "width": 144.0,
+        "height": 66.0
+      },
+      "texts": [
+        {
+          "text": "模型上下文",
+          "source_font_px": 10.0,
+          "projected_at_930_px": 8.61111111111111
+        },
+        {
+          "text": "decision / 独立 final",
+          "source_font_px": 7.0,
+          "projected_at_930_px": 6.027777777777778
+        }
+      ]
+    },
+    {
+      "id": "rag-trace",
+      "rect": {
+        "x": 673.0,
+        "y": 470.0,
+        "width": 144.0,
+        "height": 66.0
+      },
+      "texts": [
+        {
+          "text": "citation / Trace",
+          "source_font_px": 10.0,
+          "projected_at_930_px": 8.61111111111111
+        },
+        {
+          "text": "检索快照 / 调用 / usage",
+          "source_font_px": 7.0,
+          "projected_at_930_px": 6.027777777777778
+        }
+      ]
+    }
+  ],
+  "flows": {
+    "rag-file-parsed": {
+      "points": [
+        [
+          172.0,
+          161.0
+        ],
+        [
+          243.0,
+          161.0
+        ]
+      ],
+      "label": "读取原文件",
+      "label_mask": {
+        "x": 177.0,
+        "y": 140.0,
+        "width": 61.0,
+        "height": 16.0
+      },
+      "label_position": {
+        "x": 207.5,
+        "y": 151.0
+      }
+    },
+    "rag-parsed-chunks": {
+      "points": [
+        [
+          387.0,
+          161.0
+        ],
+        [
+          458.0,
+          161.0
+        ]
+      ],
+      "label": "分块落库",
+      "label_mask": {
+        "x": 396.9,
+        "y": 140.0,
+        "width": 51.2,
+        "height": 16.0
+      },
+      "label_position": {
+        "x": 422.5,
+        "y": 151.0
+      }
+    },
+    "rag-chunks-embedding": {
+      "points": [
+        [
+          602.0,
+          161.0
+        ],
+        [
+          673.0,
+          161.0
+        ]
+      ],
+      "label": "正文",
+      "label_mask": {
+        "x": 620.5,
+        "y": 140.0,
+        "width": 34.0,
+        "height": 16.0
+      },
+      "label_position": {
+        "x": 637.5,
+        "y": 151.0
+      }
+    },
+    "rag-embedding-vector": {
+      "points": [
+        [
+          817.0,
+          161.0
+        ],
+        [
+          888.0,
+          161.0
+        ]
+      ],
+      "label": "向量 + payload",
+      "label_mask": {
+        "x": 812.2,
+        "y": 104.0,
+        "width": 80.6,
+        "height": 16.0
+      },
+      "label_position": {
+        "x": 852.5,
+        "y": 115.0
+      }
+    },
+    "rag-vector-ready": {
+      "points": [
+        [
+          960.0,
+          194.0
+        ],
+        [
+          960.0,
+          224.0
+        ],
+        [
+          680.0,
+          224.0
+        ],
+        [
+          680.0,
+          275.0
+        ],
+        [
+          602.0,
+          275.0
+        ]
+      ],
+      "label": "确认后回写",
+      "label_mask": {
+        "x": 789.5,
+        "y": 203.0,
+        "width": 61.0,
+        "height": 16.0
+      },
+      "label_position": {
+        "x": 820.0,
+        "y": 214.0
+      }
+    },
+    "rag-chunks-ready": {
+      "points": [
+        [
+          530.0,
+          194.0
+        ],
+        [
+          530.0,
+          242.0
+        ]
+      ],
+      "label": "当前代统计",
+      "label_mask": {
+        "x": 499.5,
+        "y": 207.0,
+        "width": 61.0,
+        "height": 16.0
+      },
+      "label_position": {
+        "x": 530.0,
+        "y": 218.0
+      }
+    },
+    "rag-ready-task": {
+      "points": [
+        [
+          458.0,
+          275.0
+        ],
+        [
+          100.0,
+          275.0
+        ],
+        [
+          100.0,
+          356.0
+        ]
+      ],
+      "label": "创建时冻结",
+      "label_mask": {
+        "x": 69.5,
+        "y": 294.5,
+        "width": 61.0,
+        "height": 16.0
+      },
+      "label_position": {
+        "x": 100.0,
+        "y": 305.5
+      }
+    },
+    "rag-task-query": {
+      "points": [
+        [
+          172.0,
+          389.0
+        ],
+        [
+          243.0,
+          389.0
+        ]
+      ],
+      "label": "userInput",
+      "label_mask": {
+        "x": 179.45,
+        "y": 368.0,
+        "width": 56.1,
+        "height": 16.0
+      },
+      "label_position": {
+        "x": 207.5,
+        "y": 379.0
+      }
+    },
+    "rag-query-search": {
+      "points": [
+        [
+          387.0,
+          389.0
+        ],
+        [
+          458.0,
+          389.0
+        ]
+      ],
+      "label": "向量 + 范围",
+      "label_mask": {
+        "x": 389.55,
+        "y": 368.0,
+        "width": 65.9,
+        "height": 16.0
+      },
+      "label_position": {
+        "x": 422.5,
+        "y": 379.0
+      }
+    },
+    "rag-vector-search": {
+      "points": [
+        [
+          960.0,
+          194.0
+        ],
+        [
+          960.0,
+          320.0
+        ],
+        [
+          530.0,
+          320.0
+        ],
+        [
+          530.0,
+          356.0
+        ]
+      ],
+      "label": "索引候选",
+      "label_mask": {
+        "x": 824.4,
+        "y": 299.0,
+        "width": 51.2,
+        "height": 16.0
+      },
+      "label_position": {
+        "x": 850.0,
+        "y": 310.0
+      }
+    },
+    "rag-search-context": {
+      "points": [
+        [
+          602.0,
+          389.0
+        ],
+        [
+          673.0,
+          389.0
+        ]
+      ],
+      "label": "候选引用",
+      "label_mask": {
+        "x": 611.9,
+        "y": 368.0,
+        "width": 51.2,
+        "height": 16.0
+      },
+      "label_position": {
+        "x": 637.5,
+        "y": 379.0
+      }
+    },
+    "rag-chunks-context": {
+      "points": [
+        [
+          530.0,
+          128.0
+        ],
+        [
+          530.0,
+          96.0
+        ],
+        [
+          1060.0,
+          96.0
+        ],
+        [
+          1060.0,
+          340.0
+        ],
+        [
+          745.0,
+          340.0
+        ],
+        [
+          745.0,
+          356.0
+        ]
+      ],
+      "label": "正文回查",
+      "label_mask": {
+        "x": 784.4,
+        "y": 75.0,
+        "width": 51.2,
+        "height": 16.0
+      },
+      "label_position": {
+        "x": 810.0,
+        "y": 86.0
+      }
+    },
+    "rag-context-model": {
+      "points": [
+        [
+          817.0,
+          389.0
+        ],
+        [
+          888.0,
+          389.0
+        ]
+      ],
+      "label": "证据 + 引用",
+      "label_mask": {
+        "x": 819.55,
+        "y": 368.0,
+        "width": 65.9,
+        "height": 16.0
+      },
+      "label_position": {
+        "x": 852.5,
+        "y": 379.0
+      }
+    },
+    "rag-context-trace": {
+      "points": [
+        [
+          745.0,
+          422.0
+        ],
+        [
+          745.0,
+          470.0
+        ]
+      ],
+      "label": "检索快照",
+      "label_mask": {
+        "x": 719.4,
+        "y": 435.0,
+        "width": 51.2,
+        "height": 16.0
+      },
+      "label_position": {
+        "x": 745.0,
+        "y": 446.0
+      }
+    },
+    "rag-model-trace": {
+      "points": [
+        [
+          888.0,
+          389.0
+        ],
+        [
+          852.5,
+          389.0
+        ],
+        [
+          852.5,
+          503.0
+        ],
+        [
+          817.0,
+          503.0
+        ]
+      ],
+      "label": "调用记录",
+      "label_mask": {
+        "x": 826.9,
+        "y": 425.0,
+        "width": 51.2,
+        "height": 16.0
+      },
+      "label_position": {
+        "x": 852.5,
+        "y": 436.0
+      }
+    }
+  },
+  "minimum_source_node_font_px": 7,
+  "static_available_diagram_width_px": 930,
+  "minimum_projected_node_font_px_at_930": 6.027777777777778,
+  "geometry_extents": {
+    "rightmost_route_x": 1060.0,
+    "rightmost_node_x": 1032.0,
+    "rightmost_stage_frame_x": 1044,
+    "right_route_margin_px": 20
+  },
+  "native_cli_metrics": {
+    "properCrossings": 0,
+    "ambiguousCorridors": 0,
+    "containerBorderRuns": 0,
+    "labelRouteClearanceIssues": 0,
+    "minLabelRouteClearance": 5,
+    "desktopReadabilityIssues": 0,
+    "minProjectedNodeTextPx": null,
+    "maxBends": 4,
+    "routesOverSuggestedBends": 2,
+    "maxStretch": 2.567,
+    "routesOverSuggestedStretch": 1,
+    "minSegmentPx": 16,
+    "minInteriorSegmentPx": 51,
+    "shortSegmentCount": 0,
+    "shortEndpointSegmentCount": 0,
+    "shortInteriorSegmentCount": 0,
+    "microSegmentCount": 0
+  },
+  "native_receipt": "06-rag-dataflow.candidate.validation.json",
+  "candidate_changes": [
+    {
+      "path": "/flows/5/labelDy",
+      "before": null,
+      "after": 34
+    },
+    {
+      "path": "/flows/9/fromSide",
+      "before": null,
+      "after": "bottom"
+    },
+    {
+      "path": "/flows/9/labelAt",
+      "before": null,
+      "after": [
+        850,
+        310
+      ]
+    },
+    {
+      "path": "/flows/9/toSide",
+      "before": null,
+      "after": "top"
+    },
+    {
+      "path": "/flows/9/via",
+      "before": null,
+      "after": [
+        [
+          960,
+          320
+        ],
+        [
+          530,
+          320
+        ]
+      ]
+    },
+    {
+      "path": "/flows/10/route",
+      "before": null,
+      "after": "straight"
+    },
+    {
+      "path": "/flows/11/fromSide",
+      "before": null,
+      "after": "top"
+    },
+    {
+      "path": "/flows/11/labelAt",
+      "before": null,
+      "after": [
+        810,
+        86
+      ]
+    },
+    {
+      "path": "/flows/11/via",
+      "before": [
+        [
+          626,
+          161
+        ],
+        [
+          626,
+          100
+        ],
+        [
+          1080,
+          100
+        ],
+        [
+          1080,
+          340
+        ],
+        [
+          745,
+          340
+        ]
+      ],
+      "after": [
+        [
+          530,
+          96
+        ],
+        [
+          1060,
+          96
+        ],
+        [
+          1060,
+          340
+        ],
+        [
+          745,
+          340
+        ]
+      ]
+    },
+    {
+      "path": "/flows/12/route",
+      "before": null,
+      "after": "straight"
+    },
+    {
+      "path": "/flows/13/labelDy",
+      "before": null,
+      "after": 34
+    },
+    {
+      "path": "/meta/viewBox/0",
+      "before": 1140,
+      "after": 1080
+    }
+  ]
+}

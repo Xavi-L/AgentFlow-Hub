@@ -1,0 +1,442 @@
+{
+  "evidenceKind": "supplementary-delivered-svg-measurements",
+  "artifact": {
+    "path": "/Users/xavier/AgentFlow-Hub/docs/architecture/08-task-lifecycle.html",
+    "sha256": "54801f0f519390d8d0191a14371980d0809749b2ad1b1be0a804412ea99e60a0",
+    "bytes": 806860
+  },
+  "viewBox": "0 0 1030 630",
+  "nodes": [
+    {
+      "id": "tl-queued",
+      "label": "QUEUED",
+      "rects": [
+        {
+          "x": "35",
+          "y": "126",
+          "width": "118",
+          "height": "62",
+          "rx": "7",
+          "class": "c-mask"
+        },
+        {
+          "x": "35",
+          "y": "126",
+          "width": "118",
+          "height": "62",
+          "rx": "7",
+          "class": "c-frontend",
+          "stroke-width": "1.5"
+        }
+      ],
+      "texts": [
+        {
+          "text": "QUEUED",
+          "fontSizePx": 10.0,
+          "detail": "title"
+        },
+        {
+          "text": "创建事务 + TASK_CREATED",
+          "fontSizePx": 7.0,
+          "detail": "context"
+        },
+        {
+          "text": "未执行",
+          "fontSizePx": 7.0,
+          "detail": "fine"
+        }
+      ]
+    },
+    {
+      "id": "tl-running",
+      "label": "RUNNING",
+      "rects": [
+        {
+          "x": "343",
+          "y": "126",
+          "width": "118",
+          "height": "62",
+          "rx": "7",
+          "class": "c-mask"
+        },
+        {
+          "x": "343",
+          "y": "126",
+          "width": "118",
+          "height": "62",
+          "rx": "7",
+          "class": "c-backend",
+          "stroke-width": "1.5"
+        }
+      ],
+      "texts": [
+        {
+          "text": "RUNNING",
+          "fontSizePx": 10.0,
+          "detail": "title"
+        },
+        {
+          "text": "已 claim；取消只写标记",
+          "fontSizePx": 7.0,
+          "detail": "context"
+        },
+        {
+          "text": "非终态",
+          "fontSizePx": 7.0,
+          "detail": "fine"
+        }
+      ]
+    },
+    {
+      "id": "tl-completed",
+      "label": "COMPLETED",
+      "rects": [
+        {
+          "x": "651",
+          "y": "126",
+          "width": "118",
+          "height": "62",
+          "rx": "7",
+          "class": "c-mask"
+        },
+        {
+          "x": "651",
+          "y": "126",
+          "width": "118",
+          "height": "62",
+          "rx": "7",
+          "class": "c-database",
+          "stroke-width": "1.5"
+        }
+      ],
+      "texts": [
+        {
+          "text": "COMPLETED",
+          "fontSizePx": 10.0,
+          "detail": "title"
+        },
+        {
+          "text": "答案 / 引用原子发布",
+          "fontSizePx": 7.0,
+          "detail": "context"
+        },
+        {
+          "text": "终态",
+          "fontSizePx": 7.0,
+          "detail": "fine"
+        }
+      ]
+    },
+    {
+      "id": "tl-failed",
+      "label": "FAILED",
+      "rects": [
+        {
+          "x": "343",
+          "y": "450",
+          "width": "118",
+          "height": "58",
+          "rx": "7",
+          "class": "c-mask"
+        },
+        {
+          "x": "343",
+          "y": "450",
+          "width": "118",
+          "height": "58",
+          "rx": "7",
+          "class": "c-security",
+          "stroke-width": "1.5"
+        }
+      ],
+      "texts": [
+        {
+          "text": "FAILED",
+          "fontSizePx": 10.0,
+          "detail": "title"
+        },
+        {
+          "text": "错误码；恢复结果未确认",
+          "fontSizePx": 7.0,
+          "detail": "context"
+        },
+        {
+          "text": "终态",
+          "fontSizePx": 7.0,
+          "detail": "fine"
+        }
+      ]
+    },
+    {
+      "id": "tl-cancelled",
+      "label": "CANCELLED",
+      "rects": [
+        {
+          "x": "497",
+          "y": "450",
+          "width": "118",
+          "height": "58",
+          "rx": "7",
+          "class": "c-mask"
+        },
+        {
+          "x": "497",
+          "y": "450",
+          "width": "118",
+          "height": "58",
+          "rx": "7",
+          "class": "c-external",
+          "stroke-width": "1.5"
+        },
+        {
+          "x": "3",
+          "y": "3",
+          "width": "10",
+          "height": "10",
+          "rx": "2"
+        }
+      ],
+      "texts": [
+        {
+          "text": "CANCELLED",
+          "fontSizePx": 10.0,
+          "detail": "title"
+        },
+        {
+          "text": "USER_CANCELLED",
+          "fontSizePx": 7.0,
+          "detail": "context"
+        },
+        {
+          "text": "终态",
+          "fontSizePx": 7.0,
+          "detail": "fine"
+        }
+      ]
+    },
+    {
+      "id": "tl-timed-out",
+      "label": "TIMED_OUT",
+      "rects": [
+        {
+          "x": "651",
+          "y": "250",
+          "width": "118",
+          "height": "58",
+          "rx": "7",
+          "class": "c-mask"
+        },
+        {
+          "x": "651",
+          "y": "250",
+          "width": "118",
+          "height": "58",
+          "rx": "7",
+          "class": "c-security",
+          "stroke-width": "1.5"
+        }
+      ],
+      "texts": [
+        {
+          "text": "TIMED_OUT",
+          "fontSizePx": 10.0,
+          "detail": "title"
+        },
+        {
+          "text": "DEADLINE_EXCEEDED",
+          "fontSizePx": 7.0,
+          "detail": "context"
+        },
+        {
+          "text": "终态",
+          "fontSizePx": 7.0,
+          "detail": "fine"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "id": "tl-claim",
+      "from": "tl-queued",
+      "to": "tl-running",
+      "points": [
+        [
+          153.0,
+          157.0
+        ],
+        [
+          343.0,
+          157.0
+        ]
+      ],
+      "label": {
+        "text": "claim：无取消标记",
+        "x": 248.0,
+        "y": 147.0,
+        "fontSizePx": 8.0
+      }
+    },
+    {
+      "id": "tl-complete",
+      "from": "tl-running",
+      "to": "tl-completed",
+      "points": [
+        [
+          461.0,
+          157.0
+        ],
+        [
+          651.0,
+          157.0
+        ]
+      ],
+      "label": {
+        "text": "成功 outcome · 无取消",
+        "x": 556.0,
+        "y": 127.0,
+        "fontSizePx": 8.0
+      }
+    },
+    {
+      "id": "tl-queued-failed",
+      "from": "tl-queued",
+      "to": "tl-failed",
+      "points": [
+        [
+          153.0,
+          157.0
+        ],
+        [
+          248.0,
+          157.0
+        ],
+        [
+          248.0,
+          479.0
+        ],
+        [
+          343.0,
+          479.0
+        ]
+      ],
+      "label": {
+        "text": "派发拒绝 / 重启失投",
+        "x": 248.0,
+        "y": 308.0,
+        "fontSizePx": 8.0
+      }
+    },
+    {
+      "id": "tl-running-failed",
+      "from": "tl-running",
+      "to": "tl-failed",
+      "points": [
+        [
+          402.0,
+          188.0
+        ],
+        [
+          402.0,
+          450.0
+        ]
+      ],
+      "label": {
+        "text": "执行失败 / 重启中断",
+        "x": 402.0,
+        "y": 202.0,
+        "fontSizePx": 8.0
+      }
+    },
+    {
+      "id": "tl-queued-cancel",
+      "from": "tl-queued",
+      "to": "tl-cancelled",
+      "points": [
+        [
+          153.0,
+          157.0
+        ],
+        [
+          153.0,
+          542.0
+        ],
+        [
+          497.0,
+          542.0
+        ],
+        [
+          497.0,
+          479.0
+        ]
+      ],
+      "label": {
+        "text": "owner 取消 / 恢复取消",
+        "x": 325.0,
+        "y": 532.0,
+        "fontSizePx": 8.0
+      }
+    },
+    {
+      "id": "tl-running-cancel",
+      "from": "tl-running",
+      "to": "tl-cancelled",
+      "points": [
+        [
+          461.0,
+          164.0
+        ],
+        [
+          479.0,
+          164.0
+        ],
+        [
+          479.0,
+          479.0
+        ],
+        [
+          497.0,
+          479.0
+        ]
+      ],
+      "label": {
+        "text": "已标记取消：结算 / 恢复",
+        "x": 479.0,
+        "y": 311.5,
+        "fontSizePx": 8.0
+      }
+    },
+    {
+      "id": "tl-timeout",
+      "from": "tl-running",
+      "to": "tl-timed-out",
+      "points": [
+        [
+          461.0,
+          150.0
+        ],
+        [
+          556.0,
+          150.0
+        ],
+        [
+          556.0,
+          279.0
+        ],
+        [
+          651.0,
+          279.0
+        ]
+      ],
+      "label": {
+        "text": "deadline · 无取消",
+        "x": 556.0,
+        "y": 204.5,
+        "fontSizePx": 8.0
+      }
+    }
+  ],
+  "minimumSourceNodeTextPx": 7.0,
+  "minimumBrowserProjectedNodeTextPx": 6.592233009708738,
+  "note": "从已deliver的SVG读取，不修改HTML，不替代原版CLI回执；静态lifecycle minProjectedNodeTextPx=null。"
+}

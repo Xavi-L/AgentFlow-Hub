@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "lifecycle",
+  "input": "/Users/xavier/AgentFlow-Hub/docs/architecture/08-task-lifecycle.lifecycle.json",
+  "output": "/Users/xavier/AgentFlow-Hub/docs/architecture/08-task-lifecycle.html",
+  "specification": {
+    "sha256": "30cff5f60995b3e4ae5fa7b182988fa81b5dcfa1499be5a2ed79eca1b94ebac2",
+    "bytes": 4083
+  },
+  "artifact": {
+    "sha256": "54801f0f519390d8d0191a14371980d0809749b2ad1b1be0a804412ea99e60a0",
+    "bytes": 806860
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}
